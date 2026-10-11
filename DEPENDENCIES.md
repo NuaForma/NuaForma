@@ -23,3 +23,9 @@ The initial production module graph contains NuaForma project dependencies, Kotl
 JUnit's EPL-2.0 license applies to the test tooling, not to NuaForma's production code. It is not bundled into production JARs. Any later redistribution of test tools must carry their own required licenses and notices. Likewise, Gradle, Kotlin and other dependencies retain their own licensing obligations; Apache-2.0 on NuaForma does not replace them. Library JAR tasks include NuaForma's LICENSE without shading third-party classes.
 
 Review transitive dependencies and upstream security advisories when adding or upgrading dependencies. Lockfiles fix selected versions but are not a vulnerability scan or a security guarantee. No DOCX library, expression engine, HTTP framework or PDF renderer is added in this scaffold; their dependency and license reviews belong to their own issues.
+
+## GitHub Actions
+
+The build workflow uses [actions/checkout v7.0.1](https://github.com/actions/checkout/tree/v7.0.1) and [actions/setup-java v6.0.1](https://github.com/actions/setup-java/tree/v6.0.1), both MIT-licensed, pinned to their full release commit hashes. Their upstream releases, runtime declarations and licenses were checked on 2026-10-11. They are CI tooling, not dependencies of published NuaForma libraries.
+
+The current [gradle/actions v6.4.0 license](https://github.com/gradle/actions/blob/v6.4.0/LICENSE) identifies a vendor-included proprietary caching component. It is deliberately not adopted. The workflow uses the checked-in wrapper directly and validates its JAR checksum without that action.

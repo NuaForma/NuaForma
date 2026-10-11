@@ -81,6 +81,7 @@ Gradle with Kotlin DSL is the selected build system. Compile and test using a Ja
 - Bug reports need the smallest reproducible template/data combination, the NuaForma version and relevant renderer/font details. Redact sensitive content before sharing.
 - Use repository issue and PR templates when they exist. PR descriptions should explain behavior changes, compatibility impact and non-obvious trade-offs rather than narrating the session or listing files and test results already visible elsewhere.
 - Keep unrelated changes separate. Do not stage, commit, push, create a PR or change remote settings unless the user requests that workflow.
+- Changes to `main` require a pull request, verified signed commits and the required `Build (Java 17)` GitHub Actions check. Keep the branch up to date with `main` and resolve review conversations before merging. Do not bypass these protections or rename the required check without updating and verifying the GitHub ruleset. CODEOWNERS assigns reviewers; approval is optional while there is one human maintainer.
 - The GitHub organization and repository are NuaForma; the project domain is nuaforma.dev. Do not infer permission to publish, deploy or configure DNS from that ownership.
 
 ## Boundaries
