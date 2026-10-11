@@ -11,7 +11,7 @@ import org.docx4j.wml.*
 import java.math.BigDecimal
 import java.util.UUID
 
-/** Add literal background shapes after template evaluation; never delete existing header objects. */
+/** Place resolved background shapes without reevaluation; never delete existing header objects. */
 internal class WordWatermarks(private val context: GenerationContext) {
     private var visits = 0L
 

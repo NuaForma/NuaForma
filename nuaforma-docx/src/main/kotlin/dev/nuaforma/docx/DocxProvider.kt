@@ -12,7 +12,7 @@ class DocxProvider : DocumentProvider {
         outputOptions = mapOf(DocumentFormat.DOCX to listOf(
             OptionDefinition("fontMode", OptionType.STRING, "Preserve template fonts, validate supplied families, or embed supplied font faces", defaultValue = "preserve", allowedValues = listOf("preserve", "validate", "embed")),
             OptionDefinition("fonts", OptionType.ARRAY, "Bounded font family/face/resource declarations; embedding follows OpenType permissions"))),
-        generalOptions = listOf(OptionDefinition("watermark", OptionType.OBJECT, "Optional literal text watermark with color, opacity and rotation; existing header objects are retained")))
+        generalOptions = listOf(OptionDefinition("watermark", OptionType.OBJECT, "Optional text watermark using the template language and request data, with color, opacity and rotation; existing header objects are retained")))
     override fun availability() = ProviderAvailability(setOf(DocumentFormat.DOCX), setOf(DocumentFormat.DOCX))
 
     override fun assess(requirements: GenerationRequirements): CapabilityAssessment {

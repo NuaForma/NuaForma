@@ -44,7 +44,11 @@ All supported syntax is validated before generation, including unselected branch
 
 ## Requested watermarks
 
-Pass `GenerationOptions(watermark = TextWatermark("CONCEPT", "#127F87", 0.3, -45.0))` in the generation requirements. Text is literal, including braces; it is added after template evaluation. The shared development contract bounds text to 4096 characters, RGB color to `#RRGGBB`, opacity to 0–1 and rotation to -360–360 degrees. DOCX additionally rejects invalid XML characters. Zero opacity is supported and produces an invisible watermark.
+Pass `GenerationOptions(watermark = TextWatermark("CONCEPT — {customer.name}", "#127F87", 0.3, -45.0))` in the generation requirements. Watermark text uses the same [template language](../nuaforma-template/README.md) and root `data` as document content: placeholders, conditions, repetitions, number/date formatting and escaped braces all work. For example, `{#if draft}CONCEPT — {customer.name}{#else}FINAL{/if}` resolves to `CONCEPT — Ada` for `draft = true` and `customer.name = "Ada"`. Formatters use the request's locale and time zone.
+
+The watermark shares the document's template session and cumulative limits; it is resolved once before placement, not separately for every header or page. Inserted data remains literal and is never evaluated again. Write `{{customer.name}}` to display the literal text `{customer.name}`. Syntax errors, missing values and type errors follow the ordinary language failure policy, including syntax validation in unselected branches. A blank resolved value adds no watermark and leaves existing template watermarks intact.
+
+The shared development contract bounds source text to 4096 characters, RGB color to `#RRGGBB`, opacity to 0–1 and rotation to -360–360 degrees. Resolved DOCX watermark text is also bounded to 4096 characters; exceeding that limit fails with a resource-limit diagnostic. DOCX rejects invalid XML characters in source or resolved text. Zero opacity is supported and produces an invisible watermark.
 
 The adapter appends a page-centered, non-wrapping background WordArt shape to every active first/even/default header, following section inheritance. Shared header parts receive one shape, not one per reference. Existing header content, margins, section geometry and footer content remain unchanged. Missing headers receive a separate minimal anchor; creating a header at or below an explicitly declared body top margin fails rather than moving body text. Nested section breaks, duplicate header kinds and invalid header relationships fail explicitly.
 
@@ -52,9 +56,11 @@ Omitting the option adds nothing and retains existing template watermarks. Reque
 
 Sizing follows the smallest section page dimension, capped at 400 points wide, with a 4:1 shape aspect ratio. This is a text watermark, not an image watermark, per-section positioning API or guarantee of identical results in every renderer. Background objects may be obscured by opaque template objects. DOCX-to-PDF preservation and REST parity still require their own implementation and verification; issue #20 remains open until those checks pass.
 
-`DocxWatermarksTest` builds multi-section first/even/default-header fixtures and color/opacity/rotation variants in ignored `build/watermark-reference`, compares unrelated package parts and existing header content, and exercises missing headers, literal text and explicit failure policies. Core integration additionally checks concurrent requests with distinct or absent watermarks.
+`DocxWatermarksTest` builds multi-section first/even/default-header fixtures and color/opacity/rotation variants in ignored `build/watermark-reference`, compares unrelated package parts and existing header content, and exercises missing headers, expression-language parity, literal inserted values, shared limits and explicit failure policies. Core integration additionally checks concurrent requests with distinct or absent watermarks.
 
 Local visual verification on 2026-10-11 used Word 16.0.20430.20146 and Poppler at 100 DPI, only as optional QA tools. The multi-section fixture retained five pages across diagonal teal, vertical red, opaque and transparent variants; additional missing/empty-header fixtures retained two pages each. Every distinct page image was inspected. All five plain pages matched the independently authored literal reference, and all nine transparent pages matched their plain controls byte-for-byte. Requested shapes appeared on all pages; headers, footers, text boxes, tables and section geometry retained their positions. This evidence covers these fixtures in this renderer, not arbitrary templates, PDF backend compatibility or an Office runtime requirement.
+
+After enabling watermark expressions, all 42 previously verified control/variant page images remained byte-identical. The additional five-page dynamic fixture resolved its condition and customer placeholder to `CONCEPT — Ada` on every page and was visually inspected with unchanged pagination and content placement.
 
 ## Supplied fonts
 

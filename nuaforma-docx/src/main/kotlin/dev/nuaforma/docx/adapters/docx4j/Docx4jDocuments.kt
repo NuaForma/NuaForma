@@ -24,8 +24,8 @@ internal object Docx4jDocuments {
     fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext) {
         open(request.template, context) {
             WordFonts.apply(it, request, context)
-            WordTemplates(request.data, request.requirements.options, context).apply(it)
-            WordWatermarks(context).apply(it, request.requirements.options.watermark)
+            val watermark = WordTemplates(request.data, request.requirements.options, context).apply(it)
+            WordWatermarks(context).apply(it, watermark)
         }
             .use { it.writeTo(output) }
     }
