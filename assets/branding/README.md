@@ -6,6 +6,8 @@ a light background and white on a dark charcoal background.
 
 - `nuaforma-light.png`: standalone light-background asset.
 - `nuaforma-dark.png`: standalone dark-background asset.
+- `nuaforma-icon.png`: square N-only icon on a light background, intended for
+  the GitHub organization avatar and other small-format uses.
 - `nuaforma-approved-design.png`: original approved two-panel concept, retained
   as the design reference.
 
@@ -17,6 +19,10 @@ They are not pixel-exact crops or final vector masters; minor rendering
 differences can exist between the reference and standalone versions.
 
 ## Asset preparation prompts
+
+### Organization icon
+
+Use case: precise-object-edit. Asset type: GitHub organization avatar/icon. Input image 1 is the approved NuaForma logo and edit target. Create a square standalone ICON using ONLY its upper rounded N symbol. Remove the NuaForma wordmark entirely. Preserve the flowing ribbon N geometry, curved joins and rounded vertical ends, original teal diagonal ribbon and dark navy upright areas. Center the symbol horizontally and vertically on a clean solid white background. Symbol occupies about 70% of canvas width and height, with balanced generous margin suitable for a circular avatar crop. Crisp flat graphic appearance, no new design elements, no text, no outline, no shadows, no badge, no circle drawn in image. Retain original teal and navy, do not brighten for dark mode.
 
 ### Light variant
 
