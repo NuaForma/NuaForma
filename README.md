@@ -19,7 +19,7 @@ From a simple letter to an agreement with conditional sections, NuaForma aims
 to make document automation accessible without locking users into a proprietary
 platform.
 
-> **Project status:** development-stage provider contracts, core discovery/selection, a registered [DOCX generation provider](nuaforma-docx/README.md) and a [restricted template language](nuaforma-template/README.md). Embedded Kotlin/Java 17 applications can generate DOCX with split-run placeholders, inline and paragraph/row conditions and scoped repeats while preserving native Word structures, including supported text boxes and selected fonts. Optional supplied-font validation and embedding follow technical font permissions; the module guide defines the supported profile and verified barcode fixture. Requested watermarks, PDF conversion, REST and a runnable service remain planned; no stable release is claimed.
+> **Project status:** development-stage provider contracts, core discovery/selection, a registered [DOCX generation provider](nuaforma-docx/README.md) and a [restricted template language](nuaforma-template/README.md). Embedded Kotlin/Java 17 applications can generate DOCX with split-run placeholders, inline and paragraph/row conditions and scoped repeats while preserving native Word structures, including supported text boxes and selected fonts. Optional supplied-font validation and embedding follow technical font permissions; requested DOCX text watermarks support color, opacity and rotation. The module guide defines supported profiles and fixture-specific visual checks. PDF conversion, watermark preservation in PDF, REST and a runnable service remain planned; no stable release is claimed.
 
 ## The idea
 

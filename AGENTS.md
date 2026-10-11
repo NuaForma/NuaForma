@@ -25,7 +25,7 @@ Implement only the requested milestone within the scope defined in [ARCHITECTURE
 - Check in the Gradle Wrapper with a pinned Gradle version when the build is created, and use it for builds and tests. Do not rely on a workstation-specific global Gradle installation.
 - Preserve the Unix executable bit for `gradlew` when preparing a commit; its Git file mode must be `100755`. Do not stage it merely to change this mode without authorization to stage or commit.
 - The Gradle build, six modules, initial public provider contracts, core provider discovery/selection, restricted template language and DOCX-to-DOCX generation exist. The APIs are a development draft, not a stable release. REST endpoints and PDF conversion are not implemented yet; do not present planned capabilities as available features.
-- The DOCX module has a registered DOCX-to-DOCX generation provider and a separate unchanged round-trip facade, both with isolated docx4j state. See its module README for the supported structural template profile, formatting policy, lifecycle, limits and verified fidelity scope. PDF conversion, requested watermarks and REST remain unimplemented.
+- The DOCX module has a registered DOCX-to-DOCX generation provider with optional requested text watermarks and a separate unchanged round-trip facade, both with isolated docx4j state. See its module README for the supported structural template profile, formatting policy, lifecycle, limits and verified fidelity scope. PDF conversion and REST remain unimplemented.
 - If CLAUDE.md or another agent entry-point file is introduced, make it a pointer to AGENTS.md rather than a second copy of the rules.
 
 ## Build and verification commands

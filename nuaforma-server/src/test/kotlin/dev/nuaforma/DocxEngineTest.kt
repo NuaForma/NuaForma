@@ -28,21 +28,29 @@ class DocxEngineTest {
         val registry = ProviderRegistry.discover()
         assertTrue(registry.diagnostics.isEmpty(), registry.diagnostics.joinToString { it.message })
         assertEquals("nuaforma-docx", registry.providers.single().metadata.id)
-        val requirements = GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.DOCX))
         val bytes = template()
         val pool = Executors.newFixedThreadPool(4)
         try {
             val results = pool.invokeAll((0..7).map { index -> Callable {
+                val requirements = GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.DOCX),
+                    GenerationOptions(watermark = if (index % 2 == 0) TextWatermark("DRAFT$index") else null))
                 val output = ByteArrayOutputStream()
                 val result = registry.generate(GenerationRequest(bytes.inputStream(), requirements, mapOf("name" to "Tenant$index")), output, GenerationContext())
                 assertEquals(DocumentFormat.DOCX, result.output.format)
                 var document = ""
+                var headers = ""
                 ZipInputStream(output.toByteArray().inputStream()).use { zip ->
                     var entry = zip.nextEntry
-                    while (entry != null) { if (entry.name == "word/document.xml") document = zip.readBytes().decodeToString(); entry = zip.nextEntry }
+                    while (entry != null) {
+                        if (entry.name == "word/document.xml") document = zip.readBytes().decodeToString()
+                        else if (entry.name.startsWith("word/nf-header-")) headers += zip.readBytes().decodeToString()
+                        entry = zip.nextEntry
+                    }
                 }
                 assertTrue(document.contains("Tenant$index")); assertFalse(document.contains("{name}"))
                 (0..7).filter { it != index }.forEach { assertFalse(document.contains("Tenant$it")) }
+                if (index % 2 == 0) assertTrue(headers.contains("DRAFT$index")) else assertEquals("", headers)
+                (0..7).filter { it != index }.forEach { assertFalse(headers.contains("DRAFT$it")) }
                 document
             } }).map { it.get() }
             assertEquals(8, results.distinct().size)

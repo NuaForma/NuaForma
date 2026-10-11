@@ -29,6 +29,8 @@ Review transitive dependencies and upstream security advisories when adding or u
 
 ## DOCX integration review
 
+The DOCX watermark adapter's VML type-136 geometry is adapted from docx4j's Apache-2.0 [tagged Watermark sample](https://github.com/plutext/docx4j/blob/VERSION_17_1_0/docx4j-samples-docx4j/src/main/java/org/docx4j/samples/Watermark.java). Section inheritance, content-preserving anchors, bounds and request isolation are NuaForma's implementation. This adds no dependency or copied renderer; docx4j's existing license and notice obligations still apply.
+
 For issue #5, docx4j core 17.1.0 is an implementation dependency and `docx4j-JAXB-ReferenceImpl` 17.1.0 supplies JAXB at runtime. The [upstream release history](https://www.docx4java.org/trac/docx4j) reports its September 2026 release; the repository is not archived and has current development activity. The [tagged parent POM](https://github.com/plutext/docx4j/blob/VERSION_17_1_0/pom.xml) targets Java 11; NuaForma compiles and executes the integration on Java 17. No JAXB implementation classes enter facade signatures. No global logger implementation is added.
 
 The resolved production graph includes JAXB runtime/core/txw2 4.0.9, Jakarta JAXB API 4.0.5, Activation API 2.1.4, Angus Activation 2.0.3, istack 4.1.2, Commons Lang 3.20.0, Compress 1.28.0, IO 2.22.0, Codec 1.19.0, Collections 4.5.0, FontBox/PDFBox IO 3.0.8, XML Graphics 2.11, SLF4J 2.0.18 and docx4j's generated/copy/SVG/Xalan support artifacts. Upstream POM exclusions avoid optional native compressors, JUEL expression implementations and extra logging implementations. These are docx4j runtime dependencies, not adoption of a PDF conversion backend or an expression language.
