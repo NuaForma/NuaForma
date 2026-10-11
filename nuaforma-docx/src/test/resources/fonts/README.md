@@ -1,0 +1,9 @@
+# Barcode font test asset
+
+`LibreBarcode39-Regular.ttf` is the unmodified Libre Barcode 39 font from the [Libre Barcode repository](https://github.com/graphicore/librebarcode), revision `ff3041284e240ef397797c803f74f15800f2b868`, path `fonts/LibreBarcode39-Regular.ttf`. Its SHA-256 is `0c8907f28765e6f021f3a910d193e4e02f518065fbdcbbc777c1958728bcc6a5`. Retain the adjacent upstream `OFL.txt`, including its copyright notice, when redistributing this test asset. The font remains SIL Open Font License 1.1 licensed; NuaForma's Apache-2.0 license does not replace that license.
+
+This is test material, not a production dependency or a font installed by the engine. `DocxFontsTest` authors synthetic DOCX inputs and independent expected contents, generates output and checks the actual obfuscated font bytes and relationships. Test mutations of OS/2 flags are in-memory metadata cases only; they are not distributed as modified fonts or used as successful rendering references.
+
+For an isolated embedding check, the test's `isolatedFont()` makes a QA-only derivative in memory, renames its family and related Unicode names to `NFTestFont639024`, and recalculates sfnt table checksums and `head.checkSumAdjustment`. Glyphs, permission flags and copyright/license names remain unchanged. The derivative appears only inside ignored generated DOCX references and is never installed. Compare `isolated-embedded.docx` with the unembedded `isolated-control.docx` to avoid false positives from an installed font or a viewer's cache. Preserve this license when sharing those QA references; do not distribute the derivative under the original reserved font name.
+
+Basic Code 39 text uses start/stop asterisks: `*NF001*`. The template owns this encoding and the font choice; NuaForma only replaces the reference value. Valid string replacement is not proof of scanability. Local rendering must verify the resulting pages and use an independent barcode decoder on the actual page image.

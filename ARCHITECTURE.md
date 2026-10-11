@@ -152,6 +152,7 @@ A plausible but incorrect document may be worse than a failed request. Fail clea
 
 - User-selected fonts are part of the document contract. Define how fonts are supplied and resolved; report missing fonts instead of relying on invisible substitution.
 - Font embedding must respect the supplied font's embedding permissions and license. An open-source engine license does not make every font redistributable.
+- DOCX generation preserves the template's font choices by default without requiring those fonts on the engine host. Explicit font validation or embedding uses caller-supplied resources, remains request-isolated and fails clearly for missing resources or disallowed technical embedding permissions. The caller is responsible for having the necessary usage rights; NuaForma does not require license evidence or an additional consent declaration, and never overrides or rewrites font permission flags.
 - Keep fonts and caches isolated across tenants. Do not require globally installing a customer's fonts on the host.
 - Barcode fonts need render and scan tests, not just a check that the font name survived replacement.
 - Keep document transformation separate from conversion to PDF or other formats. A conversion backend must not determine the public engine data model.
