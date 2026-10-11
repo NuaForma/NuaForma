@@ -19,9 +19,7 @@ From a simple letter to an agreement with conditional sections, NuaForma aims
 to make document automation accessible without locking users into a proprietary
 platform.
 
-> **Project status:** early planning. This repository establishes the project
-> vision and license. No working generator, API, or installation package is
-> available yet. The capabilities below are planned, not implemented.
+> **Project status:** build foundation. The Kotlin/Java 17 multi-module build and test scaffolds are in place. No working generator, REST API or runnable service is available yet. The capabilities below are planned, not implemented.
 
 ## The idea
 
@@ -35,8 +33,8 @@ Templates should support more than replacing a name or date. Authors should be
 able to include or omit text blocks based on conditions, choose between
 alternative sections, and repeat content for lists or tables.
 
-For example, an agreement could include one clause when `x = 1), use another
-when `y = 1), and omit a section when neither condition applies. The template
+For example, an agreement could include one clause when `x = 1`, use another
+when `y = 1`, and omit a section when neither condition applies. The template
 defines those choices; the input data determines the result. The template
 syntax and authoring approach have not yet been selected.
 
@@ -74,31 +72,55 @@ NuaForma is intended for teams generating letters, reports, agreements,
 statements, and other documents from application data. It should be useful
 both as an internal service and as a component integrated into other products.
 
-The project aims to build on suitable open-source tools, with its own code
-providing a consistent generation workflow and integration layer. The
-implementation language, template engine, and rendering tools are still open
-decisions.
+The project uses Kotlin/JVM with Java 17 as its minimum runtime. DOCX processing is planned around docx4j, behind NuaForma-owned facades. The restricted template language and PDF conversion backend still need to be specified and verified.
 
 ## Initial development direction
 
-1. Choose an initial template format and define the structured-data contract.
-2. Build a small end-to-end prototype with placeholders, conditions, and repeats.
-3. Validate the first output format using representative documents.
-4. Expose the workflow through a REST API with clear validation errors.
-5. Expand output support, storage adapters, and deployment options.
+1. Establish the module build and test foundation.
+2. Define the public contracts and provider discovery.
+3. Implement DOCX generation with placeholders, conditions, repeats and optional watermarks while preserving formatting.
+4. Select and verify an optional DOCX-to-PDF backend for the first product versions.
+5. Expose the engine through REST with downloadable OpenAPI JSON and YAML, then prepare Docker deployment and embedded usage examples.
+
+Track scoped work in the [GitHub roadmap issues](https://github.com/NuaForma/NuaForma/issues?q=is%3Aissue%20label%3Aroadmap) and [milestones](https://github.com/NuaForma/NuaForma/milestones). Later format and storage extensions are separate follow-up work.
 
 Security will be part of the design: untrusted templates, rendering processes,
 database access, and sensitive document data need explicit boundaries and
 resource limits.
 
+## Development
+
+Install a JDK 17 and use the checked-in Gradle Wrapper; no global Gradle installation is required. The first build downloads the pinned Gradle distribution and dependencies. Its distribution checksum is verified by the wrapper.
+
+```sh
+./gradlew build
+./gradlew test
+./gradlew :nuaforma-core:test --tests dev.nuaforma.core.TestStackTest
+./gradlew verifyBuildStructure
+./gradlew generatePomFileForMavenJavaPublication
+```
+
+On Windows, use the corresponding `gradlew.bat` launcher. The four library modules have Maven publication metadata plus source and Javadoc JAR tasks; no remote publication destination is configured. Their initial JARs are scaffolds, not usable engine libraries. The server is a buildable module without an HTTP framework, entry point or service packaging.
+
+JUnit Jupiter runs the tests; MockK and ArchUnit are test-scoped. The current tests verify Java 17 execution, Java/Kotlin compilation and test-tool interoperability. The build also verifies runtime module dependencies and prevents test libraries from leaking into production dependencies. Full bytecode architecture rules, document integration tests and API contract generation belong to subsequent issues.
+
+Dependency versions and review notes are in [DEPENDENCIES.md](DEPENDENCIES.md). Design boundaries are in [ARCHITECTURE.md](ARCHITECTURE.md); contributor instructions are in [AGENTS.md](AGENTS.md).
+
+## Pull requests and build checks
+
+Changes to `main` go through pull requests with verified signed commits. The required GitHub Actions check is named `Build (Java 17)` and runs the full build, tests, scaffold dependency checks and Maven POM generation on Java 17. It runs for pushes and pull requests without path filters, so documentation-only changes also receive the required check. Keep the branch up to date with `main` before merging.
+
+[CODEOWNERS](.github/CODEOWNERS) assigns repository ownership to `@mrhoeve`. Review approval is not required while the project has one human maintainer; authors cannot approve their own pull requests. Force-pushing and deleting `main` are blocked. Repository administrators have no configured ruleset bypass. These protections are configured in GitHub, not applied merely by adding this documentation.
+
+GitHub Actions are pinned to full commit hashes and use a read-only repository token. The workflow checks the Gradle Wrapper JAR against its published checksum before execution; the distribution checksum is verified by the wrapper itself. When updating Gradle, update and verify both checksums. No publishing or deployment occurs in this workflow.
+
 ## Contributing
 
-The project is at the idea and design stage. Feedback, use cases, example
+The project is at the foundation stage. Feedback, use cases, example
 templates with synthetic data, and technical proposals are welcome.
 
 Do not submit personal data, credentials, or confidential documents. A
-contribution guide and development instructions will be added when the initial
-implementation is established.
+dedicated contribution guide will be added as the initial implementation takes shape.
 
 The GitHub organization is [NuaForma](https://github.com/NuaForma).
 

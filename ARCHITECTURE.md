@@ -2,7 +2,7 @@
 
 NuaForma is an embeddable Kotlin/JVM document-generation engine with optional format modules and a thin REST service. This document is the source of truth for agreed architecture decisions and requirements; [AGENTS.md](AGENTS.md) contains agent workflow and development instructions.
 
-These decisions describe the intended product architecture, not a claim that the production modules or capabilities already exist. Implement only the requested milestone and validate capabilities before documenting them as available. Workstation-specific instructions do not belong here.
+The Gradle build and module scaffolds exist; the decisions below describe intended product behavior, not implemented document-generation capabilities. Implement only the requested milestone and validate capabilities before documenting them as available. Workstation-specific instructions do not belong here.
 
 ## Product direction and scope
 
@@ -31,7 +31,7 @@ Do not expand the implementation scope merely because a capability appears in th
 
 ## Module and dependency boundaries
 
-The agreed modules are `nuaforma-contracts`, `nuaforma-core`, `nuaforma-docx`, `nuaforma-docx-pdf` and `nuaforma-server`. These are architectural roles until actual directories and build configuration are created. The DOCX and DOCX-to-PDF modules belong to the early product scope, but their capabilities must not be advertised as available until implemented and verified.
+The Gradle subprojects are `nuaforma-contracts`, `nuaforma-core`, `nuaforma-docx`, `nuaforma-docx-pdf` and `nuaforma-server`. Their build scaffolds exist, but public contracts and runtime implementations are not established yet. The DOCX and DOCX-to-PDF modules belong to the early product scope, but their capabilities must not be advertised as available until implemented and verified.
 
 - `nuaforma-contracts`: separately published public interfaces and shared value types for providers, formats, generation options, results and diagnostics. Use the Kotlin/Java package `dev.nuaforma.contracts`. Keep it independent of core, server and concrete format implementations.
 - `nuaforma-core`: the format-independent engine that discovers providers, checks their compatibility and availability, selects a suitable provider and orchestrates generation through the contracts. No dependency on concrete format modules, HTTP frameworks, persistence systems or docx4j representation types.
