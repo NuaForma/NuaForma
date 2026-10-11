@@ -22,7 +22,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('repository', type=pathlib.Path)
     parser.add_argument('destination', type=pathlib.Path)
+    parser.add_argument('--strategy', choices=('dimensions', 'drawingml', 'drawingml-inline'), default='dimensions')
     args = parser.parse_args()
+    if args.strategy.startswith('drawingml'):
+        from drawingml_copy import conversion_copy
+        if args.strategy == 'drawingml-inline':
+            from functools import partial
+            conversion_copy = partial(conversion_copy, include_inline=True)
     args.destination.mkdir(parents=True, exist_ok=False)
     records = []
     for name, path in FIXTURES.items():

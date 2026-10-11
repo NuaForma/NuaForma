@@ -52,3 +52,29 @@ python tools/pdf-evaluation/assess_copies.py . tools/pdf-evaluation/build/conver
 The latter checks original DOCX hashes, page dimensions/counts, exact paired rasters and reports every page's changed pixel bounds. Inspect every distinct changed page; reuse an earlier review only when unchanged/duplicate pixels are verified. `copies.json`, `inspection.json` and `differences.json` stay ignored.
 
 `probe_vml.py <synthetic-isolated-embedded.docx> <fresh-build-directory>` creates controlled geometry, flow, wrapping, rectangle and shape-type variations of the existing `MarginBox` fixture. It deliberately includes failing and hard-coded-position counterexamples; none is a production strategy. Convert diagnostic copies using a private LibreOffice profile and an owned-process deadline, then rasterize each PDF at 150 DPI with `<PDF-stem>-<page>.png` names. `inspect_results.py <parent-of-probe-directories> --decoder-directory <approved-decoder-directory> --named-images` records their fonts, full-page decode results, barcode orientation and position. Do not count a horizontal decode, missing frame or displaced frame as a passing layout check, and do not update expected DOCX fixtures to conceal differences.
+
+## Native geometry and Word oracle
+
+`drawingml_copy.py` is another trusted-fixture-only strategy, not a production normalizer. It replaces the specifically measured right-margin VML profile with a native DrawingML text box, preserves text runs and all other package parts, and rejects matching unknown attributes, nonzero insets, unmeasured alignments or bounds wider than the explicitly supplied right margin. It validates the resulting document XML before creating the destination. It must not be used on arbitrary uploads or as a silent fallback.
+
+```sh
+python -m unittest discover -s tools/pdf-evaluation -p 'test*copy.py' -v
+python tools/pdf-evaluation/prepare_copies.py . tools/pdf-evaluation/build/<fresh-copies> --strategy drawingml
+```
+
+Run the existing LibreOffice-only `compare.ps1` workflow with those copies in a fresh run directory, then run `inspect_results.py` and `assess_copies.py` as above. Do not interpret cached product tests or independent scans as a renderer-fidelity pass.
+
+`probe_geometry.py <isolated-source.docx> <fresh-directory>` creates controlled page, margin, dimension, alignment and wrapping variants. `probe_drawingml.py` creates additional native-text orientation/anchor counterexamples. `render_probes.ps1 -Directory <fresh-probes> -LibreOffice <executable> -PopplerDirectory <directory>` bounds an owned batch process, uses a private profile, verifies input hashes and renders all produced PDFs at 150 DPI. A broken/horizontal/cropped variant is diagnostic evidence, not supported behavior.
+
+For an explicitly authorized local interoperability check, `word_geometry.ps1 -Source <synthetic.docx> -Directory <fresh-word-oracle>` opens only that trusted fixture read-only, disables macros, exports a Word PDF, records shape metadata, closes its own document/application and verifies the input hash. `-CanonicalCopy` additionally saves a separate private Word serialization for inspecting inferred properties; it never overwrites the source. Word remains an optional Windows QA oracle, not a NuaForma production dependency.
+
+After producing a Word oracle under `<word-root>/<fixture>/reference.pdf` for every entry in `copies.json`:
+
+```sh
+python tools/pdf-evaluation/assess_geometry.py <copies-directory> <conversion-run> <word-root> --decoder-directory <approved-decoder-directory>
+python tools/pdf-evaluation/verify_word_rasters.py <copies-directory> <word-root> --poppler <poppler-directory>
+```
+
+The first independently compares vector frame edges, native glyph origins, page geometry and full-page barcode results. The second renders fresh Word PDFs at the original reference DPI and compares every page against previously reviewed Word rasters. Both reports stay ignored; different pixels require visual review. These checks report differences rather than quietly introducing a passing tolerance.
+
+`--strategy drawingml-inline` enables the additional ordinary-inline-box diagnostic. It restores the border but still fails the complete layout gate on templates with missing paragraph defaults. `probe_defaults.py <conversion-copy.docx> <private-canonical-word.docx> <new-diagnostic.docx>` materializes only the observed paragraph-default block in another private diagnostic copy, refusing to override explicit defaults. This is for identifying the source of spacing differences, not a universal Word-default policy. Do not use a workstation's inferred settings or Word itself in a runtime conversion pipeline. Neither diagnostic strategy is an available product feature.
