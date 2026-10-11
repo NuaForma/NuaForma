@@ -97,12 +97,13 @@ Install a JDK 17 and use the checked-in Gradle Wrapper; no global Gradle install
 ./gradlew test
 ./gradlew :nuaforma-core:test --tests dev.nuaforma.core.TestStackTest
 ./gradlew verifyBuildStructure
+./gradlew :nuaforma-server:test --tests 'dev.nuaforma.architecture.*'
 ./gradlew generatePomFileForMavenJavaPublication
 ```
 
 On Windows, use the corresponding `gradlew.bat` launcher. The four library modules have Maven publication metadata plus source and Javadoc JAR tasks; no remote publication destination is configured. The [contracts module](nuaforma-contracts/README.md) and [core module](nuaforma-core/README.md) contain development APIs usable from Java and Kotlin, not stable published APIs. Core supports local classpath discovery, explicit registration, deterministic selection and delegation to accepted providers. The format modules remain scaffolds. The server is a buildable module without an HTTP framework, entry point or service packaging.
 
-JUnit Jupiter runs the tests; MockK and ArchUnit are test-scoped. Tests verify Java 17 execution, Java/Kotlin API use, structured data, provider capability/option models, cancellation, stream ownership and static contract metadata. Core integration tests compile independent provider JARs and exercise actual ServiceLoader discovery, metadata validation before provider loading, selection and concurrent delegation. ArchUnit enforces contracts and core isolation with violating fixtures. The build also verifies runtime module dependencies and prevents test libraries from leaking into production dependencies. Cross-module adapter rules, real document integration tests and API contract generation belong to subsequent issues.
+JUnit Jupiter runs the tests; MockK and ArchUnit are test-scoped. Tests verify Java 17 execution, Java/Kotlin API use, structured data, provider capability/option models, cancellation, stream ownership and static contract metadata. Core integration tests compile independent provider JARs and exercise actual ServiceLoader discovery, metadata validation before provider loading, selection and concurrent delegation. Repository-wide ArchUnit rules inspect main outputs from all five modules and enforce dependency direction, Kotlin/internal access, adapter ownership, public signature boundaries and component cycles, with independently compiled violating fixtures. The build also verifies runtime module dependencies and prevents test libraries from leaking into production dependencies. Real document integration tests and API contract generation belong to subsequent issues.
 
 Dependency versions and review notes are in [DEPENDENCIES.md](DEPENDENCIES.md). Design boundaries are in [ARCHITECTURE.md](ARCHITECTURE.md); contributor instructions are in [AGENTS.md](AGENTS.md).
 
