@@ -19,7 +19,7 @@ From a simple letter to an agreement with conditional sections, NuaForma aims
 to make document automation accessible without locking users into a proprietary
 platform.
 
-> **Project status:** build foundation. The Kotlin/Java 17 multi-module build and test scaffolds are in place. No working generator, REST API or runnable service is available yet. The capabilities below are planned, not implemented.
+> **Project status:** build foundation and draft provider contracts. The Kotlin/Java 17 multi-module build and initial public request/provider types are in place. No working generator, provider discovery, REST API or runnable service is available yet. The capabilities below are planned, not implemented.
 
 ## The idea
 
@@ -100,9 +100,9 @@ Install a JDK 17 and use the checked-in Gradle Wrapper; no global Gradle install
 ./gradlew generatePomFileForMavenJavaPublication
 ```
 
-On Windows, use the corresponding `gradlew.bat` launcher. The four library modules have Maven publication metadata plus source and Javadoc JAR tasks; no remote publication destination is configured. Their initial JARs are scaffolds, not usable engine libraries. The server is a buildable module without an HTTP framework, entry point or service packaging.
+On Windows, use the corresponding `gradlew.bat` launcher. The four library modules have Maven publication metadata plus source and Javadoc JAR tasks; no remote publication destination is configured. The [contracts module](nuaforma-contracts/README.md) contains development API types usable from Java and Kotlin, not a stable published API. The other library modules remain scaffolds, not usable engine libraries. The server is a buildable module without an HTTP framework, entry point or service packaging.
 
-JUnit Jupiter runs the tests; MockK and ArchUnit are test-scoped. The current tests verify Java 17 execution, Java/Kotlin compilation and test-tool interoperability. The build also verifies runtime module dependencies and prevents test libraries from leaking into production dependencies. Full bytecode architecture rules, document integration tests and API contract generation belong to subsequent issues.
+JUnit Jupiter runs the tests; MockK and ArchUnit are test-scoped. Tests verify Java 17 execution, Java/Kotlin API use, structured data, provider capability/option models, cancellation, stream ownership and static contract metadata. ArchUnit enforces contracts-module isolation with a violating fixture. The build also verifies runtime module dependencies and prevents test libraries from leaking into production dependencies. Cross-module bytecode architecture rules, actual discovery, document integration tests and API contract generation belong to subsequent issues.
 
 Dependency versions and review notes are in [DEPENDENCIES.md](DEPENDENCIES.md). Design boundaries are in [ARCHITECTURE.md](ARCHITECTURE.md); contributor instructions are in [AGENTS.md](AGENTS.md).
 

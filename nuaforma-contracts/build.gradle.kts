@@ -4,4 +4,4 @@ plugins {
     `maven-publish`
 }
 
-description = "NuaForma contracts library scaffold"
+description = "NuaForma public document-provider contracts"

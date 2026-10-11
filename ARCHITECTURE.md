@@ -2,7 +2,7 @@
 
 NuaForma is an embeddable Kotlin/JVM document-generation engine with optional format modules and a thin REST service. This document is the source of truth for agreed architecture decisions and requirements; [AGENTS.md](AGENTS.md) contains agent workflow and development instructions.
 
-The Gradle build and module scaffolds exist; the decisions below describe intended product behavior, not implemented document-generation capabilities. Implement only the requested milestone and validate capabilities before documenting them as available. Workstation-specific instructions do not belong here.
+The Gradle build and initial public provider contracts exist; the decisions below describe intended product behavior, not implemented document-generation capabilities. The [contracts guide](nuaforma-contracts/README.md) describes the development API. Implement only the requested milestone and validate capabilities before documenting them as available. Workstation-specific instructions do not belong here.
 
 ## Product direction and scope
 
@@ -10,7 +10,8 @@ The Gradle build and module scaffolds exist; the decisions below describe intend
 - Template conditions must work inside a sentence as well as across complete paragraphs or sections. Repetitions must support collections and table rows, including nested structures.
 - Input data consists of generic JSON-compatible objects, lists and scalar values. Consumers define their own nested data structures; never require project-specific customer or business domain classes.
 - The engine must be usable directly from Kotlin and Java applications without running the REST service, a website or Docker.
-- The REST service must accept a template, generation data and output options. Exact endpoint names, field names and engine signatures must be designed and tested before being documented as stable contracts.
+- The REST service must accept multipart data with a `request` JSON part and a separate binary `template` part. Keep this transport mapping outside the embedded contracts. Endpoint names, additional resource parts and serialization details remain to be specified and tested; no HTTP endpoint is implemented yet.
+- Input and output requests each carry a format identifier and optional generic JSON-compatible `options`. Providers describe and validate their own options, including version/profile combinations; core need not know format-specific fields. Keep general generation options and template `data` separate. Reject unknown or invalid explicit options instead of silently ignoring or downgrading them.
 - The REST API specification must be downloadable in both JSON and YAML. Both representations must describe the same contract.
 - DOCX-to-DOCX and DOCX-to-PDF are both part of the early product scope. PDF output requires a separately selected and verified conversion backend; it is not implicitly supported by implementing DOCX. XLSX, ODT and ODS remain future extensions. ODT is a text-document format; ODS is a spreadsheet format. Document supported input/output combinations explicitly.
 - Optional, configurable text watermarks such as `CONCEPT` belong to the early DOCX and PDF scope. Consumers can request the text, color, opacity and rotation through generation options; omitting the option adds no watermark. Exact field names and defaults are not yet stable contracts.
@@ -31,7 +32,7 @@ Do not expand the implementation scope merely because a capability appears in th
 
 ## Module and dependency boundaries
 
-The Gradle subprojects are `nuaforma-contracts`, `nuaforma-core`, `nuaforma-docx`, `nuaforma-docx-pdf` and `nuaforma-server`. Their build scaffolds exist, but public contracts and runtime implementations are not established yet. The DOCX and DOCX-to-PDF modules belong to the early product scope, but their capabilities must not be advertised as available until implemented and verified.
+The Gradle subprojects are `nuaforma-contracts`, `nuaforma-core`, `nuaforma-docx`, `nuaforma-docx-pdf` and `nuaforma-server`. Initial public contracts exist as a development draft; runtime implementations are not established yet. The DOCX and DOCX-to-PDF modules belong to the early product scope, but their capabilities must not be advertised as available until implemented and verified.
 
 - `nuaforma-contracts`: separately published public interfaces and shared value types for providers, formats, generation options, results and diagnostics. Use the Kotlin/Java package `dev.nuaforma.contracts`. Keep it independent of core, server and concrete format implementations.
 - `nuaforma-core`: the format-independent engine that discovers providers, checks their compatibility and availability, selects a suitable provider and orchestrates generation through the contracts. No dependency on concrete format modules, HTTP frameworks, persistence systems or docx4j representation types.
@@ -64,6 +65,7 @@ The Gradle subprojects are `nuaforma-contracts`, `nuaforma-core`, `nuaforma-docx
 - For example, `nuaforma-docx` reads DOCX and writes DOCX. `nuaforma-docx-pdf` reads DOCX and writes DOCX and PDF, so it must support both DOCX-to-DOCX and DOCX-to-PDF. Do not describe the latter as supporting only PDF output.
 - Match a request when one compatible, ready provider can read the requested input format and write the requested output format. The selected provider owns the complete processing operation and may delegate to internal components. Core must not assume that arbitrary readers and writers from different providers can be combined.
 - Classpath presence means discoverable, not necessarily ready. Providers must report runtime availability and actionable reasons for unavailable capabilities, such as an absent or unconfigured PDF converter. Distinguish declared support from executable options; advertise usable read/write sets only when every combination within those sets is executable.
+- Providers assess complete input/output and general-option requirements without consuming document streams or template data. Declared options describe names, types, requirements, defaults and allowed values; individual field descriptions do not replace validation of combined requirements. Generation must recheck readiness and validate actual content because assessment is not a reservation or a document-validity guarantee.
 - A missing converter must not prevent a provider's independently usable DOCX-to-DOCX operation. Availability can narrow the executable sets without changing the declared contract; do not silently substitute another output format.
 - No compatible and ready match means a clear failure identifying available options and relevant unavailability reasons. Multiple matches require an explicit provider preference or a clear ambiguity error; never select by `ServiceLoader` or classpath iteration order.
 - Discovery is extensibility, not a sandbox: installing a provider installs executable application code. Untrusted templates and data must not choose arbitrary classes or cause providers to be downloaded or installed.
@@ -79,6 +81,7 @@ The Gradle subprojects are `nuaforma-contracts`, `nuaforma-core`, `nuaforma-docx
 - Never silently accept a different contract major or an available minor below the provider's required minimum. Any future cross-major support requires an explicit compatibility policy and tests.
 - Expose the declared contract version as metadata that can be read **before provider instantiation**, not only through an instance method. Check compatibility before instantiating an incompatible provider; do not assume that catching a failure after construction is sufficient.
 - Design version metadata and discovery together: obtaining metadata must not initialize provider code. Identify malformed, missing or incompatible metadata with clear diagnostics; do not treat missing metadata as an automatic match.
+- The development descriptor is `META-INF/nuaforma/providers/<binary-implementation-class-name>.properties`, separate from standard `META-INF/services/dev.nuaforma.contracts.DocumentProvider` registration. It declares provider ID, implementation class, provider release version and required contract major/minor. Discovery must verify descriptor origin and class identity against the service registration before loading or instantiating provider code. Descriptor parsing exists; actual discovery and registration belong to the next milestone.
 - Keep existing JVM provider interfaces and their contracts compatible throughout a contract's major family. Version metadata complements, but does not replace, source and binary compatibility checks and tests using independently built provider artifacts.
 
 ## Engine API and lifecycle
@@ -98,6 +101,8 @@ The Gradle subprojects are `nuaforma-contracts`, `nuaforma-core`, `nuaforma-docx
 - Treat the expression language as a deliberately restricted document language, not arbitrary Kotlin, Java, OGNL or script execution.
 - Allow only explicitly specified operations. No reflection, class loading, constructor calls, unrestricted method invocation, filesystem access, network access or runtime evaluation of user code.
 - Model scopes explicitly for nested objects, collection aliases, conditions and repetitions. Do not mutate caller data during rendering.
+- All supplied `data` fields, including nested objects and collection elements, are accessible to placeholders, conditions and repetitions. Do not introduce field allowlists, restricted data paths or per-field access policies. The caller is responsible for supplying only data the template is permitted to use and potentially include in the generated document.
+- Full access to supplied `data` does not grant access to authentication details, transport metadata, other requests or host resources. Keep the expression-language operation restrictions and request isolation in force.
 - Define and test missing values, explicit nulls, empty collections, type mismatches and formatting rules. Do not silently coerce an object or list into printable text.
 - Distinguish literal braces in inserted data from template syntax. Inserted values must not become new expressions through accidental recursive evaluation.
 - Keep template authors' syntax understandable. Conditions must support complete sentences without forcing paragraph breaks or changing the formatting of unaffected text.
