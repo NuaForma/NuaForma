@@ -18,6 +18,7 @@ parser.add_argument('copies', type=pathlib.Path)
 parser.add_argument('converted', type=pathlib.Path)
 parser.add_argument('word', type=pathlib.Path)
 parser.add_argument('--decoder-directory', type=pathlib.Path, required=True)
+parser.add_argument('--inline-boxes', action='store_true', help='Measure the two ordinary fixture frames as well')
 args = parser.parse_args()
 sys.path.insert(0, str(args.decoder_directory.resolve()))
 import zxingcpp
@@ -63,7 +64,20 @@ for copy in json.loads((args.copies / 'copies.json').read_text()):
                          for b in zxingcpp.read_barcodes(image))
     if name.startswith('barcode-'):
         assert any(s['text'] == 'NF001' and s['orientation'] == -90 for s in scans), name
+    inline_frames = []
+    if args.inline_boxes and 'id="TextBox1"' in xml:
+        for width, height in ((260, 35), (360, 36)):
+            pair = []
+            for path in (args.word / name / 'reference.pdf', args.converted / 'libreoffice' / name / f'{name}.pdf'):
+                with pdfplumber.open(path) as pdf:
+                    frames = {tuple(r[k] for k in ('x0', 'top', 'x1', 'bottom')) for r in pdf.pages[0].rects + pdf.pages[0].curves
+                              if r['stroke'] and abs(r['width'] - width) < 0.01 and abs(r['height'] - height) < 0.01}
+                    assert len(frames) == 1, (name, width, frames)
+                    pair.append(dict(zip(('x0', 'top', 'x1', 'bottom'), frames.pop())))
+            inline_frames.append(dict(width=width, height=height, reference=pair[0], converted=pair[1],
+                                      delta={k: pair[1][k] - pair[0][k] for k in pair[0]}))
+        assert inline_frames[0]['converted']['bottom'] < inline_frames[1]['converted']['top'], name
     records.append(dict(fixture=name, reference=before, converted=after, frameDeltaPoints=deltas,
-                        glyphDeltasPoints=glyphs, scans=scans))
+                        glyphDeltasPoints=glyphs, scans=scans, inlineFrames=inline_frames))
 (args.converted / 'geometry.json').write_text(json.dumps(records, indent=2))
 print(json.dumps([dict(fixture=r['fixture'], frameDelta=r['frameDeltaPoints'], glyphDeltas=r['glyphDeltasPoints'], scans=r['scans']) for r in records]))

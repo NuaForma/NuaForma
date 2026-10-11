@@ -157,6 +157,7 @@ A plausible but incorrect document may be worse than a failed request. Fail clea
 - Keep fonts and caches isolated across tenants. Do not require globally installing a customer's fonts on the host.
 - Barcode fonts need render and scan tests, not just a check that the font name survived replacement.
 - Keep document transformation separate from conversion to PDF or other formats. A conversion backend must not determine the public engine data model.
+- An explicit PDF compatibility option may supply caller-selected paragraph defaults missing from the template, only in an isolated conversion copy. Existing template defaults, alternative spacing modes and paragraph/style overrides remain leading. Without the option, do not infer defaults from the workstation or change the returned DOCX. Word is not a runtime dependency. Exact public option names and supported profiles require implementation and fidelity verification; the current research helper is not an available engine feature.
 - Production and Docker workflows must not require Microsoft Office, a desktop session or a commercial conversion service. Clearly separate optional interoperability checks from runtime dependencies.
 - Claim a PDF profile, embedded-font capability, fillable field or digital-signature field only after testing the actual resulting file with suitable validators or readers.
 

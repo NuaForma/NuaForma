@@ -111,27 +111,36 @@ def normalize(xml, include_inline=False):
     return patched, count
 
 
-def conversion_copy(source, destination, include_inline=False):
+def conversion_copy(source, destination, include_inline=False, paragraph_defaults=None):
     before = hashlib.sha256(source.read_bytes()).hexdigest()
     changed = []
     count = 0
+    styles = None
+    supplied = []
     with zipfile.ZipFile(source) as package:
         patched, count = normalize(package.read('word/document.xml').decode(), include_inline)
         ET.fromstring(patched)
         if count:
             changed.append('word/document.xml')
+        if paragraph_defaults is not None:
+            from paragraph_defaults import apply_defaults
+            styles, supplied = apply_defaults(package.read('word/styles.xml').decode(), **paragraph_defaults)
+            if supplied:
+                changed.append('word/styles.xml')
     with zipfile.ZipFile(source) as package, zipfile.ZipFile(destination, 'x') as result:
         for entry in package.infolist():
             content = package.read(entry)
             if entry.filename == 'word/document.xml':
                 if count:
                     content = patched.encode()
+            elif entry.filename == 'word/styles.xml' and supplied:
+                content = styles.encode()
             result.writestr(copy.copy(entry), content)
     with zipfile.ZipFile(source) as package, zipfile.ZipFile(destination) as result:
         assert package.namelist() == result.namelist()
         assert all(package.read(n) == result.read(n) for n in package.namelist() if n not in changed)
     assert hashlib.sha256(source.read_bytes()).hexdigest() == before
-    return dict(source=str(source), sourceSha256=before, changedParts=changed, normalizedShapes=count)
+    return dict(source=str(source), sourceSha256=before, changedParts=changed, normalizedShapes=count, paragraphFallbacks=supplied)
 
 
 if __name__ == '__main__':

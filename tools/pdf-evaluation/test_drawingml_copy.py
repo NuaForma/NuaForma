@@ -52,6 +52,32 @@ class DrawingmlCopyTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 normalize(source)
 
+    def test_explicit_fallback_changes_only_private_styles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source = pathlib.Path(directory) / 'source.docx'
+            xml = '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:v="urn:schemas-microsoft-com:vml">' + SHAPE + SECTION + '</w:document>'
+            styles = b'<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault/></w:docDefaults></w:styles>'
+            with zipfile.ZipFile(source, 'x') as package:
+                package.writestr('word/document.xml', xml)
+                package.writestr('word/styles.xml', styles)
+                package.writestr('word/fonts/font.odttf', bytes(range(256)))
+            before = source.read_bytes()
+            plain = pathlib.Path(directory) / 'plain.docx'
+            explicit = pathlib.Path(directory) / 'explicit.docx'
+            opts = dict(after_points=8, line_240ths=278)
+            conversion_copy(source, plain)
+            report = conversion_copy(source, explicit, paragraph_defaults=opts)
+            self.assertEqual(['word/document.xml', 'word/styles.xml'], report['changedParts'])
+            self.assertEqual(['after', 'line', 'lineRule'], report['paragraphFallbacks'])
+            self.assertEqual(before, source.read_bytes())
+            with zipfile.ZipFile(plain) as package:
+                self.assertEqual(styles, package.read('word/styles.xml'))
+            with zipfile.ZipFile(explicit) as package:
+                self.assertIn(b'w:after="160"', package.read('word/styles.xml'))
+                self.assertEqual(bytes(range(256)), package.read('word/fonts/font.odttf'))
+            second = pathlib.Path(directory) / 'second.docx'
+            self.assertEqual([], conversion_copy(explicit, second, paragraph_defaults=dict(after_points=12, line_240ths=360))['changedParts'])
+
     def test_copy_isolation(self):
         with tempfile.TemporaryDirectory() as directory:
             source = pathlib.Path(directory) / 'source.docx'

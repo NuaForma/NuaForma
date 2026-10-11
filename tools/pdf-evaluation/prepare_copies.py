@@ -23,12 +23,22 @@ if __name__ == '__main__':
     parser.add_argument('repository', type=pathlib.Path)
     parser.add_argument('destination', type=pathlib.Path)
     parser.add_argument('--strategy', choices=('dimensions', 'drawingml', 'drawingml-inline'), default='dimensions')
+    parser.add_argument('--paragraph-after-points', type=str)
+    parser.add_argument('--paragraph-line-240ths', type=int)
     args = parser.parse_args()
+    if (args.paragraph_after_points is None) != (args.paragraph_line_240ths is None):
+        parser.error('Supply both explicit paragraph fallback values or neither')
+    if args.paragraph_after_points is not None and not args.strategy.startswith('drawingml'):
+        parser.error('Paragraph fallback research requires a DrawingML strategy')
     if args.strategy.startswith('drawingml'):
         from drawingml_copy import conversion_copy
         if args.strategy == 'drawingml-inline':
             from functools import partial
             conversion_copy = partial(conversion_copy, include_inline=True)
+        if args.paragraph_after_points is not None:
+            from functools import partial
+            conversion_copy = partial(conversion_copy, paragraph_defaults=dict(
+                after_points=args.paragraph_after_points, line_240ths=args.paragraph_line_240ths))
     args.destination.mkdir(parents=True, exist_ok=False)
     records = []
     for name, path in FIXTURES.items():
