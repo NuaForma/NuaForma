@@ -12,8 +12,9 @@ internal class ArchitecturePolicy {
     val components = listOf(
         Component("nuaforma-contracts", "dev.nuaforma.contracts", emptySet()),
         Component("nuaforma-core", "dev.nuaforma.core", setOf("nuaforma-contracts")),
-        Component("nuaforma-docx-pdf", "dev.nuaforma.docx.pdf", setOf("nuaforma-contracts", "nuaforma-docx")),
-        Component("nuaforma-docx", "dev.nuaforma.docx", setOf("nuaforma-contracts")),
+        Component("nuaforma-template", "dev.nuaforma.template", setOf("nuaforma-contracts")),
+        Component("nuaforma-docx-pdf", "dev.nuaforma.docx.pdf", setOf("nuaforma-contracts", "nuaforma-docx", "nuaforma-template")),
+        Component("nuaforma-docx", "dev.nuaforma.docx", setOf("nuaforma-contracts", "nuaforma-template")),
         Component("nuaforma-server", "dev.nuaforma.server", setOf("nuaforma-contracts", "nuaforma-core")),
     )
 

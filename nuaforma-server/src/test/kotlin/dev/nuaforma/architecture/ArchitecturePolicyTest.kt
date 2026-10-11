@@ -29,6 +29,13 @@ class ArchitecturePolicyTest {
             "jakarta.xml.bind.ProbeNode" to "public class ProbeNode {}",
             "unassigned.vendor.ProbeUnknown" to "public class ProbeUnknown {}",
             "dev.nuaforma.docx.ProbeProvider" to "public class ProbeProvider {}",
+            "dev.nuaforma.template.ProbeTemplateApi" to "public class ProbeTemplateApi {}",
+            "dev.nuaforma.template.internal.ProbeHiddenTemplate" to "public class ProbeHiddenTemplate {}",
+            "dev.nuaforma.template.ProbeTemplateCore" to "public class ProbeTemplateCore { private dev.nuaforma.core.ProbeCoreApi value; }",
+            "dev.nuaforma.template.ProbeTemplateDocx" to "public class ProbeTemplateDocx { private dev.nuaforma.docx.ProbeProvider value; }",
+            "dev.nuaforma.contracts.ProbeContractsTemplate" to "public class ProbeContractsTemplate { private dev.nuaforma.template.ProbeTemplateApi value; }",
+            "dev.nuaforma.docx.ProbeTemplateReuse" to "public class ProbeTemplateReuse { private dev.nuaforma.template.ProbeTemplateApi value; }",
+            "dev.nuaforma.docx.ProbeTemplateInternal" to "public class ProbeTemplateInternal { private dev.nuaforma.template.internal.ProbeHiddenTemplate value; }",
             "dev.nuaforma.docx.adapters.docx4j.ProbeResult" to "public class ProbeResult { public org.docx4j.ProbeWidget widget; }",
             "dev.nuaforma.core.internal.ProbeHidden" to "public class ProbeHidden {}",
             "dev.nuaforma.core.ProbeCoreApi" to "public class ProbeCoreApi {}",
@@ -84,6 +91,10 @@ class ArchitecturePolicyTest {
     @ParameterizedTest
     @CsvSource(
         "direction,dev.nuaforma.core.ProbeConcreteProvider",
+        "direction,dev.nuaforma.template.ProbeTemplateCore",
+        "direction,dev.nuaforma.template.ProbeTemplateDocx",
+        "direction,dev.nuaforma.contracts.ProbeContractsTemplate",
+        "internal-access,dev.nuaforma.docx.ProbeTemplateInternal",
         "internal-access,dev.nuaforma.server.ProbeInternalPackage",
         "internal-access,dev.nuaforma.server.ProbeKotlinInternal",
         "adapters,dev.nuaforma.docx.ProbeDirectCall",
@@ -126,6 +137,7 @@ class ArchitecturePolicyTest {
             "dev.nuaforma.docx.pdf.ProbeReuse", "dev.nuaforma.server.ProbeServerApi",
             "dev.nuaforma.core.ProbeOwnInternal", "dev.nuaforma.docx.ProbeSibling",
             "dev.nuaforma.docx.adapters.docx4j.ProbeJdkXml",
+            "dev.nuaforma.docx.ProbeTemplateReuse", "dev.nuaforma.template.ProbeTemplateApi",
         )
         ArchitecturePolicy.RULES.forEach { ArchitecturePolicy().rule(it, permitted).check(fixtures) }
     }

@@ -13,6 +13,7 @@ dependencies {
     implementation(project(":nuaforma-core"))
     runtimeOnly(project(":nuaforma-docx"))
     runtimeOnly(project(":nuaforma-docx-pdf"))
+    runtimeOnly(project(":nuaforma-template"))
 }
 
 tasks.named<Test>("test") {
