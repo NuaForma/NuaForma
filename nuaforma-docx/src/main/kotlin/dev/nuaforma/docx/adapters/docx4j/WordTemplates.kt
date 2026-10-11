@@ -2,6 +2,7 @@ package dev.nuaforma.docx.adapters.docx4j
 
 import dev.nuaforma.contracts.*
 import dev.nuaforma.docx.internal.DocxFailure
+import dev.nuaforma.docx.internal.WatermarkPolicy
 import dev.nuaforma.template.TemplateSession
 import org.docx4j.TraversalUtil
 import org.docx4j.XmlUtils
@@ -12,10 +13,12 @@ import org.docx4j.wml.*
 
 internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, private val context: GenerationContext) {
     private val root = TemplateSession.open(data, options, context)
+    private val watermark = options.watermark
     private val identities = WordIdentities(context)
     private var visits = 0L
 
-    fun apply(document: WordprocessingMLPackage) {
+    fun apply(document: WordprocessingMLPackage): TextWatermark? {
+        watermark?.let { root.validate(it.text) }
         val roots = listOf(document.mainDocumentPart.jaxbElement.body) + document.parts.parts.values.mapNotNull {
             when (it) { is HeaderPart -> it.jaxbElement; is FooterPart -> it.jaxbElement; else -> null }
         }
@@ -27,6 +30,17 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         } }).forEach { identities.collect(it) }
         roots.forEach { process(it, root, true, 1) }
         roots.forEach { process(it, root, false, 1) }
+        return watermark?.let { requested ->
+            val text = StringBuilder()
+            root.expand(requested.text).forEach { fragment ->
+                if (fragment.text.length > 4096 - text.length) {
+                    DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "Resolved watermark text exceeds 4096 characters")
+                }
+                text.append(fragment.text)
+            }
+            if (text.isBlank()) null else TextWatermark(text.toString(), requested.color, requested.opacity, requested.rotation)
+                .also { WatermarkPolicy.validate(it) }
+        }
     }
 
     private fun process(raw: Any, session: TemplateSession, validateOnly: Boolean, depth: Int) {

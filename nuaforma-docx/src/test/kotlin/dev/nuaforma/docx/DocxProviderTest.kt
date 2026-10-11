@@ -143,7 +143,7 @@ class DocxProviderTest {
         val provider = DocxProvider()
         assertEquals(AssessmentStatus.UNSUPPORTED, provider.assess(GenerationRequirements(
             FormatRequest(DocumentFormat.DOCX, mapOf("unknown" to true)), requirements.output)).status)
-        assertEquals(AssessmentStatus.UNSUPPORTED, provider.assess(GenerationRequirements(requirements.input, requirements.output,
+        assertEquals(AssessmentStatus.SUPPORTED, provider.assess(GenerationRequirements(requirements.input, requirements.output,
             GenerationOptions(watermark = TextWatermark("CONCEPT")))).status)
     }
 

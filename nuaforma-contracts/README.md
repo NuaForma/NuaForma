@@ -37,6 +37,8 @@ Every supplied data field is available to the eventual template language, includ
 
 General options provide a nullable text watermark, explicit locale (`Locale.ROOT` by default), time zone (`UTC`) and a generic extension map. Watermark defaults are RGB `#B0B0B0`, opacity `0.25` and rotation `-45` degrees; omitting it requests no new watermark. Text is nonblank and at most 4096 characters, opacity is finite within 0–1 and rotation is finite within -360–360. Validation of these values does not prove visible watermark support: a provider must accept and implement the request.
 
+Requested watermark text follows the same restricted template language and request `data` as document content, including placeholders, conditions, repetitions and number/date formatting. For example, `CONCEPT — {customer.name}` resolves using the supplied customer object. Locale, time zone and cumulative processing limits are shared; resolve once before placing the watermark or converting the output. Inserted values are never evaluated again. Escaped braces (`{{` and `}}`) produce literal braces. A blank resolved value requests no added watermark. The DOCX module documents its implemented placement and resolved-text limits; PDF and REST support are not implied by these contracts.
+
 The planned REST mapping uses a `request` JSON multipart part plus a binary `template` part. Multipart handling and JSON mapping belong to the server, not this module. No endpoint or JSON serializer is provided here.
 
 ## Provider contract

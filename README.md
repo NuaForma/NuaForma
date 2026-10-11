@@ -19,7 +19,7 @@ From a simple letter to an agreement with conditional sections, NuaForma aims
 to make document automation accessible without locking users into a proprietary
 platform.
 
-> **Project status:** development-stage provider contracts, core discovery/selection, a registered [DOCX generation provider](nuaforma-docx/README.md) and a [restricted template language](nuaforma-template/README.md). Embedded Kotlin/Java 17 applications can generate DOCX with split-run placeholders, inline and paragraph/row conditions and scoped repeats while preserving native Word structures, including supported text boxes and selected fonts. Optional supplied-font validation and embedding follow technical font permissions; the module guide defines the supported profile and verified barcode fixture. Requested watermarks, PDF conversion, REST and a runnable service remain planned; no stable release is claimed.
+> **Project status:** development-stage provider contracts, core discovery/selection, a registered [DOCX generation provider](nuaforma-docx/README.md) and a [restricted template language](nuaforma-template/README.md). Embedded Kotlin/Java 17 applications can generate DOCX with split-run placeholders, inline and paragraph/row conditions and scoped repeats while preserving native Word structures, including supported text boxes and selected fonts. Optional supplied-font validation and embedding follow technical font permissions; requested DOCX text watermarks support color, opacity and rotation. The module guide defines supported profiles and fixture-specific visual checks. PDF conversion, watermark preservation in PDF, REST and a runnable service remain planned; no stable release is claimed.
 
 ## The idea
 
@@ -45,7 +45,7 @@ syntax is specified in the [template language guide](nuaforma-template/README.md
 - **Conditional content:** include, omit, or select blocks using understandable
   template rules.
 - **Repeated content:** generate rows or sections from collections.
-- **Optional watermarks:** add configurable text such as `CONCEPT` to every page of DOCX and PDF output without shifting the document layout.
+- **Optional watermarks:** use the same placeholders, conditions, repetitions and formatting as document content in configurable text such as `CONCEPT — {customer.name}`. DOCX placement is implemented; preservation in PDF remains planned.
 - **Multiple output formats:** target PDF, Microsoft Word (DOCX), and
   OpenDocument Text (ODT, used by LibreOffice and OpenOffice).
 - **PDF profiles:** explore archival output such as PDF/A, with conformance

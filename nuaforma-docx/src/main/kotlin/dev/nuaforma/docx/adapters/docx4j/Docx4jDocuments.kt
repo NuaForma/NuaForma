@@ -24,7 +24,8 @@ internal object Docx4jDocuments {
     fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext) {
         open(request.template, context) {
             WordFonts.apply(it, request, context)
-            WordTemplates(request.data, request.requirements.options, context).apply(it)
+            val watermark = WordTemplates(request.data, request.requirements.options, context).apply(it)
+            WordWatermarks(context).apply(it, watermark)
         }
             .use { it.writeTo(output) }
     }
@@ -74,6 +75,7 @@ internal object Docx4jDocuments {
             context.checkActive()
             try { transform(model) }
             catch (error: GenerationException) { throw error }
+            catch (_: JAXBException) { DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "DOCX structured transformation cannot be completed safely") }
             catch (_: RuntimeException) { DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "DOCX structure cannot be transformed safely; simplify the template") }
             context.checkActive()
             Document(model, context)
