@@ -19,7 +19,7 @@ From a simple letter to an agreement with conditional sections, NuaForma aims
 to make document automation accessible without locking users into a proprietary
 platform.
 
-> **Project status:** draft provider contracts, core discovery/selection, a [DOCX read/write facade](nuaforma-docx/README.md) and a [restricted text template language](nuaforma-template/README.md). The Kotlin/Java 17 multi-module build can discover, validate and select independently packaged providers. DOCX round-trip tests preserve an independently authored reference package. The language supports placeholders, inline conditions and scoped repeats over JSON-compatible data, but it is not applied to Word structures yet. No production format provider, REST API or runnable service is available. Document generation capabilities below remain planned.
+> **Project status:** development-stage provider contracts, core discovery/selection, a registered [DOCX generation provider](nuaforma-docx/README.md) and a [restricted template language](nuaforma-template/README.md). Embedded Kotlin/Java 17 applications can generate DOCX with split-run placeholders, inline and paragraph/row conditions and scoped repeats while preserving native Word structures. The module guide defines the supported template profile and explicit limitations. Requested watermarks, supplied-font embedding, PDF conversion, REST and a runnable service remain planned; no stable release is claimed.
 
 ## The idea
 
@@ -36,7 +36,7 @@ alternative sections, and repeat content for lists or tables.
 For example, an agreement could include one clause when `x == 1`, use another
 when `y == 1`, and omit a section when neither condition applies. The template
 defines those choices; the input data determines the result. The template
-syntax is specified in the [template language guide](nuaforma-template/README.md); Word integration remains a subsequent milestone.
+syntax is specified in the [template language guide](nuaforma-template/README.md); the [DOCX guide](nuaforma-docx/README.md) explains structural markers and formatting rules.
 
 ## Planned capabilities
 

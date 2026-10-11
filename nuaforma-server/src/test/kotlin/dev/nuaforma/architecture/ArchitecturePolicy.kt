@@ -127,7 +127,7 @@ internal class ArchitecturePolicy {
             dependency.description.contains("annotated with")
 
     private fun platform(type: JavaClass) = type.isPrimitive || inside(type.packageName, "java") || inside(type.packageName, "kotlin") ||
-        inside(type.packageName, "javax.xml.stream")
+        inside(type.packageName, "javax.xml.stream") || type.name == "javax.xml.namespace.QName"
     private fun visible(modifiers: Set<JavaModifier>) = JavaModifier.PUBLIC in modifiers || JavaModifier.PROTECTED in modifiers
     private fun baseType(type: JavaClass): JavaClass = if (type.isArray) baseType(type.componentType) else type
     private fun inside(value: String, namespace: String) = value == namespace || value.startsWith("$namespace.")

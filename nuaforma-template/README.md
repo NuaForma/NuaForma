@@ -84,6 +84,14 @@ Existing `GenerationLimits` govern template UTF-8 bytes at compilation, output/e
 
 Nested repeats count every visited element, including repetitions with empty bodies; all output, including literal text, consumes the byte budget. Reuse with a lower depth budget is checked again at rendering. Compilation and rendering regularly check activity. Limits are cooperative and do not forcibly interrupt blocking host callbacks or guarantee a process heap ceiling; process isolation remains a separate hosting responsibility. Failures return no success-shaped partial text.
 
+## Structural template sessions
+
+`TemplateSession.open(data, options, context)` snapshots data once for one generation. `test(expression)` evaluates a strict boolean condition. `branch()` enters its structural body without changing bindings. `repeat(expression, alias)` returns child sessions with local aliases and `loop` metadata; all sessions share cumulative output, operation and repetition budgets. Structural nesting and inline expression/block nesting consume the same depth budget. Sessions are not thread-safe and must not be shared across generations.
+
+`expand(source)` returns immutable, ordered `TemplateFragment` values instead of flattening formatting. UTF-16 `sourceStart`/`sourceEnd` offsets identify the original literal span or complete placeholder. Literal fragments retain their original run formatting; substitutions use the opening marker's formatting. Escaped brace fragments may be shorter than their source span. Repetition may emit the same source range more than once, so consumers must honor fragment order, not sort by offset. Inserted data is literal even when it contains braces.
+
+`validate(source)` and `validateExpression(expression)` check syntax without accessing missing data or consuming output. Format adapters use them to validate unselected structural branches. This facade adds no document-library dependency and leaves the compiled text API unchanged.
+
 ## Executable specification
 
 ```sh

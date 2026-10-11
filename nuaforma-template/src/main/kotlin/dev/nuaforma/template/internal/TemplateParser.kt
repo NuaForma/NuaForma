@@ -8,8 +8,8 @@ import java.text.DecimalFormatSymbols
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-internal class TemplateParser(private val source: String, private val context: GenerationContext) {
-    private data class Marker(val text: String, val offset: Int, val contentOffset: Int)
+internal class TemplateParser(private val source: String, private val context: GenerationContext, private val captureSpans: Boolean = false) {
+    private data class Marker(val text: String, val offset: Int, val contentOffset: Int, val end: Int)
     private var cursor = 0
     private var nodes = 0
     private var maxDepth = 1
@@ -28,15 +28,24 @@ internal class TemplateParser(private val source: String, private val context: G
         maxDepth = maxOf(maxDepth, depth)
         val result = mutableListOf<Node>()
         val literal = StringBuilder()
+        var literalStart = cursor
         fun add(node: Node) { if (++nodes > Safety.MAX_NODES) Safety.limit(); result.add(node) }
-        fun flush() { if (literal.isNotEmpty()) { add(Node.Text(literal.toString())); literal.setLength(0) } }
+        fun flush() { if (literal.isNotEmpty()) { add(Node.Text(literal.toString(), literalStart, cursor)); literal.setLength(0) } }
         while (cursor < source.length) {
             if (cursor % 1024 == 0) context.checkActive()
             when {
-                source.startsWith("{{", cursor) -> { literal.append('{'); cursor += 2 }
-                source.startsWith("}}", cursor) -> { literal.append('}'); cursor += 2 }
+                source.startsWith("{{", cursor) -> {
+                    if (captureSpans) { flush(); add(Node.Text("{", cursor, cursor + 2)) }
+                    else { if (literal.isEmpty()) literalStart = cursor; literal.append('{') }
+                    cursor += 2
+                }
+                source.startsWith("}}", cursor) -> {
+                    if (captureSpans) { flush(); add(Node.Text("}", cursor, cursor + 2)) }
+                    else { if (literal.isEmpty()) literalStart = cursor; literal.append('}') }
+                    cursor += 2
+                }
                 source[cursor] == '}' -> Safety.invalid(cursor)
-                source[cursor] != '{' -> literal.append(source[cursor++])
+                source[cursor] != '{' -> { if (literal.isEmpty()) literalStart = cursor; literal.append(source[cursor++]) }
                 else -> {
                     flush()
                     val marker = marker()
@@ -67,7 +76,7 @@ internal class TemplateParser(private val source: String, private val context: G
                             val pipe = formatPosition(marker.text)
                             val value = if (pipe < 0) marker.text else marker.text.substring(0, pipe)
                             val format = if (pipe < 0) null else format(marker.text.substring(pipe + 1), marker.offset)
-                            add(Node.Value(expression(value, marker.contentOffset, depth), format, marker.offset))
+                            add(Node.Value(expression(value, marker.contentOffset, depth), format, marker.offset, marker.end))
                         }
                     }
                 }
@@ -98,7 +107,7 @@ internal class TemplateParser(private val source: String, private val context: G
             if (!quoted && character == '}') {
                 val raw = source.substring(start, cursor - 1)
                 val leading = raw.indexOfFirst { !it.isWhitespace() }.coerceAtLeast(0)
-                return Marker(raw.trim(), offset, start + leading)
+                return Marker(raw.trim(), offset, start + leading, cursor)
             }
             if (!quoted && character == '{') Safety.invalid(offset)
         }

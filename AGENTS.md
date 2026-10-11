@@ -24,8 +24,8 @@ Implement only the requested milestone within the scope defined in [ARCHITECTURE
 - Use Gradle with Kotlin DSL (`build.gradle.kts` and `settings.gradle.kts`) as the production build system. Keep the build straightforward; do not introduce custom build logic without a concrete need.
 - Check in the Gradle Wrapper with a pinned Gradle version when the build is created, and use it for builds and tests. Do not rely on a workstation-specific global Gradle installation.
 - Preserve the Unix executable bit for `gradlew` when preparing a commit; its Git file mode must be `100755`. Do not stage it merely to change this mode without authorization to stage or commit.
-- The Gradle build, six modules, initial public provider contracts, core provider discovery/selection and restricted text template language exist. The APIs are a development draft, not a stable release. Production format providers, Word template processing, REST endpoints and PDF conversion are not implemented yet; do not present planned capabilities as available features.
-- The DOCX module has a read/write facade with isolated docx4j state and an independently authored round-trip fixture. It is not a registered generation provider or a template processor. See its module README for the supported input profile, lifecycle, limits and verified fidelity scope.
+- The Gradle build, six modules, initial public provider contracts, core provider discovery/selection, restricted template language and DOCX-to-DOCX generation exist. The APIs are a development draft, not a stable release. REST endpoints and PDF conversion are not implemented yet; do not present planned capabilities as available features.
+- The DOCX module has a registered DOCX-to-DOCX generation provider and a separate unchanged round-trip facade, both with isolated docx4j state. See its module README for the supported structural template profile, formatting policy, lifecycle, limits and verified fidelity scope. PDF conversion, requested watermarks and REST remain unimplemented.
 - If CLAUDE.md or another agent entry-point file is introduced, make it a pointer to AGENTS.md rather than a second copy of the rules.
 
 ## Build and verification commands
@@ -40,7 +40,7 @@ Use the checked-in Gradle Wrapper from the repository root. The commands below u
 - DOCX facade and round-trip integration tests: `./gradlew :nuaforma-docx:test`. The synthetic before/after reference files are generated under the module's ignored `build/docx-reference` directory; render them only after the build finishes.
 - Format-independent language specification and executable examples: `nuaforma-template/README.md` and `./gradlew :nuaforma-template:test`. This module must not depend on core, server or a document library.
 - Local publication metadata: `./gradlew generatePomFileForMavenJavaPublication`.
-- API contract generation and Word template-processing integration tests do not exist yet. Add their actual commands when those features are implemented; do not invent placeholder tasks.
+- Word template-processing integration tests run with `./gradlew :nuaforma-docx:test`; real provider discovery and concurrent generation through core run with `./gradlew :nuaforma-server:test --tests dev.nuaforma.DocxEngineTest`. API specification generation does not exist yet.
 
 The dependency versions live in `gradle/libs.versions.toml`; resolved module dependencies are locked in each subproject's `gradle.lockfile`. Update locks deliberately using `--write-locks` with the affected verification commands and review the resulting changes. Do not regenerate locks as a routine build step.
 

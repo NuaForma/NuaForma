@@ -110,8 +110,8 @@ tasks.register("verifyBuildStructure") {
             ":nuaforma-contracts" to setOf(":nuaforma-contracts"),
             ":nuaforma-core" to setOf(":nuaforma-core", ":nuaforma-contracts"),
             ":nuaforma-template" to setOf(":nuaforma-template", ":nuaforma-contracts"),
-            ":nuaforma-docx" to setOf(":nuaforma-docx", ":nuaforma-contracts"),
-            ":nuaforma-docx-pdf" to setOf(":nuaforma-docx-pdf", ":nuaforma-docx", ":nuaforma-contracts"),
+            ":nuaforma-docx" to setOf(":nuaforma-docx", ":nuaforma-contracts", ":nuaforma-template"),
+            ":nuaforma-docx-pdf" to setOf(":nuaforma-docx-pdf", ":nuaforma-docx", ":nuaforma-contracts", ":nuaforma-template"),
             ":nuaforma-server" to subprojects.map { it.path }.toSet(),
         )
         subprojects.forEach { module ->

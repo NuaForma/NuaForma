@@ -3,6 +3,7 @@ package dev.nuaforma.docx.adapters.docx4j
 import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.contracts.GenerationException
+import dev.nuaforma.contracts.GenerationRequest
 import dev.nuaforma.docx.DocxDocument
 import dev.nuaforma.docx.internal.BoundedStreams
 import dev.nuaforma.docx.internal.DocxFailure
@@ -19,7 +20,12 @@ import javax.xml.stream.XMLInputFactory
 import javax.xml.stream.XMLStreamException
 
 internal object Docx4jDocuments {
-    fun open(input: InputStream, context: GenerationContext): DocxDocument {
+    fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext) {
+        open(request.template, context) { WordTemplates(request.data, request.requirements.options, context).apply(it) }
+            .use { it.writeTo(output) }
+    }
+
+    fun open(input: InputStream, context: GenerationContext, transform: (WordprocessingMLPackage) -> Unit = {}): DocxDocument {
         context.checkActive()
         val spool = Files.createTempFile("nuaforma-docx-input-", ".zip")
         try {
@@ -61,6 +67,10 @@ internal object Docx4jDocuments {
             } catch (_: IllegalArgumentException) {
                 DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "DOCX contains an invalid structured value; repair the document")
             }
+            context.checkActive()
+            try { transform(model) }
+            catch (error: GenerationException) { throw error }
+            catch (_: RuntimeException) { DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "DOCX structure cannot be transformed safely; simplify the template") }
             context.checkActive()
             return Document(model, context)
         } finally {
