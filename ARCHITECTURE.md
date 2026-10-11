@@ -156,6 +156,14 @@ A plausible but incorrect document may be worse than a failed request. Fail clea
 
 ## Architecture tests
 
+The repository-wide suite is test-only code under `nuaforma-server/src/test/kotlin/dev/nuaforma/architecture`, because the server test runtime already includes all five production modules. Gradle supplies each module's actual main class directories, tracks them as test inputs and builds all production classes before testing. The suite verifies module/package ownership, dependency direction, cross-component public API access, external adapter ownership, public signature leakage and component cycles. Empty scaffolds are explicitly included in the module inventory; contracts/core imports must not be empty. No test dependency is added to production artifacts.
+
+Kotlin visibility is read without class initialization using the existing Kotlin reflection component at test scope. JVM-public Kotlin `internal` types are not public component APIs. `internal`, `adapters` and core's `discovery` packages remain implementation boundaries even when their JVM classes are public. Compiler-generated file facades and synthetic holders are not exported entry points; introducing top-level cross-component APIs needs an explicit policy decision rather than a blanket exception.
+
+External dependencies are denied by default. The initial namespace policy assigns `org.docx4j` and `jakarta.xml.bind` exclusively to `dev.nuaforma.docx.adapters.docx4j`; this is a test policy, not adoption of those production libraries. Any later external library needs an explicit namespace-to-owner mapping and dependency review. JDK and Kotlin platform types remain allowed; JetBrains `NotNull`/`Nullable` are allowed only as compiler annotation dependencies, not arbitrary API types.
+
+The same ArchUnit conditions run against independently compiled synthetic Java fixtures with passing and deliberately violating examples. Public signatures include fields, constructors, parameters, return types, exceptions, inheritance, interfaces and nested generic/array/bound types. Static bytecode checks do not establish reflection safety, renderer isolation, behavioral contract compatibility or document fidelity; keep the integration and visual tests described below.
+
 - Run ArchUnit rules as part of the normal test/build workflow. Inspect production classes across module boundaries, not only the classes of one module in isolation.
 - Enforce the agreed dependency direction: contracts know no core, server or format implementations; core knows contracts but no concrete providers; format providers know contracts but no core or server; server uses the public engine API rather than internal processing packages.
 - Prevent cyclic dependencies and access to another component's internal packages. Define boundaries by architectural component, not a blanket prohibition on communication between every nested package.

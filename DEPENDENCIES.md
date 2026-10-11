@@ -18,6 +18,8 @@ The [Kotlin release history](https://kotlinlang.org/docs/releases.html), [MockK 
 
 ## Distribution boundaries
 
+The repository architecture tests explicitly use Kotlin reflection at test compile/runtime scope to read Kotlin visibility without initializing production classes. This is the same pinned Kotlin component already present transitively through MockK at test runtime, not a new version or production dependency.
+
 The initial production module graph contains NuaForma project dependencies, Kotlin's standard library and its transitive JetBrains annotations. The Kotlin BOM aligns runtime Kotlin components, but does not override the compiler's private tool dependencies. Test libraries, their mocking agents and ArchUnit's bundled analysis libraries must not appear in published library runtime dependencies. `verifyBuildStructure` checks this boundary during the build; generated Maven POMs make dependency scopes reviewable.
 
 JUnit's EPL-2.0 license applies to the test tooling, not to NuaForma's production code. It is not bundled into production JARs. Any later redistribution of test tools must carry their own required licenses and notices. Likewise, Gradle, Kotlin and other dependencies retain their own licensing obligations; Apache-2.0 on NuaForma does not replace them. Library JAR tasks include NuaForma's LICENSE without shading third-party classes.

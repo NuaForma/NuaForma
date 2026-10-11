@@ -35,6 +35,7 @@ Use the checked-in Gradle Wrapper from the repository root. The commands below u
 - All current tests: `./gradlew test`.
 - One test: `./gradlew :nuaforma-core:test --tests dev.nuaforma.core.TestStackTest`.
 - Scaffold dependency checks: `./gradlew verifyBuildStructure` (also included in `check` and `build`).
+- Repository architecture rules and violating fixtures: `./gradlew :nuaforma-server:test --tests 'dev.nuaforma.architecture.*'` (also included in normal `test` and `build`).
 - Local publication metadata: `./gradlew generatePomFileForMavenJavaPublication`.
 - API contract generation and document integration tests do not exist yet. Add their actual commands when those features are implemented; do not invent placeholder tasks.
 
