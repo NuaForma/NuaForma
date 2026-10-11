@@ -19,3 +19,9 @@ Runtime coordinates and exact resolved versions are recorded in the module lockf
 Licenses were checked against the pinned Maven POMs (including parent inheritance) and upstream artifact license material. For JAXB, see the [reference implementation license](https://github.com/eclipse-ee4j/jaxb-ri/blob/master/LICENSE.md) and [API license](https://github.com/jakartaee/jaxb-api/blob/main/LICENSE.md). EDL is a permissive distribution license, distinct from EPL. Preserve the actual artifact notices rather than using this summary as replacement license text.
 
 No PDF converter, Office automation dependency, server framework, log implementation or paid docx4j component is added. Local Word rendering of synthetic fixtures is an optional fidelity check only and does not form part of NuaForma's runtime or distributable dependencies.
+
+## Barcode verification assets and tools
+
+DOCX tests include the unmodified Libre Barcode 39 font under SIL Open Font License 1.1, with its upstream copyright and license in `nuaforma-docx/src/test/resources/fonts/OFL.txt`. The adjacent README records its pinned source and checksum. It is not included in production JARs or installed by NuaForma. Font licenses remain independent of the engine license; callers are responsible for their font usage rights. The engine follows technical OpenType embedding permissions without requiring license evidence or an additional consent declaration.
+
+Optional local scan verification uses ZXing-C++ 3.1.1, Apache-2.0 licensed, through its Python wheel with no additional runtime requirements declared. This tool is not a Gradle, CI or production dependency. The reviewed [upstream license](https://github.com/zxing-cpp/zxing-cpp/blob/v3.1.1/LICENSE) and [release](https://github.com/zxing-cpp/zxing-cpp/releases/tag/v3.1.1) belong to that tool, not to the font. The independently published wheel is checksum-verified before local installation into ignored QA storage.

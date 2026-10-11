@@ -2,7 +2,7 @@
 
 Development-stage DOCX generation and round-trip processing for Kotlin and Java 17. The implementation edits an isolated native Word model, not a document rebuilt from extracted text. All docx4j and JAXB types remain under `dev.nuaforma.docx.adapters.docx4j`; consumers see only NuaForma's facade and contract types.
 
-The registered `DocxProvider` reads DOCX and writes DOCX using the [restricted template language](../nuaforma-template/README.md). New watermarks, supplied-font embedding, PDF conversion and REST endpoints are not implemented. Unsupported explicit options and resource injection fail rather than being ignored. `DocxDocuments.open` remains a round-trip facade: it does not evaluate placeholders.
+The registered `DocxProvider` reads DOCX and writes DOCX using the [restricted template language](../nuaforma-template/README.md), with optional validation and embedding of supplied fonts. New watermarks, PDF conversion and REST endpoints are not implemented. Unsupported explicit options and undeclared resources fail rather than being ignored. `DocxDocuments.open` remains a round-trip facade: it does not evaluate placeholders or process supplied fonts.
 
 ## Generation through the engine
 
@@ -38,9 +38,35 @@ Group {group.name}
 
 Deleting all contents of a cell leaves a required empty paragraph. Removing every row from a table fails; wrap the entire table in a paragraph-level condition instead. Block marker paragraphs cannot carry section breaks. Dynamic elements must contain complete bookmark ranges; bookmarks spanning distinct dynamic paragraphs/rows fail. Dynamic bookmarks with incoming links from outside their element, or in documents containing bookmark-reference fields, are rejected to avoid detached references. Repeated bookmark names/IDs, paragraph/drawing extension IDs, drawing IDs and supported VML shape IDs are renewed; existing same-part image relationships are reused. Dynamic annotation/permission ranges, section breaks and vertical merges, and repeated fields, note references, tracked changes and content controls are rejected rather than blindly copied. Only basic VML `CTShape` objects without Office-specific `spid` identifiers can be repeated yet.
 
-Traversal includes body, headers, footers and supported legacy VML and modern DrawingML text boxes, including the rotated margin reference. It does not evaluate document metadata, field instructions, comments or footnotes/endnotes. Unsupported Word extensions are not a promise of arbitrary template support. Font-based barcodes remain text; this milestone does not establish barcode encoding, availability or scanability.
+Traversal includes body, headers, footers and supported legacy VML and modern DrawingML text boxes, including the rotated margin reference. It does not evaluate document metadata, field instructions, comments or footnotes/endnotes. Unsupported Word extensions are not a promise of arbitrary template support. Font-based barcodes remain text: the template owns encoding and font choice, and replacement does not add start/stop characters or uppercase values. See the font policy and fixture-specific scan verification below.
 
 All supported syntax is validated before generation, including unselected branches. One template session shares local scopes and cumulative expression/output/repetition budgets across the document. Structural markers have the same 4096-character ceiling as inline markers. DOCX traversal additionally has conservative ceilings of 128 structure levels and 1,000,000 processing visits across validation and expansion. No consumer business schema or executable expression language is introduced.
+
+## Supplied fonts
+
+Output option `fontMode` defaults to `preserve`: retain the template's font names, sizes and styling without looking up fonts on the engine host. This does not guarantee that a viewer has those fonts; the viewer's own substitution policy still applies. The engine never installs fonts, resolves host font directories or uses a global font cache.
+
+`validate` checks caller-supplied font metadata against the template's declared font families without embedding them. `embed` performs those checks and embeds the complete supplied font faces in the DOCX. Declare fonts in output option `fonts`, using `family`, logical `resource` ID and optional `face` (`regular`, `bold`, `italic` or `boldItalic`; default `regular`). Supply their bytes through `GenerationRequest.resources`. Resource IDs are not filesystem paths or URLs. Missing and unused resources fail. `preserve` does not accept supplied-font declarations.
+
+```kotlin
+val outputFormat = FormatRequest(DocumentFormat.DOCX, mapOf(
+    "fontMode" to "embed",
+    "fonts" to listOf(mapOf(
+        "family" to "Libre Barcode 39",
+        "face" to "regular",
+        "resource" to "barcode-font",
+    )),
+))
+// Provide ResourceSource { ... } under "barcode-font" in GenerationRequest.resources.
+```
+
+Strict validation and embedding currently require explicit `ascii` and `hAnsi` document-default fonts and a supplied regular face for every explicitly declared family, including styles, numbering, headers/footers and unused branches. Theme-based font resolution, implicit host defaults and VML text-path fonts fail explicitly in these modes; ordinary text boxes are supported. Optional additional faces are validated and embedded as declared. This is conservative family/face metadata checking, not complete effective-style resolution, glyph coverage validation or a guarantee against every viewer's substitution. These strict-mode restrictions do not change default preservation.
+
+Supported font resources are standalone TrueType/OpenType sfnt files with Unicode family names and a supported OS/2 table. Collections, WOFF and other containers are not supported. Metadata inspection is bounded, not a complete font validator or a font renderer. Limits are 64 family/face declarations, 16 MiB per resource, 64 MiB aggregate resources (also bounded by `maxExpandedBytes`) and 128 declared template families. Cancellation and byte budgets apply while inspecting and embedding; provider-owned resource streams are closed. Existing embedded faces are preserved by default; explicitly replacing one is not supported.
+
+Embedding follows the versioned OpenType `OS/2.fsType` permissions. Editable DOCX output accepts installable or editable embedding, rejects restricted or preview/print-only embedding and, where applicable, bitmap-only embedding. No-subsetting permissions are satisfied by embedding the entire font. Reserved flags and legacy versions follow the specification; the bytes and permission flags are never rewritten to bypass restrictions. `validate` does not embed and therefore does not reject a font merely for restricting embedding. The caller remains responsible for usage rights; NuaForma requires no license evidence or additional consent declaration.
+
+For basic Code 39, a template can render `*{reference}*` in its chosen barcode font. The asterisks belong to that barcode encoding, not NuaForma's expression syntax. Input must already conform to the selected encoding. Correct text replacement alone does not establish scanability, which also depends on the font, size, placement, quiet zone and reader.
 
 ## Embedded use
 
@@ -87,3 +113,7 @@ Run visual comparison only after the build has finished, so the renderer cannot 
 Local verification on 2026-10-11 used Microsoft Word 16.0.20430.20146's PDF export and Poppler at 120 DPI for this synthetic reference only. Both pages were inspected before and after the round trip; each corresponding PNG was byte-identical. This is evidence for this fixture in that renderer, not a guarantee for all Word documents or other renderers. Microsoft Office is not a NuaForma runtime, build or CI dependency.
 
 Generation verification used that same renderer and resolution for a replacement reference and a nested-block/row-repeat reference. Each has two pages. All eight expected/generated page images were inspected; each generated page was byte-identical to its independently authored expected page image. Header/footer positions, mixed formatting, numbering, image, section geometry and text-box layout were retained, with no clipping, overlap or unintended blank pages in these fixtures. This does not claim identical pagination in other renderers or barcode scanability.
+
+Font verification on 2026-10-11 used the same Word renderer, Poppler at 300 DPI and the independent ZXing-C++ 3.1.1 Code 39 decoder, solely as local QA tools. `DocxFontsTest` reproducibly authors the inputs and independent literal expected content under ignored `build/font-reference`; the pinned Libre Barcode 39 test asset and its license are in `src/test/resources/fonts`. All nine expected/generated, embedded and negative-control page images were inspected. Corresponding expected/generated pages were byte-identical, with the barcode in the lower right margin and its rotation unchanged. The decoder read `NF001` at an orientation of -90 degrees from the positive fixtures; an unframed Code 39 value did not decode.
+
+A renamed, checksum-correct QA derivative whose family was never installed also decoded when embedded and rendered identically to the original-font reference. The same document without embedding fell back to ordinary text and did not decode. This positive/negative pair verifies actual embedded-font use rather than accidentally relying on the installed font or a viewer's font-name cache. The derivative is generated only in ignored reference output; the committed font asset is unmodified. These results establish the selected fixture/font/renderer combination, not arbitrary fonts or documents. Optional decoder/font registration is not part of the build, CI or production runtime.

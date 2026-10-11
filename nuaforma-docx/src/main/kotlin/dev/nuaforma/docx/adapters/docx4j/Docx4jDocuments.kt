@@ -21,7 +21,10 @@ import javax.xml.stream.XMLStreamException
 
 internal object Docx4jDocuments {
     fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext) {
-        open(request.template, context) { WordTemplates(request.data, request.requirements.options, context).apply(it) }
+        open(request.template, context) {
+            WordFonts.apply(it, request, context)
+            WordTemplates(request.data, request.requirements.options, context).apply(it)
+        }
             .use { it.writeTo(output) }
     }
 
