@@ -1,3 +1,11 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/branding/nuaforma-dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="assets/branding/nuaforma-light.png">
+    <img src="assets/branding/nuaforma-light.png" alt="NuaForma — rounded teal and navy N logo" width="320">
+  </picture>
+</p>
+
 # NuaForma
 
 **Turn templates and structured data into documents.**
