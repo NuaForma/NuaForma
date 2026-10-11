@@ -23,12 +23,22 @@ Implement only the requested milestone within the scope defined in [ARCHITECTURE
 - Describe setup and build requirements independently of a particular operating system, shell, workstation path or virtualization environment. Machine-specific execution instructions belong exclusively in `AGENTS.local.md`.
 - Use Gradle with Kotlin DSL (`build.gradle.kts` and `settings.gradle.kts`) as the production build system. Keep the build straightforward; do not introduce custom build logic without a concrete need.
 - Check in the Gradle Wrapper with a pinned Gradle version when the build is created, and use it for builds and tests. Do not rely on a workstation-specific global Gradle installation.
-- The production build and module directories are not established yet. Do not present proposed build commands, module paths or dependencies as existing repository features.
+- Preserve the Unix executable bit for `gradlew` when preparing a commit; its Git file mode must be `100755`. Do not stage it merely to change this mode without authorization to stage or commit.
+- The Gradle build and five module scaffolds exist. Document generation, provider contracts, REST endpoints and PDF conversion are not implemented yet; do not present planned capabilities as available features.
 - If CLAUDE.md or another agent entry-point file is introduced, make it a pointer to AGENTS.md rather than a second copy of the rules.
 
 ## Build and verification commands
 
-When the production build is established, update this section in the same change with the actual commands for the full build, all tests, a single test, API contract generation and integration tests. Until then, there is no production build command to run.
+Use the checked-in Gradle Wrapper from the repository root. The commands below use the Unix launcher; Windows environments can use the corresponding `gradlew.bat` launcher unless local instructions require a different environment.
+
+- Full build: `./gradlew build`.
+- All current tests: `./gradlew test`.
+- One test: `./gradlew :nuaforma-core:test --tests dev.nuaforma.core.TestStackTest`.
+- Scaffold dependency checks: `./gradlew verifyBuildStructure` (also included in `check` and `build`).
+- Local publication metadata: `./gradlew generatePomFileForMavenJavaPublication`.
+- API contract generation and document integration tests do not exist yet. Add their actual commands when those features are implemented; do not invent placeholder tasks.
+
+The dependency versions live in `gradle/libs.versions.toml`; resolved module dependencies are locked in each subproject's `gradle.lockfile`. Update locks deliberately using `--write-locks` with the affected verification commands and review the resulting changes. Do not regenerate locks as a routine build step.
 
 Gradle with Kotlin DSL is the selected build system. Compile and test using a Java 17 toolchain. Use the checked-in Gradle Wrapper appropriate to the supported environment; workstation-specific execution instructions remain in `AGENTS.local.md`.
 

@@ -14,3 +14,12 @@ Desktop.ini
 # Local design explorations and generated previews
 # Publish selected branding assets separately when ready.
 /output/
+
+# Gradle and Kotlin build output
+.gradle/
+.kotlin/
+build/
+
+# IDE-local configuration
+.idea/
+*.iml
