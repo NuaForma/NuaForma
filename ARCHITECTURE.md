@@ -98,6 +98,8 @@ The Gradle subprojects are `nuaforma-contracts`, `nuaforma-core`, `nuaforma-docx
 - Treat the expression language as a deliberately restricted document language, not arbitrary Kotlin, Java, OGNL or script execution.
 - Allow only explicitly specified operations. No reflection, class loading, constructor calls, unrestricted method invocation, filesystem access, network access or runtime evaluation of user code.
 - Model scopes explicitly for nested objects, collection aliases, conditions and repetitions. Do not mutate caller data during rendering.
+- All supplied `data` fields, including nested objects and collection elements, are accessible to placeholders, conditions and repetitions. Do not introduce field allowlists, restricted data paths or per-field access policies. The caller is responsible for supplying only data the template is permitted to use and potentially include in the generated document.
+- Full access to supplied `data` does not grant access to authentication details, transport metadata, other requests or host resources. Keep the expression-language operation restrictions and request isolation in force.
 - Define and test missing values, explicit nulls, empty collections, type mismatches and formatting rules. Do not silently coerce an object or list into printable text.
 - Distinguish literal braces in inserted data from template syntax. Inserted values must not become new expressions through accidental recursive evaluation.
 - Keep template authors' syntax understandable. Conditions must support complete sentences without forcing paragraph breaks or changing the formatting of unaffected text.
