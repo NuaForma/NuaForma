@@ -24,7 +24,7 @@ Implement only the requested milestone within the scope defined in [ARCHITECTURE
 - Use Gradle with Kotlin DSL (`build.gradle.kts` and `settings.gradle.kts`) as the production build system. Keep the build straightforward; do not introduce custom build logic without a concrete need.
 - Check in the Gradle Wrapper with a pinned Gradle version when the build is created, and use it for builds and tests. Do not rely on a workstation-specific global Gradle installation.
 - Preserve the Unix executable bit for `gradlew` when preparing a commit; its Git file mode must be `100755`. Do not stage it merely to change this mode without authorization to stage or commit.
-- The Gradle build and five module scaffolds exist. Document generation, provider contracts, REST endpoints and PDF conversion are not implemented yet; do not present planned capabilities as available features.
+- The Gradle build, five modules and initial public provider contracts exist. The contracts are a development draft, not a stable release. Document generation, provider discovery, REST endpoints and PDF conversion are not implemented yet; do not present planned capabilities as available features.
 - If CLAUDE.md or another agent entry-point file is introduced, make it a pointer to AGENTS.md rather than a second copy of the rules.
 
 ## Build and verification commands
