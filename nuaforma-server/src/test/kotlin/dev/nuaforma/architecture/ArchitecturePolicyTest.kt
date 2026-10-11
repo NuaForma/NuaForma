@@ -22,7 +22,7 @@ class ArchitecturePolicyTest {
 
     @BeforeAll
     fun compileFixtures(@TempDir directory: Path) {
-        // Synthetic namespace stubs exercise bytecode boundaries; no vendor library is installed or executed.
+        // Synthetic namespace stubs exercise bytecode boundaries independently of the actual vendor classes.
         val definitions = linkedMapOf(
             "org.docx4j.ProbeWidget" to "public class ProbeWidget { public String text() { return \"fixture\"; } }",
             "org.docx4j.ProbeException" to "public class ProbeException extends Exception {}",
@@ -40,6 +40,8 @@ class ArchitecturePolicyTest {
             "dev.nuaforma.server.ProbeKotlinInternal" to "public class ProbeKotlinInternal { private dev.nuaforma.core.ProviderDiscovery value; }",
             "dev.nuaforma.docx.ProbeDirectCall" to "public class ProbeDirectCall { public void call() { new org.docx4j.ProbeWidget().text(); } }",
             "dev.nuaforma.docx.ProbeDirectSignature" to "public class ProbeDirectSignature { private org.docx4j.ProbeWidget value; }",
+            "dev.nuaforma.docx.ProbeDirectJaxb" to "public class ProbeDirectJaxb { private jakarta.xml.bind.ProbeNode value; }",
+            "dev.nuaforma.docx.adapters.docx4j.ProbeJdkXml" to "public class ProbeJdkXml { private javax.xml.stream.XMLInputFactory factory; }",
             "dev.nuaforma.docx.ProbeExternalInheritance" to "public class ProbeExternalInheritance extends org.docx4j.ProbeWidget {}",
             "dev.nuaforma.docx.adapters.other.ProbeWrongAdapter" to "public class ProbeWrongAdapter { private org.docx4j.ProbeWidget value; }",
             "dev.nuaforma.core.adapters.docx4j.ProbeWrongOwner" to "public class ProbeWrongOwner { private org.docx4j.ProbeWidget value; }",
@@ -86,6 +88,7 @@ class ArchitecturePolicyTest {
         "internal-access,dev.nuaforma.server.ProbeKotlinInternal",
         "adapters,dev.nuaforma.docx.ProbeDirectCall",
         "adapters,dev.nuaforma.docx.ProbeDirectSignature",
+        "adapters,dev.nuaforma.docx.ProbeDirectJaxb",
         "adapters,dev.nuaforma.docx.ProbeExternalInheritance",
         "adapters,dev.nuaforma.docx.adapters.other.ProbeWrongAdapter",
         "adapters,dev.nuaforma.core.adapters.docx4j.ProbeWrongOwner",
@@ -122,6 +125,7 @@ class ArchitecturePolicyTest {
             "dev.nuaforma.docx.adapters.docx4j.ProbeCorrectAdapter", "dev.nuaforma.docx.ProbeCleanFacade",
             "dev.nuaforma.docx.pdf.ProbeReuse", "dev.nuaforma.server.ProbeServerApi",
             "dev.nuaforma.core.ProbeOwnInternal", "dev.nuaforma.docx.ProbeSibling",
+            "dev.nuaforma.docx.adapters.docx4j.ProbeJdkXml",
         )
         ArchitecturePolicy.RULES.forEach { ArchitecturePolicy().rule(it, permitted).check(fixtures) }
     }

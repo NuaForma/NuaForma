@@ -19,7 +19,7 @@ From a simple letter to an agreement with conditional sections, NuaForma aims
 to make document automation accessible without locking users into a proprietary
 platform.
 
-> **Project status:** draft provider contracts and core discovery/selection. The Kotlin/Java 17 multi-module build can discover, validate and select independently packaged providers. No production format provider, working template processor, REST API or runnable service is available yet. The document capabilities below are planned, not implemented.
+> **Project status:** draft provider contracts, core discovery/selection and a [DOCX read/write facade](nuaforma-docx/README.md). The Kotlin/Java 17 multi-module build can discover, validate and select independently packaged providers. DOCX round-trip tests preserve an independently authored reference package. No production format provider, working template processor, REST API or runnable service is available yet. The generation capabilities below remain planned.
 
 ## The idea
 
@@ -98,12 +98,13 @@ Install a JDK 17 and use the checked-in Gradle Wrapper; no global Gradle install
 ./gradlew :nuaforma-core:test --tests dev.nuaforma.core.TestStackTest
 ./gradlew verifyBuildStructure
 ./gradlew :nuaforma-server:test --tests 'dev.nuaforma.architecture.*'
+./gradlew :nuaforma-docx:test
 ./gradlew generatePomFileForMavenJavaPublication
 ```
 
-On Windows, use the corresponding `gradlew.bat` launcher. The four library modules have Maven publication metadata plus source and Javadoc JAR tasks; no remote publication destination is configured. The [contracts module](nuaforma-contracts/README.md) and [core module](nuaforma-core/README.md) contain development APIs usable from Java and Kotlin, not stable published APIs. Core supports local classpath discovery, explicit registration, deterministic selection and delegation to accepted providers. The format modules remain scaffolds. The server is a buildable module without an HTTP framework, entry point or service packaging.
+On Windows, use the corresponding `gradlew.bat` launcher. The four library modules have Maven publication metadata plus source and Javadoc JAR tasks; no remote publication destination is configured. The [contracts module](nuaforma-contracts/README.md), [core module](nuaforma-core/README.md) and [DOCX module](nuaforma-docx/README.md) contain development APIs usable from Java and Kotlin, not stable published APIs. Core supports local classpath discovery, explicit registration, deterministic selection and delegation to accepted providers. DOCX has a standalone read/write facade, not a registered template-processing provider; DOCX-to-PDF remains a scaffold. The server is a buildable module without an HTTP framework, entry point or service packaging.
 
-JUnit Jupiter runs the tests; MockK and ArchUnit are test-scoped. Tests verify Java 17 execution, Java/Kotlin API use, structured data, provider capability/option models, cancellation, stream ownership and static contract metadata. Core integration tests compile independent provider JARs and exercise actual ServiceLoader discovery, metadata validation before provider loading, selection and concurrent delegation. Repository-wide ArchUnit rules inspect main outputs from all five modules and enforce dependency direction, Kotlin/internal access, adapter ownership, public signature boundaries and component cycles, with independently compiled violating fixtures. The build also verifies runtime module dependencies and prevents test libraries from leaking into production dependencies. Real document integration tests and API contract generation belong to subsequent issues.
+JUnit Jupiter runs the tests; MockK and ArchUnit are test-scoped. Tests verify Java 17 execution, Java/Kotlin API use, structured data, provider capability/option models, cancellation, stream ownership and static contract metadata. Core integration tests compile independent provider JARs and exercise actual ServiceLoader discovery, metadata validation before provider loading, selection and concurrent delegation. Repository-wide ArchUnit rules inspect main outputs from all five modules and enforce dependency direction, Kotlin/internal access, adapter ownership, public signature boundaries and component cycles, with independently compiled violating fixtures. DOCX integration tests compare an independently authored package before/after a real docx4j round trip and cover invalid inputs, budgets, safe diagnostics, lifecycle and concurrent isolation. The build also verifies runtime module dependencies and prevents test libraries from leaking into production dependencies. Template-processing tests and API contract generation belong to subsequent issues.
 
 Dependency versions and review notes are in [DEPENDENCIES.md](DEPENDENCIES.md). Design boundaries are in [ARCHITECTURE.md](ARCHITECTURE.md); contributor instructions are in [AGENTS.md](AGENTS.md).
 
