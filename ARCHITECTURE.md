@@ -2,7 +2,7 @@
 
 NuaForma is an embeddable Kotlin/JVM document-generation engine with optional format modules and a thin REST service. This document is the source of truth for agreed architecture decisions and requirements; [AGENTS.md](AGENTS.md) contains agent workflow and development instructions.
 
-The Gradle build and initial public provider contracts exist; the decisions below describe intended product behavior, not implemented document-generation capabilities. The [contracts guide](nuaforma-contracts/README.md) describes the development API. Implement only the requested milestone and validate capabilities before documenting them as available. Workstation-specific instructions do not belong here.
+The Gradle build, initial public provider contracts and core provider discovery/selection exist; the decisions below describe intended product behavior, not implemented document-generation capabilities. The [contracts guide](nuaforma-contracts/README.md) and [core guide](nuaforma-core/README.md) describe the development APIs and discovery limitations. Implement only the requested milestone and validate capabilities before documenting them as available. Workstation-specific instructions do not belong here.
 
 ## Product direction and scope
 
@@ -32,7 +32,7 @@ Do not expand the implementation scope merely because a capability appears in th
 
 ## Module and dependency boundaries
 
-The Gradle subprojects are `nuaforma-contracts`, `nuaforma-core`, `nuaforma-docx`, `nuaforma-docx-pdf` and `nuaforma-server`. Initial public contracts exist as a development draft; runtime implementations are not established yet. The DOCX and DOCX-to-PDF modules belong to the early product scope, but their capabilities must not be advertised as available until implemented and verified.
+The Gradle subprojects are `nuaforma-contracts`, `nuaforma-core`, `nuaforma-docx`, `nuaforma-docx-pdf` and `nuaforma-server`. Initial public contracts and core provider discovery/selection exist as development drafts; production format providers are not implemented yet. The DOCX and DOCX-to-PDF modules belong to the early product scope, but their capabilities must not be advertised as available until implemented and verified.
 
 - `nuaforma-contracts`: separately published public interfaces and shared value types for providers, formats, generation options, results and diagnostics. Use the Kotlin/Java package `dev.nuaforma.contracts`. Keep it independent of core, server and concrete format implementations.
 - `nuaforma-core`: the format-independent engine that discovers providers, checks their compatibility and availability, selects a suitable provider and orchestrates generation through the contracts. No dependency on concrete format modules, HTTP frameworks, persistence systems or docx4j representation types.
@@ -81,7 +81,7 @@ The Gradle subprojects are `nuaforma-contracts`, `nuaforma-core`, `nuaforma-docx
 - Never silently accept a different contract major or an available minor below the provider's required minimum. Any future cross-major support requires an explicit compatibility policy and tests.
 - Expose the declared contract version as metadata that can be read **before provider instantiation**, not only through an instance method. Check compatibility before instantiating an incompatible provider; do not assume that catching a failure after construction is sufficient.
 - Design version metadata and discovery together: obtaining metadata must not initialize provider code. Identify malformed, missing or incompatible metadata with clear diagnostics; do not treat missing metadata as an automatic match.
-- The development descriptor is `META-INF/nuaforma/providers/<binary-implementation-class-name>.properties`, separate from standard `META-INF/services/dev.nuaforma.contracts.DocumentProvider` registration. It declares provider ID, implementation class, provider release version and required contract major/minor. Discovery must verify descriptor origin and class identity against the service registration before loading or instantiating provider code. Descriptor parsing exists; actual discovery and registration belong to the next milestone.
+- The development descriptor is `META-INF/nuaforma/providers/<binary-implementation-class-name>.properties`, separate from standard `META-INF/services/dev.nuaforma.contracts.DocumentProvider` registration. It declares provider ID, implementation class, provider release version and required contract major/minor. Discovery must verify descriptor origin and class identity against the service registration before loading or instantiating provider code. The initial core implementation supports local classpath JARs and class directories; other resource protocols and JPMS module-layer discovery are not supported yet.
 - Keep existing JVM provider interfaces and their contracts compatible throughout a contract's major family. Version metadata complements, but does not replace, source and binary compatibility checks and tests using independently built provider artifacts.
 
 ## Engine API and lifecycle

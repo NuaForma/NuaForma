@@ -19,7 +19,7 @@ From a simple letter to an agreement with conditional sections, NuaForma aims
 to make document automation accessible without locking users into a proprietary
 platform.
 
-> **Project status:** build foundation and draft provider contracts. The Kotlin/Java 17 multi-module build and initial public request/provider types are in place. No working generator, provider discovery, REST API or runnable service is available yet. The capabilities below are planned, not implemented.
+> **Project status:** draft provider contracts and core discovery/selection. The Kotlin/Java 17 multi-module build can discover, validate and select independently packaged providers. No production format provider, working template processor, REST API or runnable service is available yet. The document capabilities below are planned, not implemented.
 
 ## The idea
 
@@ -100,9 +100,9 @@ Install a JDK 17 and use the checked-in Gradle Wrapper; no global Gradle install
 ./gradlew generatePomFileForMavenJavaPublication
 ```
 
-On Windows, use the corresponding `gradlew.bat` launcher. The four library modules have Maven publication metadata plus source and Javadoc JAR tasks; no remote publication destination is configured. The [contracts module](nuaforma-contracts/README.md) contains development API types usable from Java and Kotlin, not a stable published API. The other library modules remain scaffolds, not usable engine libraries. The server is a buildable module without an HTTP framework, entry point or service packaging.
+On Windows, use the corresponding `gradlew.bat` launcher. The four library modules have Maven publication metadata plus source and Javadoc JAR tasks; no remote publication destination is configured. The [contracts module](nuaforma-contracts/README.md) and [core module](nuaforma-core/README.md) contain development APIs usable from Java and Kotlin, not stable published APIs. Core supports local classpath discovery, explicit registration, deterministic selection and delegation to accepted providers. The format modules remain scaffolds. The server is a buildable module without an HTTP framework, entry point or service packaging.
 
-JUnit Jupiter runs the tests; MockK and ArchUnit are test-scoped. Tests verify Java 17 execution, Java/Kotlin API use, structured data, provider capability/option models, cancellation, stream ownership and static contract metadata. ArchUnit enforces contracts-module isolation with a violating fixture. The build also verifies runtime module dependencies and prevents test libraries from leaking into production dependencies. Cross-module bytecode architecture rules, actual discovery, document integration tests and API contract generation belong to subsequent issues.
+JUnit Jupiter runs the tests; MockK and ArchUnit are test-scoped. Tests verify Java 17 execution, Java/Kotlin API use, structured data, provider capability/option models, cancellation, stream ownership and static contract metadata. Core integration tests compile independent provider JARs and exercise actual ServiceLoader discovery, metadata validation before provider loading, selection and concurrent delegation. ArchUnit enforces contracts and core isolation with violating fixtures. The build also verifies runtime module dependencies and prevents test libraries from leaking into production dependencies. Cross-module adapter rules, real document integration tests and API contract generation belong to subsequent issues.
 
 Dependency versions and review notes are in [DEPENDENCIES.md](DEPENDENCIES.md). Design boundaries are in [ARCHITECTURE.md](ARCHITECTURE.md); contributor instructions are in [AGENTS.md](AGENTS.md).
 

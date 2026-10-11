@@ -4,7 +4,7 @@ plugins {
     `maven-publish`
 }
 
-description = "NuaForma core library scaffold"
+description = "NuaForma format-independent provider discovery and orchestration"
 
 dependencies {
     api(project(":nuaforma-contracts"))
