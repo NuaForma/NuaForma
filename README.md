@@ -47,6 +47,7 @@ syntax and authoring approach have not yet been selected.
 - **Conditional content:** include, omit, or select blocks using understandable
   template rules.
 - **Repeated content:** generate rows or sections from collections.
+- **Optional watermarks:** add configurable text such as `CONCEPT` to every page of DOCX and PDF output without shifting the document layout.
 - **Multiple output formats:** target PDF, Microsoft Word (DOCX), and
   OpenDocument Text (ODT, used by LibreOffice and OpenOffice).
 - **PDF profiles:** explore archival output such as PDF/A, with conformance

@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 
+# Personal agent agreements; shared project rules live in AGENTS.md.
+/AGENTS.local.md
+
 # Operating system files
 .DS_Store
 Thumbs.db
