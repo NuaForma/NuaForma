@@ -17,7 +17,7 @@ internal class ArchitecturePolicy {
         Component("nuaforma-server", "dev.nuaforma.server", setOf("nuaforma-contracts", "nuaforma-core")),
     )
 
-    // Namespace policy only: these libraries are not added as dependencies by this milestone.
+    // External types belong exclusively to the DOCX integration, never its public facade.
     private val integrations = mapOf(
         "org.docx4j" to "dev.nuaforma.docx.adapters.docx4j",
         "jakarta.xml.bind" to "dev.nuaforma.docx.adapters.docx4j",
@@ -125,7 +125,8 @@ internal class ArchitecturePolicy {
         type.name in setOf("org.jetbrains.annotations.NotNull", "org.jetbrains.annotations.Nullable") &&
             dependency.description.contains("annotated with")
 
-    private fun platform(type: JavaClass) = type.isPrimitive || inside(type.packageName, "java") || inside(type.packageName, "kotlin")
+    private fun platform(type: JavaClass) = type.isPrimitive || inside(type.packageName, "java") || inside(type.packageName, "kotlin") ||
+        inside(type.packageName, "javax.xml.stream")
     private fun visible(modifiers: Set<JavaModifier>) = JavaModifier.PUBLIC in modifiers || JavaModifier.PROTECTED in modifiers
     private fun baseType(type: JavaClass): JavaClass = if (type.isArray) baseType(type.componentType) else type
     private fun inside(value: String, namespace: String) = value == namespace || value.startsWith("$namespace.")

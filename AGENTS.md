@@ -25,6 +25,7 @@ Implement only the requested milestone within the scope defined in [ARCHITECTURE
 - Check in the Gradle Wrapper with a pinned Gradle version when the build is created, and use it for builds and tests. Do not rely on a workstation-specific global Gradle installation.
 - Preserve the Unix executable bit for `gradlew` when preparing a commit; its Git file mode must be `100755`. Do not stage it merely to change this mode without authorization to stage or commit.
 - The Gradle build, five modules, initial public provider contracts and core provider discovery/selection exist. The APIs are a development draft, not a stable release. Production format providers, template processing, REST endpoints and PDF conversion are not implemented yet; do not present planned capabilities as available features.
+- The DOCX module has a read/write facade with isolated docx4j state and an independently authored round-trip fixture. It is not a registered generation provider or a template processor. See its module README for the supported input profile, lifecycle, limits and verified fidelity scope.
 - If CLAUDE.md or another agent entry-point file is introduced, make it a pointer to AGENTS.md rather than a second copy of the rules.
 
 ## Build and verification commands
@@ -36,8 +37,9 @@ Use the checked-in Gradle Wrapper from the repository root. The commands below u
 - One test: `./gradlew :nuaforma-core:test --tests dev.nuaforma.core.TestStackTest`.
 - Scaffold dependency checks: `./gradlew verifyBuildStructure` (also included in `check` and `build`).
 - Repository architecture rules and violating fixtures: `./gradlew :nuaforma-server:test --tests 'dev.nuaforma.architecture.*'` (also included in normal `test` and `build`).
+- DOCX facade and round-trip integration tests: `./gradlew :nuaforma-docx:test`. The synthetic before/after reference files are generated under the module's ignored `build/docx-reference` directory; render them only after the build finishes.
 - Local publication metadata: `./gradlew generatePomFileForMavenJavaPublication`.
-- API contract generation and document integration tests do not exist yet. Add their actual commands when those features are implemented; do not invent placeholder tasks.
+- API contract generation and template-processing integration tests do not exist yet. Add their actual commands when those features are implemented; do not invent placeholder tasks.
 
 The dependency versions live in `gradle/libs.versions.toml`; resolved module dependencies are locked in each subproject's `gradle.lockfile`. Update locks deliberately using `--write-locks` with the affected verification commands and review the resulting changes. Do not regenerate locks as a routine build step.
 

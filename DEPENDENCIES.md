@@ -9,6 +9,7 @@ This review accompanies the build scaffold for issue #1, dated 2026-10-11. It is
 | JUnit Jupiter | 6.1.3 | Tests only | [EPL-2.0](https://github.com/junit-team/junit-framework/blob/r6.1.3/LICENSE.md) |
 | MockK | 1.14.11 | Tests only | [Apache-2.0](https://github.com/mockk/mockk/blob/v1.14.11/LICENSE) |
 | ArchUnit | 1.5.1 | Tests only | [Apache-2.0 with bundled dependency notices](https://github.com/TNG/ArchUnit/blob/v1.5.1/LICENSE) |
+| docx4j core + JAXB ReferenceImpl | 17.1.0 | DOCX implementation/runtime | [Apache-2.0 and bundled notices](https://github.com/plutext/docx4j/blob/VERSION_17_1_0/legals/NOTICE); reference JAXB/Activation use permissive EDL/BSD terms |
 
 ## Compatibility and maintenance
 
@@ -24,7 +25,17 @@ The initial production module graph contains NuaForma project dependencies, Kotl
 
 JUnit's EPL-2.0 license applies to the test tooling, not to NuaForma's production code. It is not bundled into production JARs. Any later redistribution of test tools must carry their own required licenses and notices. Likewise, Gradle, Kotlin and other dependencies retain their own licensing obligations; Apache-2.0 on NuaForma does not replace them. Library JAR tasks include NuaForma's LICENSE without shading third-party classes.
 
-Review transitive dependencies and upstream security advisories when adding or upgrading dependencies. Lockfiles fix selected versions but are not a vulnerability scan or a security guarantee. No DOCX library, expression engine, HTTP framework or PDF renderer is added in this scaffold; their dependency and license reviews belong to their own issues.
+Review transitive dependencies and upstream security advisories when adding or upgrading dependencies. Lockfiles fix selected versions but are not a vulnerability scan or a security guarantee. No expression engine, HTTP framework or PDF renderer is added; their dependency and license reviews belong to their own issues.
+
+## DOCX integration review
+
+For issue #5, docx4j core 17.1.0 is an implementation dependency and `docx4j-JAXB-ReferenceImpl` 17.1.0 supplies JAXB at runtime. The [upstream release history](https://www.docx4java.org/trac/docx4j) reports its September 2026 release; the repository is not archived and has current development activity. The [tagged parent POM](https://github.com/plutext/docx4j/blob/VERSION_17_1_0/pom.xml) targets Java 11; NuaForma compiles and executes the integration on Java 17. No JAXB implementation classes enter facade signatures. No global logger implementation is added.
+
+The resolved production graph includes JAXB runtime/core/txw2 4.0.9, Jakarta JAXB API 4.0.5, Activation API 2.1.4, Angus Activation 2.0.3, istack 4.1.2, Commons Lang 3.20.0, Compress 1.28.0, IO 2.22.0, Codec 1.19.0, Collections 4.5.0, FontBox/PDFBox IO 3.0.8, XML Graphics 2.11, SLF4J 2.0.18 and docx4j's generated/copy/SVG/Xalan support artifacts. Upstream POM exclusions avoid optional native compressors, JUEL expression implementations and extra logging implementations. These are docx4j runtime dependencies, not adoption of a PDF conversion backend or an expression language.
+
+Several upstream transitives are legacy components, notably ANTLR 2.7.7, StringTemplate 3.2.1, QDox 1.12.1 and MBassador 1.3.2. They are retained by the current docx4j distribution rather than selected as new NuaForma APIs. Do not expose their evaluators or assume that every transitive has docx4j's release cadence. Reassess upstream removals/upgrades and security advisories on each integration upgrade instead of overriding versions or pruning classes without compatibility tests.
+
+Pinned Maven POMs, inherited license metadata and artifact license material were reviewed. The [third-party notice guide](THIRD_PARTY.md) records permissive Apache/MIT/BSD/EDL families and docx4j's additional bundled terms; redistribution must preserve original artifact notices. An OSV batch query on 2026-10-11 for all 36 resolved DOCX Maven runtime coordinates returned no known matches. This is an advisory-database snapshot, not proof of absence of vulnerabilities or approval for exposing untrusted templates without further hosted isolation.
 
 ## GitHub Actions
 
