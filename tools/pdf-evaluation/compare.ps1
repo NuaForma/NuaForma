@@ -5,7 +5,9 @@ param(
     [string]$WslDistribution = 'Ubuntu',
     [string[]]$WslFonts = @(),
     [string]$RunName = 'comparison',
-    [string[]]$FixtureNames = @()
+    [string[]]$FixtureNames = @(),
+    [ValidateSet('libreoffice', 'fop')][string[]]$Backends = @('libreoffice', 'fop'),
+    [string]$ConversionCopiesDirectory
 )
 $ErrorActionPreference = 'Stop'
 $repository = (Resolve-Path "$PSScriptRoot/../..").Path
@@ -54,13 +56,22 @@ function Invoke-OwnedProcess([string]$Executable, [string[]]$Arguments, [string]
         return @{ exitCode = $process.ExitCode; seconds = $watch.Elapsed.TotalSeconds }
     } finally { $process.Dispose() }
 }
-New-Item -ItemType Directory -Force $root | Out-Null
+if (Test-Path -LiteralPath $root) { throw "Run already exists: $root" }
+New-Item -ItemType Directory -Path $root | Out-Null
 $results = @()
 foreach ($entry in $fixtures.GetEnumerator()) {
     if ($FixtureNames.Count -gt 0 -and $entry.Key -notin $FixtureNames) { continue }
     $source = Join-Path $repository "nuaforma-docx/build/$($entry.Value).docx"
     if (-not (Test-Path -LiteralPath $source)) { throw "Missing synthetic fixture: $source" }
-    foreach ($backend in @('libreoffice', 'fop')) {
+    $originalSource = $source
+    if ($ConversionCopiesDirectory) {
+        $source = Join-Path $ConversionCopiesDirectory "$($entry.Key).docx"
+        if (-not (Test-Path -LiteralPath $source)) { throw "Missing conversion copy: $source" }
+        if ('fop' -in $Backends) { throw 'Conversion-copy experiment is LibreOffice-only.' }
+    }
+    foreach ($backend in $Backends) {
+        $sourceHashBefore = (Get-FileHash -LiteralPath $source).Hash
+        $originalHashBefore = (Get-FileHash -LiteralPath $originalSource).Hash
         $directory = Join-Path $root "$backend/$($entry.Key)"
         if (Test-Path -LiteralPath $directory) { throw "Output already exists: $directory" }
         New-Item -ItemType Directory -Path "$directory/profile" -Force | Out-Null
@@ -72,7 +83,10 @@ foreach ($entry in $fixtures.GetEnumerator()) {
             $wslOutput = "$WslRepository/tools/pdf-evaluation/build/$RunName/fop/$($entry.Key)"
             $result = Invoke-OwnedProcess 'wsl.exe' (@('-d', $WslDistribution, '--exec', '/usr/bin/timeout', '--kill-after=5s', '90s', '/usr/bin/time', '-v', '/usr/bin/env', "JAVA_OPTS=-Duser.home=$wslOutput/profile -Djava.io.tmpdir=$wslOutput/profile", '/bin/bash', "$WslRepository/tools/pdf-evaluation/build/install/nuaforma-pdf-evaluation/bin/nuaforma-pdf-evaluation", "$WslRepository/nuaforma-docx/build/$($entry.Value).docx", "$wslOutput/$([IO.Path]::GetFileNameWithoutExtension($source)).pdf") + $WslFonts) "$directory/process.log"
         }
-        $record = [ordered]@{ fixture = $entry.Key; backend = $backend; sourceSha256 = (Get-FileHash -LiteralPath $source).Hash; exitCode = $result.exitCode; seconds = [math]::Round($result.seconds, 3); pdf = $pdf; produced = (Test-Path -LiteralPath $pdf) }
+        if ((Get-FileHash -LiteralPath $source).Hash -ne $sourceHashBefore -or (Get-FileHash -LiteralPath $originalSource).Hash -ne $originalHashBefore) {
+            throw 'A research converter changed its DOCX input.'
+        }
+        $record = [ordered]@{ fixture = $entry.Key; backend = $backend; sourceSha256 = $sourceHashBefore; originalSourceSha256 = $originalHashBefore; exitCode = $result.exitCode; seconds = [math]::Round($result.seconds, 3); pdf = $pdf; produced = (Test-Path -LiteralPath $pdf) }
         if ($record.produced) {
             & "$PopplerDirectory/pdfinfo.exe" $pdf | Set-Content "$directory/pdfinfo.txt"
             & "$PopplerDirectory/pdftoppm.exe" -r 100 -png $pdf "$directory/page"

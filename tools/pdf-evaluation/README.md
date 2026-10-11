@@ -30,3 +30,25 @@ Use `inspect_sources.py` to enumerate explicit font families in the synthetic DO
 `review_dependencies.py` inspects bundled font notices and queries all locked Maven coordinates against OSV. Network access is required for that explicit research query, not for conversion. The raw response stays ignored under `build`. No findings means no database matches at that moment, not a security guarantee.
 
 Keep DOCX, PDF, FO, raster pages, private profiles, timing logs and generated reports under ignored `build`. Do not commit them, install fonts globally, distribute proprietary test fonts, or treat this research runner as a secure service.
+
+## Conversion-only copies
+
+The approved follow-up is research, not a change to DOCX generation. `conversion_copy.py` changes a private copy of matching synthetic VML text boxes only: explicit positive point dimensions, shape rotation 90 degrees and bottom-to-top text flow. It exchanges width/height and resets shape rotation while retaining text orientation, runs and fonts. The intentionally narrow prefix-based XML patcher is not suitable for arbitrary uploads or production OOXML normalization. Matching other dimensions fails; nonmatching objects, including WordArt watermark shapes, remain untouched. This experiment restores scanability but fails the frame/placement fidelity gate.
+
+From the repository root, use a fresh destination and Python with the approved QA dependencies:
+
+```sh
+python -m unittest discover -s tools/pdf-evaluation -p test_conversion_copy.py -v
+python tools/pdf-evaluation/prepare_copies.py . tools/pdf-evaluation/build/conversion-copies
+```
+
+Run `compare.ps1` with the usual supplied executable paths, a fresh `RunName`, `-Backends libreoffice` and `-ConversionCopiesDirectory <absolute-copy-directory>`. It hashes the original and conversion input before and after each owned process and fails if either changes. FOP is deliberately excluded from this LibreOffice-specific experiment. After the entire conversion run finishes:
+
+```sh
+python tools/pdf-evaluation/inspect_results.py tools/pdf-evaluation/build/compatibility-v1 --decoder-directory <approved-decoder-directory>
+python tools/pdf-evaluation/assess_copies.py . tools/pdf-evaluation/build/conversion-copies tools/pdf-evaluation/build/comparison-v2 tools/pdf-evaluation/build/compatibility-v1
+```
+
+The latter checks original DOCX hashes, page dimensions/counts, exact paired rasters and reports every page's changed pixel bounds. Inspect every distinct changed page; reuse an earlier review only when unchanged/duplicate pixels are verified. `copies.json`, `inspection.json` and `differences.json` stay ignored.
+
+`probe_vml.py <synthetic-isolated-embedded.docx> <fresh-build-directory>` creates controlled geometry, flow, wrapping, rectangle and shape-type variations of the existing `MarginBox` fixture. It deliberately includes failing and hard-coded-position counterexamples; none is a production strategy. Convert diagnostic copies using a private LibreOffice profile and an owned-process deadline, then rasterize each PDF at 150 DPI with `<PDF-stem>-<page>.png` names. `inspect_results.py <parent-of-probe-directories> --decoder-directory <approved-decoder-directory> --named-images` records their fonts, full-page decode results, barcode orientation and position. Do not count a horizontal decode, missing frame or displaced frame as a passing layout check, and do not update expected DOCX fixtures to conceal differences.
