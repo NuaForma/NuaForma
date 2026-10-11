@@ -8,6 +8,7 @@ description = "NuaForma DOCX facade and docx4j adapter"
 
 dependencies {
     api(project(":nuaforma-contracts"))
+    implementation(project(":nuaforma-template"))
     implementation(libs.docx4j.core)
     runtimeOnly(libs.docx4j.jaxb)
 }

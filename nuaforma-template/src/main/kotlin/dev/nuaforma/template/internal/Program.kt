@@ -4,6 +4,7 @@ import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.contracts.GenerationOptions
 import dev.nuaforma.template.CompiledTemplate
+import dev.nuaforma.template.TemplateFragment
 import java.math.BigDecimal
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
@@ -13,8 +14,8 @@ import java.time.format.DateTimeFormatter
 import java.time.DateTimeException
 
 internal sealed interface Node {
-    class Text(val text: String) : Node
-    class Value(val expression: Expression, val format: Format?, val offset: Int) : Node
+    class Text(val text: String, val offset: Int, val end: Int) : Node
+    class Value(val expression: Expression, val format: Format?, val offset: Int, val end: Int) : Node
     class Condition(val expression: Expression, val yes: List<Node>, val no: List<Node>, val offset: Int) : Node
     class Repeat(val expression: Expression, val alias: String, val children: List<Node>, val offset: Int) : Node
 }
@@ -49,6 +50,11 @@ internal class Format(val kind: String, val pattern: String) {
 }
 
 internal class Program(private val nodes: List<Node>, private val depth: Int) : CompiledTemplate {
+    fun validateDepth(state: Evaluation, scopeDepth: Int) { state.checkDepth(scopeDepth + depth - 1) }
+    fun expand(state: Evaluation, scope: Map<String, Any?>, scopeDepth: Int): List<TemplateFragment> {
+        validateDepth(state, scopeDepth)
+        return state.fragments { state.render(nodes, scope) }
+    }
     override fun render(data: Map<String, *>, options: GenerationOptions, context: GenerationContext): String {
         context.checkActive()
         if (depth > Safety.depth(context)) Safety.limit()
@@ -65,6 +71,30 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
     private var bytes = 0L
     private val output = StringBuilder()
     private var offset = 0
+    private var captured: MutableList<TemplateFragment>? = null
+
+    fun checkDepth(depth: Int) { if (depth > Safety.depth(context)) Safety.limit() }
+    fun fragments(action: () -> Unit): List<TemplateFragment> {
+        val previous = captured
+        val result = mutableListOf<TemplateFragment>()
+        captured = result
+        val start = output.length
+        return try { action(); java.util.Collections.unmodifiableList(result) }
+        finally { captured = previous; output.setLength(start) }
+    }
+    fun scopes(value: Any?, scope: Map<String, Any?>, alias: String): List<Map<String, Any?>> = scopeSequence(value, scope, alias).toList()
+
+    private fun scopeSequence(value: Any?, scope: Map<String, Any?>, alias: String): Sequence<Map<String, Any?>> = sequence {
+        present(value)
+        if (value !is List<*>) typeFailure()
+        value.forEachIndexed { index, item ->
+            step()
+            if (++repetitions > context.limits.maxRepetitions) Safety.limit()
+            val loop = mapOf("index" to BigDecimal(index), "number" to BigDecimal(index + 1),
+                "first" to (index == 0), "last" to (index == value.lastIndex), "size" to BigDecimal(value.size))
+            yield(scope + mapOf(alias to item, "loop" to loop))
+        }
+    }
 
     fun step() {
         context.checkActive()
@@ -78,11 +108,11 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
         for (node in nodes) {
             step()
             when (node) {
-                is Node.Text -> append(node.text)
+                is Node.Text -> append(node.text, node.offset, node.end, true)
                 is Node.Value -> {
                     offset = node.offset
                     val value = node.expression.evaluate(this, scope)
-                    append(node.format?.apply(value, this) ?: scalar(value))
+                    append(node.format?.apply(value, this) ?: scalar(value), node.offset, node.end, false)
                 }
                 is Node.Condition -> {
                     offset = node.offset
@@ -91,15 +121,7 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
                 is Node.Repeat -> {
                     offset = node.offset
                     val value = node.expression.evaluate(this, scope)
-                    present(value)
-                    if (value !is List<*>) typeFailure()
-                    for ((index, item) in value.withIndex()) {
-                        step()
-                        if (++repetitions > context.limits.maxRepetitions) Safety.limit()
-                        val loop = mapOf("index" to BigDecimal(index), "number" to BigDecimal(index + 1),
-                            "first" to (index == 0), "last" to (index == value.lastIndex), "size" to BigDecimal(value.size))
-                        render(node.children, scope + mapOf(node.alias to item, "loop" to loop))
-                    }
+                    scopeSequence(value, scope, node.alias).forEach { render(node.children, it) }
                 }
             }
         }
@@ -116,11 +138,15 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
         }
     }
 
-    private fun append(text: String) {
+    private fun append(text: String, start: Int, end: Int, literal: Boolean) {
         val size = Safety.utf8Length(text, context, DiagnosticCodes.INVALID_REQUEST)
         val limit = minOf(context.limits.maxOutputBytes, context.limits.maxExpandedBytes)
         if (size > limit - bytes || text.length.toLong() + output.length > Int.MAX_VALUE - 8L) Safety.limit()
         bytes += size
+        captured?.let {
+            if (it.size >= Safety.MAX_NODES) Safety.limit()
+            it.add(TemplateFragment(start, end, text, literal))
+        }
         output.append(text)
     }
     fun result(): String = output.toString()

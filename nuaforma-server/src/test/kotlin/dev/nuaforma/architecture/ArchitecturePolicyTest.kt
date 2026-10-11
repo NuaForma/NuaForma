@@ -49,6 +49,8 @@ class ArchitecturePolicyTest {
             "dev.nuaforma.docx.ProbeDirectSignature" to "public class ProbeDirectSignature { private org.docx4j.ProbeWidget value; }",
             "dev.nuaforma.docx.ProbeDirectJaxb" to "public class ProbeDirectJaxb { private jakarta.xml.bind.ProbeNode value; }",
             "dev.nuaforma.docx.adapters.docx4j.ProbeJdkXml" to "public class ProbeJdkXml { private javax.xml.stream.XMLInputFactory factory; }",
+            "dev.nuaforma.docx.adapters.docx4j.ProbeQName" to "public class ProbeQName { private javax.xml.namespace.QName name; }",
+            "dev.nuaforma.docx.adapters.docx4j.ProbeOtherXmlName" to "public class ProbeOtherXmlName { private javax.xml.namespace.NamespaceContext context; }",
             "dev.nuaforma.docx.ProbeExternalInheritance" to "public class ProbeExternalInheritance extends org.docx4j.ProbeWidget {}",
             "dev.nuaforma.docx.adapters.other.ProbeWrongAdapter" to "public class ProbeWrongAdapter { private org.docx4j.ProbeWidget value; }",
             "dev.nuaforma.core.adapters.docx4j.ProbeWrongOwner" to "public class ProbeWrongOwner { private org.docx4j.ProbeWidget value; }",
@@ -100,6 +102,7 @@ class ArchitecturePolicyTest {
         "adapters,dev.nuaforma.docx.ProbeDirectCall",
         "adapters,dev.nuaforma.docx.ProbeDirectSignature",
         "adapters,dev.nuaforma.docx.ProbeDirectJaxb",
+        "adapters,dev.nuaforma.docx.adapters.docx4j.ProbeOtherXmlName",
         "adapters,dev.nuaforma.docx.ProbeExternalInheritance",
         "adapters,dev.nuaforma.docx.adapters.other.ProbeWrongAdapter",
         "adapters,dev.nuaforma.core.adapters.docx4j.ProbeWrongOwner",
@@ -137,6 +140,7 @@ class ArchitecturePolicyTest {
             "dev.nuaforma.docx.pdf.ProbeReuse", "dev.nuaforma.server.ProbeServerApi",
             "dev.nuaforma.core.ProbeOwnInternal", "dev.nuaforma.docx.ProbeSibling",
             "dev.nuaforma.docx.adapters.docx4j.ProbeJdkXml",
+            "dev.nuaforma.docx.adapters.docx4j.ProbeQName",
             "dev.nuaforma.docx.ProbeTemplateReuse", "dev.nuaforma.template.ProbeTemplateApi",
         )
         ArchitecturePolicy.RULES.forEach { ArchitecturePolicy().rule(it, permitted).check(fixtures) }
