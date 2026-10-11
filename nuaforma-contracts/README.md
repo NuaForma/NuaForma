@@ -1,6 +1,6 @@
 # NuaForma provider contracts
 
-Development API for Kotlin and Java 17, in `dev.nuaforma.contracts`. The current contract baseline is **0.1**; no stable release or working document generator is claimed. This module contains value types, a provider interface, descriptor parsing and validation helpers. It does not implement provider discovery, an expression engine, DOCX/PDF processing or HTTP serialization.
+Development API for Kotlin and Java 17, in `dev.nuaforma.contracts`. The current contract baseline is **0.1**; no stable release or working document generator is claimed. This module contains value types, a provider interface, descriptor parsing and validation helpers. Provider discovery and selection live in [core](../nuaforma-core/README.md), not this module. No expression engine, DOCX/PDF processing or HTTP serialization is implemented yet.
 
 ## Requests and supplied data
 
@@ -84,7 +84,7 @@ contract.minor=1
 
 Compatibility is directional: `available.accepts(required)` requires the same major and an available minor at least as high as the required minor. Numeric comparison accepts 1.2 under 1.9 and 1.9 under 1.10, but rejects 1.2 under 1.1 or 2.x. `ContractVersion.parse` accepts `major.minor` or `major.minor.patch` and ignores a numeric patch component. Patch/minor releases within a major family must retain source, JVM binary and documented behavioral compatibility; adding required provider methods is a breaking change.
 
-Actual discovery belongs to core's next milestone. It must associate metadata with the originating service registration, verify class identity, reject missing/invalid/incompatible descriptors **before loading or instantiating provider code**, and apply the same checks to explicit registration. This module's metadata reader and initialization-counter test verify parsing without initialization; they do not claim complete `ServiceLoader` discovery or compatibility with independently published historical artifacts.
+Actual discovery lives in core. It associates metadata with the originating service registration, verifies class identity, rejects missing/invalid/incompatible descriptors **before loading or instantiating provider code**, and applies the same contract/capability/availability checks to explicit registration. This module's metadata reader and initialization-counter test verify parsing without initialization; core adds independently packaged `ServiceLoader` tests. Neither module claims compatibility with independently published historical artifacts that do not exist yet.
 
 ## Verification
 
@@ -95,4 +95,4 @@ From the repository root:
 ./gradlew build generatePomFileForMavenJavaPublication
 ```
 
-Tests cover Java/Kotlin use, nested immutable data, option combinations, narrower runtime availability, diagnostics, cancellation, stream ownership, metadata validation and reading without provider initialization. ArchUnit checks production contracts depend only on their own package, the JDK, Kotlin and compiler-generated JetBrains annotations; a deliberately violating fixture verifies the rule catches an external test dependency. Synthetic provider fixtures are not document renderers and do not establish DOCX/PDF fidelity. Cross-module architecture and discovery integration tests remain subsequent work.
+Tests cover Java/Kotlin use, nested immutable data, option combinations, narrower runtime availability, diagnostics, cancellation, stream ownership, metadata validation and reading without provider initialization. ArchUnit checks production contracts depend only on their own package, the JDK, Kotlin and compiler-generated JetBrains annotations; a deliberately violating fixture verifies the rule catches an external test dependency. Synthetic provider fixtures are not document renderers and do not establish DOCX/PDF fidelity. Discovery integration tests live in core; comprehensive cross-module architecture tests remain subsequent work.
