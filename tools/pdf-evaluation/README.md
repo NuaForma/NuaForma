@@ -1,0 +1,32 @@
+# PDF renderer evaluation
+
+Issue #10 research only. This standalone Java 17 Gradle build is deliberately outside the product module graph and publication. It is not a provider, an untrusted-input sandbox or approval to adopt a production backend. See [the findings](../../docs/pdf-backend-evaluation.md).
+
+## Reproduce the fixtures
+
+From the repository root, run the product build first. If fixture output is missing because Gradle considers tests up to date, explicitly regenerate the fixture builders:
+
+```sh
+./gradlew :nuaforma-docx:test --tests dev.nuaforma.docx.DocxDocumentsTest --tests dev.nuaforma.docx.DocxProviderTest --tests dev.nuaforma.docx.DocxFontsTest --tests dev.nuaforma.docx.DocxWatermarksTest --rerun-tasks
+./gradlew -p tools/pdf-evaluation installDist --console=plain --warning-mode=fail
+```
+
+Run on Java 17. The repository's Gradle Wrapper is reused; do not install another Gradle version. The independent build pins docx4j-export-fo and JAXB ReferenceImpl to 17.1.0 and locks its resolved dependencies. `--write-locks` is only for a deliberate dependency change, not a normal evaluation run.
+
+The fixture-generating test class names above must match the checked-in tests. The synthetic DOCX files live in `nuaforma-docx/build/{docx-reference,docx-generation-reference,font-reference,watermark-reference}`. They are generated and ignored, not customer documents. Do not run the probe on untrusted input.
+
+## Convert and inspect
+
+The installed `nuaforma-pdf-evaluation` launcher accepts `input.docx output.pdf [font files...]`. Each execution must have a private temporary directory and private `user.home`, a process deadline and a fixed heap. The launcher sets `-Xmx512m` and headless Java; the caller must enforce the deadline. Register font files explicitly; the probe disables automatic host font discovery. Font substitution and library defaults still require independent checks; this is not a production font policy.
+
+The primary probe uses the XSL exporter. Set the JVM property `evaluation.visitor=true` to compare the visitor exporter. The reproduction run includes that additional comparison for `font-reference/generated.docx` and `watermark-reference/concept.docx`. Neither exporter preserves the rotated barcode or the watermark in these fixtures. Preserve the FO dump for diagnosing lost content; never enable document dumps by default in production.
+
+For LibreOffice, execute `soffice` headlessly with a fresh `-env:UserInstallation=file:///...` profile for each conversion, `--headless --nologo --nodefault --norestore --convert-to pdf:writer_pdf_Export --outdir <private-output-directory> <synthetic.docx>`. Never share the user's desktop profile or overwrite the DOCX. Pin and record the executable's actual version. No macros, external resources or customer input are part of this comparison.
+
+`compare.ps1` is a research orchestrator for the current Windows/WSL comparison, not a runtime requirement. It takes renderer paths and the repository mapping as parameters, uses fresh output/profile directories, refuses existing run directories, bounds owned processes and records source hashes, exit codes and elapsed times. FOP executes under an additional 90-second process timeout. It rasterizes every resulting PDF through Poppler at 100 DPI. Other environments can invoke the two renderers directly with the same fixture list. Workstation-specific invocation belongs in ignored local instructions.
+
+Use `inspect_sources.py` to enumerate explicit font families in the synthetic DOCX files. After every conversion has finished, run `inspect_results.py <run-directory> --decoder-directory <approved-zxing-cpp-directory>` using Python with pypdf, Pillow and the previously approved ZXing-C++ 3.1.1 decoder. It records page geometry, PDF headers, embedded-font descriptors, extracted text and barcode scan results. Incomplete PDFs must fail inspection. Rendered pages still need visual review: metadata and a successful scan do not establish correct placement or fidelity.
+
+`review_dependencies.py` inspects bundled font notices and queries all locked Maven coordinates against OSV. Network access is required for that explicit research query, not for conversion. The raw response stays ignored under `build`. No findings means no database matches at that moment, not a security guarantee.
+
+Keep DOCX, PDF, FO, raster pages, private profiles, timing logs and generated reports under ignored `build`. Do not commit them, install fonts globally, distribute proprietary test fonts, or treat this research runner as a secure service.

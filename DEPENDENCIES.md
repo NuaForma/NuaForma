@@ -39,6 +39,10 @@ Several upstream transitives are legacy components, notably ANTLR 2.7.7, StringT
 
 Pinned Maven POMs, inherited license metadata and artifact license material were reviewed. The [third-party notice guide](THIRD_PARTY.md) records permissive Apache/MIT/BSD/EDL families and docx4j's additional bundled terms; redistribution must preserve original artifact notices. An OSV batch query on 2026-10-11 for all 36 resolved DOCX Maven runtime coordinates returned no known matches. This is an advisory-database snapshot, not proof of absence of vulnerabilities or approval for exposing untrusted templates without further hosted isolation.
 
+## PDF research tooling
+
+Issue #10 uses a separate, unpublished Java 17 build under `tools/pdf-evaluation`, not a product dependency change. docx4j-export-fo and JAXB ReferenceImpl 17.1.0 resolve FOP 2.11 and the locked research graph described in [the evaluation](docs/pdf-backend-evaluation.md). That report records primary license/maintenance sources, bundled font notices, an OSV snapshot and observed rendering failures. LibreOffice 26.8.1.1 is an externally installed research executable, not bundled or approved as a production renderer. No ONLYOFFICE component is installed. Production dependency adoption remains subject to backend approval and complete redistribution review.
+
 ## GitHub Actions
 
 The build workflow uses [actions/checkout v7.0.1](https://github.com/actions/checkout/tree/v7.0.1) and [actions/setup-java v6.0.1](https://github.com/actions/setup-java/tree/v6.0.1), both MIT-licensed, pinned to their full release commit hashes. Their upstream releases, runtime declarations and licenses were checked on 2026-10-11. They are CI tooling, not dependencies of published NuaForma libraries.
