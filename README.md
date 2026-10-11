@@ -19,7 +19,7 @@ From a simple letter to an agreement with conditional sections, NuaForma aims
 to make document automation accessible without locking users into a proprietary
 platform.
 
-> **Project status:** draft provider contracts, core discovery/selection and a [DOCX read/write facade](nuaforma-docx/README.md). The Kotlin/Java 17 multi-module build can discover, validate and select independently packaged providers. DOCX round-trip tests preserve an independently authored reference package. No production format provider, working template processor, REST API or runnable service is available yet. The generation capabilities below remain planned.
+> **Project status:** draft provider contracts, core discovery/selection, a [DOCX read/write facade](nuaforma-docx/README.md) and a [restricted text template language](nuaforma-template/README.md). The Kotlin/Java 17 multi-module build can discover, validate and select independently packaged providers. DOCX round-trip tests preserve an independently authored reference package. The language supports placeholders, inline conditions and scoped repeats over JSON-compatible data, but it is not applied to Word structures yet. No production format provider, REST API or runnable service is available. Document generation capabilities below remain planned.
 
 ## The idea
 
@@ -33,10 +33,10 @@ Templates should support more than replacing a name or date. Authors should be
 able to include or omit text blocks based on conditions, choose between
 alternative sections, and repeat content for lists or tables.
 
-For example, an agreement could include one clause when `x = 1`, use another
-when `y = 1`, and omit a section when neither condition applies. The template
+For example, an agreement could include one clause when `x == 1`, use another
+when `y == 1`, and omit a section when neither condition applies. The template
 defines those choices; the input data determines the result. The template
-syntax and authoring approach have not yet been selected.
+syntax is specified in the [template language guide](nuaforma-template/README.md); Word integration remains a subsequent milestone.
 
 ## Planned capabilities
 
@@ -72,7 +72,7 @@ NuaForma is intended for teams generating letters, reports, agreements,
 statements, and other documents from application data. It should be useful
 both as an internal service and as a component integrated into other products.
 
-The project uses Kotlin/JVM with Java 17 as its minimum runtime. DOCX processing is planned around docx4j, behind NuaForma-owned facades. The restricted template language and PDF conversion backend still need to be specified and verified.
+The project uses Kotlin/JVM with Java 17 as its minimum runtime. DOCX round-trip processing uses docx4j behind NuaForma-owned facades. The restricted language is implemented separately from document libraries; the PDF conversion backend still needs to be selected and verified.
 
 ## Initial development direction
 
@@ -99,12 +99,13 @@ Install a JDK 17 and use the checked-in Gradle Wrapper; no global Gradle install
 ./gradlew verifyBuildStructure
 ./gradlew :nuaforma-server:test --tests 'dev.nuaforma.architecture.*'
 ./gradlew :nuaforma-docx:test
+./gradlew :nuaforma-template:test
 ./gradlew generatePomFileForMavenJavaPublication
 ```
 
-On Windows, use the corresponding `gradlew.bat` launcher. The four library modules have Maven publication metadata plus source and Javadoc JAR tasks; no remote publication destination is configured. The [contracts module](nuaforma-contracts/README.md), [core module](nuaforma-core/README.md) and [DOCX module](nuaforma-docx/README.md) contain development APIs usable from Java and Kotlin, not stable published APIs. Core supports local classpath discovery, explicit registration, deterministic selection and delegation to accepted providers. DOCX has a standalone read/write facade, not a registered template-processing provider; DOCX-to-PDF remains a scaffold. The server is a buildable module without an HTTP framework, entry point or service packaging.
+On Windows, use the corresponding `gradlew.bat` launcher. The five library modules have Maven publication metadata plus source and Javadoc JAR tasks; no remote publication destination is configured. The [contracts module](nuaforma-contracts/README.md), [core module](nuaforma-core/README.md), [DOCX module](nuaforma-docx/README.md) and [template module](nuaforma-template/README.md) contain development APIs usable from Java and Kotlin, not stable published APIs. Core supports local classpath discovery, explicit registration, deterministic selection and delegation to accepted providers. DOCX has a standalone read/write facade, not a registered template-processing provider; DOCX-to-PDF remains a scaffold. The template module compiles and renders text independently of core and document libraries. The server is a buildable module without an HTTP framework, entry point or service packaging.
 
-JUnit Jupiter runs the tests; MockK and ArchUnit are test-scoped. Tests verify Java 17 execution, Java/Kotlin API use, structured data, provider capability/option models, cancellation, stream ownership and static contract metadata. Core integration tests compile independent provider JARs and exercise actual ServiceLoader discovery, metadata validation before provider loading, selection and concurrent delegation. Repository-wide ArchUnit rules inspect main outputs from all five modules and enforce dependency direction, Kotlin/internal access, adapter ownership, public signature boundaries and component cycles, with independently compiled violating fixtures. DOCX integration tests compare an independently authored package before/after a real docx4j round trip and cover invalid inputs, budgets, safe diagnostics, lifecycle and concurrent isolation. The build also verifies runtime module dependencies and prevents test libraries from leaking into production dependencies. Template-processing tests and API contract generation belong to subsequent issues.
+JUnit Jupiter runs the tests; MockK and ArchUnit are test-scoped. Tests verify Java 17 execution, Java/Kotlin API use, structured data, provider capability/option models, cancellation, stream ownership and static contract metadata. Core integration tests compile independent provider JARs and exercise actual ServiceLoader discovery, metadata validation before provider loading, selection and concurrent delegation. Repository-wide ArchUnit rules inspect main outputs from all six modules and enforce dependency direction, Kotlin/internal access, adapter ownership, public signature boundaries and component cycles, with independently compiled violating fixtures. DOCX integration tests compare an independently authored package before/after a real docx4j round trip and cover invalid inputs, budgets, safe diagnostics, lifecycle and concurrent isolation. Language tests exercise nested inline conditions, scopes, formatting, invalid constructs, literal-data safety and resource budgets. The build also verifies runtime module dependencies and prevents test libraries from leaking into production dependencies. Word template-processing tests and API contract generation belong to subsequent issues.
 
 Dependency versions and review notes are in [DEPENDENCIES.md](DEPENDENCIES.md). Design boundaries are in [ARCHITECTURE.md](ARCHITECTURE.md); contributor instructions are in [AGENTS.md](AGENTS.md).
 

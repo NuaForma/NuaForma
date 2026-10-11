@@ -2,7 +2,7 @@
 
 NuaForma is an embeddable Kotlin/JVM document-generation engine with optional format modules and a thin REST service. This document is the source of truth for agreed architecture decisions and requirements; [AGENTS.md](AGENTS.md) contains agent workflow and development instructions.
 
-The Gradle build, initial public provider contracts, core provider discovery/selection and a DOCX read/write facade exist. The [contracts guide](nuaforma-contracts/README.md), [core guide](nuaforma-core/README.md) and [DOCX guide](nuaforma-docx/README.md) describe the development APIs and limitations. Template processing and production format providers are not implemented; the remaining decisions describe intended product behavior. Implement only the requested milestone and validate capabilities before documenting them as available. Workstation-specific instructions do not belong here.
+The Gradle build, initial public provider contracts, core provider discovery/selection, a DOCX read/write facade and a format-independent text template language exist. The [contracts guide](nuaforma-contracts/README.md), [core guide](nuaforma-core/README.md), [DOCX guide](nuaforma-docx/README.md) and [template language specification](nuaforma-template/README.md) describe the development APIs and limitations. Applying the language to Word structures and production format providers is not implemented; the remaining decisions describe intended product behavior. Implement only the requested milestone and validate capabilities before documenting them as available. Workstation-specific instructions do not belong here.
 
 ## Product direction and scope
 
@@ -32,16 +32,18 @@ Do not expand the implementation scope merely because a capability appears in th
 
 ## Module and dependency boundaries
 
-The Gradle subprojects are `nuaforma-contracts`, `nuaforma-core`, `nuaforma-docx`, `nuaforma-docx-pdf` and `nuaforma-server`. Initial public contracts and core provider discovery/selection exist as development drafts; production format providers are not implemented yet. The DOCX and DOCX-to-PDF modules belong to the early product scope, but their capabilities must not be advertised as available until implemented and verified.
+The six Gradle subprojects are `nuaforma-contracts`, `nuaforma-core`, `nuaforma-template`, `nuaforma-docx`, `nuaforma-docx-pdf` and `nuaforma-server`. Initial public contracts and core provider discovery/selection exist as development drafts; production format providers are not implemented yet. The DOCX and DOCX-to-PDF modules belong to the early product scope, but their capabilities must not be advertised as available until implemented and verified.
 
 - `nuaforma-contracts`: separately published public interfaces and shared value types for providers, formats, generation options, results and diagnostics. Use the Kotlin/Java package `dev.nuaforma.contracts`. Keep it independent of core, server and concrete format implementations.
 - `nuaforma-core`: the format-independent engine that discovers providers, checks their compatibility and availability, selects a suitable provider and orchestrates generation through the contracts. No dependency on concrete format modules, HTTP frameworks, persistence systems or docx4j representation types.
+- `nuaforma-template`: separately publishable, format-independent restricted language compiler and evaluator under `dev.nuaforma.template`. Depends only on contracts and the platform, not core, server or a document library. Format modules may reuse its public API without pulling in docx4j; processing code does not belong in contracts. Core remains responsible for orchestration, not expression evaluation. The initial API renders text; Word structure-aware application belongs in the DOCX module's subsequent processing milestone.
 - `nuaforma-docx`: DOCX parsing, transformation and writing. docx4j and OOXML representation types stay behind this adapter's implementation boundary.
 - `nuaforma-docx-pdf`: reads DOCX and writes both DOCX and PDF. Reuse `nuaforma-docx` internally and add conversion; do not create a second template engine. Conversion may require an intermediate DOCX and an external renderer, depending on the selected backend.
 - `nuaforma-server`: HTTP transport, request validation, upload/download handling, authentication integration and invocation of the engine. Do not implement a second transformation pipeline here.
 - Publish format modules around usable document-processing capabilities. Separate parsing, transformation, writing and conversion responsibilities internally; do not require a separately published parser and writer artifact for every responsibility.
 - Future format, conversion and storage adapters must be optional. A DOCX-only consumer must not pull in a PDF renderer, spreadsheet stack, database client or server framework.
 - Core and format providers depend on `nuaforma-contracts`. Third-party providers must be implementable with only the contracts dependency, without depending on core. The server uses core; format providers may reuse implementation components from other format modules, but must not depend on core or server. Avoid circular module dependencies.
+- Format modules may depend on `nuaforma-template`, but are not required to use this language. The template module cannot depend on concrete providers. The server includes it at runtime in the development module inventory but does not implement a second evaluation path.
 
 **Ask, do not inspect:** expose format-independent questions and results through the interfaces and value types in `nuaforma-contracts`. Do not require core or server code to inspect docx4j objects, JAXB classes, DOM nodes or a renderer's private model to make generation decisions. Public engine APIs must not leak those implementation types.
 
@@ -109,6 +111,8 @@ The Gradle subprojects are `nuaforma-contracts`, `nuaforma-core`, `nuaforma-docx
 - Put dates, number formats, locale and time zone under explicit policy. Do not use the host machine's locale or time zone as an undocumented document contract.
 - Document stable syntax from its specification and executable examples. Do not let the server and embedded engine accept different languages.
 
+The development language is specified in [nuaforma-template/README.md](nuaforma-template/README.md), with executable examples in that module's tests. It uses `{path}`, `{#if expression}...{#else}...{/if}` and `{#each collection as alias}...{/each}`. Explicit boolean/scalar semantics, `??` fallbacks, quoted object keys, short-circuit operators and bounded number/date formatting do not expose application methods. Format modules must preserve the language's literal-data, scope and failure semantics when applying it to document structures. No DOCX transformation support is implied by a text-language test.
+
 ## Document fidelity — the primary generation rule
 
 The template owns the layout. Replace or structurally expand the intended content; do not reconstruct the entire document from extracted plain text.
@@ -156,7 +160,7 @@ A plausible but incorrect document may be worse than a failed request. Fail clea
 
 ## Architecture tests
 
-The repository-wide suite is test-only code under `nuaforma-server/src/test/kotlin/dev/nuaforma/architecture`, because the server test runtime already includes all five production modules. Gradle supplies each module's actual main class directories, tracks them as test inputs and builds all production classes before testing. The suite verifies module/package ownership, dependency direction, cross-component public API access, external adapter ownership, public signature leakage and component cycles. Empty scaffolds are explicitly included in the module inventory; contracts/core imports must not be empty. No test dependency is added to production artifacts.
+The repository-wide suite is test-only code under `nuaforma-server/src/test/kotlin/dev/nuaforma/architecture`, because the server test runtime already includes all six production modules. Gradle supplies each module's actual main class directories, tracks them as test inputs and builds all production classes before testing. The suite verifies module/package ownership, dependency direction, cross-component public API access, external adapter ownership, public signature leakage and component cycles. Empty scaffolds are explicitly included in the module inventory; contracts/core/template imports must not be empty. No test dependency is added to production artifacts.
 
 Kotlin visibility is read without class initialization using the existing Kotlin reflection component at test scope. JVM-public Kotlin `internal` types are not public component APIs. `internal`, `adapters` and core's `discovery` packages remain implementation boundaries even when their JVM classes are public. Compiler-generated file facades and synthetic holders are not exported entry points; introducing top-level cross-component APIs needs an explicit policy decision rather than a blanket exception.
 

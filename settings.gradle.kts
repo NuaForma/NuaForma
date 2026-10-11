@@ -16,6 +16,7 @@ rootProject.name = "nuaforma"
 include(
     "nuaforma-contracts",
     "nuaforma-core",
+    "nuaforma-template",
     "nuaforma-docx",
     "nuaforma-docx-pdf",
     "nuaforma-server",

@@ -29,6 +29,7 @@ class RepositoryArchitectureTest {
         assertFalse(production.isEmpty(), "Architecture import must not silently be empty")
         assertTrue(production.any { it.name == "dev.nuaforma.contracts.DocumentProvider" })
         assertTrue(production.any { it.name == "dev.nuaforma.core.ProviderRegistry" })
+        assertTrue(production.any { it.name == "dev.nuaforma.template.Templates" })
         assertFalse(production.any { it.name == "dev.nuaforma.core.DiscoveryTest" || it.name == javaClass.name }, "Import only main outputs, never tests/fixtures")
         ArchitecturePolicy.RULES.forEach { policy.rule(it).check(production) }
     }
