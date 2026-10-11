@@ -7,6 +7,7 @@ import dev.nuaforma.contracts.GenerationRequest
 import dev.nuaforma.docx.DocxDocument
 import dev.nuaforma.docx.internal.BoundedStreams
 import dev.nuaforma.docx.internal.DocxFailure
+import dev.nuaforma.docx.internal.TemporaryPackage
 import org.docx4j.openpackaging.exceptions.Docx4JException
 import org.docx4j.openpackaging.packages.WordprocessingMLPackage
 import org.docx4j.openpackaging.parts.JaxbXmlPart
@@ -30,8 +31,8 @@ internal object Docx4jDocuments {
 
     fun open(input: InputStream, context: GenerationContext, transform: (WordprocessingMLPackage) -> Unit = {}): DocxDocument {
         context.checkActive()
-        val spool = Files.createTempFile("nuaforma-docx-input-", ".zip")
-        try {
+        return TemporaryPackage.create(context).use { temporary ->
+            val spool = temporary.path
             Files.newOutputStream(spool).use { BoundedStreams.copy(input, it, context.limits.maxTemplateBytes, context) }
             PackageValidation.validate(spool, context)
             val model = try {
@@ -75,9 +76,7 @@ internal object Docx4jDocuments {
             catch (error: GenerationException) { throw error }
             catch (_: RuntimeException) { DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "DOCX structure cannot be transformed safely; simplify the template") }
             context.checkActive()
-            return Document(model, context)
-        } finally {
-            Files.deleteIfExists(spool)
+            Document(model, context)
         }
     }
 
@@ -86,8 +85,8 @@ internal object Docx4jDocuments {
         override fun writeTo(output: OutputStream) {
             context.checkActive()
             val current = model ?: DocxFailure.fail(DiagnosticCodes.INVALID_REQUEST, "DOCX document is closed; open a new document")
-            val spool = Files.createTempFile("nuaforma-docx-output-", ".zip")
-            try {
+            TemporaryPackage.create(context).use { temporary ->
+                val spool = temporary.path
                 try {
                     Files.newOutputStream(spool).use { current.save(BoundedStreams.Output(it, context.limits.maxOutputBytes, context)) }
                 } catch (error: Docx4JException) {
@@ -96,8 +95,6 @@ internal object Docx4jDocuments {
                 }
                 PackageValidation.validate(spool, context)
                 Files.newInputStream(spool).use { BoundedStreams.copy(it, output, context.limits.maxOutputBytes, context) }
-            } finally {
-                Files.deleteIfExists(spool)
             }
         }
 
