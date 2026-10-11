@@ -1,0 +1,13 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local design explorations and generated previews
+# Publish selected branding assets separately when ready.
+/output/
