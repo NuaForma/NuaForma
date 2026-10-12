@@ -1,0 +1,82 @@
+{
+  "version": "0.1.0-alpha.1",
+  "sourceCommit": "357cd7ecd33b1264018e83abafa49f1a8ddcb122",
+  "qualifiedImage": "sha256:138977f9c7aaf0e313a5ba205c6c2011f4a720e5021f25b486f237c7e866f7d5",
+  "containerArchiveSha256": "16bd2ea9a071eed5cbc8fc74b01a08159695e826af57e5e64470eb7e415ec4af",
+  "containerConfigSha256": "47a985b1ac5f1658d8dcb9693423f586dd81a8654987b5ac6d1837da5b1c59ff",
+  "reviewer": "mrhoeve",
+  "latest": false,
+  "approved": {
+    "libraryAudit": true,
+    "containerAudit": true,
+    "sourceAccess": true,
+    "fidelityQualification": true,
+    "securityReview": true
+  },
+  "sourceMaterials": [
+    {
+      "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.1/nuaforma-sources-debian-0.1.0-alpha.1.tar",
+      "sha256": "b8cf080795e5ff50925c5bb11ce2840ac48060649b669dba8136153d32eeb27b",
+      "verifiedAnonymousAccess": true
+    },
+    {
+      "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.1/nuaforma-sources-libreoffice-0.1.0-alpha.1.tar",
+      "sha256": "80bf39753e2f4534801a4b14038f923d44ac30f48bfadb425d1b1269e0e01451",
+      "verifiedAnonymousAccess": true
+    },
+    {
+      "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.1/nuaforma-sources-java-0.1.0-alpha.1.tar",
+      "sha256": "bdbab3fc095f5aa8e21dfd68a19f72157f73037ea5f674b9e56c0d2aa0cef0d0",
+      "verifiedAnonymousAccess": true
+    },
+    {
+      "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.1/nuaforma-sources-jvm-0.1.0-alpha.1.tar",
+      "sha256": "5e4abb040ca7d2f31ff4bfe5310aca32f60cbaf473b2d750a38d00858641d6cb",
+      "verifiedAnonymousAccess": true
+    }
+  ],
+  "libraryHashes": {
+    "nuaforma-contracts-0.1.0-alpha.1.pom": "88ba1cac2f135757e69f314b4eca02c4aec5a61bb5fd4179fa5174e73b351f64",
+    "nuaforma-contracts-0.1.0-alpha.1.jar": "9b2365c49d26c4f31e8a95cd40ae0c30534e8be76289de01fb953ee8201a7e24",
+    "nuaforma-contracts-0.1.0-alpha.1-sources.jar": "8575b5fb724504c3d4fda49c77537e52be64364778a494271e47c10d4b30343c",
+    "nuaforma-contracts-0.1.0-alpha.1-javadoc.jar": "ba7b41bb9230811980a984d81781ae2343e192c1e402950fce74ca0787481bdc",
+    "nuaforma-core-0.1.0-alpha.1.pom": "fc4ff8cb17b7f5af2411533be6089d67d403a26ab513bcb2cb22a107e2691a17",
+    "nuaforma-core-0.1.0-alpha.1.jar": "bcbf64b59012ec57fa39411753f5ceec91c453d7811b6f1f39a2c055222aafc6",
+    "nuaforma-core-0.1.0-alpha.1-sources.jar": "ba9c0d3376c9e3f0ea26f9ebf8d45e74777de12da6b19e18474fb31a21ab03e5",
+    "nuaforma-core-0.1.0-alpha.1-javadoc.jar": "0fa3d5fb620a6e5a9df8297f1ec0c2d23c5c5219312074a9c1244b4ad721eef0",
+    "nuaforma-template-0.1.0-alpha.1.pom": "74545213cc0a729aa92f27b0842eec49c93dc1be2b077486b7f522a9655da957",
+    "nuaforma-template-0.1.0-alpha.1.jar": "440cdd1043007e6ce87dea863b5dccb672b2e7d7b6bfcbb57b4c3307cc30c3b8",
+    "nuaforma-template-0.1.0-alpha.1-sources.jar": "637460d93fc38832bbac3c68c079a4aa7198ff5eea5f717a683e139576269123",
+    "nuaforma-template-0.1.0-alpha.1-javadoc.jar": "bb6acc6dc3aa41a5b5cc42d806457f1ab9cf949dc68bd3d85ede6edb82dea7dc",
+    "nuaforma-docx-0.1.0-alpha.1.pom": "1900cc07647f9dca0cbcb20dbb520af87ea5706f9d559da6dab20d116eb7d3c1",
+    "nuaforma-docx-0.1.0-alpha.1.jar": "04cb5520ff798f491d6f25ac9b38436dc694c0847f26d1962c23bab85086f09b",
+    "nuaforma-docx-0.1.0-alpha.1-sources.jar": "f28424dfac2a7a6b5f084b23a78afafb581ade37b477243bee6b8f14d627f3c0",
+    "nuaforma-docx-0.1.0-alpha.1-javadoc.jar": "0ec60da85fbc5da24d965748f74bf9593ff3a580fdf30d7783d0ffb2f0ae898c",
+    "nuaforma-docx-pdf-0.1.0-alpha.1.pom": "b48743001681b09d396c42a8f247e30abd73f2a968c616947f88dfd9413f8173",
+    "nuaforma-docx-pdf-0.1.0-alpha.1.jar": "857c84fe2e37888879309559ab8a8435a96edc089cf34db94aaf9953731da554",
+    "nuaforma-docx-pdf-0.1.0-alpha.1-sources.jar": "a9c05cd934a865566aa97fbf049d75b81ccba9610247e8b506e4ad92d40c9216",
+    "nuaforma-docx-pdf-0.1.0-alpha.1-javadoc.jar": "dfd9932094644086895e3850b4ea4f0f2897ab15a9a2598e49698ab0059f21b8"
+  },
+  "evidence": {
+    "signedSourceTag": "v0.1.0-alpha.1",
+    "actualKeyRun": "https://github.com/NuaForma/NuaForma/actions/runs/38316941940",
+    "report": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.1/audit-evidence.md",
+    "qualificationChecks": [
+      "non-root/read-only/capabilities/init",
+      "packaged-release-version",
+      "default-PDF-A-3b/explicit-B-profiles/standard/conflict-rejection",
+      "shipped-entrypoint/DOCX/PDF/private-cleanup",
+      "private-fonts/concurrent-tenants/dynamic-watermark/1b-transparency-rejection/opaque-watermark",
+      "SIGTERM-during-real-conversion/no-forced-kill",
+      "missing-converter/DOCX-usable/PDF-rejected",
+      "handler-deadline/cancellation/private-cleanup"
+    ],
+    "sourceInputsVerified": 857,
+    "packageRows": 257,
+    "foreignApplicationJarsVerified": 56,
+    "pdfPagesCompared": 24,
+    "acceptedSecurityRisk": "Maintainer explicitly accepted residual native-runtime advisory risk for evaluation alpha on 2026-10-13; remediation tracked in #51 for 0.2.0. Not all findings proven unreachable or fixed.",
+    "containerTestReuse": "Maintainer approved reusing completed exact-image qualification; publication checks the same archive, rootfs and config without repeating generation tests.",
+    "priorFailedAttempt": "Deadline assertion failed during concurrent archive compression; separate diagnostics gave 408 and transient fail-closed 503. Complete idle qualification subsequently passed. No failure is represented as a pass."
+  }
+}

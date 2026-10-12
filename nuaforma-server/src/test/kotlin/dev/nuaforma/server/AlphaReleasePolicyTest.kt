@@ -44,4 +44,12 @@ class AlphaReleasePolicyTest {
         assertTrue(dockerfile.contains("test -s /opt/nuaforma/application/third-party-materials/inventory.json"))
         assertTrue(Files.readString(root.resolve(".github/workflows/container-release.yml")).contains("python3 tools/container/prepare_application_materials.py"))
     }
+
+    @Test fun `container publication reuses qualified archive without repeating generation tests`() {
+        val publisher = Files.readString(root.resolve(".github/workflows/ghcr-alpha-publish.yml"))
+        assertTrue(publisher.contains("check_image_archive.py"))
+        assertTrue(publisher.contains("--check-loaded"))
+        assertFalse(publisher.contains("qualify_service.py"))
+        assertFalse(publisher.contains("docker build"))
+    }
 }

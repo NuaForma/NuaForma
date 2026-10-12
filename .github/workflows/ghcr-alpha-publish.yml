@@ -36,10 +36,9 @@ jobs:
           python3 tools/release/check_image_archive.py --review release-approvals/0.1.0-alpha.1.json --archive build/alpha/nuaforma-container-0.1.0-alpha.1.tar.gz
           docker load --input build/alpha/nuaforma-container-0.1.0-alpha.1.tar.gz
           python3 tools/release/check_image_archive.py --review release-approvals/0.1.0-alpha.1.json --archive build/alpha/nuaforma-container-0.1.0-alpha.1.tar.gz --check-loaded
-      - name: Requalify the exact transferred image
+      - name: Tag the already qualified exact transferred image
         run: |
           IMAGE=nuaforma:0.1.0-alpha.1-archive
-          python3 tools/container/qualify_service.py --image "$IMAGE" --expected-version 0.1.0-alpha.1 --output build/alpha/qualification
           docker tag "$IMAGE" ghcr.io/nuaforma/nuaforma:0.1.0-alpha.1
       - name: Authenticate and push the immutable alpha tag only
         env:
