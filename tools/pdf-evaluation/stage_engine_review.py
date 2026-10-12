@@ -14,13 +14,16 @@ parser.add_argument('destination', type=pathlib.Path)
 parser.add_argument('--poppler-directory', type=pathlib.Path, required=True)
 parser.add_argument('--decoder-directory', type=pathlib.Path, required=True)
 parser.add_argument('--reference-run', type=pathlib.Path, required=True)
+parser.add_argument('--fixtures', nargs='+', choices=('tenant-a', 'tenant-b', 'print-preview', 'template-embedded', 'watermark-dynamic'),
+                    default=('tenant-a', 'tenant-b', 'print-preview', 'template-embedded', 'watermark-dynamic'))
+parser.add_argument('--compare-all-pages', action='store_true')
 args = parser.parse_args()
 sys.path.insert(0, str(args.decoder_directory.resolve()))
 import zxingcpp
 
 args.destination.mkdir(parents=True, exist_ok=False)
 records = []
-for name in ('tenant-a', 'tenant-b', 'print-preview', 'template-embedded', 'watermark-dynamic'):
+for name in args.fixtures:
     source = args.engine / f'{name}.pdf'
     target = args.destination / 'libreoffice' / name
     target.mkdir(parents=True, exist_ok=False)
@@ -56,6 +59,12 @@ for name in ('tenant-a', 'tenant-b', 'print-preview', 'template-embedded', 'wate
             scans += [dict(text=barcode.text, rotation=barcode.orientation) for barcode in zxingcpp.read_barcodes(image)]
     if name != 'watermark-dynamic':
         assert scans == [dict(text='NF002' if name == 'tenant-b' else 'NF001', rotation=-90)]
+    if args.compare_all_pages:
+        assert len(list(target.glob('page-*.png'))) == len(list((args.reference_run / 'libreoffice' / name).glob('page-*.png')))
+        for page in sorted(target.glob('page-*.png')):
+            reference = args.reference_run / 'libreoffice' / name / page.name
+            with Image.open(page) as actual, Image.open(reference) as expected:
+                assert actual.size == expected.size and actual.tobytes() == expected.tobytes(), page
     records.append(dict(fixture=name, pages=len(reader.pages), fonts=sorted(fonts), scans=scans))
 (args.destination / 'inspection.json').write_text(json.dumps(records, indent=2), encoding='utf-8')
 print(json.dumps(records))

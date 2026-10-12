@@ -5,6 +5,8 @@ mockk = "1.14.11"
 archunit = "1.5.1"
 docx4j = "17.1.0"
 pdfbox = "3.0.8"
+ktor = "3.6.0"
+serialization = "1.11.0"
 
 [libraries]
 kotlin-bom = { module = "org.jetbrains.kotlin:kotlin-bom", version.ref = "kotlin" }
@@ -17,6 +19,11 @@ archunit = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" 
 docx4j-core = { module = "org.docx4j:docx4j-core", version.ref = "docx4j" }
 docx4j-jaxb = { module = "org.docx4j:docx4j-JAXB-ReferenceImpl", version.ref = "docx4j" }
 pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
+ktor-server-cio = { module = "io.ktor:ktor-server-cio-jvm", version.ref = "ktor" }
+ktor-server-body-limit = { module = "io.ktor:ktor-server-body-limit-jvm", version.ref = "ktor" }
+ktor-server-status-pages = { module = "io.ktor:ktor-server-status-pages-jvm", version.ref = "ktor" }
+ktor-server-test-host = { module = "io.ktor:ktor-server-test-host-jvm", version.ref = "ktor" }
+kotlinx-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json-jvm", version.ref = "serialization" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
