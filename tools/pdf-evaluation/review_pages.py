@@ -9,8 +9,11 @@ from PIL import Image, ImageDraw
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('run', type=pathlib.Path)
+    parser.add_argument('--backend', default='libreoffice')
     args = parser.parse_args()
-    pages = sorted(args.run.glob('libreoffice/*/page-*.png'))
+    pages = sorted(args.run.glob(f'{args.backend}/*/page-*.png'))
+    if not pages:
+        parser.error('No raster pages found for the selected backend')
     unique = {}
     for page in pages:
         with Image.open(page) as image:
