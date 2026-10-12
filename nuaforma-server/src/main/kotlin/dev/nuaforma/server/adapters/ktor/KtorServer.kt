@@ -53,6 +53,11 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
         }
         install(RequestBodyLimit) { bodyLimit { config.maximumRequestBytes } }
         routing {
+            get(ApiRoutes.VERSION) { guarded(call) {
+                call.response.headers.append(HttpHeaders.CacheControl, "no-store")
+                call.response.headers.append("X-Content-Type-Options", "nosniff")
+                call.respondText(json.encode(BuildInformation.response()), ContentType.Application.Json)
+            } }
             get(ApiRoutes.OPENAPI_JSON) { guarded(call) { openApi(call, documentation.jsonText, "json", ContentType.Application.Json) } }
             get(ApiRoutes.OPENAPI_YAML) { guarded(call) { openApi(call, documentation.yamlText, "yaml", ContentType.parse("application/yaml")) } }
             get(ApiRoutes.CAPABILITIES) { guarded(call) { call.respondText(json.encode(capabilities()), ContentType.Application.Json) } }

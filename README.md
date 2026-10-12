@@ -89,7 +89,7 @@ DOCX-only applications need neither the server, Docker nor LibreOffice. PDF's is
 
 For a local JVM service, follow the [server launch guide](nuaforma-server/README.md#run-locally). For the combined service/LibreOffice container, follow the [Docker Compose build and start guide](deployment/pdf-runtime/SERVICE.md#build-and-start). The container includes the approved renderer isolation; no separate worker container or Microsoft Office installation is required.
 
-The service exposes `/api/v1/documents`, `/api/v1/assess`, `/api/v1/capabilities`, `/openapi.json` and `/openapi.yaml`. The [mount guide](deployment/pdf-runtime/MOUNTS.md) describes custom fonts, trusted extensions and restart-based reload. There is no published image to pull yet.
+The service exposes `/api/v1/documents`, `/api/v1/assess`, `/api/v1/capabilities`, `/api/v1/version`, `/openapi.json` and `/openapi.yaml`. The version endpoint returns packaged build version/source identity and the runtime contract version without checking converters; source archives report a null commit. The [mount guide](deployment/pdf-runtime/MOUNTS.md) describes custom fonts, trusted extensions and restart-based reload. There is no published image to pull yet.
 
 ## PDF choices and important limits
 
