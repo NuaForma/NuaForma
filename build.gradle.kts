@@ -125,6 +125,9 @@ tasks.register("verifyBuildStructure") {
             check(components.none { it.moduleVersion?.group in testGroups }) {
                 "Test dependencies leaked into ${module.path} runtimeClasspath"
             }
+            check(components.none { it.moduleVersion?.group?.startsWith("io.swagger") == true }) {
+                "OpenAPI test tooling leaked into ${module.path} runtimeClasspath"
+            }
             check(components.none { it.moduleVersion?.name in setOf("ktor-server-test-host-jvm", "ktor-test-dispatcher-jvm", "kotlinx-coroutines-test-jvm", "kotlinx-coroutines-debug") }) {
                 "HTTP test tooling leaked into ${module.path} runtimeClasspath"
             }

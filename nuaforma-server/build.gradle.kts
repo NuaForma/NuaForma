@@ -31,12 +31,27 @@ dependencies {
     implementation(libs.ktor.server.status.pages)
     implementation(libs.kotlinx.json)
     testImplementation(libs.ktor.server.test.host)
+    testImplementation(libs.swagger.parser)
+    // Patched, aligned parser transitives; never part of the production JSON adapter.
+    testImplementation(platform(libs.jackson.test.bom))
     // Already present through MockK at test runtime; compile the Kotlin visibility checks explicitly.
     testImplementation(libs.kotlin.reflect)
     implementation(project(":nuaforma-core"))
     runtimeOnly(project(":nuaforma-docx"))
     runtimeOnly(project(":nuaforma-docx-pdf"))
     runtimeOnly(project(":nuaforma-template"))
+}
+
+tasks.register<JavaExec>("generateOpenApi") {
+    group = "documentation"
+    description = "Exports JSON and YAML from the same server-owned OpenAPI contract."
+    dependsOn(tasks.named("classes"))
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass.set("dev.nuaforma.server.internal.OpenApiExport")
+    val destination = layout.buildDirectory.dir("generated/openapi")
+    outputs.dir(destination)
+    inputs.files(sourceSets.main.get().output)
+    doFirst { args(destination.get().asFile.absolutePath) }
 }
 
 tasks.named<Test>("test") {

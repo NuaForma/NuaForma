@@ -28,6 +28,7 @@ import java.util.concurrent.Semaphore
 internal class KtorServer(private val registry: ProviderRegistry, private val config: ServerConfiguration) {
     private val json: JsonCodec = KotlinxJsonCodec()
     private val slots = Semaphore(config.maximumConcurrentRequests)
+    private val documentation = ApiDocumentation(json)
 
     fun startAndWait() {
         embeddedServer(CIO, configure = {
@@ -45,16 +46,24 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
         }
         install(RequestBodyLimit) { bodyLimit { config.maximumRequestBytes } }
         routing {
-            get("/api/v1/capabilities") { guarded(call) { call.respondText(json.encode(capabilities()), ContentType.Application.Json) } }
-            post("/api/v1/assess") { guarded(call) {
+            get(ApiRoutes.OPENAPI_JSON) { guarded(call) { openApi(call, documentation.jsonText, "json", ContentType.Application.Json) } }
+            get(ApiRoutes.OPENAPI_YAML) { guarded(call) { openApi(call, documentation.yamlText, "yaml", ContentType.parse("application/yaml")) } }
+            get(ApiRoutes.CAPABILITIES) { guarded(call) { call.respondText(json.encode(capabilities()), ContentType.Application.Json) } }
+            post(ApiRoutes.ASSESS) { guarded(call) {
                 if (!call.request.contentType().match(ContentType.Application.Json)) throw ApiFailure(415, "UNSUPPORTED_MEDIA_TYPE", "Expected application/json")
                 val bytes = receiveBytes(call.receiveChannel(), config.maximumJsonBytes)
                 val request = json.decode(bytes)
                 val provider = runInterruptible(Dispatchers.IO) { registry.select(request.requirements, request.providerId) }
                 call.respondText(json.encode(mapOf("status" to "SUPPORTED", "providerId" to provider.metadata.id)), ContentType.Application.Json)
             } }
-            post("/api/v1/documents") { guarded(call) { generate(call) } }
+            post(ApiRoutes.DOCUMENTS) { guarded(call) { generate(call) } }
         }
+    }
+
+    private suspend fun openApi(call: ApplicationCall, text: String, extension: String, type: ContentType) {
+        call.response.headers.append(HttpHeaders.ContentDisposition, "attachment; filename=\"nuaforma-openapi.$extension\"")
+        call.response.headers.append("X-Content-Type-Options", "nosniff")
+        call.respondText(text, type)
     }
 
     private suspend fun guarded(call: ApplicationCall, action: suspend () -> Unit) {

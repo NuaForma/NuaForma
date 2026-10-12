@@ -1,6 +1,6 @@
 # REST service
 
-Development-stage Java 17 service using Ktor CIO and the same public engine/provider contracts as embedded generation. No second template evaluator, storage backend or implicit resource fetching is introduced. OpenAPI downloads belong to issue #13; final Docker packaging and mount support belong to #14/#35. No public service or image is deployed by the build.
+Development-stage Java 17 service using Ktor CIO and the same public engine/provider contracts as embedded generation. No second template evaluator, storage backend or implicit resource fetching is introduced. Equivalent OpenAPI JSON/YAML downloads are implemented; final Docker packaging and mount support belong to #14/#35. No public service or image is deployed by the build.
 
 ## Run locally
 
@@ -20,6 +20,26 @@ The initial service has no authentication/TLS implementation. Do not expose it d
 | GET | `/api/v1/capabilities` | Registered providers, declared/usable formats, option metadata and safe readiness/discovery diagnostics |
 | POST | `/api/v1/assess` | JSON envelope; selected provider or structured rejection, without document validation or font/resource reservation |
 | POST | `/api/v1/documents` | Multipart generation; validated document attachment or structured JSON failure |
+| GET | `/openapi.json` | OpenAPI 3.1.1 JSON attachment |
+| GET | `/openapi.yaml` | Equivalent OpenAPI 3.1.1 YAML attachment |
+
+## OpenAPI downloads and export
+
+```sh
+curl --fail http://127.0.0.1:8080/openapi.json --output nuaforma-openapi.json
+curl --fail http://127.0.0.1:8080/openapi.yaml --output nuaforma-openapi.yaml
+./gradlew :nuaforma-server:generateOpenApi
+```
+
+The Gradle task writes both documents under `nuaforma-server/build/generated/openapi`, without starting HTTP, discovering providers or rendering documents. A single server-owned `OpenApiContract` model defines both serializations; generated files are ignored, not separately authored copies. Both downloads use attachment filenames and `nosniff`, with `application/json` and `application/yaml` respectively. The source uses the common route constants and is served without reflecting request hosts, filesystem paths or deployment secrets. Specification downloads share the configured HTTP admission/deadline policy.
+
+The contract defines the multipart template/JSON/resource envelope, extensible format requests, generic data/options, dynamic-watermark settings, capability metadata, assessment, output media types/headers and safe errors. It documents defaults, runtime validation beyond JSON Schema (e.g. valid locale/time zone and watermark UTF-16 budget), isolated font/PDF behavior and deployment boundaries. It does not hard-code an exhaustive provider-format/option enum: query capabilities and assess the whole request for current supported versions/profiles. Only static standard PDF 1.7 is presently qualified; conformance/form profiles remain unsupported.
+
+Resource file parts use `resource.<id>` and the OpenAPI 3.1 multipart schema's `patternProperties`. Some client generators do not expose these dynamically named fields: append them explicitly in the multipart client. This is a tooling limitation, not permission to rename the transport or discard resources. OpenAPI JSON and YAML describe the same HTTP interface for hosted/on-premise use; they are not inputs required by embedded library users, who use the [Java/Kotlin engine API](../nuaforma-core/README.md) directly. No Swagger UI, CDN dependency, public hosting or remote schema fetching is introduced.
+
+Swagger Parser 2.1.48 is test-only. Tests parse the two real HTTP downloads independently, compare their complete JSON trees, check local references, exercise documented endpoints and compare representative schema-valid/invalid envelopes with the actual decoder. The behavioral schema assertions cover the explicitly used keyword subset and fail on newly unsupported keywords; they are not advertised as a general-purpose JSON Schema validator. Tests include multipart resource-name validation and deliberate contract drift. Jackson parser transitives are test-aligned to patched 2.22.3; neither Swagger/Jackson/SnakeYAML nor their vendor models enter production artifacts. YAML emission uses a small JSON-compatible YAML 1.2 subset with every string/key quoted and no tags/anchors; parsing is performed only by independent test tooling.
+
+## Request envelope
 
 Both POST routes use the same JSON envelope:
 
@@ -81,6 +101,8 @@ Successful attachments use DOCX/PDF media types, `Content-Disposition`, `Cache-C
 
 ```sh
 ./gradlew :nuaforma-server:test
+./gradlew :nuaforma-server:test --tests dev.nuaforma.server.OpenApiTest
+./gradlew :nuaforma-server:generateOpenApi
 ./gradlew build generatePomFileForMavenJavaPublication
 ```
 

@@ -7,6 +7,8 @@ docx4j = "17.1.0"
 pdfbox = "3.0.8"
 ktor = "3.6.0"
 serialization = "1.11.0"
+swagger-parser = "2.1.48"
+jackson-tests = "2.22.3"
 
 [libraries]
 kotlin-bom = { module = "org.jetbrains.kotlin:kotlin-bom", version.ref = "kotlin" }
@@ -24,6 +26,8 @@ ktor-server-body-limit = { module = "io.ktor:ktor-server-body-limit-jvm", versio
 ktor-server-status-pages = { module = "io.ktor:ktor-server-status-pages-jvm", version.ref = "ktor" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host-jvm", version.ref = "ktor" }
 kotlinx-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json-jvm", version.ref = "serialization" }
+swagger-parser = { module = "io.swagger.parser.v3:swagger-parser-v3", version.ref = "swagger-parser" }
+jackson-test-bom = { module = "com.fasterxml.jackson:jackson-bom", version.ref = "jackson-tests" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
