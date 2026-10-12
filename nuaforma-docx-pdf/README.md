@@ -66,4 +66,6 @@ PDF framing, version, strict structure, page geometry, embedded-font streams and
 
 Run `./gradlew :nuaforma-docx-pdf:test :nuaforma-server:test` on Java 17. Tests cover unchanged DOCX delegation, discovery/ambiguity, missing converters, option filtering, independent PDF syntax, active-content rejection, font permissions, private cleanup, cancellation, process reaping, budgets, Java API use and adapter ownership. Mocked converter tests establish orchestration only, never rendering fidelity.
 
+Tests requiring Linux executables, POSIX permissions and secure directory traversal are explicitly Linux-scoped; missing-converter, DOCX, XML, option and Java API tests do not use Unix-only absolute-path fixtures. This does not claim a qualified native PDF runtime on another operating system.
+
 The runtime qualification uses actual LibreOffice and the actual conversion-copy implementation on fourteen synthetic documents (44 pages). Structural PDF checks, pixel comparisons, complete visual review, Word-coordinate comparisons and independent Code 39 scans at 100 and 300 DPI are separate from unit tests. See [the qualification guide](../deployment/pdf-runtime/README.md) and [research tooling](../tools/pdf-evaluation/README.md). Private font copies, generated documents, images, caches and binaries remain ignored and are not published as product assets.

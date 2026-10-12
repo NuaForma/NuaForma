@@ -6,12 +6,15 @@ import dev.nuaforma.docx.pdf.internal.PdfOptions
 import dev.nuaforma.docx.pdf.internal.PdfStreams
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
 import java.io.ByteArrayOutputStream
 import java.nio.file.Files
 import java.util.concurrent.Executors
 
 class ConversionFilesTest {
     @Test
+    @EnabledOnOs(OS.LINUX, disabledReason = "This case checks Linux permissions and symbolic links")
     fun `operation files are private distinct and removed without following links`() {
         val outside = Files.createTempFile("nf-independent-", ".txt")
         try {

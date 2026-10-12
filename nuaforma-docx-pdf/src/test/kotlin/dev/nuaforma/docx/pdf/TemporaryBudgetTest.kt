@@ -5,10 +5,13 @@ import dev.nuaforma.docx.pdf.internal.ConversionFiles
 import dev.nuaforma.docx.pdf.internal.TemporaryBudget
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
 import java.nio.ByteBuffer
 import java.nio.file.Files
 import java.nio.file.StandardOpenOption
 
+@EnabledOnOs(OS.LINUX, disabledReason = "The qualified runtime requires Linux secure-directory traversal")
 class TemporaryBudgetTest {
     @Test fun `logical file sizes enforce the aggregate budget even for sparse files`() {
         ConversionFiles.create(GenerationContext()).use { files ->

@@ -4,10 +4,13 @@ import dev.nuaforma.contracts.*
 import dev.nuaforma.docx.pdf.adapters.libreoffice.BoundedProcess
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.condition.EnabledOnOs
+import org.junit.jupiter.api.condition.OS
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Duration
 
+@EnabledOnOs(OS.LINUX, disabledReason = "The qualified process runtime is Linux-only")
 class BoundedProcessTest {
     @Test
     fun `trusted process receives no caller environment and readiness output is bounded`() {

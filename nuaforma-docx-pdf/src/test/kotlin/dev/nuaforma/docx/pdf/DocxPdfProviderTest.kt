@@ -16,7 +16,8 @@ class DocxPdfProviderTest {
 
     @Test
     fun `missing converter keeps DOCX output available and PDF unsupported requests distinct`() {
-        val provider = DocxPdfProvider(LibreOfficeConfiguration(java.nio.file.Path.of("/nonexistent/nf-pdf-launcher")))
+        val absent = java.nio.file.Path.of(System.getProperty("java.io.tmpdir")).resolve("nf-absent-${java.util.UUID.randomUUID()}").toAbsolutePath()
+        val provider = DocxPdfProvider(LibreOfficeConfiguration(absent))
         assertEquals(setOf(DocumentFormat.DOCX, DocumentFormat.PDF), provider.capabilities().writeFormats)
         assertEquals(setOf(DocumentFormat.DOCX), provider.availability().writeFormats)
         assertEquals(AssessmentStatus.SUPPORTED, provider.assess(requirements(DocumentFormat.DOCX)).status)
