@@ -8,6 +8,30 @@ plugins {
 
 description = "Bounded REST transport for the NuaForma engine"
 application { mainClass.set("dev.nuaforma.server.Main") }
+
+val sourceCommit = providers.provider {
+    runCatching {
+        providers.exec {
+            workingDir(rootProject.projectDir)
+            commandLine("git", "rev-parse", "--verify", "HEAD")
+            isIgnoreExitValue = true
+        }.standardOutput.asText.get().trim()
+    }.getOrDefault("")
+}.map { if (it.matches(Regex("[0-9a-f]{40}|[0-9a-f]{64}"))) it else "unknown" }
+val buildVersion = provider { project.version.toString() }
+val buildInformationDirectory = layout.buildDirectory.dir("generated/build-information")
+val generateBuildInformation = tasks.register("generateBuildInformation") {
+    inputs.property("version", buildVersion)
+    inputs.property("commit", sourceCommit)
+    outputs.dir(buildInformationDirectory)
+    doLast {
+        val destination = buildInformationDirectory.get().file("META-INF/nuaforma/server-build.properties").asFile
+        destination.parentFile.mkdirs()
+        destination.writeText("version=${buildVersion.get()}\ncommit=${sourceCommit.get()}\n", Charsets.UTF_8)
+    }
+}
+sourceSets.main { resources.srcDir(buildInformationDirectory) }
+tasks.named("processResources") { dependsOn(generateBuildInformation) }
 tasks.named<Jar>("jar") { from(rootProject.file("LICENSE")) { into("META-INF") } }
 distributions { main { contents {
     from(rootProject.file("LICENSE"))
@@ -22,7 +46,7 @@ tasks.register<Sync>("prepareEngineQualification") {
     description = "Stages test-only embedded engine qualification without an HTTP server."
     dependsOn(tasks.named("testClasses"))
     from(configurations.runtimeClasspath) { into("lib") }
-    from(sourceSets.main.get().output.classesDirs) { into("classes") }
+    from(sourceSets.main.get().output) { into("classes") }
     from(sourceSets.test.get().output.classesDirs) { into("classes") }
     into(layout.buildDirectory.dir("engine-qualification"))
 }
@@ -70,6 +94,7 @@ tasks.register<JavaExec>("generateOpenApi") {
 }
 
 tasks.named<Test>("test") {
+    dependsOn(tasks.named("jar"))
     inputs.dir(rootProject.file("deployment/pdf-runtime")).withPropertyName("containerRuntime")
     inputs.file(rootProject.file(".github/workflows/container-release.yml")).withPropertyName("containerReleasePreparation")
     val modules = rootProject.subprojects.sortedBy { it.name }
@@ -79,6 +104,9 @@ tasks.named<Test>("test") {
     dependsOn(modules.map { "${it.path}:classes" })
     inputs.files(productionOutputs.values).withPropertyName("architectureProductionClasses")
     doFirst {
+        systemProperty("nuaforma.expectedBuildVersion", buildVersion.get())
+        systemProperty("nuaforma.expectedBuildCommit", sourceCommit.get())
+        systemProperty("nuaforma.serverJar", tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath)
         systemProperty("nuaforma.repositoryRoot", rootProject.projectDir.absolutePath)
         systemProperty("nuaforma.architecture.modules", modules.joinToString("|") { it.name })
         productionOutputs.forEach { (module, output) ->

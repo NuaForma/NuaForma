@@ -32,6 +32,12 @@ internal object OpenApiContract {
             "options" to mapOf("locale" to "nl-NL", "timeZone" to "Europe/Amsterdam",
                 "watermark" to mapOf("text" to "CONCEPT — {customer.name}", "color" to "#B0B0B0", "opacity" to 0.25, "rotation" to -45)))
         val schemas = linkedMapOf<String, Any>(
+            "BuildVersion" to obj(mapOf(
+                "version" to (string() + mapOf("description" to "Application release/development version recorded during the build.")),
+                "contractVersion" to (string() + mapOf("description" to "Runtime contract major.minor, independent of the full release version.")),
+                "commit" to mapOf("anyOf" to listOf(string() + mapOf("pattern" to "^(?:[0-9a-f]{40}|[0-9a-f]{64})$"), mapOf("type" to "null")),
+                    "description" to "Full source commit recorded during the build; null when Git identity is unavailable, such as a source archive. Not a proof of clean sources or release approval."),
+            )),
             "FormatIdentifier" to (string() + mapOf("pattern" to "^[a-z][a-z0-9.+-]{0,127}$", "description" to "Extensible identifier, not an enum. Installed ready providers determine usable format pairs.")),
             "FormatRequest" to obj(mapOf("format" to ref("FormatIdentifier"), "options" to (jsonObject() + mapOf("description" to "Provider-interpreted options. Unknown explicit options fail. Consult capability metadata and assess complete combinations."))), listOf("format")),
             "TextWatermark" to obj(mapOf(
@@ -83,6 +89,12 @@ internal object OpenApiContract {
             "additionalProperties" to false,
             "description" to "Exactly one request (application/json) and template file part, plus optional resource.<id> file parts in any order. Duplicates/unknown names fail. Resource suffixes are the logical font/resource IDs in provider options, never paths/URLs. For DOCX, template media type must be its document type or application/octet-stream. Some OpenAPI clients do not support patternProperties multipart fields; add named resource file parts explicitly.")
         val paths = linkedMapOf<String, Any>(
+            ApiRoutes.VERSION to mapOf("get" to mapOf("operationId" to "getVersion", "summary" to "Identify the running application build",
+                "description" to "Packaged build metadata and runtime contract version. Does not query provider readiness, fonts or converters; uses normal HTTP admission/deadline limits.",
+                "responses" to (errors() + mapOf("200" to (response("Build identity; not a readiness or release-approval signal", ref("BuildVersion")) + mapOf("headers" to mapOf(
+                    "Cache-Control" to mapOf("schema" to string(), "description" to "no-store"),
+                    "X-Content-Type-Options" to mapOf("schema" to string(), "description" to "nosniff"),
+                ))))))),
             ApiRoutes.CAPABILITIES to mapOf("get" to mapOf("operationId" to "getCapabilities", "summary" to "Inspect declared and usable provider capabilities", "description" to "Availability is reassessed, not a reservation. Each usable read/write pair belongs to one provider. Format-specific versions/profiles/options remain dynamic provider metadata.",
                 "responses" to (errors() + mapOf("200" to response("Provider catalog and safe availability/discovery diagnostics", ref("Capabilities")))))),
             ApiRoutes.ASSESS to mapOf("post" to mapOf("operationId" to "assessGeneration", "summary" to "Assess complete requirements without a template", "description" to "Does not validate template/font content or reserve availability. The same envelope is accepted; data and filename do not affect selection.",
@@ -96,7 +108,7 @@ internal object OpenApiContract {
             paths[path] = mapOf("get" to mapOf("operationId" to if (path == ApiRoutes.OPENAPI_JSON) "downloadOpenApiJson" else "downloadOpenApiYaml", "summary" to "Download this authoritative API contract", "responses" to (errors() + mapOf("200" to mapOf("description" to "Equivalent OpenAPI 3.1.1 document serialized as $media", "content" to content(schema, media),
                 "headers" to mapOf("Content-Disposition" to mapOf("schema" to string(), "description" to "OpenAPI attachment filename")))))))
         }
-        return linkedMapOf("openapi" to "3.1.1", "info" to mapOf("title" to "NuaForma REST API", "version" to "0.1.0-SNAPSHOT", "license" to mapOf("name" to "Apache License 2.0", "identifier" to "Apache-2.0"),
+        return linkedMapOf("openapi" to "3.1.1", "info" to mapOf("title" to "NuaForma REST API", "version" to BuildInformation.version, "license" to mapOf("name" to "Apache License 2.0", "identifier" to "Apache-2.0"),
             "description" to "Development-stage API, not a stable release or public deployment. Loopback by default; no built-in authentication/TLS. Use an authenticated TLS gateway and deployment/connection/header quotas. No hidden network fetching or telemetry. Installed extensions are trusted executable application code."),
             "servers" to listOf(mapOf("url" to "/", "description" to "Relative to the deployment; no host environment is reflected")), "security" to emptyList<Any>(), "paths" to paths, "components" to mapOf("schemas" to schemas),
             "x-default-limits" to mapOf("maximumConcurrentRequests" to defaults.maximumConcurrentRequests, "maximumRequestBytes" to defaults.maximumRequestBytes, "maximumJsonBytes" to defaults.maximumJsonBytes,

@@ -21,11 +21,16 @@ Each provider in `/api/v1/capabilities` includes `fonts: {status, entries}`. Sta
 
 | Method | Path | Response |
 | --- | --- | --- |
+| GET | `/api/v1/version` | Packaged application version, runtime contract version and source commit; no provider/readiness query |
 | GET | `/api/v1/capabilities` | Registered providers, declared/usable formats, option metadata and safe readiness/discovery diagnostics |
 | POST | `/api/v1/assess` | JSON envelope; selected provider or structured rejection, without document validation or font/resource reservation |
 | POST | `/api/v1/documents` | Multipart generation; validated document attachment or structured JSON failure |
 | GET | `/openapi.json` | OpenAPI 3.1.1 JSON attachment |
 | GET | `/openapi.yaml` | Equivalent OpenAPI 3.1.1 YAML attachment |
+
+## Build version
+
+`GET /api/v1/version` returns `{"version":"0.1.0-SNAPSHOT","contractVersion":"0.1","commit":"<full-source-commit>"}` with JSON, `Cache-Control: no-store` and `nosniff`. Gradle records the application version and Git HEAD during the build and packages them in the server JAR; changing either invalidates generation. The contract version comes from the running contracts module. When Git identity is unavailable (for example, building an extracted source archive), `commit` is null. No timestamp, host paths, credentials or deployment environment is exposed. A commit identifies the checkout base, not proof that local sources were clean or a release was approved. OpenAPI `info.version` uses the same generated application version. This endpoint uses normal HTTP admission/deadline limits but never checks fonts, provider availability or conversion readiness.
 
 ## OpenAPI downloads and export
 
