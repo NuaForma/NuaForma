@@ -38,6 +38,14 @@ internal sealed class Expression(val depth: Int) {
         override fun evaluate(state: Evaluation, scope: Map<String, Any?>): Any? { state.step(); return !state.boolean(child.evaluate(state, scope)) }
     }
 
+    class Call(private val operation: StringOperation, private val arguments: List<Expression>) :
+        Expression(arguments.maxOf { it.depth } + 1) {
+        override fun evaluate(state: Evaluation, scope: Map<String, Any?>): Any? {
+            state.step()
+            return operation.evaluate(arguments.map { it.evaluate(state, scope) }, state)
+        }
+    }
+
     class Binary(private val operator: String, private val left: Expression, private val right: Expression) :
         Expression(maxOf(left.depth, right.depth) + 1) {
         override fun evaluate(state: Evaluation, scope: Map<String, Any?>): Any? {
@@ -126,6 +134,23 @@ internal class ExpressionParser(private val text: String, private val offset: In
                 "false" -> Expression.Literal(false)
                 "null" -> Expression.Literal(null)
                 else -> {
+                    if (take("(")) {
+                        val operation = StringOperation.entries.firstOrNull { it.functionName == start.value }
+                            ?: Safety.invalid(offset + start.position)
+                        return nested {
+                            val arguments = mutableListOf<Expression>()
+                            if (token.kind != ")") {
+                                arguments.add(coalesce())
+                                while (take(",")) {
+                                    if (arguments.size >= operation.maximumArguments) invalid()
+                                    arguments.add(coalesce())
+                                }
+                            }
+                            expect(")")
+                            if (arguments.size !in operation.minimumArguments..operation.maximumArguments) invalid()
+                            bounded(Expression.Call(operation, arguments.toList()))
+                        }
+                    }
                     val keys = mutableListOf<Any>()
                     while (token.kind in setOf(".", "[")) {
                         if (take(".")) {
@@ -220,7 +245,7 @@ internal class ExpressionParser(private val text: String, private val offset: In
                 else -> {
                     val pair = text.substring(cursor, minOf(cursor + 2, text.length))
                     val operator = if (pair in setOf("??", "&&", "||", "==", "!=", "<=", ">=")) pair else character.toString()
-                    if (operator !in setOf("??", "&&", "||", "==", "!=", "<=", ">=", "!", "<", ">", "(", ")", "[", "]", ".")) invalid()
+                    if (operator !in setOf("??", "&&", "||", "==", "!=", "<=", ">=", "!", "<", ">", "(", ")", "[", "]", ".", ",")) invalid()
                     cursor += operator.length
                     result.add(Token(operator, operator, start))
                 }

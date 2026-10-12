@@ -100,6 +100,10 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
         context.checkActive()
         if (++operations > Safety.MAX_OPERATIONS) Safety.limit()
     }
+    fun requireWork(units: Int) {
+        context.checkActive()
+        if (units > Safety.MAX_OPERATIONS - operations) Safety.limit()
+    }
     fun present(value: Any?) { if (value === Missing) Safety.fail(DiagnosticCodes.MISSING_VALUE, "Required template data is missing", offset) }
     fun typeFailure(): Nothing = Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Template data has an incompatible type", offset)
     fun boolean(value: Any?): Boolean { present(value); return value as? Boolean ?: typeFailure() }

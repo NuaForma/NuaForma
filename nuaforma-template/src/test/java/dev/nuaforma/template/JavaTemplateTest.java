@@ -6,6 +6,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class JavaTemplateTest {
     @Test
+    void javaCanUseBuiltInStringOperations() throws Exception {
+        assertEquals("Ada", Templates.compile("{trim(name)}").render(Map.of("name", " Ada ")));
+        assertTrue(TemplateSession.open(Map.of("status", "APPROVED"))
+            .test("equalsIgnoreCase(status, \"approved\")"));
+    }
+    @Test
     void javaCanUseStructuralSessionsAndSourceFragments() throws Exception {
         TemplateSession session = TemplateSession.open(Map.of("rows", java.util.List.of("Ada")));
         TemplateSession row = session.repeat("rows", "row").get(0);

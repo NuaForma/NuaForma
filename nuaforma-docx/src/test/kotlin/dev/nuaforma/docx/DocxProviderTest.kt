@@ -27,6 +27,34 @@ class DocxProviderTest {
     private fun row(text: String) = "<w:tr><w:tc>${paragraph(text)}</w:tc></w:tr>"
 
     @Test
+    fun `string functions in split runs structural rows and text boxes preserve literal equivalent layout`() {
+        val split = "<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{trim(customer.</w:t></w:r>" +
+            "<w:r><w:rPr><w:i/></w:rPr><w:t>name)}</w:t></w:r></w:p>"
+        val conditional = paragraph("{#if startsWith(reference, &quot;NF-&quot;)}") + paragraph("Selected") + paragraph("{/if}")
+        val table = "<w:tbl><w:tblPr/><w:tblGrid/>" + row("{#if endsWith(reference, &quot;001&quot;)}") +
+            row("{#if contains(reference, &quot;nf&quot;, true)}Reference{/if}") + row("{/if}") + "</w:tbl>"
+        val source = insert(split + conditional + table).apply {
+            this["word/document.xml"] = getValue("word/document.xml").decodeToString()
+                .replace("{customer.", "{trim(customer.").replace("name}", "name)}")
+                .replace("{#if active}", "{#if equalsIgnoreCase(status, &quot;approved&quot;)}").toByteArray()
+        }
+        val values = data + ("status" to "APPROVED")
+        val actual = generate(source, values)
+        val literal = insert("<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{&quot;Ada&quot;}</w:t></w:r></w:p>" + paragraph("Selected") +
+            "<w:tbl><w:tblPr/><w:tblGrid/>" + row("{&quot;Reference&quot;}") + "</w:tbl>")
+        val expected = generate(literal, values)
+        assertEquals(expected.keys, actual.keys)
+        for (name in expected.keys) {
+            if (name.endsWith(".xml") || name.endsWith(".rels")) assertEquals(SyntheticDocx.semantic(expected.getValue(name)), SyntheticDocx.semantic(actual.getValue(name)), name)
+            else assertArrayEquals(expected.getValue(name), actual.getValue(name), name)
+        }
+        val directory = Path.of("build/string-functions-reference")
+        Files.createDirectories(directory)
+        Files.write(directory.resolve("generated.docx"), SyntheticDocx.zip(actual))
+        Files.write(directory.resolve("expected.docx"), SyntheticDocx.zip(expected))
+    }
+
+    @Test
     fun `split run values reach body headers footers and legacy modern rotated text boxes`() {
         val original = SyntheticDocx.parts()
         val result = generate(original)

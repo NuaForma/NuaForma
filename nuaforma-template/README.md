@@ -38,7 +38,7 @@ You {#if active}have {#if count >= 2}multiple orders{#else}one order{/if}{#else}
 
 With `active = true` and `count = 2`, this produces `You have multiple orders.` without introducing a newline. To remove a block's line break, include that line break inside the condition. Unclosed or mismatched markers and unsupported directives fail at compilation, even in a branch that would not be selected. Unescaped unmatched braces are invalid template syntax.
 
-Inserted data is always literal: a value containing `{secret}` or `{#if true}` is never parsed again. It does not need template-brace escaping. String literals inside markers are double-quoted, with JSON escapes, and may contain braces. One formatter may follow a value expression; arbitrary pipelines or function calls are not supported.
+Inserted data is always literal: a value containing `{secret}` or `{#if true}` is never parsed again. It does not need template-brace escaping. String literals inside markers are double-quoted, with JSON escapes, and may contain braces. One formatter may follow a value expression. Only the built-in string functions below are callable; arbitrary pipelines, application methods and user-defined functions are not supported.
 
 ## Paths and scopes
 
@@ -56,17 +56,57 @@ For references `A` and `B`, this produces `1: A, 2: B`. An empty list produces n
 
 ## Expressions and types
 
-Accepted expressions contain paths, JSON strings, finite JSON-style numbers, `true`, `false`, `null`, parentheses and the following operators. Precedence from highest to lowest is `!`, `< <= > >=`, `== !=`, `&&`, `||`, `??`. Binary comparison/logical operators associate left to right; `??` associates right to left. Parentheses override precedence.
+Accepted expressions contain paths, JSON strings, finite JSON-style numbers, `true`, `false`, `null`, built-in string function calls, parentheses and the following operators. Function calls bind as values; precedence from highest to lowest is `!`, `< <= > >=`, `== !=`, `&&`, `||`, `??`. Binary comparison/logical operators associate left to right; `??` associates right to left. Parentheses override precedence.
 
 - Conditions and `!`, `&&`, `||` require actual booleans. There is no truthiness for strings, null, numbers or collections.
 - `&&` and `||` short-circuit. `??` evaluates its right side only for missing or null values. An unselected branch's data is not accessed, but its syntax is always validated.
 - Numeric equality and ordering use decimal values, so `1 == 1.00` is true. Floating-point input is converted from its decimal string representation; calculations and binary-floating-point equality are not language features.
-- Equality accepts matching scalar types, with no string/number/boolean coercion. Null equals null; comparisons to null return false for non-null scalars. Comparing lists/objects, comparing mismatched non-null types or ordering booleans/null fails.
+- Equality accepts matching scalar types, with no string/number/boolean coercion. Null equals null; a non-null scalar compared to null yields `false` for `==` and `true` for `!=`. Comparing lists/objects, comparing mismatched non-null types or ordering booleans/null fails.
 - String ordering uses case-sensitive JVM lexicographic order, not host-locale collation. Arithmetic, assignment, interpolation within string literals and arbitrary operators are unavailable.
 
 Missing keys, out-of-range indexes and descendants of null yield a missing sentinel, distinct from an explicit null. Using missing data without `??` fails. Traversing an incompatible non-null type (for example, reading `.city` from a string) is a type error and is not hidden by `??`.
 
 Plain scalar insertion prints strings unchanged, booleans as `true`/`false` and numbers as non-scientific decimal text without insignificant trailing zeros. Null produces empty text. Objects/lists are not implicitly converted to strings. Failures use sanitized `GenerationException` diagnostics with a template offset when available, not raw values or nested parser exception messages.
+
+## Null, missing and empty values
+
+No truthiness does **not** mean null or string checks are unavailable. `{#if name}` requires `name` to be a boolean; it does not test whether a string is filled in. `{#if name == null}` works because the comparison produces a boolean. Likewise, `contains(...)` produces a boolean, while `trim(...)` produces a string and cannot be a condition on its own.
+
+| Purpose | Example | Behavior |
+| --- | --- | --- |
+| Explicit null | `{#if name == null}Explicit null{/if}` | A present null matches; a missing field fails. |
+| Missing or null | `{#if (name ?? null) == null}Missing or null{/if}` | The fallback safely handles both cases. |
+| Present, non-null string | `{#if (name ?? null) != null}Name: {name}{/if}` | An empty string is still non-null. |
+| Empty string | `{#if name == ""}Empty{/if}` | A present empty string matches; null does not. |
+| Missing, null, empty or whitespace-only string | `{#if trim(name ?? "") == ""}No name{/if}` | The fallback handles missing/null, then trim removes boundary whitespace. |
+| Default text | `{name ?? "Onbekend"}` | Replaces missing/null, but preserves an empty string. |
+
+These examples expect `name` to be a string or null when present. Lists/objects cannot be compared, including against null. A path through an incompatible non-null value is still a type error: `customer.name ?? ""` does not hide a `customer` that is a string instead of an object.
+
+## Built-in string functions
+
+Function names are case-sensitive. Arguments can be value expressions, including paths, `??` fallbacks and nested built-in calls. String arguments must be actual strings: missing values fail with `MISSING_VALUE`; null, numbers, booleans, lists and objects fail with `INVALID_REQUEST`. There is no automatic conversion or implicit null-to-empty behavior.
+
+| Function | Result | Example |
+| --- | --- | --- |
+| `contains(text, search[, ignoreCase])` | Boolean: literal substring match | `{#if contains(description, "spoed")}Prioriteit{/if}` |
+| `startsWith(text, prefix[, ignoreCase])` | Boolean: literal prefix match | `{#if startsWith(reference, "NF-")}NuaForma-referentie{/if}` |
+| `endsWith(text, suffix[, ignoreCase])` | Boolean: literal suffix match | `{#if endsWith(filename, ".pdf")}PDF-document{/if}` |
+| `trim(text)` | String: remove boundary whitespace | `{trim(customer.name)}` |
+| `equalsIgnoreCase(left, right)` | Boolean: case-insensitive equality | `{#if equalsIgnoreCase(status, "approved")}Goedgekeurd{/if}` |
+
+The optional third argument is an actual boolean and defaults to `false`. For example, `contains(description, "spoed", true)` also matches `SPOED`. An empty search/prefix/suffix matches every string, including the empty string. Searches are literal, not regular expressions.
+
+Case-insensitive operations use Java 17's locale-independent simple Unicode code-point mapping (lowercase of uppercase); they do not follow the server's locale or `GenerationOptions.locale`. Accents are not removed, Unicode normalization is not applied, and multi-character case expansions are not performed: `É` matches `é`, but `é` does not match `e`, and `ß` does not match `ss`. Supplementary Unicode characters are processed as whole code points. Simple case matching is not language-specific collation.
+
+`trim` removes leading/trailing characters recognized by Java 17's `Character.isWhitespace` or `Character.isSpaceChar`, including tabs, newlines and non-breaking spaces. Interior whitespace is untouched; a zero-width space is not trimmed. Input data is never modified.
+
+```text
+{#if equalsIgnoreCase(trim(status ?? ""), "approved")}Goedgekeurd{/if}
+{#if contains(description ?? "", "spoed", true)}Prioriteit{/if}
+```
+
+Only these five built-ins are callable. Unknown functions, incorrect argument counts and method syntax such as `name.trim()` fail at compilation, even in an unselected branch. No reflection, callbacks, script execution or regex facility is exposed. Function nesting shares the expression depth limit. String scans, comparisons and trim copies consume the cumulative evaluation-operation budget and check cancellation/deadlines; repeated calls across structural sessions share that budget. Literal substring search is linear in the input/search lengths, including overlapping patterns. Before allocating search buffers, argument UTF-16 lengths must fit the remaining operation budget; this is a conservative capacity check for supplementary characters. Intermediate storage cannot scale beyond this budget. Results containing template markers remain literal.
 
 ## Formatting policy
 
@@ -74,7 +114,7 @@ Plain scalar insertion prints strings unchanged, booleans as `true`/`false` and 
 
 `| date("pattern")` requires a string or null. Input is a strict ISO local date (`2026-01-01`) or an ISO timestamp with an explicit offset (`2026-01-01T00:30:00Z`), bounded to 128 characters. A local date remains a date; timestamps are converted to `GenerationOptions.timeZone` (default UTC) before formatting. Patterns use Java 17 DateTimeFormatter syntax, are bounded to 64 characters and use the explicit locale. No implicit local time zone, host locale or guessed input format is used. Invalid dates, offset-free timestamps or fields unavailable on a local date fail. Prefer `uuuu` for calendar years; pattern literals may use single quotes inside the double-quoted pattern. Backslash/double-quote escapes in formatter patterns are not part of this initial grammar.
 
-Null formatting yields empty text; missing formatting fails unless the expression supplies a fallback. Formatters are the two specified language operations, not access to general Java methods or user-installed callbacks.
+Null formatting yields empty text; missing formatting fails unless the expression supplies a fallback. The two formatters are separate from the built-in string functions; neither exposes general Java methods or user-installed callbacks.
 
 ## Safety and processing budgets
 
@@ -101,3 +141,7 @@ Nested repeats count every visited element, including repetitions with empty bod
 ```
 
 `TemplateLanguageTest` exercises paths, nested mid-sentence conditions, block whitespace, alias restoration, literal insertion, null/missing/type semantics, locale/time-zone formatting, concurrent reuse, cancellation and complexity/expansion limits. Negative cases cover executable constructs and malformed syntax. `JavaTemplateTest` checks Java use on Java 17 and absence of core/docx4j/DOCX classes from this library's runtime. Architecture tests enforce the sixth module's direction and internal boundary with passing and violating fixtures. These checks do not claim Word replacement, layout preservation or PDF support.
+
+`StringFunctionsTest` makes the documented null/string examples executable and covers strict types/arity, empty searches, Unicode, literal matching, overlapping-search reference comparisons, nested/shared budgets, cancellation/deadlines and concurrent compiled-template reuse. DOCX integration additionally checks split-run functions, both text-box forms, structural conditions/table rows and package equivalence to literal-value templates. REST integration checks actual DOCX output and dynamic watermarks against embedded generation. No public API or dependency is added.
+
+For visual regression, the DOCX tests produce `nuaforma-docx/build/string-functions-reference/{generated,expected}.docx` and `nuaforma-docx/build/watermark-reference/{string-functions,dynamic}.docx`. After tests finish, `tools/pdf-evaluation/verify_string_functions.py` uses the already qualified isolated renderer image and compares every rendered page with its literal-equivalent output. Supply `--docker`, `--image`, `--poppler` (the directory containing `pdftoppm.exe`) and a fresh `--output` directory. This optional workstation QA helper reuses the PDF research launcher's prerequisites; it is not an engine API or an image publication step. Visually inspect the generated PNGs as well as the pixel comparison.

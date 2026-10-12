@@ -29,6 +29,32 @@ class RestApiTest {
     private val envelope = """{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"name":"Ada","nested":{"a":[null,true,42]}},"options":{"watermark":{"text":"CONCEPT — {name}","color":"#A1B2C3","opacity":0.3,"rotation":-30}}}"""
 
     @Test
+    fun `string functions and null fallback use identical embedded and REST document and watermark semantics`() = testApplication {
+        val registry = ProviderRegistry.discover()
+        application { KtorServer(registry, ServerConfiguration(temporaryDirectory = temporary)).installRoutes(this) }
+        val watermark = "CONCEPT — {trim(name)}"
+        val json = envelope.replace("\"name\":\"Ada\"", "\"name\":\" Ada \"")
+            .replace("CONCEPT — {name}", watermark)
+        val source = template("{#if equalsIgnoreCase(trim(name), &quot;ada&quot;)}Hello {trim(name)}{/if} {#if trim(absent ?? &quot;&quot;) == &quot;&quot;}No missing value{/if}")
+        val response = client.post("/api/v1/documents") {
+            contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY"))
+            setBody(multipart(json, source))
+        }
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        val actual = entries(response.bodyAsBytes())
+        val output = ByteArrayOutputStream()
+        registry.generate(GenerationRequest(source.inputStream(), GenerationRequirements(
+            FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.DOCX),
+            GenerationOptions(TextWatermark(watermark, "#A1B2C3", 0.3, -30.0))),
+            mapOf("name" to " Ada ", "nested" to mapOf("a" to listOf(null, true, 42)))), output, GenerationContext(), "nuaforma-docx")
+        assertEquals(entries(output.toByteArray()).getValue("word/document.xml"), actual.getValue("word/document.xml"))
+        assertTrue(actual.getValue("word/document.xml").contains("No missing value"))
+        assertTrue(actual.values.any { it.contains("CONCEPT — Ada") })
+        assertFalse(actual.values.any { it.contains("{trim") || it.contains("{#if") })
+        assertEmpty()
+    }
+
+    @Test
     fun `real DOCX generation preserves content and dynamic watermark with embedded parity`() = testApplication {
         val registry = ProviderRegistry.discover()
         application { KtorServer(registry, ServerConfiguration(temporaryDirectory = temporary)).installRoutes(this) }
@@ -212,11 +238,11 @@ class RestApiTest {
         out.write("--NFBOUNDARY--\r\n".toByteArray())
     }.toByteArray()
 
-    private fun template(): ByteArray = ByteArrayOutputStream().also { out -> ZipOutputStream(out).use { zip ->
+    private fun template(text: String = "Hello {name}"): ByteArray = ByteArrayOutputStream().also { out -> ZipOutputStream(out).use { zip ->
         mapOf(
             "[Content_Types].xml" to """<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>""",
             "_rels/.rels" to """<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="r1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>""",
-            "word/document.xml" to """<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Hello {name}</w:t></w:r></w:p><w:sectPr/></w:body></w:document>""",
+            "word/document.xml" to """<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:rPr><w:b/></w:rPr><w:t>$text</w:t></w:r></w:p><w:sectPr/></w:body></w:document>""",
         ).forEach { (name, content) -> zip.putNextEntry(ZipEntry(name)); zip.write(content.toByteArray()); zip.closeEntry() }
     } }.toByteArray()
 
