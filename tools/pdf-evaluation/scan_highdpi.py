@@ -11,13 +11,14 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('run', type=pathlib.Path)
 parser.add_argument('--poppler', type=pathlib.Path, required=True)
 parser.add_argument('--decoder-directory', type=pathlib.Path, required=True)
+parser.add_argument('--backend', default='eurooffice')
 args = parser.parse_args()
 sys.path.insert(0, str(args.decoder_directory.resolve()))
 import zxingcpp
 
 records = []
 for name in ('barcode-expected', 'barcode-generated', 'barcode-embedded', 'barcode-isolated'):
-    directory = args.run / 'eurooffice' / name
+    directory = args.run / args.backend / name
     output = directory / 'scan-300'
     output.mkdir(exist_ok=False)
     executable = args.poppler / 'pdftoppm.exe'

@@ -1,6 +1,6 @@
 # Early DOCX to PDF backend evaluation
 
-Research for issue #10, 2026-10-11. No production renderer has been adopted. The comparison is reproducible through [the separate research tooling](../tools/pdf-evaluation/README.md), which does not change NuaForma's dependencies, published artifacts or engine contracts.
+Research for issue #10, begun 2026-10-11. LibreOffice was selected for production implementation on 2026-10-12; no production PDF provider is implemented yet. The comparison is reproducible through [the separate research tooling](../tools/pdf-evaluation/README.md), which does not change NuaForma's dependencies, published artifacts or engine contracts.
 
 ## Decision status
 
@@ -10,7 +10,7 @@ The user approved investigating a bounded LibreOffice-specific conversion compat
 
 On 2026-10-12 the user explicitly accepted the measured modern inline-text-box vertical difference of approximately 0.60 mm temporarily and authorized merging this research PR. Follow-up [issue #32](https://github.com/NuaForma/NuaForma/issues/32) tracks diagnosis and correction. This acceptance is limited to the observed text-box difference: it does not establish a universal rendering tolerance, approve unknown template profiles or waive source preservation, barcode scans, other fidelity checks or process isolation. The research evidence and the limitation can be merged without claiming a production provider exists.
 
-The user accepted LibreOffice's additional redistribution obligations on 2026-10-12, then explicitly paused the LibreOffice implementation path to evaluate Euro-Office first. No production renderer has been implemented or added to the product modules. The renderer decision is held for discussion of the new evidence; issue #10 stays open. The earlier research merge does not select Euro-Office or silently resume LibreOffice.
+After accepting LibreOffice's additional redistribution obligations and pausing to evaluate Euro-Office, the user explicitly selected LibreOffice on 2026-10-12, authorized merging research PR #33 and resumed issue #11. The approved direction reuses DOCX generation and applies the measured native-shape compatibility mapping only to a temporary PDF conversion copy. Missing paragraph defaults may be supplied only through the approved explicit, caller-selected compatibility option; existing settings remain leading. The modern inline-text-box difference tracked in #32 remains temporarily accepted. Follow the [distribution checklist](libreoffice-licensing.md) for any bundled runtime. No production renderer has been implemented or added to the product modules; production isolation and the actual Linux package still require implementation and verification.
 
 ## Compared versions and method
 
@@ -121,7 +121,7 @@ Euro-Office publishes its [core under AGPLv3](https://github.com/Euro-Office/cor
 
 Twenty-one fresh research unit tests pass, including the direct-converter containment flags, read-only scoped package mount and ownership-checked timeout cleanup. Real conversions and independent visual/font/scan checks are separate evidence, not mocked renderer results. The complete Java 17 product build, architecture checks and publication metadata generation pass with cached, unchanged product tests. The returned DOCX path, product APIs and Maven dependencies remain unchanged.
 
-**Current recommendation:** do not switch to this Euro-Office route as the first production backend on the evidence above. It retains the small inline-frame difference and adds unqualified watermark, margin-frame and embedded-font behavior on our fixtures. Keep #10 and #32 open and hold production work for the user's return and renderer decision. Further investigation of a different export route or targeted compatibility work would be a new agreed step, not an automatic resumption of LibreOffice or adoption of Euro-Office.
+**Recommendation and subsequent decision:** do not switch to this Euro-Office route as the first production backend on the evidence above. It retains the small inline-frame difference and adds unqualified watermark, margin-frame and embedded-font behavior on our fixtures. The user subsequently selected LibreOffice and resumed #11; #32 remains open. Euro-Office is not adopted, and no further Euro-Office implementation or investigation is in scope.
 
 ## Maintenance, licenses and dependencies
 
@@ -153,4 +153,4 @@ LibreOffice documents [version/profile export switches](https://help.libreoffice
 
 The separate research build compiled and installed on Java 17 with locked dependencies. The complete product build, architecture checks and publication metadata generation passed; test tasks reused their existing successful results because product code was unchanged. The rendering comparison and independent PDF/barcode inspection ran outside the product tests. Generated documents and reports remain ignored.
 
-Before #10 is complete: resolve or explicitly decide the observed fidelity blockers, obtain the user's backend approval, and record the supported conversion profile. Before #11 ships: implement and test actual request/process isolation, cancellation, font resources, unavailable-converter behavior, both declared DOCX/PDF output combinations and no-duplicate watermark handling. Before claiming Docker or archival profiles: validate the real container and resulting profiles with independent checks.
+The backend decision is now approved: LibreOffice with the measured, narrowly scoped temporary-copy compatibility profile and the explicitly accepted #32 limitation. The inspected PDF 1.7 baseline is research evidence, not an implemented provider capability; no PDF/A, PDF/UA or signature-field support is claimed. Before #11 ships: implement and test actual request/process isolation, cancellation, font resources, unavailable-converter behavior, both declared DOCX/PDF output combinations and no-duplicate watermark handling. Before claiming Docker or archival profiles: validate the real container and resulting profiles with independent checks, and complete the exact-artifact redistribution review before distribution.
