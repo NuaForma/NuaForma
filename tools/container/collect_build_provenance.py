@@ -27,6 +27,9 @@ def main():
         "antlr-2.7.7.tar.gz": "https://www.antlr2.org/download/antlr-2.7.7.tar.gz",
         "antlr-2-license.html": "https://www.antlr2.org/license.html",
         "antlr-2.7.7-copyright": "https://metadata.ftp-master.debian.org/changelogs/main/a/antlr/antlr_2.7.7+dfsg-6_copyright",
+        "xalan-11.0.0-LICENSE.txt": "https://raw.githubusercontent.com/plutext/xalan-j/xalan-parent-11.0.0/LICENSE.txt",
+        "xalan-11.0.0-NOTICE.txt": "https://raw.githubusercontent.com/plutext/xalan-j/xalan-parent-11.0.0/NOTICE.txt",
+        "mbassador-1.3.2-LICENSE": "https://raw.githubusercontent.com/bennidi/mbassador/1e98ff489d2b2cbc78717a6f543a16fbaa1a8118/LICENSE",
     }
     records = []
     expected = {
@@ -35,6 +38,9 @@ def main():
         "antlr-2.7.7.tar.gz": "853aeb021aef7586bda29e74a6b03006bcb565a755c86b66032d8ec31b67dbb9",
         "antlr-2-license.html": "72d8ba2e86ccc57b65d83f0af10ae0cade32f5305eb2b95b4aed71e1eb891752",
         "antlr-2.7.7-copyright": "bc290c0e5bc791362aeb044a137e135a008f6f60bb72ed443d3aa36627df3aa3",
+        "xalan-11.0.0-LICENSE.txt": "f90dc44684b75fa0cdfe5b2cdc33a50fb8029c6514fa78571b06f8b2fcddf903",
+        "xalan-11.0.0-NOTICE.txt": "6c0cbf85b99b3d4ad312e8d3d0dc9996ff6eea5eed576d31361a60b7f99c4249",
+        "mbassador-1.3.2-LICENSE": "ab2654d8c44f6816b82afa9c45bd79a5b203b7b08634a67a95d02b26aa9a7fec",
     }
     for name, url in urls.items():
         if args.application_only and name not in expected:

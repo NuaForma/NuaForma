@@ -41,6 +41,28 @@ class SourceMaterialsTest(unittest.TestCase):
             extra.write_bytes(b"synthetic unlisted JAR")
             with self.assertRaises(AssertionError): stage(collection, provenance, application, "0.1.0-alpha.1")
 
+    def test_supplemental_upstream_notices_are_retained_outside_classpath(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            application, collection, provenance = [root / name for name in ("app", "collection", "provenance")]
+            (application / "lib").mkdir(parents=True)
+            collection.mkdir()
+            provenance.mkdir()
+            (collection / "inventory.json").write_text(json.dumps(dict(components=[], errors=[])))
+            names = ("xalan-11.0.0-LICENSE.txt", "xalan-11.0.0-NOTICE.txt", "mbassador-1.3.2-LICENSE")
+            records = []
+            for name in names:
+                data = ("synthetic original notice: " + name).encode()
+                (provenance / name).write_bytes(data)
+                records.append(dict(file=name, sha256=hashlib.sha256(data).hexdigest()))
+            (provenance / "inventory.json").write_text(json.dumps(dict(files=records)))
+            stage(collection, provenance, application, "0.1.0-alpha.1")
+            for name in names:
+                self.assertEqual((provenance / name).read_bytes(), (application / "third-party-materials" / name).read_bytes())
+            self.assertFalse(list((application / "lib").iterdir()))
+            (provenance / names[0]).write_bytes(b"tampered notice")
+            with self.assertRaises(AssertionError): stage(collection, provenance, application, "0.1.0-alpha.1")
+
 
 if __name__ == "__main__":
     unittest.main()
