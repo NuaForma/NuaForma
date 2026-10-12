@@ -37,7 +37,7 @@ def stage(collection, provenance, application, version):
                 shutil.copyfile(source, target)
             copied.append(dict(path=target.relative_to(destination).as_posix(), sha256=item["sha256"]))
     for item in original["files"]:
-        if not item["file"].startswith(("docx4j-", "antlr-")):
+        if not item["file"].startswith(("docx4j-", "antlr-", "xalan-", "mbassador-")):
             continue
         source = provenance / item["file"]
         assert not source.is_symlink() and hashlib.sha256(source.read_bytes()).hexdigest() == item["sha256"]
@@ -53,7 +53,8 @@ def stage(collection, provenance, application, version):
         "The unmodified license, notice, copyright and Maven metadata files under `application` belong to the named upstream JARs. "
         "Matching source JARs retain source-file copyright/license headers even where the binary JAR omitted those texts. "
         "Open a source JAR with any ZIP reader; it is documentation/source material, not on the runtime classpath. "
-        "The original docx4j LICENSE/NOTICE and ANTLR 2 distribution supplement incomplete artifact-level metadata. "
+        "The original docx4j and relocated Xalan LICENSE/NOTICE, MBassador MIT text and ANTLR 2 distribution supplement incomplete artifact-level metadata. "
+        "MBassador's MIT text is retained from a pinned historical upstream commit; that commit is not represented as a 1.3.2 release tag. "
         "ANTLR 2 includes BSD-licensed Python-generator code; its unrelated Python runtime is not in the application's binary JAR. "
         "The retained unmodified ANTLR source distribution keeps those original licensing distinctions.\n\n"
         "These materials do not relicense dependencies under NuaForma's Apache-2.0 license. "
