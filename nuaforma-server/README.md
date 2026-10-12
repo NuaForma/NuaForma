@@ -1,6 +1,6 @@
 # REST service
 
-Development-stage Java 17 service using Ktor CIO and the same public engine/provider contracts as embedded generation. No second template evaluator, storage backend or implicit resource fetching is introduced. Equivalent OpenAPI JSON/YAML downloads are implemented; final Docker packaging and mount support belong to #14/#35. No public service or image is deployed by the build.
+Development-stage Java 17 service using Ktor CIO and the same public engine/provider contracts as embedded generation. No second template evaluator, storage backend or implicit resource fetching is introduced. Equivalent OpenAPI JSON/YAML downloads and the [Linux/amd64 on-premise container](../deployment/pdf-runtime/SERVICE.md) are implemented; operator font/extension mounts remain #35. No public service or image is deployed by the build.
 
 ## Run locally
 
@@ -10,6 +10,8 @@ Development-stage Java 17 service using Ktor CIO and the same public engine/prov
 ```
 
 The default listener is `127.0.0.1:8080`. Trusted JVM properties `nuaforma.server.host` and `nuaforma.server.port` override it; use the launcher's `JAVA_OPTS` or `:nuaforma-server:run` JVM configuration. PDF additionally needs `-Dnuaforma.pdf.launcher=/opt/nuaforma/bin/render-pdf` inside the [qualified runtime](../deployment/pdf-runtime/README.md); setting a property without that isolated runtime does not enable PDF. Missing PDF support leaves DOCX usable. Libraries do not start this server automatically.
+
+The real `Main` entry point also accepts the bounded operator properties documented in the [container configuration table](../deployment/pdf-runtime/SERVICE.md#configuration-and-private-storage). Invalid numeric values fail startup without echoing them. The writable absolute `java.io.tmpdir` is shared by HTTP and PDF private storage. The server installs a JVM shutdown hook for graceful handler/process cancellation; deployments still need child reaping, filesystem quotas and enough termination time. These are operator settings, not REST generation options.
 
 The initial service has no authentication/TLS implementation. Do not expose it directly to an untrusted network; use an authenticated TLS gateway with connection/header limits, access controls and deployment quotas. No forwarded-header trust, CORS, request-body logging or telemetry is enabled by NuaForma. The application starts only on explicit invocation. Installed provider code is trusted executable application code, not protected by the document sandbox.
 

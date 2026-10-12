@@ -13,6 +13,8 @@ distributions { main { contents {
     from(rootProject.file("LICENSE"))
     from(rootProject.file("THIRD_PARTY.md"))
     from(rootProject.file("DEPENDENCIES.md"))
+    from(rootProject.file("docs/libreoffice-licensing.md")) { into("docs") }
+    from(rootProject.file("docs/container-releases.md")) { into("docs") }
 } } }
 
 tasks.register<Sync>("prepareEngineQualification") {
@@ -68,6 +70,8 @@ tasks.register<JavaExec>("generateOpenApi") {
 }
 
 tasks.named<Test>("test") {
+    inputs.dir(rootProject.file("deployment/pdf-runtime")).withPropertyName("containerRuntime")
+    inputs.file(rootProject.file(".github/workflows/container-release.yml")).withPropertyName("containerReleasePreparation")
     val modules = rootProject.subprojects.sortedBy { it.name }
     val productionOutputs = modules.associateWith { module ->
         module.provider { module.extensions.getByType<SourceSetContainer>().getByName("main").output.classesDirs }
@@ -75,6 +79,7 @@ tasks.named<Test>("test") {
     dependsOn(modules.map { "${it.path}:classes" })
     inputs.files(productionOutputs.values).withPropertyName("architectureProductionClasses")
     doFirst {
+        systemProperty("nuaforma.repositoryRoot", rootProject.projectDir.absolutePath)
         systemProperty("nuaforma.architecture.modules", modules.joinToString("|") { it.name })
         productionOutputs.forEach { (module, output) ->
             systemProperty("nuaforma.architecture.${module.name}", output.get().files.joinToString(File.pathSeparator) { it.absolutePath })

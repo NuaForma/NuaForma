@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
-# Local qualification image, not a published service image. The REST entry point
-# and complete distribution audit remain separate from this runtime boundary.
+# Local qualification/service targets. Binary redistribution remains gated by
+# the candidate-specific distribution audit and first-release prerequisites.
 FROM debian:trixie-slim@sha256:918311b7b6c4c6f68b232ba516584925f6c78ad82b6fd534b98979df6438e483 AS base
 COPY debian.sources /etc/apt/sources.list.d/debian.sources
 
@@ -52,3 +52,20 @@ RUN chmod 0555 /opt/nuaforma/bin/render-pdf \
     && sha256sum /opt/nuaforma/pdf-validation/*.jar > /usr/share/nuaforma/validator-sha256.txt
 USER 1000:1000
 ENTRYPOINT ["/opt/nuaforma/bin/render-pdf"]
+
+# Only the explicit Gradle installDist directory is accepted, never the checkout.
+FROM qualification AS service
+COPY --from=application / /opt/nuaforma/application/
+COPY start-server.sh /opt/nuaforma/bin/start-server
+USER root
+RUN chmod 0555 /opt/nuaforma/bin/start-server \
+    && test -s /opt/nuaforma/application/LICENSE \
+    && test -s /opt/nuaforma/application/THIRD_PARTY.md \
+    && sha256sum /opt/nuaforma/application/lib/*.jar > /usr/share/nuaforma/application-sha256.txt
+USER 1000:1000
+EXPOSE 8080
+STOPSIGNAL SIGTERM
+LABEL org.opencontainers.image.source="https://github.com/NuaForma/NuaForma" \
+      org.opencontainers.image.title="NuaForma" \
+      org.opencontainers.image.description="DOCX and isolated PDF generation; bundled components retain their own licenses"
+ENTRYPOINT ["/opt/nuaforma/bin/start-server"]
