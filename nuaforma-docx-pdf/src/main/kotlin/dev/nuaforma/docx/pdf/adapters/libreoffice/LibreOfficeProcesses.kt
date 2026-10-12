@@ -4,6 +4,7 @@ import dev.nuaforma.contracts.*
 import dev.nuaforma.docx.pdf.LibreOfficeConfiguration
 import dev.nuaforma.docx.pdf.internal.ConversionFiles
 import dev.nuaforma.docx.pdf.internal.PdfConverter
+import dev.nuaforma.docx.pdf.internal.PdfProfile
 import java.nio.file.Files
 import java.time.Duration
 import java.util.concurrent.Semaphore
@@ -30,7 +31,7 @@ internal class LibreOfficeProcesses(private val configuration: LibreOfficeConfig
             val response = files.directory.resolve("version.txt")
             withSlot(context) { BoundedProcess.run(command(files, "probe", context), context, response, operationDirectory = files.directory) }
             val lines = Files.readString(response).lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
-            if (lines != listOf("LibreOffice 26.8.1.1 bf6ef2662401c7d6dce671ab4deb26ee0af3a7c1", "NuaForma PDF validator 1")) {
+            if (lines != listOf("LibreOffice 26.8.1.1 bf6ef2662401c7d6dce671ab4deb26ee0af3a7c1", "NuaForma PDF validator 1", "NuaForma PDF/A validator 1")) {
                 throw GenerationException(unavailable().diagnostics)
             }
         }
@@ -39,11 +40,31 @@ internal class LibreOfficeProcesses(private val configuration: LibreOfficeConfig
     override fun convert(files: ConversionFiles, context: GenerationContext) {
         if (configuration == null || !Files.isExecutable(configuration.launcher)) throw GenerationException(unavailable().diagnostics)
         configure(files)
-        withSlot(context) { BoundedProcess.run(command(files, "convert", context), context, operationDirectory = files.directory) }
+        val mode = if (files.profile == PdfProfile.STANDARD) "convert" else "convert-${files.profile.id}"
+        withSlot(context) { BoundedProcess.run(command(files, mode, context), context, operationDirectory = files.directory) }
     }
 
     override fun validate(files: ConversionFiles, context: GenerationContext) {
         withSlot(context) { BoundedProcess.run(command(files, "validate", context), context, operationDirectory = files.directory) }
+        if (files.profile != PdfProfile.STANDARD) {
+            val response = files.directory.resolve("conformance.txt")
+            withSlot(context) { BoundedProcess.run(command(files, "validate-${files.profile.id}", context), context, response, 256, files.directory) }
+            context.checkActive()
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
+            Files.newInputStream(files.pdf).use { input ->
+                val buffer = ByteArray(8192)
+                while (true) {
+                    context.checkActive()
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    digest.update(buffer, 0, count)
+                }
+            }
+            val expected = "NuaForma PDF/A valid ${files.profile.id} ${java.util.HexFormat.of().formatHex(digest.digest())}"
+            if (Files.readString(response).trimEnd() != expected) throw GenerationException(listOf(Diagnostic(
+                DiagnosticCodes.GENERATION_FAILED, "Generated PDF did not receive complete conformance validation for the requested profile",
+            )))
+        }
     }
 
     override fun fontFamilies(files: ConversionFiles, context: GenerationContext): Set<String> {
@@ -86,6 +107,7 @@ internal class LibreOfficeProcesses(private val configuration: LibreOfficeConfig
         configuration!!.launcher.toString(), files.directory.toString(), when (mode) { "probe" -> "4096"; "fonts" -> "65536"; "catalog" -> "262144"; else -> context.limits.maxOutputBytes.toString() },
         maxOf(1L, minOf(86400L, context.limits.maxDuration.seconds + 1)).toString(), mode,
         context.limits.maxExpandedBytes.toString(),
+        files.profile.version,
     )
 
     private fun configure(files: ConversionFiles) {

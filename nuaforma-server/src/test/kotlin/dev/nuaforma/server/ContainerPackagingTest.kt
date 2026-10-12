@@ -34,6 +34,7 @@ class ContainerPackagingTest {
         val build = service["build"] as Map<*, *>
         assertEquals("service", build["target"])
         assertEquals(mapOf("pdfvalidation" to "../../nuaforma-docx-pdf/build/pdf-validation",
+            "verapdfvalidation" to "../../nuaforma-docx-pdf/build/verapdf-validation",
             "application" to "../../nuaforma-server/build/install/nuaforma-server"), build["additional_contexts"])
     }
 

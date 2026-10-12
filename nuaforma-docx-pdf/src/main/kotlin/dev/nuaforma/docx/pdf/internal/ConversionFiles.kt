@@ -10,6 +10,7 @@ import java.nio.file.attribute.PosixFilePermissions
 
 /** Owns one private operation directory; caller names never become filesystem paths. */
 internal class ConversionFiles private constructor(val directory: Path) : AutoCloseable {
+    var profile: PdfProfile = PdfProfile.STANDARD
     val docx: Path = directory.resolve("generated.docx")
     val conversionCopy: Path = directory.resolve("input.docx")
     val pdf: Path = directory.resolve("output/input.pdf")
@@ -63,12 +64,12 @@ internal object PdfStreams {
         }
     }
 
-    fun publish(pdf: Path, output: OutputStream, context: GenerationContext) {
-        checkFraming(pdf, context)
+    fun publish(pdf: Path, output: OutputStream, context: GenerationContext, version: String = "1.7") {
+        checkFraming(pdf, context, version)
         Files.newInputStream(pdf).use { copy(it, output, context.limits.maxOutputBytes, context) }
     }
 
-    fun checkFraming(pdf: Path, context: GenerationContext) {
+    fun checkFraming(pdf: Path, context: GenerationContext, version: String = "1.7") {
         context.checkActive()
         if (!Files.isDirectory(pdf.parent, LinkOption.NOFOLLOW_LINKS) || !Files.isRegularFile(pdf, LinkOption.NOFOLLOW_LINKS)) {
             PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, "Converter did not produce a regular PDF file in its output directory")
@@ -80,7 +81,7 @@ internal object PdfStreams {
         Files.newByteChannel(pdf).use { channel ->
             val header = java.nio.ByteBuffer.allocate(8)
             while (header.hasRemaining() && channel.read(header) >= 0) context.checkActive()
-            if (!header.array().contentEquals("%PDF-1.7".toByteArray(Charsets.US_ASCII))) {
+            if (!header.array().contentEquals("%PDF-$version".toByteArray(Charsets.US_ASCII))) {
                 PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, "Converter produced an unexpected PDF version")
             }
             channel.position(maxOf(0, size - 1024))

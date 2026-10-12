@@ -32,11 +32,13 @@ jobs:
           echo '7a9ce74cff467ca1bf60a4fcd9f05185acceda4d0f382434d393e17864262c5d  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check --strict
           test -x gradlew
       - name: Build and test release inputs
-        run: ./gradlew --no-daemon build :nuaforma-server:installDist :nuaforma-docx-pdf:preparePdfValidation :nuaforma-server:generateOpenApi generatePomFileForMavenJavaPublication --warning-mode=fail
+        run: ./gradlew --no-daemon build :nuaforma-server:installDist :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation :nuaforma-server:generateOpenApi generatePomFileForMavenJavaPublication --warning-mode=fail
       - name: Build local service image
         run: |
+          python3 tools/container/prepare_verapdf_materials.py nuaforma-docx-pdf/build/verapdf-validation
           docker build --platform linux/amd64 --file deployment/pdf-runtime/Dockerfile \
             --build-context pdfvalidation=nuaforma-docx-pdf/build/pdf-validation \
+            --build-context verapdfvalidation=nuaforma-docx-pdf/build/verapdf-validation \
             --build-context application=nuaforma-server/build/install/nuaforma-server \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             --target service --tag nuaforma:release-candidate deployment/pdf-runtime

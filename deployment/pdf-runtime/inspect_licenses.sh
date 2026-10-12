@@ -7,6 +7,10 @@ test -s /usr/share/nuaforma/licenses/bubblewrap/COPYING
 test -s /usr/share/nuaforma/licenses/bubblewrap/COPYING.LIB
 test -d /opt/java/openjdk/legal
 test -d /opt/nuaforma/renderer/usr/share/doc
+test -s /opt/nuaforma/verapdf-validation/licenses/MPL-2.0.txt
+test -s /opt/nuaforma/verapdf-validation/licenses/CC-BY-4.0.txt
+test -s /opt/nuaforma/verapdf-validation/licenses/PROFILES-ATTRIBUTION.md
+test -s /opt/nuaforma/verapdf-validation/materials/inventory.json
 sha256sum /usr/share/nuaforma/sources/bubblewrap-0.13.0.tar.xz
 /opt/java/openjdk/bin/java -version
 printf '\nOuter Debian package inventory\n'

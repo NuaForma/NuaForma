@@ -127,7 +127,14 @@ def main():
         status, headers, body = generate(base, "pdf", template(), {"name": "SYNTHETIC-PDF"})
         assert status == 200 and "application/pdf" in headers["Content-Type"] and body.startswith(b"%PDF-1.7"), (status, body[:2048])
         (args.output / "document.pdf").write_bytes(body)
+        for profile, version in (("standard", "1.7"), ("pdfa-1b", "1.4"), ("pdfa-2b", "1.7"), ("pdfa-3b", "1.7")):
+            status, headers, body = generate(base, "pdf", template(), {"name": "SYNTHETIC-PROFILE"}, {"profile": profile})
+            assert status == 200 and body.startswith(("%PDF-" + version).encode()), (profile, status, body[:2048])
+            (args.output / (profile + ".pdf")).write_bytes(body)
+        assert generate(base, "pdf", template(), {}, {"profile": "pdfa-1b", "version": "1.7"})[0] == 422
+        assert generate(base, "pdf", template(), {}, {"profile": "pdfa-3a"})[0] == 422
         runtime.clean()
+        checks.append("default-PDF-A-3b/explicit-B-profiles/standard/conflict-rejection")
         checks.append("shipped-entrypoint/DOCX/PDF/private-cleanup")
         if args.fixtures or args.fonts:
             assert args.fixtures and args.fonts
@@ -150,8 +157,19 @@ def main():
             status, _, body = http(base, "/api/v1/documents", body, "multipart/form-data; boundary=" + boundary)
             assert status == 200
             (args.output / "watermark-dynamic.pdf").write_bytes(body)
+            # The 1b option restriction is observable before rendering, not a visual fallback.
+            envelope["output"]["options"] = options | {"profile": "pdfa-1b"}
+            boundary, body = multipart(envelope, (args.fixtures / "watermark-reference/plain.docx").read_bytes(), resources)
+            assert http(base, "/api/v1/documents", body, "multipart/form-data; boundary=" + boundary)[0] == 422
+            envelope["options"]["watermark"]["opacity"] = 1.0
+            for profile in ("pdfa-1b", "standard"):
+                envelope["output"]["options"] = options | {"profile": profile}
+                boundary, body = multipart(envelope, (args.fixtures / "watermark-reference/plain.docx").read_bytes(), resources)
+                status, _, body = http(base, "/api/v1/documents", body, "multipart/form-data; boundary=" + boundary)
+                assert status == 200, (profile, status, body[:2048])
+                (args.output / ("watermark-opaque-" + profile + ".pdf")).write_bytes(body)
             runtime.clean()
-            checks.append("private-fonts/concurrent-tenants/dynamic-watermark")
+            checks.append("private-fonts/concurrent-tenants/dynamic-watermark/1b-transparency-rejection/opaque-watermark")
         # Stop only after seeing the actual converter, not merely a queued HTTP request.
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(generate, base, "pdf", template(2000), {"name": "SHUTDOWN"})

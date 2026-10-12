@@ -3,6 +3,7 @@ package dev.nuaforma.docx.pdf.adapters.ooxml
 import dev.nuaforma.contracts.*
 import dev.nuaforma.docx.pdf.internal.PdfFailure
 import dev.nuaforma.docx.pdf.internal.PdfOptions
+import dev.nuaforma.docx.pdf.internal.PdfProfile
 import dev.nuaforma.docx.pdf.internal.PdfStreams
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
@@ -44,6 +45,7 @@ internal object ConversionCopy {
             for (entry in wordParts) {
                 val tree = xml.read(bytes(entry))
                 ConversionSafety.validate(tree)
+                if (options.profile == PdfProfile.PDFA_1B) Pdfa1Safety.validate(tree)
                 for (element in tree.descendants()) {
                     if (element.name.namespaceURI == NativeTextBoxes.WP && element.name.localPart == "inline" &&
                         element.descendants().any { it.name.namespaceURI == "http://schemas.microsoft.com/office/word/2010/wordprocessingShape" && it.name.localPart == "txbx" }) modernInline = true
@@ -59,6 +61,31 @@ internal object ConversionCopy {
                         rightMargin = minOf(rightMargin, if (margin != null && margin in 0..100_000) margin * 635 else 0)
                     }
                 }
+            }
+            if (options.profile == PdfProfile.PDFA_1B) {
+                val typesEntry = entries.singleOrNull { it.name == "[Content_Types].xml" }
+                    ?: PdfFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "Conversion package has no content types")
+                val types = xml.read(bytes(typesEntry))
+                val defaults = types.elements().filter { it.name.localPart == "Default" }.associate {
+                    (it.attribute("", "Extension") ?: "").lowercase(java.util.Locale.ROOT) to (it.attribute("", "ContentType") ?: "")
+                }
+                val overrides = types.elements().filter { it.name.localPart == "Override" }.associate {
+                    (it.attribute("", "PartName") ?: "").removePrefix("/") to (it.attribute("", "ContentType") ?: "")
+                }
+                for (entry in entries.filter { !it.isDirectory }) {
+                    val type = (overrides[entry.name] ?: defaults[entry.name.substringAfterLast('.').lowercase(java.util.Locale.ROOT)] ?: "").lowercase(java.util.Locale.ROOT)
+                    if (entry.name.startsWith("word/media/") || type.startsWith("image/")) Pdfa1Safety.media(entry.name, bytes(entry))
+                    if (entry !in wordParts && (entry.name.lowercase(java.util.Locale.ROOT).endsWith(".xml") || type == "application/xml" || type == "text/xml" || type.endsWith("+xml"))) Pdfa1Safety.validate(xml.read(bytes(entry)))
+                }
+                for (entry in entries.filter { it.name.endsWith(".rels") }) {
+                    for (target in Pdfa1Safety.imageTargets(xml.read(bytes(entry)), entry.name)) {
+                        val image = entries.singleOrNull { it.name == target }
+                            ?: PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, "PDF/A-1b requires internal opaque PNG/JPEG image resources")
+                        Pdfa1Safety.media(image.name, bytes(image))
+                    }
+                }
+                if (entries.any { it.name.startsWith("word/charts/") || it.name.startsWith("word/diagrams/") || it.name.startsWith("word/embeddings/") })
+                    PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, "PDF/A-1b does not support charts, diagrams or embedded objects in its initial template profile")
             }
             if (rightMargin == Long.MAX_VALUE) rightMargin = 0
             val boxes = NativeTextBoxes(xml, rightMargin, id)

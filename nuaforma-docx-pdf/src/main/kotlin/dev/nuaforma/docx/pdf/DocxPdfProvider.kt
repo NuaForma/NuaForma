@@ -36,8 +36,8 @@ class DocxPdfProvider @JvmOverloads constructor(configuration: LibreOfficeConfig
         return ProviderCapabilities(setOf(DocumentFormat.DOCX), setOf(DocumentFormat.DOCX, DocumentFormat.PDF),
             outputOptions = mapOf(DocumentFormat.DOCX to original.outputOptions.getValue(DocumentFormat.DOCX),
                 DocumentFormat.PDF to listOf(
-                    OptionDefinition("version", OptionType.STRING, "Qualified PDF version; no silent downgrade", defaultValue = "1.7", allowedValues = listOf("1.7")),
-                    OptionDefinition("profile", OptionType.STRING, "Standard PDF only; archival/accessibility conformance is not claimed", defaultValue = "standard", allowedValues = listOf("standard")),
+                    OptionDefinition("version", OptionType.STRING, "Derived from profile: 1.4 for PDF/A-1b, otherwise 1.7; explicit values must match", allowedValues = listOf("1.4", "1.7")),
+                    OptionDefinition("profile", OptionType.STRING, "Static standard PDF or independently validated archival PDF/A; no silent downgrade", defaultValue = "pdfa-3b", allowedValues = PdfProfile.entries.map { it.id }),
                     OptionDefinition("fontMode", OptionType.STRING, "Preserve available or template-embedded fonts, or validate/embed private supplied fonts for static PDF", defaultValue = "preserve", allowedValues = listOf("preserve", "validate", "embed")),
                     OptionDefinition("fonts", OptionType.ARRAY, "Private family/face/resource declarations; PDF print embedding permissions apply"),
                     OptionDefinition("paragraphDefaults", OptionType.OBJECT, "Explicit optional afterTwips and line240ths fallback for missing paragraph defaults in the PDF copy only"))),
@@ -62,6 +62,9 @@ class DocxPdfProvider @JvmOverloads constructor(configuration: LibreOfficeConfig
             listOf(Diagnostic(DiagnosticCodes.UNSUPPORTED_OUTPUT, "This provider writes DOCX and PDF only")))
         return try {
             val options = PdfOptions.read(requirements.output.options)
+            if (options.profile == PdfProfile.PDFA_1B && requirements.options.watermark?.opacity?.let { it != 1.0 } == true) {
+                PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, "PDF/A-1b supports opaque watermarks only; choose PDF/A-2b or PDF/A-3b for transparency")
+            }
             docx.assess(GenerationRequirements(requirements.input, FormatRequest(DocumentFormat.DOCX, options.docxOptions), requirements.options))
         } catch (error: GenerationException) { CapabilityAssessment(AssessmentStatus.UNSUPPORTED, error.diagnostics) }
     }
@@ -75,6 +78,7 @@ class DocxPdfProvider @JvmOverloads constructor(configuration: LibreOfficeConfig
         val options = PdfOptions.read(request.requirements.output.options)
         var modernInline = false
         ConversionFiles.create(context).use { files ->
+            files.profile = options.profile
             val bound = deploymentFonts.bind(request)
             val supplied = PdfFonts.supplied(bound, files, context)
             val intermediate = GenerationRequest(request.template,
@@ -89,11 +93,11 @@ class DocxPdfProvider @JvmOverloads constructor(configuration: LibreOfficeConfig
             PdfFonts.ensureAvailable(required, supplied + embedded + staged + converter.fontFamilies(files, context))
             modernInline = ConversionCopy.prepare(files.docx, files.conversionCopy, options, context).modernInlineTextBoxes
             converter.convert(files, context)
-            PdfStreams.checkFraming(files.pdf, context)
+            PdfStreams.checkFraming(files.pdf, context, options.profile.version)
             converter.validate(files, context)
-            PdfStreams.publish(files.pdf, output, context)
+            PdfStreams.publish(files.pdf, output, context, options.profile.version)
         }
-        return GenerationResult(FormatRequest(DocumentFormat.PDF, request.requirements.output.options + mapOf("version" to "1.7", "profile" to "standard")),
+        return GenerationResult(FormatRequest(DocumentFormat.PDF, request.requirements.output.options + mapOf("version" to options.profile.version, "profile" to options.profile.id)),
             if (modernInline) listOf(Diagnostic(DiagnosticCode("PDF_TEXTBOX_LAYOUT_LIMITATION"),
                 "Modern inline text boxes may show the temporarily accepted measured vertical difference of approximately 0.60 mm; see NuaForma issue #32", Severity.WARNING)) else emptyList())
     }

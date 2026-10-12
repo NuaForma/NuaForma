@@ -23,6 +23,7 @@ internal class ArchitecturePolicy {
         "org.docx4j" to "dev.nuaforma.docx.adapters.docx4j",
         "jakarta.xml.bind" to "dev.nuaforma.docx.adapters.docx4j",
         "org.apache.pdfbox" to "dev.nuaforma.docx.pdf.adapters.pdfbox",
+        "org.verapdf" to "dev.nuaforma.docx.pdf.adapters.verapdf",
         "io.ktor" to "dev.nuaforma.server.adapters.ktor",
         "kotlinx.coroutines" to "dev.nuaforma.server.adapters.ktor",
         "kotlinx.io" to "dev.nuaforma.server.adapters.ktor",
