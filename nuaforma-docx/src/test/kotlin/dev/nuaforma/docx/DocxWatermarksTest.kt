@@ -176,10 +176,12 @@ class DocxWatermarksTest {
         Files.write(directory.resolve("expected.docx"), SyntheticDocx.zip(expected))
         for ((name, watermark) in listOf("plain" to null, "concept" to mark,
             "dynamic" to TextWatermark("{#if true}CONCEPT{#else}FINAL{/if} — {customer.name}"),
+            "string-functions" to TextWatermark("""{#if equalsIgnoreCase(trim(status ?? ""), "approved")}CONCEPT{/if} — {trim(customer.name)}"""),
             "vertical" to TextWatermark("REVIEW", "#C02040", 0.6, 90.0),
             "transparent" to TextWatermark("HIDDEN", "#000000", 0.0, 0.0),
             "opaque" to TextWatermark("OPAQUE", "#127F87", 1.0, 0.0))) {
-            Files.write(directory.resolve("$name.docx"), SyntheticDocx.zip(generate(source, watermark)))
+            Files.write(directory.resolve("$name.docx"), SyntheticDocx.zip(generate(source, watermark, data = mapOf(
+                "customer" to mapOf("name" to "Ada"), "reference" to "NF-001", "status" to " APPROVED "))))
         }
         for (kind in listOf("missing", "empty")) {
             val fixture = SyntheticDocx.parts().apply {
