@@ -84,6 +84,8 @@ The project uses Kotlin/JVM with Java 17 as its minimum runtime. DOCX round-trip
 
 Track scoped work in the [GitHub roadmap issues](https://github.com/NuaForma/NuaForma/issues?q=is%3Aissue%20label%3Aroadmap) and [milestones](https://github.com/NuaForma/NuaForma/milestones). Later format and storage extensions are separate follow-up work.
 
+The [PDF backend evaluation](docs/pdf-backend-evaluation.md) records reproducible renderer comparisons and current fidelity blockers. Research tooling is separate from the production modules; no PDF backend has been adopted.
+
 Security will be part of the design: untrusted templates, rendering processes,
 database access, and sensitive document data need explicit boundaries and
 resource limits.
