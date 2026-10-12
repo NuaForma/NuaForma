@@ -7,6 +7,15 @@ plugins {
 
 description = "REST service scaffold"
 
+tasks.register<Sync>("prepareEngineQualification") {
+    group = "verification"
+    description = "Stages test-only embedded engine qualification without an HTTP server."
+    dependsOn(tasks.named("testClasses"))
+    from(configurations.runtimeClasspath) { into("lib") }
+    from(sourceSets.test.get().output.classesDirs) { into("classes") }
+    into(layout.buildDirectory.dir("engine-qualification"))
+}
+
 dependencies {
     // Already present through MockK at test runtime; compile the Kotlin visibility checks explicitly.
     testImplementation(libs.kotlin.reflect)

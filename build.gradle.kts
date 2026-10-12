@@ -125,6 +125,11 @@ tasks.register("verifyBuildStructure") {
             check(components.none { it.moduleVersion?.group in testGroups }) {
                 "Test dependencies leaked into ${module.path} runtimeClasspath"
             }
+            if (module.path !in setOf(":nuaforma-docx-pdf", ":nuaforma-server")) {
+                check(components.none { it.moduleVersion?.group == "org.apache.pdfbox" && it.moduleVersion?.name == "pdfbox" }) {
+                    "PDF output validation leaked into ${module.path} runtimeClasspath"
+                }
+            }
         }
     }
 }

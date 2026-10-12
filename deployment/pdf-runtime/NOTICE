@@ -1,0 +1,13 @@
+NuaForma PDF runtime qualification
+Copyright 2026 NuaForma contributors
+
+seccomp.json is adapted from Moby's Apache-2.0 default container seccomp profile:
+https://github.com/moby/profiles/blob/2ceae35d351c156cb5a8efc0fdc4a08cf94569d8/seccomp/default.json
+Original SHA-256: 6416b47770785a41ac59073cdc77d9fe98517df2799dc83ef207e622de3053f6
+Changes permit the exact amd64 namespace setup operations required by Bubblewrap;
+renderer-seccomp.c applies additional restrictions after sandbox setup.
+Preserve Moby's license when redistributing this adapted profile.
+
+LibreOffice, Bubblewrap, Temurin, Debian packages, bundled fonts and Java
+dependencies retain their own licenses. This notice does not replace them.
+See README.md and the retained upstream license/source materials in the image.

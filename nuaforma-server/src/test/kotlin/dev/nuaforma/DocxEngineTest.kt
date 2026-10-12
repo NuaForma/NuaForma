@@ -4,6 +4,8 @@ import dev.nuaforma.contracts.*
 import dev.nuaforma.core.ProviderRegistry
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
@@ -12,6 +14,21 @@ import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 
 class DocxEngineTest {
+    @Test
+    fun `DOCX discovery is explicitly ambiguous and missing PDF runtime cannot silently downgrade`() {
+        val registry = ProviderRegistry.discover()
+        val docx = GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.DOCX))
+        assertEquals(DiagnosticCode("AMBIGUOUS_PROVIDER"), assertThrows(GenerationException::class.java) {
+            registry.select(docx)
+        }.diagnostics.first().code)
+        val pdf = GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.PDF))
+        val output = ByteArrayOutputStream()
+        val error = assertThrows(GenerationException::class.java) {
+            registry.generate(GenerationRequest(template().inputStream(), pdf, mapOf("name" to "Ada")), output, GenerationContext())
+        }
+        assertTrue(error.diagnostics.any { it.code == DiagnosticCodes.PROVIDER_UNAVAILABLE })
+        assertEquals(0, output.size())
+    }
     private fun template(): ByteArray {
         val parts = mapOf(
             "[Content_Types].xml" to """<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>""",
@@ -23,11 +40,12 @@ class DocxEngineTest {
         } } }.toByteArray()
     }
 
-    @Test
-    fun `core discovers actual DOCX provider and concurrently generates isolated documents`() {
+    @ParameterizedTest
+    @ValueSource(strings = ["nuaforma-docx", "nuaforma-docx-pdf"])
+    fun `core discovers actual providers and concurrently generates isolated DOCX documents`(providerId: String) {
         val registry = ProviderRegistry.discover()
         assertTrue(registry.diagnostics.isEmpty(), registry.diagnostics.joinToString { it.message })
-        assertEquals("nuaforma-docx", registry.providers.single().metadata.id)
+        assertEquals(setOf("nuaforma-docx", "nuaforma-docx-pdf"), registry.providers.map { it.metadata.id }.toSet())
         val bytes = template()
         val pool = Executors.newFixedThreadPool(4)
         try {
@@ -35,7 +53,7 @@ class DocxEngineTest {
                 val requirements = GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.DOCX),
                     GenerationOptions(watermark = if (index % 2 == 0) TextWatermark("DRAFT$index") else null))
                 val output = ByteArrayOutputStream()
-                val result = registry.generate(GenerationRequest(bytes.inputStream(), requirements, mapOf("name" to "Tenant$index")), output, GenerationContext())
+                val result = registry.generate(GenerationRequest(bytes.inputStream(), requirements, mapOf("name" to "Tenant$index")), output, GenerationContext(), providerId)
                 assertEquals(DocumentFormat.DOCX, result.output.format)
                 var document = ""
                 var headers = ""

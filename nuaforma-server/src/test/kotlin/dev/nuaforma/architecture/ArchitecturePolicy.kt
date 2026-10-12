@@ -18,10 +18,11 @@ internal class ArchitecturePolicy {
         Component("nuaforma-server", "dev.nuaforma.server", setOf("nuaforma-contracts", "nuaforma-core")),
     )
 
-    // External types belong exclusively to the DOCX integration, never its public facade.
+    // External types belong exclusively to their integration, never public facades.
     private val integrations = mapOf(
         "org.docx4j" to "dev.nuaforma.docx.adapters.docx4j",
         "jakarta.xml.bind" to "dev.nuaforma.docx.adapters.docx4j",
+        "org.apache.pdfbox" to "dev.nuaforma.docx.pdf.adapters.pdfbox",
     )
     private val visibility = mutableMapOf<String, Boolean>()
 

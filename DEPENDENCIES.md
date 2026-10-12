@@ -10,6 +10,7 @@ This review accompanies the build scaffold for issue #1, dated 2026-10-11. It is
 | MockK | 1.14.11 | Tests only | [Apache-2.0](https://github.com/mockk/mockk/blob/v1.14.11/LICENSE) |
 | ArchUnit | 1.5.1 | Tests only | [Apache-2.0 with bundled dependency notices](https://github.com/TNG/ArchUnit/blob/v1.5.1/LICENSE) |
 | docx4j core + JAXB ReferenceImpl | 17.1.0 | DOCX implementation/runtime | [Apache-2.0 and bundled notices](https://github.com/plutext/docx4j/blob/VERSION_17_1_0/legals/NOTICE); reference JAXB/Activation use permissive EDL/BSD terms |
+| Apache PDFBox | 3.0.8 | Optional PDF module implementation and isolated output-validation JVM only | [Apache-2.0 and bundled third-party terms](https://github.com/apache/pdfbox/blob/3.0.8/LICENSE.txt), [upstream notice](https://github.com/apache/pdfbox/blob/3.0.8/NOTICE.txt) |
 
 ## Compatibility and maintenance
 
@@ -42,6 +43,14 @@ Pinned Maven POMs, inherited license metadata and artifact license material were
 ## PDF research tooling
 
 Issue #10 uses a separate, unpublished Java 17 build under `tools/pdf-evaluation`, not a product dependency change. docx4j-export-fo and JAXB ReferenceImpl 17.1.0 resolve FOP 2.11 and the locked research graph described in [the evaluation](docs/pdf-backend-evaluation.md). That report records primary license/maintenance sources, bundled font notices, an OSV snapshot and observed rendering failures. LibreOffice 26.8.1.1 is the externally installed Windows research baseline; the user selected LibreOffice for production implementation on 2026-10-12 and approved its additional redistribution obligations. No renderer is bundled yet. Qualify and pin the actual production package independently, including maintenance/security review, Linux rendering and the [distribution checklist](docs/libreoffice-licensing.md); approval of a backend is not approval of every package/version. Euro-Office was evaluated only in unpublished research; neither it nor ONLYOFFICE is a product dependency.
+
+## PDF output-validation review
+
+PDFBox 3.0.8 is the approved structural output-checking library, not a DOCX renderer or PDF/A validator. Its [release downloads](https://pdfbox.apache.org/download.html), [Java compatibility and file-backed reading documentation](https://pdfbox.apache.org/3.0/migration.html), tagged license/notice and [security policy](https://pdfbox.apache.org/security.html) were reviewed on 2026-10-12. The production graph adds `pdfbox` and Apache-2.0 Commons Logging 1.4.0; FontBox and PDFBox IO 3.0.8 were already locked through docx4j. No optional cryptography or image-codec dependencies are selected. The isolated validator distribution contains the PDF module, contracts, Kotlin runtime, PDFBox/FontBox/IO, Commons Logging and compiler annotations; it does not include core, server, DOCX dependencies or test libraries.
+
+PDFBox explicitly excludes denial-of-service through excessive CPU, recursion or memory from its security guarantees. Consequently renderer-produced PDF parsing belongs in a bounded child JVM inside the filesystem/network sandbox, not in the hosting engine JVM. Strict parsing and application checks reject forms, attachments, executable actions and missing font embedding for the initial static profile. This does not establish PDF/A, accessibility, signature validity, glyph coverage or visual fidelity. Preserve upstream artifact license and notice materials when redistributing the validator.
+
+An OSV batch query on 2026-10-12 for PDFBox, FontBox, PDFBox IO 3.0.8 and Commons Logging 1.4.0 returned no known matches. This is a dated advisory snapshot, not proof of absence of vulnerabilities. Bubblewrap's [0.13.0 release](https://github.com/containers/bubblewrap/releases/tag/v0.13.0), original source checksum and LGPL license files were checked; its separately compiled executable and source archive are confined to the optional runtime image, not library artifacts. Debian and Java/LibreOffice build inputs are pinned in the runtime Dockerfile and snapshot configuration; public redistribution still requires the release-specific source/license audit.
 
 ## GitHub Actions
 
