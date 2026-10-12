@@ -1,6 +1,6 @@
 # Dependency baseline
 
-This review accompanies the build scaffold for issue #1, dated 2026-10-11. It is not a claim that document processing or PDF conversion is implemented. Direct versions are pinned in `gradle/libs.versions.toml`; the wrapper pins Gradle and its distribution checksum. Per-module lockfiles record resolved dependencies.
+This review began with the build scaffold for issue #1 on 2026-10-11 and records subsequent scoped integration reviews and upgrades. Implementation status and qualification limits belong in the module guides, not release-number assumptions. Direct and reviewed transitive versions are pinned in `gradle/libs.versions.toml`; the wrapper pins Gradle and its distribution checksum. Per-module lockfiles record resolved dependencies. Historical review snapshots below are identified separately from the current issue #38 upgrade baseline.
 
 | Component | Version | Scope | License and primary reference |
 | --- | --- | --- | --- |
@@ -9,7 +9,7 @@ This review accompanies the build scaffold for issue #1, dated 2026-10-11. It is
 | JUnit Jupiter | 6.1.3 | Tests only | [EPL-2.0](https://github.com/junit-team/junit-framework/blob/r6.1.3/LICENSE.md) |
 | MockK | 1.14.11 | Tests only | [Apache-2.0](https://github.com/mockk/mockk/blob/v1.14.11/LICENSE) |
 | ArchUnit | 1.5.1 | Tests only | [Apache-2.0 with bundled dependency notices](https://github.com/TNG/ArchUnit/blob/v1.5.1/LICENSE) |
-| docx4j core + JAXB ReferenceImpl | 17.1.0 | DOCX implementation/runtime | [Apache-2.0 and bundled notices](https://github.com/plutext/docx4j/blob/VERSION_17_1_0/legals/NOTICE); reference JAXB/Activation use permissive EDL/BSD terms |
+| docx4j core + JAXB ReferenceImpl | 17.3.2 | DOCX implementation/runtime | [Apache-2.0 and bundled notices](https://github.com/plutext/docx4j/blob/VERSION_17_3_2/legals/NOTICE); reference JAXB/Activation use permissive EDL/BSD terms |
 | Apache PDFBox | 3.0.8 | Optional PDF module implementation and isolated output-validation JVM only | [Apache-2.0 and bundled third-party terms](https://github.com/apache/pdfbox/blob/3.0.8/LICENSE.txt), [upstream notice](https://github.com/apache/pdfbox/blob/3.0.8/NOTICE.txt) |
 
 ## Compatibility and maintenance
@@ -70,13 +70,44 @@ The initial transitive Jackson 2.22.1 selection matched two core and five databi
 
 Production JSON/YAML specification output is derived from one NuaForma-owned JSON-compatible model. The YAML writer emits only quoted JSON scalars, mappings and sequences, not a general YAML parser. Tests use independent Jackson/SnakeYAML tree parsing and Swagger OpenAPI parsing. References are checked as local before parsing, with external reference validation/resolution disabled. Behavioral assertions test the used schema keyword subset against real API responses/requests and malformed/drift fixtures. No arbitrary uploaded specification is parsed, and no production HTTP/rendering dependency is added for documentation.
 
-## Version freshness audit — 2026-10-12
+## Compatible dependency upgrades — issue #38
+
+The user approved compatible upgrades on 2026-10-12 while retaining Java 17 and explicit compatibility exceptions. The coherent docx4j core/generated/copy/JAXB family is upgraded to 17.3.2. The [upstream release announcement](https://www.docx4java.org/forums/announces/docx4j-17-3-2-released-t3182.html), tagged LICENSE/NOTICE, Maven POMs and Java 11-compatible class files were reviewed. Its new font/FO capabilities are not adopted as new NuaForma features, and the LibreOffice backend remains unchanged. Historical FOP evaluation dependencies are retained to preserve that experiment; they are not production dependencies.
+
+| Reviewed family | Selected version | Scope and license |
+| --- | --- | --- |
+| Commons Codec / Collections / Lang | 1.23.0 / 4.6.0 / 3.21.0 | DOCX runtime; Apache-2.0 |
+| istack / JAXB plugins | 4.2.0 / 4.0.16 | DOCX runtime; EDL-1.0 / BSD-style |
+| Checker qualifiers / Error Prone annotations | 4.3.1 / 2.50.0 | DOCX runtime; MIT / Apache-2.0; annotation artifacts, not compiler processors |
+| SLF4J API / Commons Logging bridge | 2.0.20 | Existing runtime/test graphs; MIT / Apache-2.0; no logging implementation added |
+| JetBrains annotations | 26.1.0 | Existing library/runtime annotation dependency; Apache-2.0 |
+| Byte Buddy and agent / Objenesis | 1.18.14 / 3.6 | MockK tests only; Apache-2.0 |
+| JSpecify / Coroutines | 1.0.1 / 1.11.0 | Test alignment; Apache-2.0; server Coroutines already 1.11.0 |
+| JNA and platform | 5.19.1 | Existing tests only; Apache-2.0 option of its dual license |
+| Apache HTTP client / core and H2 | 5.6.5 / 5.4.4 | Ktor tests only; Apache-2.0 |
+| Swagger Core, models and annotations / SnakeYAML | 2.2.55 / 2.7 | OpenAPI tests only; Apache-2.0 |
+
+Primary reviews included the published Maven POMs and their license/Java-baseline parent inheritance, [Commons releases](https://commons.apache.org/proper/commons-codec/changes.html), [Byte Buddy release notes](https://github.com/raphw/byte-buddy/blob/byte-buddy-1.18.14/release-notes.md), [JNA's explicit license choice](https://github.com/java-native-access/jna/blob/5.19.1/LICENSE), [Swagger Core](https://github.com/swagger-api/swagger-core/tree/v2.2.55) and the final locked artifact graph. All Java 17-effective class entries in the staged production JARs were inspected for class-file versions at most 61; higher-JDK multi-release branches are not Java 17 inputs. Actual integration tests, not class headers alone, establish the exercised compatibility.
+
+Updated production transitives are declared directly as implementation dependencies in their owning module, rather than relying only on Gradle constraints: [Gradle's metadata mapping](https://docs.gradle.org/current/userguide/publishing_gradle_module_metadata.html) explains that Maven dependency-management constraints are not transitive. Standard generated POMs therefore carry explicit runtime versions for the already present artifacts, with no new library family, vendor API leakage or forced consumer-wide resolution. `verifyBuildStructure` protects these declarations and the runtime/test separation. Test-only alignment uses ordinary dependency constraints, not global resolution overrides.
+
+Retain Gradle 9.7.0 at Kotlin's fully supported ceiling; compiler-private JetBrains annotations 13.0, Kotlin reflection 1.6.10 and Coroutines 1.8.0 remain unchanged on their isolated build configurations. QDox 1.12.1 and StringTemplate 3.2.1 remain docx4j's older API generations, not interchangeable with QDox 2.x or StringTemplate 4.x. Swagger's test-only Jakarta Activation 1.2.2, JAXB API 2.3.3 and Validation 2.0.2 retain the required older namespaces; the document runtime already uses the current Jakarta generation. No prerelease, JVM baseline increase, renderer/image pin change or additional production component is introduced.
+
+The final primary-metadata check covers 161 distinct locked Maven coordinates: 153 match the checked newest stable release and the eight older coordinates are exactly the documented API-generation/compiler-private exceptions above. Common versions shared by multiple configurations are counted once; alignment removes older duplicate coordinates. An OSV batch query on 2026-10-12 for all 161 final coordinates returned no known matches. This is a dated advisory snapshot, not a guarantee. The complete Java 17 build, architecture/provider/REST/OpenAPI tests, Maven POM generation and OpenAPI export pass with 276 tests and no failures, errors or skipped tests. Generated DOCX POMs explicitly include the reviewed runtime versions; contracts/core POMs gain no DOCX, HTTP or logging dependency.
+
+Qualification uses the existing synthetic DOCX fixtures and unchanged LibreOffice/Bubblewrap runtime configuration, with a private rebuilt validator image. The fourteen-document matrix has 44 pages pixel-identical to the preceding production reference, with all selected fonts embedded and four rotated Code 39 NF001 barcodes independently decoded at both 100 and 300 DPI. Fresh full-engine and real-HTTP checks add 12 and 9 pages, all pixel-identical to their preceding references, with isolated NF001/NF002 data and correct rotated scans. All 32 unique matrix pages and the additional tenant-specific pages were visually inspected. No golden output or template geometry was changed to pass; the existing modern-inline-text-box limitation in #32 remains scoped and unchanged.
+
+DOCX package inspection found the new serializer omits an empty `mc:Ignorable` attribute in settings; authored settings, body/style content and layout are unchanged. Generated font/header/watermark UUIDs remain request-specific by design. These serialization/identity differences are not claimed to be byte-identical ZIP output. Original references, private fonts, inventories and QA renders remain ignored and are not redistributed. The renderer source/license release gate and OS-package/image audit under #14 remain separate.
+
+## Pre-upgrade version freshness audit — 2026-10-12
+
+This section is the preserved pre-upgrade snapshot from issue #13; the selected baseline and retained exceptions after issue #38 are described above. Its table must not be read as the current lockfile inventory.
 
 A read-only check compared all 165 distinct group/artifact/version coordinates in the six product-module lockfiles (including test and compiler-tool configurations) against primary Maven Central metadata. 126 already match the checked stable version; the 39 remaining coordinates are listed below. Counts include distinct versions of the same artifact on isolated configurations, not 165 independent libraries. The root settings lock contains only an empty catalog marker. Release candidates, snapshots, alpha/beta/milestone/EAP builds and Byte Buddy's alternative old-JDK classifier releases were excluded. Old metadata can be incomplete: ANTLR's metadata omits the selected 2.7.7, whose actual published POM was checked; it must not be downgraded to the last listed 2.7.6. This is a dated release inventory, not compatibility qualification or a complete security scan.
 
 The explicit catalog pins Kotlin 2.4.21, JUnit 6.1.3, MockK 1.14.11, ArchUnit 1.5.1, PDFBox 3.0.8, Ktor 3.6.0, Kotlinx Serialization 1.11.0, Swagger Parser 2.1.48 and the Jackson test BOM 2.22.3 at the checked newest stable releases. Serialization 1.12.0-RC is not a stable upgrade. docx4j is the direct exception: 17.3.2 is published and advertised on the [upstream downloads page](https://www.docx4java.org/downloads.html), while our qualified integration remains 17.1.0. Upgrade it as a coherent family with license/security review, Java 17 integration, package-preservation tests and actual DOCX/PDF visual/barcode qualification; availability of the new release does not establish unchanged output.
 
-| Maven coordinate and primary metadata | Locked version | Checked newest stable |
+| Maven coordinate and primary metadata | Locked before issue #38 | Checked newest stable |
 | --- | --- | --- |
 | [`com.google.errorprone:error_prone_annotations`](https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/maven-metadata.xml) | 2.3.3 | 2.50.0 |
 | [`com.sun.istack:istack-commons-runtime`](https://repo.maven.apache.org/maven2/com/sun/istack/istack-commons-runtime/maven-metadata.xml) | 4.1.2 | 4.2.0 |
