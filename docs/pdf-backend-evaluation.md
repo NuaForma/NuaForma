@@ -1,5 +1,7 @@
 # Early DOCX to PDF backend evaluation
 
+> **Historical renderer comparison.** Subsequent production work implemented the approved isolated LibreOffice backend, conversion-copy compatibility, watermarks, fonts and standard/PDF/A B-profile output. Statements below about unimplemented providers, unbuilt containers, pending checks or untested archival profiles describe their respective experiment stages. For current capabilities and qualification limits, see the [PDF provider guide](../nuaforma-docx-pdf/README.md) and [service container guide](../deployment/pdf-runtime/SERVICE.md). Original measurements remain unchanged.
+
 Research for issue #10, begun 2026-10-11. LibreOffice was selected for production implementation on 2026-10-12; no production PDF provider is implemented yet. The comparison is reproducible through [the separate research tooling](../tools/pdf-evaluation/README.md), which does not change NuaForma's dependencies, published artifacts or engine contracts.
 
 ## Decision status

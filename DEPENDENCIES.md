@@ -1,5 +1,11 @@
 # Dependency baseline
 
+## Embedded/publication tooling — 2026-10-12
+
+Issue #15 uses Gradle's built-in `maven-publish` and optional in-memory `signing` plugins; no new production library or remote publishing plugin is introduced. Independent examples pin the stable Apache Maven Compiler 3.16.0, Dependency 3.11.0, Resources 3.5.0, JAR 3.5.1, Install 3.2.0 and Surefire 3.6.0 plugins, checked against primary Maven Central metadata/POMs. These Apache-2.0 build plugins and their build/test transitives remain tooling, not embedded-library or server dependencies. Maven 4/compiler beta releases were not selected. Java 17 and standalone Maven/Gradle execution are verified separately from version availability; consumer runtime JAR hashes must match the reviewed product graph.
+
+Release helpers use Python's standard library and GnuPG only for local/public-key verification and disposable signing QA. The actual maintainer key stays in the protected GitHub environment and password manager. Source/documentation JARs retain the project license and third-party guide without shading dependency classes; combined-container redistribution remains a separate license/source gate. See [the preparation guide](docs/maven-central-releases.md).
+
 This review began with the build scaffold for issue #1 on 2026-10-11 and records subsequent scoped integration reviews and upgrades. Implementation status and qualification limits belong in the module guides, not release-number assumptions. Direct and reviewed transitive versions are pinned in `gradle/libs.versions.toml`; the wrapper pins Gradle and its distribution checksum. Per-module lockfiles record resolved dependencies. Historical review snapshots below are identified separately from the current issue #38 upgrade baseline.
 
 | Component | Version | Scope | License and primary reference |
@@ -28,13 +34,15 @@ Retain MPL and original GPL notices, the profiles' CC-BY-4.0 license/consortium 
 
 The repository architecture tests explicitly use Kotlin reflection at test compile/runtime scope to read Kotlin visibility without initializing production classes. This is the same pinned Kotlin component already present transitively through MockK at test runtime, not a new version or production dependency.
 
-The initial production module graph contains NuaForma project dependencies, Kotlin's standard library and its transitive JetBrains annotations. The Kotlin BOM aligns runtime Kotlin components, but does not override the compiler's private tool dependencies. Test libraries, their mocking agents and ArchUnit's bundled analysis libraries must not appear in published library runtime dependencies. `verifyBuildStructure` checks this boundary during the build; generated Maven POMs make dependency scopes reviewable.
+The original scaffold contained NuaForma project dependencies, Kotlin's standard library and its transitive JetBrains annotations; document, PDF and server dependencies were subsequently added in their owning modules as reviewed below. The Kotlin BOM aligns runtime Kotlin components, but does not override the compiler's private tool dependencies. Test libraries, their mocking agents and ArchUnit's bundled analysis libraries must not appear in published library runtime dependencies. `verifyBuildStructure` checks this boundary during the build; generated Maven POMs make dependency scopes reviewable.
 
 JUnit's EPL-2.0 license applies to the test tooling, not to NuaForma's production code. It is not bundled into production JARs. Any later redistribution of test tools must carry their own required licenses and notices. Likewise, Gradle, Kotlin and other dependencies retain their own licensing obligations; Apache-2.0 on NuaForma does not replace them. Library JAR tasks include NuaForma's LICENSE without shading third-party classes.
 
-Review transitive dependencies and upstream security advisories when adding or upgrading dependencies. Lockfiles fix selected versions but are not a vulnerability scan or a security guarantee. No expression engine, HTTP framework or PDF renderer is added; their dependency and license reviews belong to their own issues.
+Review transitive dependencies and upstream security advisories when adding or upgrading dependencies. Lockfiles fix selected versions but are not a vulnerability scan or a security guarantee. The template language is NuaForma-owned; external HTTP and PDF components are confined to their reviewed server/conversion boundaries.
 
 ## DOCX integration review
+
+The version inventory below records the initial issue #5 integration. For current upgraded versions and retained compatibility exceptions, see [the issue #38 review](#compatible-dependency-upgrades--issue-38) and the checked-in lockfiles.
 
 The DOCX watermark adapter's VML type-136 geometry is adapted from docx4j's Apache-2.0 [tagged Watermark sample](https://github.com/plutext/docx4j/blob/VERSION_17_1_0/docx4j-samples-docx4j/src/main/java/org/docx4j/samples/Watermark.java). Section inheritance, content-preserving anchors, bounds and request isolation are NuaForma's implementation. This adds no dependency or copied renderer; docx4j's existing license and notice obligations still apply.
 
@@ -48,6 +56,8 @@ Pinned Maven POMs, inherited license metadata and artifact license material were
 
 ## PDF research tooling
 
+This section records the pre-production renderer comparison. LibreOffice is now bundled in the locally qualified runtime; current package pins and isolation live in the [runtime guide](deployment/pdf-runtime/README.md). The research build remains separate and preserves its original dependency versions.
+
 Issue #10 uses a separate, unpublished Java 17 build under `tools/pdf-evaluation`, not a product dependency change. docx4j-export-fo and JAXB ReferenceImpl 17.1.0 resolve FOP 2.11 and the locked research graph described in [the evaluation](docs/pdf-backend-evaluation.md). That report records primary license/maintenance sources, bundled font notices, an OSV snapshot and observed rendering failures. LibreOffice 26.8.1.1 is the externally installed Windows research baseline; the user selected LibreOffice for production implementation on 2026-10-12 and approved its additional redistribution obligations. No renderer is bundled yet. Qualify and pin the actual production package independently, including maintenance/security review, Linux rendering and the [distribution checklist](docs/libreoffice-licensing.md); approval of a backend is not approval of every package/version. Euro-Office was evaluated only in unpublished research; neither it nor ONLYOFFICE is a product dependency.
 
 ## PDF output-validation review
@@ -60,6 +70,8 @@ An OSV batch query on 2026-10-12 for PDFBox, FontBox, PDFBox IO 3.0.8 and Common
 
 ## REST integration review
 
+The inventory below records the initial issue #12 integration; issue #38 subsequently aligned shared dependencies, including SLF4J. Current resolved versions are in the server lockfile.
+
 Issue #12 uses the approved Ktor 3.6.0 framework with its CIO server engine, request-body limits and status-page error mapping. The [tagged license](https://github.com/ktorio/ktor/blob/3.6.0/LICENSE), [release history](https://github.com/ktorio/ktor/releases), pinned Maven POMs and current source were reviewed on 2026-10-12. Ktor remains actively developed and Apache-2.0 licensed. CIO avoids introducing Netty/native transport into the service. Ktor and its coroutine/IO APIs remain server-only implementation dependencies behind the HTTP adapter, not library contracts.
 
 The new resolved server production graph contains Ktor 3.6.0, Kotlinx Coroutines 1.11.0, Kotlinx Serialization 1.11.0, Kotlinx IO 0.9.1, Typesafe Config 1.4.9 and SLF4J API 2.0.19. Kotlinx and Config are Apache-2.0; SLF4J remains MIT. The Kotlin BOM retains the project's Kotlin 2.4.21 alignment. JSON uses a tree adapter with bounded UTF-8, nesting, token and number handling; parser exceptions and raw input are never returned or logged. Duplicate keys are rejected before tree construction. No serialization compiler plugin or domain DTO is introduced into contracts.
@@ -67,6 +79,8 @@ The new resolved server production graph contains Ktor 3.6.0, Kotlinx Coroutines
 The Ktor test host and its client, coroutine test/debug, JUnit, Apache HTTP client, Byte Buddy and logging components are test-only; they must not enter the service runtime. Per-module lockfiles and the build's test-tool isolation check record/enforce scopes. Java 17 compile/runtime tests are required, not inferred from POMs. An OSV batch query on 2026-10-12 for all 72 resolved server runtime coordinates returned no known matches; this is a dated advisory snapshot, not a security guarantee. Redistribution must retain actual upstream license/copyright/notice material; final service/container packaging remains subject to its own inventory and distribution audit.
 
 ## OpenAPI test-tool review
+
+The inventory below records the initial issue #13 integration. Later test-only upgrades are recorded under issue #38; do not treat the original Swagger Core/SnakeYAML versions as current pins.
 
 For issue #13 the user approved Swagger Parser strictly as test tooling. The pinned `swagger-parser-v3` 2.1.48 [release](https://github.com/swagger-api/swagger-parser/releases/tag/v2.1.48), [Apache-2.0 license](https://github.com/swagger-api/swagger-parser/blob/v2.1.48/LICENSE), Maven POMs, activity and local parsing options were reviewed on 2026-10-12. The v3 artifact avoids the aggregate parser's legacy Swagger 2 modules. The parent targets Java 8; the actual integration is compiled/executed on Java 17. No annotations, vendor models, parser or remote-reference resolver enter production source or runtime.
 

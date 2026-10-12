@@ -1,6 +1,6 @@
 # LibreOffice distribution checklist
 
-LibreOffice was selected for the early optional PDF adapter on 2026-10-12. The user approved its additional licensing obligations. This document defines a distribution gate, not a claim that a renderer or container has already been packaged or audited. It supplements [THIRD_PARTY.md](../THIRD_PARTY.md).
+LibreOffice was selected for the early optional PDF adapter on 2026-10-12 and is packaged in the locally qualified service/runtime images. The user approved its additional licensing obligations. This document defines the remaining candidate-specific distribution gate, not a claim that the local images have a completed redistribution audit or are publicly available. It supplements [THIRD_PARTY.md](../THIRD_PARTY.md).
 
 ## License boundary
 

@@ -45,7 +45,7 @@ General options provide a nullable text watermark, explicit locale (`Locale.ROOT
 
 Requested watermark text follows the same restricted template language and request `data` as document content, including placeholders, conditions, repetitions and number/date formatting. For example, `CONCEPT — {customer.name}` resolves using the supplied customer object. Locale, time zone and cumulative processing limits are shared; resolve once before placing the watermark or converting the output. Inserted values are never evaluated again. Escaped braces (`{{` and `}}`) produce literal braces. A blank resolved value requests no added watermark. The DOCX module documents its implemented placement and resolved-text limits; PDF and REST support are not implied by these contracts.
 
-The planned REST mapping uses a `request` JSON multipart part plus a binary `template` part. Multipart handling and JSON mapping belong to the server, not this module. No endpoint or JSON serializer is provided here.
+The implemented [REST mapping](../nuaforma-server/README.md#multipart-and-resources) uses a `request` JSON multipart part plus a binary `template` part and optional resource parts. Multipart handling and JSON mapping belong to the server, not this module. No endpoint or JSON serializer is provided by contracts.
 
 ## Provider contract
 

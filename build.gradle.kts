@@ -75,8 +75,19 @@ subprojects {
             from(rootProject.file("LICENSE")) {
                 into("META-INF")
             }
+            from(rootProject.file("THIRD_PARTY.md")) { into("META-INF") }
+        }
+        tasks.named<Jar>("javadocJar") {
+            from(project.file("README.md"))
+            from(rootProject.file("ARCHITECTURE.md"))
         }
         extensions.configure<PublishingExtension> {
+            repositories {
+                maven {
+                    name = "Staging"
+                    url = rootProject.layout.buildDirectory.dir("library-repository").get().asFile.toURI()
+                }
+            }
             publications {
                 create<MavenPublication>("mavenJava") {
                     from(components["java"])
@@ -94,12 +105,74 @@ subprojects {
                         scm {
                             url.set("https://github.com/NuaForma/NuaForma")
                             connection.set("scm:git:https://github.com/NuaForma/NuaForma.git")
+                            developerConnection.set("scm:git:ssh://git@github.com/NuaForma/NuaForma.git")
+                        }
+                        developers {
+                            developer {
+                                id.set("nuaforma")
+                                name.set("NuaForma maintainers")
+                                url.set("https://github.com/NuaForma")
+                                organization.set("NuaForma")
+                                organizationUrl.set("https://nuaforma.dev")
+                            }
                         }
                     }
                 }
             }
         }
+        val signArtifacts = providers.gradleProperty("signArtifacts").orNull
+        require(signArtifacts == null || signArtifacts in setOf("true", "false")) { "signArtifacts must be true or false" }
+        if (signArtifacts == "true") {
+            apply(plugin = "signing")
+            val signingKey = providers.environmentVariable("MAVEN_SIGNING_KEY").orNull
+            val signingPassword = providers.environmentVariable("MAVEN_SIGNING_PASSWORD").orNull
+            require(!signingKey.isNullOrBlank() && !signingPassword.isNullOrBlank()) { "Artifact signing credentials are required" }
+            extensions.configure<SigningExtension> {
+                useInMemoryPgpKeys(signingKey, signingPassword)
+                sign(extensions.getByType<PublishingExtension>().publications["mavenJava"])
+            }
+        }
     }
+}
+
+val libraryModules = subprojects.filter { it.name != "nuaforma-server" }
+tasks.register("writeLibraryRuntimeInventory") {
+    group = "verification"
+    val output = layout.buildDirectory.file("library-runtime-files.json")
+    doLast {
+        val records = libraryModules.associate { module ->
+            module.name to module.configurations.getByName("runtimeClasspath").resolvedConfiguration.resolvedArtifacts
+                .filter { it.moduleVersion.id.group != "dev.nuaforma" }.map { it.file.absolutePath }.sorted()
+        }
+        output.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(records)))
+        }
+    }
+}
+tasks.register("stageLibraries") {
+    group = "publishing"
+    description = "Publishes the five libraries only to the ignored local staging repository; never uploads."
+    dependsOn(libraryModules.map { "${it.path}:publishMavenJavaPublicationToStagingRepository" })
+    dependsOn("writeLibraryRuntimeInventory")
+}
+
+tasks.register<Exec>("verifyLibraryPublication") {
+    group = "verification"
+    dependsOn("stageLibraries")
+    commandLine("python3", "tools/release/verify_libraries.py", "build/library-repository", "--version", project.version.toString())
+}
+
+tasks.register<Exec>("verifyReleaseTooling") {
+    group = "verification"
+    commandLine("python3", "-m", "unittest", "discover", "-s", "tools/release", "-p", "test_*.py")
+}
+
+tasks.register<Exec>("verifyEmbeddedConsumers") {
+    group = "verification"
+    dependsOn("stageLibraries")
+    commandLine("python3", "tools/release/verify_consumers.py", "--repository", "build/library-repository", "--output", "build/consumer-tests",
+        "--version", project.version.toString())
 }
 
 tasks.named("assemble") {
@@ -108,6 +181,8 @@ tasks.named("assemble") {
 tasks.named("check") {
     dependsOn(subprojects.map { "${it.path}:check" })
     dependsOn("verifyBuildStructure")
+    dependsOn("verifyLibraryPublication")
+    dependsOn("verifyReleaseTooling")
 }
 
 tasks.register("verifyBuildStructure") {

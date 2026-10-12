@@ -2,7 +2,7 @@
 
 Development specification and Kotlin/Java 17 implementation of a deliberately restricted, format-independent language. `nuaforma-template` is a separately publishable library with only contracts and platform dependencies. No scripting framework, reflection-based object navigation or document library is required.
 
-The current API compiles and renders text. It does not read DOCX, modify runs, clone table rows or register a document provider. Future format adapters must apply the same semantics to their native structures while preserving layout; flattening Word content into this text API and rebuilding the document is not the intended integration.
+The current API compiles and renders text and supplies structural sessions. It does not itself read DOCX, modify runs, clone table rows or register a document provider. The [DOCX adapter](../nuaforma-docx/README.md) already uses these sessions to apply the language to native Word structures while preserving formatting. Future format adapters must preserve the same semantics; flattening Word content into this text API and rebuilding the document is not the intended integration.
 
 ## Embedded use
 

@@ -10,141 +10,150 @@
 
 **Turn templates and structured data into documents.**
 
-NuaForma is an open-source document generation project for businesses,
-institutions, and developers. Its goal is to combine reusable templates with
-structured data to produce documents in multiple formats, through a generic,
-self-hostable service.
+NuaForma is an open-source Kotlin/JVM document-generation engine for Java 17 applications, with a REST service and a self-hostable Docker container. Supply a Word template, your own structured data and generation options to produce DOCX or PDF documents without a proprietary platform or mandatory cloud service.
 
-From a simple letter to an agreement with conditional sections, NuaForma aims
-to make document automation accessible without locking users into a proprietary
-platform.
+> **Development preview:** working implementations and local qualification exist, but no library release, public container image or hosted service is available yet. The development version is `0.1.0-SNAPSHOT`, with contract baseline `0.1`; APIs are not stable released contracts. Build from source for evaluation. Maven Central and GHCR publication remain subject to the separate release gates below.
 
-> **Project status:** development-stage provider contracts, core discovery/selection, registered [DOCX](nuaforma-docx/README.md) and optional [DOCX/PDF](nuaforma-docx-pdf/README.md) providers, a [restricted template language](nuaforma-template/README.md) and a [bounded REST service with OpenAPI JSON/YAML downloads](nuaforma-server/README.md#openapi-downloads-and-export). Embedded Kotlin/Java 17 applications and multipart REST requests use the same generation contracts for split-run placeholders, conditions/repeats, supported text boxes, selected fonts and dynamic text watermarks. The optional qualified Linux/amd64 runtime converts a private copy to standard PDF or selectable PDF/A-1b, PDF/A-2b and PDF/A-3b while leaving DOCX output unchanged. Fonts follow technical embedding permissions; conversion/output validation use request-isolated bounded processes within one container. The [on-premise service image and Compose guide](deployment/pdf-runtime/SERVICE.md) define local build, isolation, configuration and shutdown. The guides define supported profiles and fidelity limitations, including issue #32. No stable release, public service or public container image is claimed; [release preparation](docs/container-releases.md) preserves the license/source-distribution gate.
+## What works today
 
-The service supports [read-only operator font and extension mounts](deployment/pdf-runtime/MOUNTS.md), with startup snapshots and restart-based reload. `/api/v1/capabilities` lists deployment-available fonts per provider. Private request fonts stay isolated; installed extensions are operator-trusted application code, not sandboxed document content. Module and contract versions remain on the unpublished `0.1` baseline.
+- **DOCX → DOCX:** replace placeholders while retaining native Word formatting, including markers split across text runs, headers, footers and supported VML/DrawingML text boxes.
+- **Conditions and repetitions:** inline conditions within sentences, conditional paragraphs/sections, nested list expansion and repeated table rows.
+- **Generic data:** nested JSON-compatible objects, lists and scalar values; no NuaForma-specific business schema.
+- **Template functions:** null/missing fallbacks, comparisons, number/date formatting, `contains`, `startsWith`, `endsWith`, `trim` and `equalsIgnoreCase`.
+- **Fonts and barcodes:** preserve template font choices, optionally validate/embed supplied fonts, and retain font-based barcode text and geometry in the qualified profiles.
+- **Dynamic text watermarks:** resolve watermark placeholders and conditions against the same data, with configurable color, opacity and rotation.
+- **DOCX → PDF:** standard PDF or independently validated PDF/A-1b, PDF/A-2b and PDF/A-3b, using the isolated LibreOffice runtime. DOCX output is not changed by PDF compatibility processing.
+- **Embedded and REST use:** the same generation contracts from Kotlin/Java or multipart HTTP, with capabilities, preflight assessment and downloadable OpenAPI JSON/YAML.
+- **On-premise container:** one Linux/amd64 service container, with read-only mounts for operator fonts and trusted provider extensions; capabilities list deployment-available fonts.
 
-## The idea
+These capabilities have bounded supported profiles, not a promise to preserve every Word feature or reproduce every renderer's pagination. See the module guides for exact rules.
 
-For PDF output, omitting `output.options.profile` selects PDF/A-3b. Explicit choices are `pdfa-1b`, `pdfa-2b`, `pdfa-3b` and `standard`; an omitted PDF version is derived from that profile. PDF/A-1b deliberately rejects transparency and unsupported drawing/image profiles rather than changing their appearance. Every PDF/A result must pass the requested conformance profile before delivery, without downgrade. See [the PDF options and limitations](nuaforma-docx-pdf/README.md#output-options).
+## A template and a request
 
-A generation request combines three things:
+Author these markers in the Word template; the template owns the surrounding layout and styling:
 
-- A **template** describing the layout, placeholders, and document logic.
-- **Structured data** supplying the values to insert.
-- An **output format** specifying the document to produce.
+```text
+Dear {trim(customer.name)},
+Your reference is {reference}.
+You {#if active}have an active agreement{#else}do not have an active agreement{/if}.
+Contact: {customer.email ?? "Not provided"}
+```
 
-Templates should support more than replacing a name or date. Authors should be
-able to include or omit text blocks based on conditions, choose between
-alternative sections, and repeat content for lists or tables.
+For DOCX output, save the following as `request.json`:
 
-For example, an agreement could include one clause when `x == 1`, use another
-when `y == 1`, and omit a section when neither condition applies. The template
-defines those choices; the input data determines the result. The template
-syntax is specified in the [template language guide](nuaforma-template/README.md); the [DOCX guide](nuaforma-docx/README.md) explains structural markers and formatting rules.
+```json
+{
+  "input": {"format": "docx"},
+  "output": {"format": "docx"},
+  "providerId": "nuaforma-docx",
+  "data": {
+    "customer": {"name": " Ada ", "email": null},
+    "reference": "NF001",
+    "active": true
+  },
+  "options": {"watermark": {"text": "CONCEPT — {reference}"}}
+}
+```
 
-## Planned capabilities
+With the local service running and the template saved as `template.docx`:
 
-- **Placeholders:** insert values from structured input, with formatting for
-  dates, numbers, and other common data types.
-- **Conditional content:** include, omit, or select blocks using understandable
-  template rules.
-- **Repeated content:** generate rows or sections from collections.
-- **Optional watermarks:** use the same placeholders, conditions, repetitions and formatting as document content in configurable text such as `CONCEPT — {customer.name}`. DOCX placement, PDF preservation and REST-to-engine parity are implemented and qualified.
-- **Multiple output formats:** target PDF, Microsoft Word (DOCX), and
-  OpenDocument Text (ODT, used by LibreOffice and OpenOffice).
-- **PDF profiles:** choose standard PDF, PDF/A-1b, PDF/A-2b or PDF/A-3b (default), with independent final-file conformance validation and explicit [profile limitations](nuaforma-docx-pdf/README.md#output-options).
-- **REST integration:** submit templates, structured data and optional font resources through the [bounded development API](nuaforma-server/README.md), with provider capabilities and preflight assessment.
-- **Stored templates and data:** generate documents using identifiers instead
-  of submitting all inputs with every request.
-- **Optional database adapters:** retrieve templates or input data from
-  connected systems.
-- **Self-hosting and extensibility:** support internal deployments, integrations,
-  and custom adaptations.
+```sh
+curl --fail-with-body http://127.0.0.1:8080/api/v1/documents \
+  -F 'request=@request.json;type=application/json' \
+  -F 'template=@template.docx;type=application/vnd.openxmlformats-officedocument.wordprocessingml.document' \
+  --output document.docx
+```
 
-OpenDocument Spreadsheet (ODS) output is also under consideration. It is a
-spreadsheet format, distinct from ODT, and would require its own generation
-workflow.
+Conditions require booleans, not implicit truthiness. Null checks such as `(customer.email ?? null) == null` produce a boolean and are supported. Inserted values remain literal, never executable template code. For complete syntax and examples, see the [template language](nuaforma-template/README.md) and [Word structural rules](nuaforma-docx/README.md#word-template-rules). For uploads, font resources, errors and limits, see the [REST guide](nuaforma-server/README.md).
 
-These are design goals, not a commitment that every template can be converted
-to every output format with identical layout. Supported template types, output
-combinations, and rendering limitations will be documented as they are chosen.
+## Choose how to use NuaForma
 
-## Who is it for?
+### Embed in a Java or Kotlin application
 
-NuaForma is intended for teams generating letters, reports, agreements,
-statements, and other documents from application data. It should be useful
-both as an internal service and as a component integrated into other products.
+The repository contains five independently publishable libraries and one optional server module:
 
-The project uses Kotlin/JVM with Java 17 as its minimum runtime. DOCX processing uses docx4j behind NuaForma-owned facades. The restricted language is implemented separately from document libraries. Optional PDF conversion uses LibreOffice behind a bounded process adapter and PDFBox behind an isolated output-validation adapter. DOCX-only consumers do not acquire these optional conversion dependencies. See [the PDF guide](nuaforma-docx-pdf/README.md) for configuration and [the single-container runtime guide](deployment/pdf-runtime/README.md) for qualification and distribution boundaries.
+| Module | Responsibility |
+| --- | --- |
+| [nuaforma-contracts](nuaforma-contracts/README.md) | Public value types, provider interfaces and compatibility metadata |
+| [nuaforma-core](nuaforma-core/README.md) | Provider discovery, selection and generation orchestration |
+| [nuaforma-template](nuaforma-template/README.md) | Restricted, format-independent template language |
+| [nuaforma-docx](nuaforma-docx/README.md) | DOCX generation, font handling and watermarks |
+| [nuaforma-docx-pdf](nuaforma-docx-pdf/README.md) | DOCX output plus optional isolated PDF conversion/validation |
+| [nuaforma-server](nuaforma-server/README.md) | Thin REST transport over the same engine |
 
-## Initial development direction
+Use core plus DOCX for Word-only applications; add the DOCX/PDF module and its qualified external runtime for PDF. Core depends on contracts, not concrete providers. Both built-in providers can write DOCX, so select a provider explicitly when both are installed. Custom providers can introduce their own format identifiers through ServiceLoader or explicit registration.
 
-1. Establish the module build and test foundation.
-2. Define the public contracts and provider discovery.
-3. Implement DOCX generation with placeholders, conditions, repeats and optional watermarks while preserving formatting.
-4. Select and verify an optional DOCX-to-PDF backend for the first product versions.
-5. Expose the engine through REST with downloadable OpenAPI JSON and YAML, then prepare Docker deployment and embedded usage examples.
+DOCX-only applications need neither the server, Docker nor LibreOffice. PDF's isolated converter/validator runtime is not supplied by Maven dependencies alone. The [standalone Java/Maven and Kotlin/Gradle examples](examples/embedded/README.md) show local artifact staging and usage; there are no published Central coordinates to download yet.
 
-Track scoped work in the [GitHub roadmap issues](https://github.com/NuaForma/NuaForma/issues?q=is%3Aissue%20label%3Aroadmap) and [milestones](https://github.com/NuaForma/NuaForma/milestones). Later format and storage extensions are separate follow-up work.
+### Run the REST service or container
 
-The [PDF backend evaluation](docs/pdf-backend-evaluation.md) records reproducible renderer comparisons and the approved LibreOffice conversion-copy direction. A measured modern inline-text-box vertical difference of approximately 0.60 mm is temporarily accepted and tracked in [issue #32](https://github.com/NuaForma/NuaForma/issues/32); this is not a general layout tolerance. Research tooling remains separate from the production provider. The locally built service/runtime images contain LibreOffice and Bubblewrap; [the distribution checklist](docs/libreoffice-licensing.md) must be completed before redistributing a bundled-runtime image. No image is publicly published by the current build.
+For a local JVM service, follow the [server launch guide](nuaforma-server/README.md#run-locally). For the combined service/LibreOffice container, follow the [Docker Compose build and start guide](deployment/pdf-runtime/SERVICE.md#build-and-start). The container includes the approved renderer isolation; no separate worker container or Microsoft Office installation is required.
 
-Security will be part of the design: untrusted templates, rendering processes,
-database access, and sensitive document data need explicit boundaries and
-resource limits.
+The service exposes `/api/v1/documents`, `/api/v1/assess`, `/api/v1/capabilities`, `/openapi.json` and `/openapi.yaml`. The [mount guide](deployment/pdf-runtime/MOUNTS.md) describes custom fonts, trusted extensions and restart-based reload. There is no published image to pull yet.
 
-## Development
+## PDF choices and important limits
 
-Install a JDK 17 and use the checked-in Gradle Wrapper; no global Gradle installation is required. The first build downloads the pinned Gradle distribution and dependencies. Its distribution checksum is verified by the wrapper.
+For PDF, set `output.format` to `pdf` and omit the DOCX provider preference. Select `output.options.profile`:
+
+| Profile | PDF version | Scope |
+| --- | --- | --- |
+| `pdfa-3b` | 1.7 | Default when no profile is specified |
+| `pdfa-2b` | 1.7 | Archival B-level output |
+| `pdfa-1b` | 1.4 | Restricted transparency-free template profile |
+| `standard` | 1.7 | Ordinary static PDF, not PDF/A |
+
+Omit `version` to derive it from the profile; an explicit version must match. Each PDF/A result must pass the selected veraPDF profile before delivery, without downgrade. PDF/A-1b rejects transparency and unsupported drawing/media features instead of flattening them and accepting altered appearance. PDF/A level A, PDF/UA, forms, digital-signature fields, attachments and encryption are not implemented.
+
+PDF requires explicit ASCII/hAnsi document-default font names and available fonts. Fonts can come from the qualified bundled catalog, operator mounts, supplied request resources or template embedding. Technical embedding permissions are enforced; callers remain responsible for usage rights. Barcode encoding, quiet zones and scanability are separate from text replacement and must be checked for the intended template/font combination.
+
+The qualified runtime is Linux/amd64. A measured modern inline-text-box vertical difference of approximately 0.60 mm remains temporarily accepted in [issue #32](https://github.com/NuaForma/NuaForma/issues/32), with a result warning. It is not a general layout tolerance. See the [PDF options and fidelity profile](nuaforma-docx-pdf/README.md) before choosing templates or deployment platforms.
+
+## Security and deployment boundaries
+
+The restricted language exposes only supplied `data`, not host objects, credentials or arbitrary methods. Providers enforce archive, expression and output limits. Conversion and PDF validation use bounded request-isolated child processes with network denial. These protections do not make in-process DOCX parsing a complete process/heap sandbox.
+
+The service has no built-in authentication or TLS. Keep local access on loopback; use an authenticated TLS gateway and deployment quotas for remote access. Installed extensions are operator-trusted executable code with application-process permissions, not sandboxed templates. Preserve the isolation and storage settings in the deployment guides.
+
+## Build and verify
+
+Install JDK 17 and Python 3, then use the checked-in Gradle Wrapper. No global Gradle installation is required; the first build downloads pinned build tools and dependencies. On Windows the corresponding launcher is `gradlew.bat`.
 
 ```sh
 ./gradlew build
 ./gradlew test
-./gradlew :nuaforma-core:test --tests dev.nuaforma.core.TestStackTest
-./gradlew verifyBuildStructure
-./gradlew :nuaforma-server:test --tests 'dev.nuaforma.architecture.*'
-./gradlew :nuaforma-docx:test
-./gradlew :nuaforma-template:test
-./gradlew generatePomFileForMavenJavaPublication
 ./gradlew :nuaforma-server:generateOpenApi
-./gradlew :nuaforma-server:test --tests dev.nuaforma.server.OpenApiTest
 ```
 
-On Windows, use the corresponding `gradlew.bat` launcher. The five library modules have Maven publication metadata plus source and Javadoc JAR tasks; no remote publication destination is configured. The [contracts module](nuaforma-contracts/README.md), [core module](nuaforma-core/README.md), [DOCX module](nuaforma-docx/README.md), [PDF module](nuaforma-docx-pdf/README.md) and [template module](nuaforma-template/README.md) contain development APIs usable from Java and Kotlin, not stable published APIs. Core supports local classpath discovery, explicit registration, deterministic selection and delegation to accepted providers. Both registered format providers can write DOCX, so DOCX requests need an explicit provider preference when both are installed. PDF is executable only with its qualified runtime configuration. The template module compiles and renders text independently of core and document libraries. The [server](nuaforma-server/README.md) uses Ktor CIO, multipart uploads and the public engine; its local application launcher binds loopback by default and serves `/openapi.json` and `/openapi.yaml`. Local export writes equivalent files under `nuaforma-server/build/generated/openapi` without starting a server. The service container is locally buildable; public image publication remains gated by the release audit.
+The full build includes architecture, dependency-boundary and local library-publication checks. JUnit Jupiter, MockK and ArchUnit are test-only. The OpenAPI export writes JSON/YAML under `nuaforma-server/build/generated/openapi` without starting a server.
 
-JUnit Jupiter runs the tests; MockK and ArchUnit are test-scoped. Tests verify Java 17 execution, Java/Kotlin API use, structured data, provider capability/option models, cancellation, stream ownership and static contract metadata. Core integration tests compile independent provider JARs and exercise actual ServiceLoader discovery, metadata validation before provider loading, selection and concurrent delegation. Repository-wide ArchUnit rules inspect main outputs from all six modules and enforce dependency direction, Kotlin/internal access, adapter ownership, public signature boundaries and component cycles, with independently compiled violating fixtures. DOCX integration tests compare an independently authored package before/after a real docx4j round trip and cover native template processing, font metadata and embedding, invalid inputs, budgets, safe diagnostics, lifecycle and concurrent isolation. Language tests exercise nested inline conditions, scopes, formatting, invalid constructs, literal-data safety and resource budgets. OpenAPI tests independently parse both HTTP downloads, compare JSON/YAML semantics and verify actual REST responses, representative request boundaries and deliberate specification drift. The build also verifies runtime module dependencies and prevents test libraries, including Swagger Parser, from leaking into production dependencies.
+Standalone library consumers additionally require Maven 3.9.6 or later:
 
-Dependency versions and review notes are in [DEPENDENCIES.md](DEPENDENCIES.md). Design boundaries are in [ARCHITECTURE.md](ARCHITECTURE.md); contributor instructions are in [AGENTS.md](AGENTS.md).
+```sh
+./gradlew verifyEmbeddedConsumers
+```
 
-## Pull requests and build checks
+Source/documentation JARs and POMs are staged only to an ignored local repository. Documentation JARs contain the module guides and architecture document, not generated Kotlin API pages. Synthetic signing QA optionally requires GnuPG. Actual PDF rendering, visual review and barcode scans are separate runtime qualification steps, not implied by a unit-test pass. See [AGENTS.md](AGENTS.md) for detailed verification commands and [DEPENDENCIES.md](DEPENDENCIES.md) for dated dependency reviews and compatibility exceptions.
 
-Changes to `main` go through pull requests with verified signed commits. The required GitHub Actions check is named `Build (Java 17)` and runs the full build, tests, scaffold dependency checks and Maven POM generation on Java 17. It runs for pushes and pull requests without path filters, so documentation-only changes also receive the required check. Keep the branch up to date with `main` before merging.
+## Roadmap and publication
 
-[CODEOWNERS](.github/CODEOWNERS) assigns repository ownership to `@mrhoeve`. Review approval is not required while the project has one human maintainer; authors cannot approve their own pull requests. Force-pushing and deleting `main` are blocked. Repository administrators have no configured ruleset bypass. These protections are configured in GitHub, not applied merely by adding this documentation.
+Independent library consumption and Maven Central signing preparation are implemented; the protected check with the maintainer's actual signing key remains pending. First publication still requires an explicit release-version decision, that actual-key check, exact-artifact dependency/license review and an authorized publisher. Container distribution additionally requires the final image's matching source/license materials and fidelity qualification. The preparation workflows publish neither libraries nor images.
 
-GitHub Actions are pinned to full commit hashes and use a read-only repository token. The workflow checks the Gradle Wrapper JAR against its published checksum before execution; the distribution checksum is verified by the wrapper itself. When updating Gradle, update and verify both checksums. No publishing or deployment occurs in this workflow.
+- [Maven Central release preparation](docs/maven-central-releases.md)
+- [GHCR container release gates](docs/container-releases.md)
+- [Scoped roadmap issues](https://github.com/NuaForma/NuaForma/issues?q=is%3Aissue%20label%3Aroadmap) and [milestones](https://github.com/NuaForma/NuaForma/milestones)
+
+XLSX, ODT and ODS providers, stored-template identifiers and database adapters are future extensions, not current capabilities. ODT is a text-document format; ODS is a spreadsheet format. No attachment milestone is planned. GitHub Pages hosting for `nuaforma.dev` is separate future work, not a container registry or deployed service.
 
 ## Contributing
 
-The project is at the foundation stage. Feedback, use cases, example
-templates with synthetic data, and technical proposals are welcome.
+Feedback, synthetic example templates, use cases and technical proposals are welcome. Do not submit personal data, credentials or confidential documents. Read [the architecture](ARCHITECTURE.md) and [contributor/agent instructions](AGENTS.md) before making changes.
 
-Do not submit personal data, credentials, or confidential documents. A
-dedicated contribution guide will be added as the initial implementation takes shape.
-
-The GitHub organization is [NuaForma](https://github.com/NuaForma).
+Changes to `main` require a pull request, verified signed commits and the required `Build (Java 17)` check. [CODEOWNERS](.github/CODEOWNERS) assigns `@mrhoeve`; review approval is optional while there is one human maintainer. The build workflow uses pinned actions and read-only permissions and performs no deployment or publication. These repository protections are configured in GitHub, not established merely by documentation.
 
 ## License
 
-NuaForma is licensed under the [Apache License 2.0](LICENSE).
+NuaForma's own code is licensed under [Apache-2.0](LICENSE). Commercial/internal use, modification and proprietary integration are permitted subject to its terms; private modifications need not be published. The license does not grant trademark rights.
 
-The license permits commercial and internal use, modification, and
-redistribution, including use in proprietary products, subject to its terms.
-It does not require publishing private modifications. Distributed copies must
-comply with the license's notice and attribution requirements.
-
-Third-party dependencies retain their own licenses and will be documented
-when introduced. The Apache License does not grant trademark rights.
+Dependencies and fonts retain their own licenses. See [THIRD_PARTY.md](THIRD_PARTY.md) and the [combined-runtime distribution checklist](docs/libreoffice-licensing.md). A container containing LibreOffice, Bubblewrap, veraPDF and other components is not wholly Apache-2.0.
 
 Copyright 2026 NuaForma contributors.
-
