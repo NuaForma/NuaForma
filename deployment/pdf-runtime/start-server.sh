@@ -13,4 +13,6 @@ exec /opt/java/openjdk/bin/java "-Xmx${heap}m" -Djava.awt.headless=true \
     "-Dnuaforma.server.host=${NUAFORMA_HOST:-0.0.0.0}" \
     "-Dnuaforma.server.port=${NUAFORMA_PORT:-8080}" \
     "-Dnuaforma.pdf.launcher=${NUAFORMA_PDF_LAUNCHER:-/opt/nuaforma/bin/render-pdf}" \
+    "-Dnuaforma.fonts.directory=${NUAFORMA_FONT_DIRECTORY:-/opt/nuaforma/custom-fonts}" \
+    "-Dnuaforma.extensions.directory=${NUAFORMA_EXTENSION_DIRECTORY:-/opt/nuaforma/extensions}" \
     -cp '/opt/nuaforma/application/lib/*' dev.nuaforma.server.Main

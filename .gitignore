@@ -19,6 +19,9 @@ Desktop.ini
 .gradle/
 .kotlin/
 build/
+/deployment/pdf-runtime/custom-fonts/
+/deployment/pdf-runtime/extensions/
+/tools/container/__pycache__/
 
 # IDE-local configuration
 .idea/

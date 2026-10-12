@@ -1,0 +1,37 @@
+# Operator fonts and extensions
+
+The service accepts read-only mounts at `/opt/nuaforma/custom-fonts` and `/opt/nuaforma/extensions`. Compose includes both; set host sources through `NUAFORMA_CUSTOM_FONTS_DIR` and `NUAFORMA_EXTENSIONS_DIR`, defaulting to adjacent `custom-fonts`/`extensions` directories. Compose creates absent empty host directories. These paths are ignored by Git and excluded from the image build context. Explicit Docker runs use `--mount type=bind,source=<absolute-host-directory>,target=/opt/nuaforma/custom-fonts,readonly` and the equivalent extension target, with every service isolation flag retained.
+
+UID/GID 1000 must be able to traverse directories and read files. Use appropriate host ACLs/group permissions, not root or a relaxed sandbox. Empty/absent paths mean no installed resources. Invalid recognized files/packages fail clearly. Trusted target overrides are container variables `NUAFORMA_FONT_DIRECTORY`/`NUAFORMA_EXTENSION_DIRECTORY`, or JVM properties `nuaforma.fonts.directory`/`nuaforma.extensions.directory`; keep mount targets consistent. These are never REST options.
+
+## Fonts
+
+Use standalone TTF/OTF files in a flat directory. TTC/WOFF/WOFF2 are recognized but rejected by the current SFNT profile; ordinary notice files are not fonts. Reject symlinks. Startup permits at most 256 directory entries, 64 font files, 16 MiB per font and 64 MiB total, then retains an immutable byte/metadata snapshot. Identical duplicates are deduplicated; different bytes claiming the same case-insensitive family/face fail instead of being selected by filename order. Families come from Unicode font metadata, not filenames.
+
+`/api/v1/capabilities` lists fonts per provider with family, face, source and logical resource selector. Mounted IDs are `nf-mounted-<sha256>`; bundled renderer entries have null resources. Copy the exact selector from capabilities into existing font declarations for DOCX validate/embed without an upload. DOCX preserve is unchanged. PDF can automatically stage mounted fonts needed by the template. Explicit private resources and template-embedded families precede mounted fallback, then bundled fonts. Only required mounted families and their available faces reach that request's private font directory; combined staged standalone-font bytes remain capped at 64 MiB. Private uploads never change catalogs or become visible to other requests.
+
+Technical embedding flags remain enforced without rewriting them or requiring ownership declarations. Availability is not permission to embed, a glyph-coverage guarantee or proof of every variable-font axis. Callers/operators remain responsible for usage rights. Mounting a font does not authorize redistributing it in an image. NuaForma does not globally install customer fonts or expose the entire mount to LibreOffice.
+
+## Extensions
+
+Installed extensions are arbitrary operator-trusted executable JVM code with full application-process permissions. They may perform whatever compatible functionality their author chooses. There is no functionality allowlist, approval process or extension-specific sandbox. Do not install untrusted code. Document-rendering isolation does not protect the application against installed extensions, and generation requests cannot install code.
+
+Compile against Java 17 and the public contracts. Use standard ServiceLoader registration and its matching static descriptor from the contracts/core guides. Supply non-conflicting dependencies alongside the provider JAR, or shade/relocate them; do not bundle duplicate NuaForma, Kotlin or application classes. Those third-party dependencies and extension behavior remain the operator's responsibility, not automatically reviewed NuaForma components.
+
+Startup permits at most 256 directory entries and snapshots at most 256 MiB of JARs into private ephemeral `nf-extensions-*` storage. Budget this in addition to request storage in the tmpfs. Reject malformed archives, over 100000 entries per JAR, unsafe archive names, duplicate effective Java-17 classes and application-class conflicts. Multi-release JARs use the Java-17 view. Reject manifest `Class-Path` indirection; put dependencies explicitly in the mount, not URLs or hidden paths. No dependencies are downloaded automatically.
+
+The parent-first classloader uses only snapshotted JARs plus existing application dependencies. Descriptor-origin and contract compatibility checks precede initialization. Missing dependencies, invalid/incompatible metadata and provider-ID conflicts produce discovery diagnostics, never a classpath-order fallback. Legacy providers need not implement the optional font-catalog facet; enumeration reports `UNSUPPORTED`. The unpublished module/contract baseline remains `0.1` by maintainer decision.
+
+## Restart and isolation
+
+Both mounts are startup snapshots. Restart to apply host changes; there is no hot reload. Keep inputs stable during copying/scanning, because partial updates fail validation. The font snapshot stays private to provider instances, while staged resources stay request-private. The extension snapshot is outside the renderer/validator root and is closed/cleaned during normal shutdown. Forced termination relies on ephemeral storage destruction.
+
+Never add mounts, startup snapshots, application files or sibling requests to Bubblewrap. The renderer sees only its reviewed immutable root and current request resources. Operator JARs never enter the validator child's classpath. Preserve non-root/read-only execution, init, no-new-privileges, quotas and reviewed filters. Public image distribution still requires the exact candidate's completed license/source-provision audit and explicit publication authorization.
+
+## Qualification
+
+Run the complete Java-17 build and the service qualification in [SERVICE.md](SERVICE.md). The server tests compile independent provider JARs against only contracts/Kotlin and verify startup snapshots, metadata rejection before initialization, dependency/ID/class conflicts and the Java-17 multi-release view. DOCX tests verify mounted snapshots, private overrides, malformed/conflicting fonts and limits.
+
+For real mounted-resource checks, build synthetic providers with `:nuaforma-server:prepareEngineQualification` and `dev.nuaforma.server.MountedProviderFixture <output-directory> [required-minor] [missing-dependency]`. Run `tools/container/qualify_mounts.py` with the exact local image, `--fonts` pointing to generated QA font copies, `--extensions` to the generated compatible provider, `--fixtures nuaforma-docx/build`, and a fresh `--output` directory. This check deliberately changes and restores those QA copies after startup; never point it at an operator's production files. Run `qualify_mount_failures.py` with generated incompatible/missing-dependency providers and a fresh output directory. Private interoperability fonts are not tracked, bundled or published.
+
+Independently inspect generated DOCX font embedding and PDF font streams, render every representative page and decode margin barcodes. `tools/container/verify_mount_outputs.py` verifies exact deobfuscated DOCX font bytes and 300-DPI barcode scans from the mounted, private, snapshotted and template-embedded cases. Compare the unchanged DOCX/PDF geometry with the approved reference; retain the scoped issue #32 limitation rather than introducing a new tolerance. Run the native sandbox probe with both mounts present outside the sandbox. These checks supplement, not replace, the final license/source-distribution gate.

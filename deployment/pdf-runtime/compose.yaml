@@ -28,6 +28,15 @@ services:
       NUAFORMA_HEAP_MB: "512"
       NUAFORMA_HOST: "0.0.0.0"
       NUAFORMA_PORT: "8080"
+    volumes:
+      - type: bind
+        source: ${NUAFORMA_CUSTOM_FONTS_DIR:-./custom-fonts}
+        target: /opt/nuaforma/custom-fonts
+        read_only: true
+      - type: bind
+        source: ${NUAFORMA_EXTENSIONS_DIR:-./extensions}
+        target: /opt/nuaforma/extensions
+        read_only: true
     stop_grace_period: 15s
     networks: [private]
 networks:

@@ -2,9 +2,13 @@
 
 Development-stage DOCX generation and round-trip processing for Kotlin and Java 17. The implementation edits an isolated native Word model, not a document rebuilt from extracted text. All docx4j and JAXB types remain under `dev.nuaforma.docx.adapters.docx4j`; consumers see only NuaForma's facade and contract types.
 
-The registered `DocxProvider` reads DOCX and writes DOCX using the [restricted template language](../nuaforma-template/README.md), with optional supplied-font validation/embedding and requested text watermarks. PDF conversion and REST endpoints are not implemented. Unsupported explicit options and undeclared resources fail rather than being ignored. `DocxDocuments.open` remains a round-trip facade: it does not evaluate placeholders, process supplied fonts or add watermarks.
+The registered `DocxProvider` reads DOCX and writes DOCX using the [restricted template language](../nuaforma-template/README.md), with optional supplied-font validation/embedding and requested text watermarks. PDF conversion and REST endpoints belong to the separate optional PDF/server modules. Unsupported explicit options and undeclared resources fail rather than being ignored. `DocxDocuments.open` remains a round-trip facade: it does not evaluate placeholders, process supplied fonts or add watermarks.
 
 ## Generation through the engine
+
+Configure operator fonts using trusted JVM property `nuaforma.fonts.directory`, or `DocxProvider(DeploymentFonts.load(absolutePath))`. The facade takes a bounded immutable startup snapshot and exposes metadata through the optional `FontCatalogProvider` facet; it never globally installs fonts. Absent/empty directories give empty catalogs. Invalid files, symlinks, conflicting family/face identities and overruns fail discovery instead of being silently ignored. Reload requires a new provider instance/service restart.
+
+For validate/embed, use catalog `resource` IDs in the existing `{family, face, resource}` declarations without supplying corresponding upload parts. Explicit request factories win for supplied IDs. Existing template-family validation and editable embedding checks still apply. Preserve mode does not automatically embed or rewrite mounted fonts; default DOCX output stays unchanged.
 
 Add `nuaforma-core` and `nuaforma-docx` to the application runtime. Discovery reads the static provider descriptor before instantiation; core has no concrete-provider dependency.
 

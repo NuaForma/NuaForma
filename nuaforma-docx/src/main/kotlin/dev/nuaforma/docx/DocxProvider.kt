@@ -7,7 +7,8 @@ import dev.nuaforma.docx.internal.WatermarkPolicy
 import java.io.OutputStream
 
 /** Stateless DOCX-to-DOCX provider; each call owns a separate document and template session. */
-class DocxProvider : DocumentProvider {
+class DocxProvider @JvmOverloads constructor(private val deploymentFonts: DeploymentFonts = DeploymentFonts.configured()) : DocumentProvider, FontCatalogProvider {
+    override fun fontCatalog(context: GenerationContext): FontCatalog { context.checkActive(); return deploymentFonts.catalog }
     override fun capabilities() = ProviderCapabilities(setOf(DocumentFormat.DOCX), setOf(DocumentFormat.DOCX),
         outputOptions = mapOf(DocumentFormat.DOCX to listOf(
             OptionDefinition("fontMode", OptionType.STRING, "Preserve template fonts, validate supplied families, or embed supplied font faces", defaultValue = "preserve", allowedValues = listOf("preserve", "validate", "embed")),
@@ -32,7 +33,7 @@ class DocxProvider : DocumentProvider {
         context.checkActive()
         val assessment = assess(request.requirements)
         if (assessment.status != AssessmentStatus.SUPPORTED) throw GenerationException(assessment.diagnostics)
-        Docx4jDocuments.generate(request, output, context)
+        Docx4jDocuments.generate(deploymentFonts.bind(request), output, context)
         return GenerationResult(request.requirements.output)
     }
 }

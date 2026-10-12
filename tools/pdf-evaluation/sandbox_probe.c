@@ -24,6 +24,8 @@ int main(void) {
     close(fd);
     check(access("/app/secret.txt", F_OK) == -1 && errno == ENOENT, "application-not-mounted");
     check(access("/opt/nuaforma/application/LICENSE", F_OK) == -1 && errno == ENOENT, "shipped-service-not-mounted");
+    check(access("/opt/nuaforma/extensions", F_OK) == -1 && errno == ENOENT, "extension-mount-not-exposed");
+    check(access("/opt/nuaforma/custom-fonts", F_OK) == -1 && errno == ENOENT, "font-mount-not-exposed");
     check(access("/other/secret.txt", F_OK) == -1 && errno == ENOENT, "sibling-request-not-mounted");
     check(access("/usr/share/nuaforma/sources/bubblewrap-0.13.0.tar.xz", F_OK) == -1 && errno == ENOENT, "outer-root-not-mounted");
     check(getenv("SYNTHETIC_TENANT_SECRET") == NULL, "caller-environment-cleared");

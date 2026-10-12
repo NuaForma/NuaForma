@@ -2,6 +2,7 @@ package dev.nuaforma.docx.pdf
 
 import dev.nuaforma.contracts.*
 import dev.nuaforma.docx.DocxProvider
+import dev.nuaforma.docx.DeploymentFonts
 import dev.nuaforma.docx.pdf.adapters.libreoffice.LibreOfficeProcesses
 import dev.nuaforma.docx.pdf.adapters.ooxml.ConversionCopy
 import dev.nuaforma.docx.pdf.adapters.ooxml.PdfFonts
@@ -11,11 +12,24 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /** DOCX processing is delegated unchanged; only PDF uses an isolated conversion copy. */
-class DocxPdfProvider @JvmOverloads constructor(configuration: LibreOfficeConfiguration? = null) : DocumentProvider {
-    private val docx = DocxProvider()
+class DocxPdfProvider @JvmOverloads constructor(configuration: LibreOfficeConfiguration? = null) : DocumentProvider, FontCatalogProvider {
+    private val deploymentFonts = DeploymentFonts.configured()
+    private val docx = DocxProvider(deploymentFonts)
     private val converter: PdfConverter = LibreOfficeProcesses(configuration ?: System.getProperty("nuaforma.pdf.launcher")?.let {
         LibreOfficeConfiguration(Path.of(it))
     })
+
+    override fun fontCatalog(context: GenerationContext): FontCatalog {
+        context.checkActive()
+        converter.verify(context)
+        ConversionFiles.create(context).use { files ->
+            val mounted = deploymentFonts.catalog.fonts
+            val covered = mounted.map { it.family.lowercase(java.util.Locale.ROOT) to it.face }.toSet()
+            return FontCatalog(mounted + converter.fontCatalog(files, context).filter {
+                (it.family.lowercase(java.util.Locale.ROOT) to it.face) !in covered
+            })
+        }
+    }
 
     override fun capabilities(): ProviderCapabilities {
         val original = docx.capabilities()
@@ -61,13 +75,18 @@ class DocxPdfProvider @JvmOverloads constructor(configuration: LibreOfficeConfig
         val options = PdfOptions.read(request.requirements.output.options)
         var modernInline = false
         ConversionFiles.create(context).use { files ->
-            val supplied = PdfFonts.supplied(request, files, context)
+            val bound = deploymentFonts.bind(request)
+            val supplied = PdfFonts.supplied(bound, files, context)
             val intermediate = GenerationRequest(request.template,
                 GenerationRequirements(request.requirements.input, FormatRequest(DocumentFormat.DOCX), request.requirements.options), request.data)
             // PDF resources are validated privately using print permissions, not DOCX editable embedding.
             Files.newOutputStream(files.docx).use { docx.generate(intermediate, it, context) }
             val (required, embedded) = PdfFonts.required(files, context)
-            PdfFonts.ensureAvailable(required, supplied + embedded + converter.fontFamilies(files, context))
+            val mounted = deploymentFonts.sourcesFor(required, supplied + embedded)
+            val mountedRequest = GenerationRequest(request.template, GenerationRequirements(request.requirements.input,
+                FormatRequest(DocumentFormat.PDF, mapOf("fonts" to deploymentFonts.declarations(mounted.keys)))), request.data, mounted)
+            val staged = PdfFonts.supplied(mountedRequest, files, context, "mounted-")
+            PdfFonts.ensureAvailable(required, supplied + embedded + staged + converter.fontFamilies(files, context))
             modernInline = ConversionCopy.prepare(files.docx, files.conversionCopy, options, context).modernInlineTextBoxes
             converter.convert(files, context)
             PdfStreams.checkFraming(files.pdf, context)

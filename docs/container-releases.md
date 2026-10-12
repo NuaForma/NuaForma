@@ -6,7 +6,7 @@ The manually dispatched **Prepare container release** workflow builds and qualif
 
 This preparation intentionally stops before publication. Redistributing a supposedly private downloadable image or workflow artifact can already trigger third-party license obligations; withholding a public `latest` tag does not waive them. Until the distribution audit is complete, only non-executable inventory/check metadata is uploaded. No first version, release tag or public image is created by this milestone.
 
-The first distributed image additionally requires [issue #35](https://github.com/NuaForma/NuaForma/issues/35): operator-supplied font and extension mounts must be implemented and qualified before publication. Completing #14 or its preparation workflow does not remove this requirement. Repeat final candidate qualification and the distribution audit after #35 changes the image.
+The service includes [operator font and extension mounts](../deployment/pdf-runtime/MOUNTS.md), implemented under [issue #35](https://github.com/NuaForma/NuaForma/issues/35). Qualify these boundaries again on every final release candidate; completing #14/#35 or their preparation checks does not authorize publication or fulfill the candidate-specific license/source audit. Operator-provided files are not image build inputs and must not be uploaded as release assets.
 
 ## Release gate
 

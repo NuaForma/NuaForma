@@ -55,8 +55,35 @@ internal class LibreOfficeProcesses(private val configuration: LibreOfficeConfig
         return Files.readString(response).lineSequence().flatMap { it.split(',').asSequence() }.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
     }
 
+    override fun fontCatalog(files: ConversionFiles, context: GenerationContext): List<AvailableFont> {
+        if (configuration == null) throw GenerationException(unavailable().diagnostics)
+        configure(files)
+        val response = files.directory.resolve("font-catalog.txt")
+        withSlot(context) { BoundedProcess.run(command(files, "catalog", context), context, response, 262144, files.directory) }
+        context.checkActive()
+        val fonts = linkedMapOf<Pair<String, String>, AvailableFont>()
+        for (line in Files.readString(response).lineSequence().filter { it.isNotEmpty() }) {
+            val columns = line.split('\t')
+            if (columns.size != 3) throw GenerationException(unavailable().diagnostics)
+            val weight = columns[1].toIntOrNull()
+            val slant = columns[2].toIntOrNull()
+            val range = Regex("\\[[0-9]{1,3} [0-9]{1,3}]")
+            val variable = (weight == null && range.matches(columns[1])) || (slant == null && range.matches(columns[2]))
+            if ((weight == null && !range.matches(columns[1])) || (slant == null && !range.matches(columns[2])))
+                throw GenerationException(unavailable().diagnostics)
+            val bold = (weight ?: 80) >= 180
+            val italic = (slant ?: 0) != 0
+            val face = if (variable) "variable" else if (bold && italic) "boldItalic" else if (bold) "bold" else if (italic) "italic" else "regular"
+            for (family in columns[0].split(',').map { it.trim() }.filter { it.isNotEmpty() }) {
+                fonts.putIfAbsent(family to face, AvailableFont(family, face, FontOrigin.BUNDLED))
+                if (fonts.size > 2048) throw GenerationException(unavailable().diagnostics)
+            }
+        }
+        return fonts.values.sortedWith(compareBy({ it.family }, { it.face }))
+    }
+
     private fun command(files: ConversionFiles, mode: String, context: GenerationContext): List<String> = listOf(
-        configuration!!.launcher.toString(), files.directory.toString(), when (mode) { "probe" -> "4096"; "fonts" -> "65536"; else -> context.limits.maxOutputBytes.toString() },
+        configuration!!.launcher.toString(), files.directory.toString(), when (mode) { "probe" -> "4096"; "fonts" -> "65536"; "catalog" -> "262144"; else -> context.limits.maxOutputBytes.toString() },
         maxOf(1L, minOf(86400L, context.limits.maxDuration.seconds + 1)).toString(), mode,
         context.limits.maxExpandedBytes.toString(),
     )

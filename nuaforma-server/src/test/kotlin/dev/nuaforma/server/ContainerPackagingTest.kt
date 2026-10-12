@@ -28,7 +28,9 @@ class ContainerPackagingTest {
         assertEquals(listOf("/tmp:rw,size=512m,mode=1777"), service["tmpfs"])
         assertEquals(listOf("127.0.0.1:8080:8080"), service["ports"])
         assertEquals("15s", service["stop_grace_period"])
-        assertNull(service["volumes"])
+        val mounts = service["volumes"] as List<*>
+        assertEquals(setOf("/opt/nuaforma/custom-fonts", "/opt/nuaforma/extensions"), mounts.map { (it as Map<*, *>)["target"] }.toSet())
+        assertTrue(mounts.all { (it as Map<*, *>)["read_only"] == true && it["type"] == "bind" })
         val build = service["build"] as Map<*, *>
         assertEquals("service", build["target"])
         assertEquals(mapOf("pdfvalidation" to "../../nuaforma-docx-pdf/build/pdf-validation",
