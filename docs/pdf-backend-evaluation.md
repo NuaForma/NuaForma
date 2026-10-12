@@ -4,11 +4,13 @@ Research for issue #10, 2026-10-11. No production renderer has been adopted. The
 
 ## Decision status
 
-Neither tested route currently satisfies the complete early-product fidelity requirements. LibreOffice is the stronger candidate for requested watermarks, but breaks the existing rotated VML barcode fixture. docx4j/FOP embeds the barcode font and produces a scanable barcode, but loses its rotation and the requested watermarks. Adopting either unchanged would silently weaken agreed behavior.
+The unchanged renderers do not satisfy the complete early-product fidelity requirements. LibreOffice is the stronger candidate for requested watermarks; its initial rotated VML barcode defect is addressed for the measured profile by the private-copy experiments below. docx4j/FOP embeds the barcode font and produces a scanable barcode, but loses its rotation and the requested watermarks. Adopting either unchanged would silently weaken agreed behavior.
 
 The user approved investigating a bounded LibreOffice-specific conversion compatibility layer for the rotated VML text box, applied only to an intermediate copy and never to the returned DOCX. The conversion-copy experiments below restore barcode scanability but do not yet establish acceptable geometry. This is research approval, not adoption of a production renderer or a passing fidelity certification. Do not replace barcode text with an image, change the DOCX template profile or silently drop unsupported content without a separate decision.
 
-Backend approval remains outstanding. Issue #10 must remain open; #11 production conversion cannot start merely because the executables can produce PDFs.
+On 2026-10-12 the user explicitly accepted the measured modern inline-text-box vertical difference of approximately 0.60 mm temporarily and authorized merging this research PR. Follow-up [issue #32](https://github.com/NuaForma/NuaForma/issues/32) tracks diagnosis and correction. This acceptance is limited to the observed text-box difference: it does not establish a universal rendering tolerance, approve unknown template profiles or waive source preservation, barcode scans, other fidelity checks or process isolation. The research evidence and the limitation can be merged without claiming a production provider exists.
+
+LibreOffice with the measured private-copy compatibility route is the recommended candidate for the next implementation milestone. Production backend approval remains outstanding pending the requested license explanation. Issue #10 stays open until that decision; merging research does not itself authorize production adoption.
 
 ## Compared versions and method
 
@@ -77,7 +79,7 @@ An additional inline-text-box experiment restores the ordinary VML frame, but re
 
 Nine research unit tests now cover the old dimensions experiment and native-copy isolation, content/font preservation, dynamic dimensions, unique drawing IDs, namespace-valid package XML, idempotence, refusal to overwrite and rejection of unmeasured matching profiles. The product build and publication metadata generation still pass on Java 17 with cached, unchanged product test results. Product APIs, dependencies and returned DOCX generation remain unchanged.
 
-**Still not approved for merge or production:** remaining ordinary/modern box and paragraph-spacing fidelity, a deterministic policy for missing template style defaults, general OOXML/inherited-property coverage, backend selection and production isolation. The diagnostic Word-default materialization must never become an implicit runtime dependency or silent template rewrite. Keep issue #10 and its research PR open until the remaining layout requirements and policy are resolved.
+**Disposition of this earlier experiment:** the following explicit option resolves the missing-default policy and ordinary-frame overlap in the measured matrix. The remaining modern-frame difference is now temporarily accepted and tracked in #32. General OOXML/inherited-property coverage, backend selection and production isolation remain implementation work. The diagnostic Word-default materialization must never become an implicit runtime dependency or silent template rewrite.
 
 ## Explicit compatibility option follow-up
 
@@ -89,7 +91,7 @@ All 14 PDFs and 44 pages converted successfully. Every page was covered by visua
 
 Seventeen fresh research tests pass, covering opt-in behavior, default omission, preservation of explicit/alternative spacing, invalid values, idempotence and unchanged source/font parts, in addition to the earlier geometry/isolation cases. The full product build, architecture checks and publication metadata generation pass on Java 17 with unchanged product tests reused. The helper and its XML profile remain research-only, not a production upload normalizer.
 
-**Not ready to merge:** the modern inline-frame spacing difference still requires resolution or an explicit fidelity decision, and broader inherited/grouped OOXML profiles are unqualified. Backend selection and production isolation are still outstanding. Keep issue #10 and PR #31 open as research; do not advance to production PDF implementation or claim this option is available to engine consumers.
+**Accepted research limitation:** the user temporarily accepted the modern inline-frame difference and authorized merging PR #31; #32 remains open to establish its cause and fix. Broader inherited/grouped OOXML profiles remain unqualified. Backend selection and production isolation are outstanding, so research merge does not make PDF output or this option available to engine consumers.
 
 ## Maintenance, licenses and dependencies
 
