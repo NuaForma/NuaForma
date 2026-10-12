@@ -31,11 +31,18 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
     private val documentation = ApiDocumentation(json)
 
     fun startAndWait() {
-        embeddedServer(CIO, configure = {
+        val server = embeddedServer(CIO, configure = {
             connector { host = config.host; port = config.port }
             shutdownGracePeriod = 1000
             shutdownTimeout = 5000
-        }) { installRoutes(this) }.start(wait = true)
+        }) { installRoutes(this) }
+        val shutdown = Thread({ server.stop(1000, 5000) }, "nuaforma-shutdown")
+        Runtime.getRuntime().addShutdownHook(shutdown)
+        try { server.start(wait = true) }
+        finally {
+            try { Runtime.getRuntime().removeShutdownHook(shutdown) }
+            catch (_: IllegalStateException) { /* JVM shutdown is already in progress. */ }
+        }
     }
 
     fun installRoutes(application: Application) = with(application) {

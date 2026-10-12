@@ -1,0 +1,9 @@
+**
+!Dockerfile
+!debian.sources
+!renderer-seccomp.c
+!render-pdf.sh
+!start-server.sh
+!NOTICE
+!licenses/
+!licenses/**

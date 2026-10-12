@@ -1,0 +1,57 @@
+name: Prepare container release
+
+on:
+  workflow_dispatch:
+
+# Preparation never authenticates to a registry or uploads executable images.
+permissions:
+  contents: read
+
+concurrency:
+  group: container-release-preparation
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    if: github.ref == 'refs/heads/main'
+    name: Qualify release candidate (Java 17, amd64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Java 17
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Validate Gradle Wrapper
+        run: |
+          echo '7a9ce74cff467ca1bf60a4fcd9f05185acceda4d0f382434d393e17864262c5d  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check --strict
+          test -x gradlew
+      - name: Build and test release inputs
+        run: ./gradlew --no-daemon build :nuaforma-server:installDist :nuaforma-docx-pdf:preparePdfValidation :nuaforma-server:generateOpenApi generatePomFileForMavenJavaPublication --warning-mode=fail
+      - name: Build local service image
+        run: |
+          docker build --platform linux/amd64 --file deployment/pdf-runtime/Dockerfile \
+            --build-context pdfvalidation=nuaforma-docx-pdf/build/pdf-validation \
+            --build-context application=nuaforma-server/build/install/nuaforma-server \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --target service --tag nuaforma:release-candidate deployment/pdf-runtime
+      - name: Qualify shipped HTTP entry point and shutdown
+        run: python3 tools/container/qualify_service.py --image nuaforma:release-candidate --output build/container-release/qualification
+      - name: Export exact inventory for distribution review
+        run: |
+          python3 tools/container/collect_inventory.py --image nuaforma:release-candidate --destination build/container-release/inventory
+          printf '%s\n' "$GITHUB_SHA" > build/container-release/inventory/source-commit.txt
+      - name: Retain review metadata only
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: container-release-review-${{ github.sha }}
+          path: |
+            build/container-release/inventory/
+            build/container-release/qualification/qualification.json
+          if-no-files-found: error
+          retention-days: 14

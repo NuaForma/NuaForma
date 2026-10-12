@@ -159,6 +159,8 @@ The separate unpublished FOP evaluation lockfile was also inspected: its docx4j/
 
 ## GitHub Actions
 
+The manually dispatched container-release preparation also uses [actions/upload-artifact v7.0.2](https://github.com/actions/upload-artifact/releases/tag/v7.0.2), MIT-licensed and pinned to `cf430e030ddbb5b0abf93d22962f4752f3646cd9`. Its release, license and Node 24 action declaration were checked on 2026-10-12. It uploads only inventory/qualification metadata, not images, executable dependency binaries or private font fixtures; it is CI tooling, not a Java or container runtime dependency. The workflow has read-only repository permissions and does not publish packages.
+
 The build workflow uses [actions/checkout v7.0.1](https://github.com/actions/checkout/tree/v7.0.1) and [actions/setup-java v6.0.1](https://github.com/actions/setup-java/tree/v6.0.1), both MIT-licensed, pinned to their full release commit hashes. Their upstream releases, runtime declarations and licenses were checked on 2026-10-11. They are CI tooling, not dependencies of published NuaForma libraries.
 
 The current [gradle/actions v6.4.0 license](https://github.com/gradle/actions/blob/v6.4.0/LICENSE) identifies a vendor-included proprietary caching component. It is deliberately not adopted. The workflow uses the checked-in wrapper directly and validates its JAR checksum without that action.
