@@ -1,5 +1,7 @@
 # PDF renderer evaluation
 
+Current product behavior lives in the [PDF provider guide](../../nuaforma-docx-pdf/README.md). This directory preserves the historical FOP, LibreOffice and Euro-Office experiments; it is not an alternative production pipeline. The approved LibreOffice compatibility behavior was subsequently implemented in the product adapter and separately qualified.
+
 Issue #10 research only. This standalone Java 17 Gradle build is deliberately outside the product module graph and publication. It is not a provider, an untrusted-input sandbox or approval to adopt a production backend. See [the findings](../../docs/pdf-backend-evaluation.md).
 
 ## Reproduce the fixtures

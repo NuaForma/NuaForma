@@ -22,7 +22,3 @@ dependencies {
     implementation(libs.slf4j.jcl)
     implementation(libs.slf4j.api)
 }
-
-tasks.withType<Jar>().configureEach {
-    from(rootProject.file("THIRD_PARTY.md")) { into("META-INF") }
-}

@@ -1,0 +1,67 @@
+name: Prepare Maven Central release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maven-central-preparation
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.repository == 'NuaForma/NuaForma' && github.ref == 'refs/heads/main'
+    name: Verify staged libraries and OpenPGP signatures (no upload)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: maven-central
+    steps:
+      - name: Check out reviewed main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify release environment protection
+        run: python3 tools/release/check_environment.py
+      - name: Set up Java 17
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Validate Gradle Wrapper
+        run: |
+          echo '7a9ce74cff467ca1bf60a4fcd9f05185acceda4d0f382434d393e17864262c5d  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check --strict
+          test -x gradlew
+      - name: Build and verify unsigned local publications
+        run: ./gradlew --no-daemon build verifyLibraryPublication --warning-mode=fail
+      - name: Verify independent Maven and Gradle consumers
+        run: python3 tools/release/verify_consumers.py --repository build/library-repository --output build/consumer-tests
+      - name: Obtain the expected public verification key
+        run: |
+          mkdir -p build/release-review
+          curl --fail --silent --show-error --proto '=https' --max-time 30 \
+            'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x74317C6CE9C61B80A2A1C0B40F736E8D598CB08B' \
+            --output build/release-review/public-key.asc
+      - name: Sign local library artifacts only
+        env:
+          MAVEN_SIGNING_KEY: ${{ secrets.MAVEN_SIGNING_KEY }}
+          MAVEN_SIGNING_PASSWORD: ${{ secrets.MAVEN_SIGNING_PASSWORD }}
+        run: ./gradlew --no-daemon stageLibraries -PsignArtifacts=true --warning-mode=fail --no-build-cache --no-configuration-cache
+      - name: Verify signatures independently
+        run: |
+          python3 tools/release/verify_signatures.py build/library-repository --version 0.1.0-SNAPSHOT \
+            --fingerprint 74317C6CE9C61B80A2A1C0B40F736E8D598CB08B \
+            --public-key build/release-review/public-key.asc --output build/release-review/signatures.json
+      - name: Retain non-executable review records only
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: maven-central-review-${{ github.sha }}
+          path: |
+            build/release-review/signatures.json
+            build/consumer-tests/verification.json
+          if-no-files-found: error
+          retention-days: 14
+
+# Deliberately no Central credentials, HTTP upload, remote Maven repository,
+# registry authentication, binary upload, release creation or version change.

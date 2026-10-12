@@ -1,5 +1,7 @@
 # PDF/A-3a feasibility findings
 
+> **Historical research, not a supported product profile.** The maintainer subsequently chose PDF/A-1b, PDF/A-2b and PDF/A-3b only, with 3b as the default. The production veraPDF adapter excludes the unused legacy StAX dependency; level-A semantics were not implemented. See the [current PDF guide](../nuaforma-docx-pdf/README.md) and [B-profile follow-up](../tools/pdf-evaluation/pdfa3a/README.md#b-profile-production-follow-up). The original findings and recommendations below describe the study at its recorded baseline, not outstanding requirements to ship PDF/A-3a.
+
 Measured on 2026-10-12, from source baseline `17670d0cbeb8823b53d80e8e9c30f69b2c1fbec3`. Research only: no product module/dependency/API/output change, production PDF/A capability, commit or image publication. Version remains `0.1`. The reproduction tools are [here](../tools/pdf-evaluation/pdfa3a/README.md).
 
 ## Outcome

@@ -1,6 +1,6 @@
 # NuaForma core
 
-Development API for discovering, validating and selecting document providers, usable from Kotlin and Java 17. Core knows only [NuaForma contracts](../nuaforma-contracts/README.md), not concrete format modules. It does not contain a DOCX engine, expression evaluator, PDF converter, HTTP server or process sandbox. There are no production format providers yet; the tests use synthetic, independently compiled provider JARs.
+Development API for discovering, validating and selecting document providers, usable from Kotlin and Java 17. Core knows only [NuaForma contracts](../nuaforma-contracts/README.md), not concrete format modules. It does not contain a DOCX engine, expression evaluator, PDF converter, HTTP server or process sandbox. Optional DOCX and DOCX/PDF providers exist in their own modules; the core tests additionally use synthetic, independently compiled provider JARs. [Standalone consumer examples](../examples/embedded/README.md) verify the published-artifact boundaries locally; no stable release is available yet.
 
 ## Discovery and generation
 
