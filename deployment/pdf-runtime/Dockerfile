@@ -44,6 +44,7 @@ COPY --from=pdfvalidation / /opt/nuaforma/pdf-validation/
 COPY --from=verapdfvalidation / /opt/nuaforma/verapdf-validation/
 COPY render-pdf.sh /opt/nuaforma/bin/render-pdf
 COPY NOTICE /usr/share/nuaforma/NOTICE
+COPY SOURCES.md /usr/share/nuaforma/SOURCES.md
 COPY licenses/APACHE-2.0.txt /usr/share/nuaforma/licenses/APACHE-2.0.txt
 COPY licenses/kotlin /usr/share/nuaforma/licenses/kotlin/
 USER root
@@ -69,6 +70,7 @@ RUN chmod 0555 /opt/nuaforma/bin/start-server \
     && chmod 0555 /opt/nuaforma/custom-fonts /opt/nuaforma/extensions \
     && test -s /opt/nuaforma/application/LICENSE \
     && test -s /opt/nuaforma/application/THIRD_PARTY.md \
+    && test -s /opt/nuaforma/application/third-party-materials/inventory.json \
     && sha256sum /opt/nuaforma/application/lib/*.jar > /usr/share/nuaforma/application-sha256.txt
 USER 1000:1000
 EXPOSE 8080

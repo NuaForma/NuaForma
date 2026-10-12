@@ -7,7 +7,7 @@ import pathlib
 import re
 import subprocess
 import zipfile
-from verify_libraries import MODULES, artifacts
+from verify_libraries import MODULES, artifacts, project_version
 
 
 def own_modules(files):
@@ -27,7 +27,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", type=pathlib.Path, required=True)
     parser.add_argument("--output", type=pathlib.Path, required=True)
-    parser.add_argument("--version", default="0.1.0-SNAPSHOT")
+    parser.add_argument("--version", default=project_version())
     args = parser.parse_args()
     root = pathlib.Path(__file__).resolve().parents[2]
     output = args.output.resolve()
@@ -43,9 +43,14 @@ def main():
             (output / "runtime-difference.json").write_text(json.dumps({"modules": sorted(modules),
                 "expected": expected, "actual": actual}, indent=2), encoding="utf-8")
         assert actual == expected, "Independent consumer runtime differs from the reviewed Gradle artifact graph"
-    run(["mvn", "-B", "-U", "-ntp", "-f", "examples/embedded/maven/pom.xml", "-Dmaven.repo.local=" + str(output / "m2"),
+    candidate_digest = hashlib.sha256()
+    for module in MODULES:
+        for file in artifacts(repository, module, args.version):
+            candidate_digest.update(hashlib.sha256(file.read_bytes()).digest())
+    consumer_repository = output / "m2" / args.version / candidate_digest.hexdigest()
+    run(["mvn", "-B", "-U", "-ntp", "-f", "examples/embedded/maven/pom.xml", "-Dmaven.repo.local=" + str(consumer_repository),
          "-Dnuaforma.repository=" + repository.as_uri(), "-Dnuaforma.version=" + args.version,
-         "install", "org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy-dependencies", "-DincludeScope=runtime", "-Dmdep.overWriteSnapshots=true", "-DskipTests"],
+         "install", "org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy-dependencies", "-DincludeScope=runtime", "-Dmdep.overWriteSnapshots=true", "-Dmdep.overWriteReleases=true", "-DskipTests"],
         root, output / "maven.log")
     records = []
     for module, entrypoint, own in (
@@ -54,7 +59,7 @@ def main():
         ("pdf", "PdfExample", {"nuaforma-contracts", "nuaforma-core", "nuaforma-template", "nuaforma-docx", "nuaforma-docx-pdf"}),
     ):
         target = root / "examples/embedded/maven" / module / "target"
-        files = sorted((target / "dependency").glob("*.jar"))
+        files = sorted((target / "dependency" / args.version).glob("*.jar"))
         names = own_modules(files)
         assert names == own, (module, names)
         verify_runtime(files, own)
@@ -71,7 +76,7 @@ def main():
         if module == "docx": command.append(str(output / "maven.docx"))
         message = run(command, root, output / (module + ".log"))
         records.append({"consumer": "maven-" + module, "passed": True, "modules": sorted(names), "result": message.strip()})
-    provider_files = list((root / "examples/embedded/maven/provider/target/dependency").glob("*.jar"))
+    provider_files = list((root / "examples/embedded/maven/provider/target/dependency" / args.version).glob("*.jar"))
     assert own_modules(provider_files) == {"nuaforma-contracts"}
     run([str(root / "gradlew"), "--no-daemon", "--project-dir", "examples/embedded/gradle", "--refresh-dependencies",
          "-PnuaformaRepository=" + repository.as_uri(), "-PnuaformaVersion=" + args.version, "run", "writeRuntimeInventory", "--console=plain"],

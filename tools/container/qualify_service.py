@@ -101,6 +101,7 @@ def main():
     parser.add_argument("--output", type=pathlib.Path, required=True)
     parser.add_argument("--fixtures", type=pathlib.Path)
     parser.add_argument("--fonts", type=pathlib.Path)
+    parser.add_argument("--expected-version")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     checks = []
@@ -114,6 +115,14 @@ def main():
         assert runtime.command("exec", runtime.name, "id", "-u") == "1000"
         assert runtime.command("exec", runtime.name, "/bin/sh", "-c", "test ! -w /opt/nuaforma/application && test ! -w /opt/nuaforma/renderer && echo immutable") == "immutable"
         checks.append("non-root/read-only/capabilities/init")
+        if args.expected_version:
+            status, headers, body = http(base, "/api/v1/version")
+            identity = json.loads(body)
+            assert status == 200 and identity["version"] == args.expected_version and identity["contractVersion"] == "0.1"
+            assert set(identity) == {"version", "contractVersion", "commit"}
+            assert headers.get("Cache-Control") == "no-store"
+            (args.output / "version.json").write_text(json.dumps(identity, indent=2), encoding="utf-8")
+            checks.append("packaged-release-version")
         status, _, body = http(base, "/api/v1/capabilities")
         assert status == 200
         caps = json.loads(body)

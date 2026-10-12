@@ -168,6 +168,11 @@ tasks.register<Exec>("verifyReleaseTooling") {
     commandLine("python3", "-m", "unittest", "discover", "-s", "tools/release", "-p", "test_*.py")
 }
 
+tasks.register<Exec>("verifyContainerTooling") {
+    group = "verification"
+    commandLine("python3", "-m", "unittest", "discover", "-s", "tools/container", "-p", "test_*.py")
+}
+
 tasks.register<Exec>("verifyEmbeddedConsumers") {
     group = "verification"
     dependsOn("stageLibraries")
@@ -183,6 +188,7 @@ tasks.named("check") {
     dependsOn("verifyBuildStructure")
     dependsOn("verifyLibraryPublication")
     dependsOn("verifyReleaseTooling")
+    dependsOn("verifyContainerTooling")
 }
 
 tasks.register("verifyBuildStructure") {
