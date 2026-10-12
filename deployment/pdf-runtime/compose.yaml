@@ -8,6 +8,7 @@ services:
       platforms: [linux/amd64]
       additional_contexts:
         pdfvalidation: ../../nuaforma-docx-pdf/build/pdf-validation
+        verapdfvalidation: ../../nuaforma-docx-pdf/build/verapdf-validation
         application: ../../nuaforma-server/build/install/nuaforma-server
     platform: linux/amd64
     init: true

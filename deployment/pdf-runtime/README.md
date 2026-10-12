@@ -7,9 +7,11 @@ This directory defines the Linux/amd64 runtime boundary for the optional PDF pro
 Build with Java 17 and the repository wrapper, then Docker with BuildKit:
 
 ```sh
-./gradlew :nuaforma-docx-pdf:preparePdfValidation
+./gradlew :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation
+python3 tools/container/prepare_verapdf_materials.py nuaforma-docx-pdf/build/verapdf-validation
 docker build --platform linux/amd64 --file deployment/pdf-runtime/Dockerfile \
   --build-context pdfvalidation=nuaforma-docx-pdf/build/pdf-validation \
+  --build-context verapdfvalidation=nuaforma-docx-pdf/build/verapdf-validation \
   --target qualification --tag nuaforma-pdf-runtime-qualification:11-pinned deployment/pdf-runtime
 ```
 

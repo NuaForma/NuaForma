@@ -18,7 +18,7 @@ def collect(image, destination, docker="docker"):
     name = "nuaforma-inventory-" + uuid.uuid4().hex
     command("create", "--name", name, "--label", "dev.nuaforma.inventory=" + name, image)
     try:
-        for file in ("outer-packages.tsv", "renderer-packages.tsv", "validator-sha256.txt", "application-sha256.txt"):
+        for file in ("outer-packages.tsv", "renderer-packages.tsv", "validator-sha256.txt", "verapdf-sha256.txt", "application-sha256.txt"):
             command("cp", name + ":/usr/share/nuaforma/" + file, str(destination / file))
     finally:
         assert command("inspect", name, "--format", '{{index .Config.Labels "dev.nuaforma.inventory"}}') == name

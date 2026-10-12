@@ -72,7 +72,7 @@ class ConversionFilesTest {
     fun `options reject unknown profiles versions and implicit defaults`() {
         assertNull(PdfOptions.read(emptyMap()).paragraphDefaults)
         assertEquals(PdfOptions.ParagraphDefaults(160, 278), PdfOptions.read(mapOf("paragraphDefaults" to mapOf("afterTwips" to 160, "line240ths" to 278))).paragraphDefaults)
-        for (options in listOf(mapOf("version" to "2.0"), mapOf("profile" to "pdfa-2b"), mapOf("unknown" to true),
+        for (options in listOf(mapOf("version" to "2.0"), mapOf("profile" to "pdfa-2a"), mapOf("unknown" to true),
             mapOf("paragraphDefaults" to mapOf("afterTwips" to 1.5)), mapOf("paragraphDefaults" to emptyMap<String, Any>()),
             mapOf("paragraphDefaults" to mapOf("afterTwips" to Long.MAX_VALUE)), mapOf("version" to null))) {
             assertEquals(DiagnosticCodes.UNSUPPORTED_OPTION, assertThrows(GenerationException::class.java) { PdfOptions.read(options) }.diagnostics.single().code)

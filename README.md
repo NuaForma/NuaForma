@@ -19,11 +19,13 @@ From a simple letter to an agreement with conditional sections, NuaForma aims
 to make document automation accessible without locking users into a proprietary
 platform.
 
-> **Project status:** development-stage provider contracts, core discovery/selection, registered [DOCX](nuaforma-docx/README.md) and optional [DOCX/PDF](nuaforma-docx-pdf/README.md) providers, a [restricted template language](nuaforma-template/README.md) and a [bounded REST service with OpenAPI JSON/YAML downloads](nuaforma-server/README.md#openapi-downloads-and-export). Embedded Kotlin/Java 17 applications and multipart REST requests use the same generation contracts for split-run placeholders, conditions/repeats, supported text boxes, selected fonts and dynamic text watermarks. The optional qualified Linux/amd64 runtime converts a private copy to static PDF 1.7 while leaving DOCX output unchanged. Fonts follow technical embedding permissions; conversion/output validation use request-isolated bounded processes within one container. The [on-premise service image and Compose guide](deployment/pdf-runtime/SERVICE.md) define local build, isolation, configuration and shutdown. The guides define supported profiles and fidelity limitations, including issue #32. No stable release, public service or public container image is claimed; [release preparation](docs/container-releases.md) preserves the license/source-distribution gate.
+> **Project status:** development-stage provider contracts, core discovery/selection, registered [DOCX](nuaforma-docx/README.md) and optional [DOCX/PDF](nuaforma-docx-pdf/README.md) providers, a [restricted template language](nuaforma-template/README.md) and a [bounded REST service with OpenAPI JSON/YAML downloads](nuaforma-server/README.md#openapi-downloads-and-export). Embedded Kotlin/Java 17 applications and multipart REST requests use the same generation contracts for split-run placeholders, conditions/repeats, supported text boxes, selected fonts and dynamic text watermarks. The optional qualified Linux/amd64 runtime converts a private copy to standard PDF or selectable PDF/A-1b, PDF/A-2b and PDF/A-3b while leaving DOCX output unchanged. Fonts follow technical embedding permissions; conversion/output validation use request-isolated bounded processes within one container. The [on-premise service image and Compose guide](deployment/pdf-runtime/SERVICE.md) define local build, isolation, configuration and shutdown. The guides define supported profiles and fidelity limitations, including issue #32. No stable release, public service or public container image is claimed; [release preparation](docs/container-releases.md) preserves the license/source-distribution gate.
 
 The service supports [read-only operator font and extension mounts](deployment/pdf-runtime/MOUNTS.md), with startup snapshots and restart-based reload. `/api/v1/capabilities` lists deployment-available fonts per provider. Private request fonts stay isolated; installed extensions are operator-trusted application code, not sandboxed document content. Module and contract versions remain on the unpublished `0.1` baseline.
 
 ## The idea
+
+For PDF output, omitting `output.options.profile` selects PDF/A-3b. Explicit choices are `pdfa-1b`, `pdfa-2b`, `pdfa-3b` and `standard`; an omitted PDF version is derived from that profile. PDF/A-1b deliberately rejects transparency and unsupported drawing/image profiles rather than changing their appearance. Every PDF/A result must pass the requested conformance profile before delivery, without downgrade. See [the PDF options and limitations](nuaforma-docx-pdf/README.md#output-options).
 
 A generation request combines three things:
 
@@ -50,8 +52,7 @@ syntax is specified in the [template language guide](nuaforma-template/README.md
 - **Optional watermarks:** use the same placeholders, conditions, repetitions and formatting as document content in configurable text such as `CONCEPT — {customer.name}`. DOCX placement, PDF preservation and REST-to-engine parity are implemented and qualified.
 - **Multiple output formats:** target PDF, Microsoft Word (DOCX), and
   OpenDocument Text (ODT, used by LibreOffice and OpenOffice).
-- **PDF profiles:** explore archival output such as PDF/A, with conformance
-  validation before claiming support for a specific profile.
+- **PDF profiles:** choose standard PDF, PDF/A-1b, PDF/A-2b or PDF/A-3b (default), with independent final-file conformance validation and explicit [profile limitations](nuaforma-docx-pdf/README.md#output-options).
 - **REST integration:** submit templates, structured data and optional font resources through the [bounded development API](nuaforma-server/README.md), with provider capabilities and preflight assessment.
 - **Stored templates and data:** generate documents using identifiers instead
   of submitting all inputs with every request.

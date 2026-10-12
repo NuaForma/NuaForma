@@ -11,3 +11,13 @@ Preserve Moby's license when redistributing this adapted profile.
 LibreOffice, Bubblewrap, Temurin, Debian packages, bundled fonts and Java
 dependencies retain their own licenses. This notice does not replace them.
 See README.md and the retained upstream license/source materials in the image.
+
+veraPDF 1.30.3 library artifacts are unmodified and used under the MPL-2.0
+license choice, only in an isolated child JVM. Original dual-license notices
+remain intact. The legacy XML-report StAX utility is excluded from this library
+distribution; no vendor validator code or validation profile is patched.
+Validation profiles are copyright the veraPDF Consortium and licensed CC-BY-4.0.
+See /opt/nuaforma/verapdf-validation/licenses for license texts and attribution,
+and /opt/nuaforma/verapdf-validation/materials for exact profiles, notices,
+matching source JARs/POMs and artifact/source checksums. These retained materials
+do not replace the candidate-specific source/build-resource distribution audit.

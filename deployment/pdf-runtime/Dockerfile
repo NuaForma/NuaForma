@@ -41,6 +41,7 @@ FROM sandbox-check AS qualification
 COPY --from=libreoffice / /opt/nuaforma/renderer/
 COPY --from=java-runtime /opt/java/openjdk /opt/java/openjdk/
 COPY --from=pdfvalidation / /opt/nuaforma/pdf-validation/
+COPY --from=verapdfvalidation / /opt/nuaforma/verapdf-validation/
 COPY render-pdf.sh /opt/nuaforma/bin/render-pdf
 COPY NOTICE /usr/share/nuaforma/NOTICE
 COPY licenses/APACHE-2.0.txt /usr/share/nuaforma/licenses/APACHE-2.0.txt
@@ -50,6 +51,11 @@ RUN chmod 0555 /opt/nuaforma/bin/render-pdf \
     && dpkg-query -W -f='${binary:Package}\t${Version}\t${source:Package}\t${source:Version}\n' > /usr/share/nuaforma/outer-packages.tsv \
     && dpkg-query --admindir=/opt/nuaforma/renderer/var/lib/dpkg -W -f='${binary:Package}\t${Version}\t${source:Package}\t${source:Version}\n' > /usr/share/nuaforma/renderer-packages.tsv \
     && sha256sum /opt/nuaforma/pdf-validation/*.jar > /usr/share/nuaforma/validator-sha256.txt
+RUN test -s /opt/nuaforma/verapdf-validation/licenses/MPL-2.0.txt \
+    && test -s /opt/nuaforma/verapdf-validation/licenses/CC-BY-4.0.txt \
+    && test -s /opt/nuaforma/verapdf-validation/licenses/PROFILES-ATTRIBUTION.md \
+    && test -s /opt/nuaforma/verapdf-validation/materials/inventory.json \
+    && sha256sum /opt/nuaforma/verapdf-validation/*.jar > /usr/share/nuaforma/verapdf-sha256.txt
 USER 1000:1000
 ENTRYPOINT ["/opt/nuaforma/bin/render-pdf"]
 

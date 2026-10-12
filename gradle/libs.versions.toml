@@ -5,6 +5,7 @@ mockk = "1.14.11"
 archunit = "1.5.1"
 docx4j = "17.3.2"
 pdfbox = "3.0.8"
+verapdf = "1.30.3"
 ktor = "3.6.0"
 serialization = "1.11.0"
 swagger-parser = "2.1.48"
@@ -39,6 +40,7 @@ archunit = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" 
 docx4j-core = { module = "org.docx4j:docx4j-core", version.ref = "docx4j" }
 docx4j-jaxb = { module = "org.docx4j:docx4j-JAXB-ReferenceImpl", version.ref = "docx4j" }
 pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }
+verapdf-model = { module = "org.verapdf:validation-model", version.ref = "verapdf" }
 ktor-server-cio = { module = "io.ktor:ktor-server-cio-jvm", version.ref = "ktor" }
 ktor-server-body-limit = { module = "io.ktor:ktor-server-body-limit-jvm", version.ref = "ktor" }
 ktor-server-status-pages = { module = "io.ktor:ktor-server-status-pages-jvm", version.ref = "ktor" }

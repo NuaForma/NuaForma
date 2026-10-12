@@ -18,18 +18,19 @@ internal object PdfOutputValidator {
             println("NuaForma PDF validator 1")
             return
         }
-        require(arguments.size == 2)
-        validate(Path.of(arguments[0]), arguments[1].toLong(), GenerationContext())
+        require(arguments.size in 2..3)
+        validate(Path.of(arguments[0]), arguments[1].toLong(), GenerationContext(), arguments.getOrElse(2) { "1.7" })
     }
 
-    fun validate(path: Path, maximumDecodedBytes: Long, context: GenerationContext) {
+    fun validate(path: Path, maximumDecodedBytes: Long, context: GenerationContext, version: String = "1.7") {
         require(maximumDecodedBytes > 0)
+        require(version in setOf("1.4", "1.7"))
         context.checkActive()
         if (Files.size(path) > context.limits.maxOutputBytes) limit()
         try {
             RandomAccessReadBufferedFile(path.toFile()).use { input ->
                 PDFParser(input).parse(false).use { document ->
-                    if (document.isEncrypted || document.version != 1.7f) invalid()
+                    if (document.isEncrypted || document.version != version.toFloat()) invalid()
                     val objects = document.document.xrefTable.keys
                     if (objects.size > 250_000) limit()
                     val pending = ArrayDeque<Pair<COSBase, Int>>()

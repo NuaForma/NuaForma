@@ -1,6 +1,6 @@
 # Optional DOCX and PDF provider
 
-`nuaforma-docx-pdf` is an optional Java 17/Kotlin library. It registers provider `nuaforma-docx-pdf`, reads DOCX and writes DOCX or static PDF 1.7. It delegates template processing and DOCX output unchanged to `nuaforma-docx`; only PDF uses a private conversion copy. These are development APIs, not a stable published release.
+`nuaforma-docx-pdf` is an optional Java 17/Kotlin library. It registers provider `nuaforma-docx-pdf`, reads DOCX and writes DOCX or static PDF with selectable standard/PDF/A profiles. It delegates template processing and DOCX output unchanged to `nuaforma-docx`; only PDF uses a private conversion copy. These are development APIs, not a stable published release.
 
 ## Embedded use and discovery
 
@@ -16,8 +16,8 @@ DOCX options retain the [DOCX module's semantics](../nuaforma-docx/README.md). P
 
 | Option | Supported values |
 | --- | --- |
-| `version` | `"1.7"`, also the default |
-| `profile` | `"standard"`, also the default; static output, not PDF/A or PDF/UA |
+| `version` | Derived from profile: `"1.4"` for PDF/A-1b, `"1.7"` otherwise; explicit values must agree |
+| `profile` | `"pdfa-3b"` (default), `"pdfa-2b"`, `"pdfa-1b"`, or `"standard"` |
 | `fontMode` | `"preserve"` (default), `"validate"`, `"embed"` |
 | `fonts` | For validate/embed, the existing array of `{family, face, resource}` declarations and matching resource factories; face defaults to regular |
 | `paragraphDefaults` | Optional object with `afterTwips` (integer 0–2880) and/or `line240ths` (integer 1–2400); at least one field |
@@ -35,6 +35,12 @@ Example format-specific options:
 ```
 
 The paragraph option fills only missing document-level defaults in the PDF copy. Existing template defaults, style/paragraph overrides, automatic spacing and non-auto line rules stay leading. The example values are explicitly selected compatibility settings, not inferred Word settings or universal defaults. Omitting the option leaves LibreOffice's handling of missing defaults unchanged; that may paginate differently from Word. The returned DOCX is never rewritten for PDF compatibility.
+
+Omitting `profile` selects PDF/A-3b, not ordinary PDF; use `{"profile":"standard"}` explicitly to retain ordinary static PDF 1.7. This intentionally changes the unpublished 0.1 default. Embedded and REST callers use the same options; the result reports the effective profile/version. Every PDF/A output must pass the explicit selected veraPDF profile and the structural safety check before its exact validated bytes are delivered. A failed or incomplete validation never downgrades the result. No attachments, encryption, level-A conformance or PDF/UA claim is introduced.
+
+PDF/A-1b has a deliberately restricted transparency-free source profile. It rejects non-opaque requested watermarks, DrawingML alpha modifications/drawing effects, VML opacity/style filters, charts/diagrams/embedded objects, and media other than opaque PNG/JPEG. PNG alpha channels and palette transparency are rejected. Source opacity values must be explicitly supported opaque values. We do not flatten transparency or silently accept changed table/text-box borders; choose 2b/3b for those templates. Assessment checks known options without reading the template; generation additionally checks its actual package contents.
+
+The 1b inspection also checks custom XML/media locations and actual image-relationship targets, not only conventional `word/media` paths or declared MIME types. Direct `src` image references, external/unsafe image targets and unsupported image encodings are outside this initial profile. Unused unsupported resources can conservatively reject a template; no automatic rewrite or transparency removal is offered.
 
 ## Fonts and watermarks
 
@@ -54,7 +60,7 @@ This normalization profile requires a single shape inside its picture wrapper, n
 
 Modern inline DrawingML text boxes can show the temporarily accepted measured vertical difference of 1.69–1.70 points (approximately 0.60 mm), tracked in [issue #32](https://github.com/NuaForma/NuaForma/issues/32). A result containing these boxes carries warning `PDF_TEXTBOX_LAYOUT_LIMITATION`. This is not a general tolerance for layout defects. The documented renderer is LibreOffice 26.8.1.1 on the qualified Linux/amd64 runtime; no cross-renderer or arbitrary-template identity is promised.
 
-The initial output is static, unencrypted PDF 1.7. PDF/A, PDF/UA, other versions, interactive forms and signature fields are not supported yet. Unsupported requests fail. Resource-retrieving or executable Word fields are rejected before conversion; passive hyperlinks remain subject to the static-output policy. Document selection, embedding checks and visual/scan checks are separate validation responsibilities.
+Output is static and unencrypted: standard PDF 1.7, PDF/A-1b (PDF 1.4), PDF/A-2b or PDF/A-3b (PDF 1.7). Level-A profiles, PDF/UA, other versions, interactive forms and signature fields are not supported. Unsupported requests fail. Resource-retrieving or executable Word fields are rejected before conversion; passive hyperlinks remain subject to the static-output policy. Document selection, embedding/conformance checks and visual/scan checks are separate validation responsibilities.
 
 ## Lifecycle and safety
 
@@ -65,6 +71,10 @@ The caller's output-byte limit also bounds the generated/intermediate DOCX and c
 PDF framing, version, strict structure, page geometry, embedded-font streams and forbidden actions/forms/attachments are checked before copying bytes to the caller. PDFBox runs in a separately sandboxed Java 17 process with a 256 MiB heap, bounded native/JVM memory and the shared deadline; malformed output cannot run its parser inside the engine JVM. The validator limits objects, depth, pages and decoded non-image streams. It is not a conformance validator or a proof of visual fidelity. Its failures never publish success-shaped output. Once copying into a caller-owned stream starts, an I/O failure or cancellation can leave a partial stream; generic streams cannot be rolled back.
 
 ## Verification
+
+The B-profile integration was locally qualified on 2026-10-12 with service image identity `sha256:5a85daff3642b41e278de5760e7f686a1ee2748f16a9c2ae80af6f8a22d3f41f`. The complete Java 17 build, architecture checks, OpenAPI export and publication metadata passed: 308 tests, zero failures/errors/skips. Actual HTTP generation exercised the default 3b profile, all three explicit B profiles, explicit standard output, version/profile rejection, private/concurrent fonts, transparent-1b watermark rejection, opaque-1b watermarks, shutdown during conversion, missing converters and deadline cleanup. Eight delivered archival PDFs additionally passed the verified official veraPDF 1.30.3 CLI against their explicit profiles; all ten service PDFs (24 pages) had the expected identifiers/versions, embedded fonts and no attachments/forms/encryption. Nine tenant/watermark raster pages matched the prior qualified standard output pixel-for-pixel; all five opaque-1b watermark pages matched opaque standard output. Rotated Code 39 references scanned at 100 and 300 DPI. The image remains local and unpublished; retained license/source inventories do not replace the final distribution audit.
+
+The separate bounded research matrix covered fifteen B-profile exports across five fixtures, with equivalent official validator outcomes after excluding StAX report formatting and successful native-adapter validation. Its transparent-1b watermark case demonstrated border loss and is deliberately rejected by the production source profile, not accepted as a new renderer tolerance. Research and retained raw reports are described [here](../tools/pdf-evaluation/pdfa3a/README.md).
 
 Run `./gradlew :nuaforma-docx-pdf:test :nuaforma-server:test` on Java 17. Tests cover unchanged DOCX delegation, discovery/ambiguity, missing converters, option filtering, independent PDF syntax, active-content rejection, font permissions, private cleanup, cancellation, process reaping, budgets, Java API use and adapter ownership. Mocked converter tests establish orchestration only, never rendering fidelity.
 

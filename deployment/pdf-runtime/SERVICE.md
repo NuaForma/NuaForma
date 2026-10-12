@@ -7,7 +7,8 @@ The `service` target packages the REST application, Java 17, LibreOffice and the
 Use Java 17, the checked-in wrapper and Docker with BuildKit/named build contexts:
 
 ```sh
-./gradlew --no-daemon build :nuaforma-server:installDist :nuaforma-docx-pdf:preparePdfValidation
+./gradlew --no-daemon build :nuaforma-server:installDist :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation
+python3 tools/container/prepare_verapdf_materials.py nuaforma-docx-pdf/build/verapdf-validation
 docker compose -f deployment/pdf-runtime/compose.yaml build
 docker compose -f deployment/pdf-runtime/compose.yaml up -d
 curl --fail http://127.0.0.1:8080/api/v1/capabilities
@@ -20,6 +21,7 @@ An equivalent explicit build is:
 ```sh
 docker build --platform linux/amd64 --file deployment/pdf-runtime/Dockerfile \
   --build-context pdfvalidation=nuaforma-docx-pdf/build/pdf-validation \
+  --build-context verapdfvalidation=nuaforma-docx-pdf/build/verapdf-validation \
   --build-context application=nuaforma-server/build/install/nuaforma-server \
   --target service --tag nuaforma:local deployment/pdf-runtime
 ```
@@ -77,7 +79,7 @@ curl --fail-with-body http://127.0.0.1:8080/api/v1/documents \
   --output document.docx
 ```
 
-For DOCX, request `{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"name":"Ada"}}`. Both built-in providers write DOCX, so choose explicitly. For PDF, request `{"input":{"format":"docx"},"output":{"format":"pdf","options":{"version":"1.7","profile":"standard"}},"data":{"name":"Ada"}}` and save the response as `document.pdf`. PDF/A, PDF/UA, forms and signature fields are not claimed. Unsupported profiles fail; the accepted approximately 0.60 mm modern inline-text-box difference remains [issue #32](https://github.com/NuaForma/NuaForma/issues/32), not a general tolerance.
+For DOCX, request `{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"name":"Ada"}}`. Both built-in providers write DOCX, so choose explicitly. For default PDF/A-3b, request `{"input":{"format":"docx"},"output":{"format":"pdf"},"data":{"name":"Ada"}}` and save the response as `document.pdf`. Set `output.options.profile` to `pdfa-1b`, `pdfa-2b`, `pdfa-3b` or `standard` to choose explicitly. Omit `version` to derive it from the profile; a mismatched explicit version fails. PDF/A-1b has a restricted transparency-free template profile; transparent watermarks need 2b/3b. Every PDF/A output undergoes independent explicit-profile validation before delivery, with no downgrade. Level-A profiles, PDF/UA, forms, attachments and signature fields remain unsupported. The accepted approximately 0.60 mm modern inline-text-box difference remains [issue #32](https://github.com/NuaForma/NuaForma/issues/32), not a general tolerance.
 
 DOCX preserves template font choices without requiring server fonts. PDF needs fonts available in the private conversion environment; permitted bundled fonts retain their upstream notices. Supply custom fonts as `resource.<id>` multipart files or use operator startup snapshots from the [mount guide](MOUNTS.md). Select the [PDF font options](../../nuaforma-docx-pdf/README.md), including strict validation when needed. Only selected resources reach the renderer. Technical embedding permissions remain enforced without ownership declarations or global installation. Capabilities enumerate deployment fonts, not private uploads.
 
