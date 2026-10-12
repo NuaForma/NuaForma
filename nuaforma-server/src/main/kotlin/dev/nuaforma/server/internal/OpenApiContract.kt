@@ -88,7 +88,8 @@ internal object OpenApiContract {
                 "responses" to (errors() + mapOf("200" to download)))),
         )
         listOf(ApiRoutes.OPENAPI_JSON to "application/json", ApiRoutes.OPENAPI_YAML to "application/yaml").forEach { (path, media) ->
-            paths[path] = mapOf("get" to mapOf("operationId" to if (path == ApiRoutes.OPENAPI_JSON) "downloadOpenApiJson" else "downloadOpenApiYaml", "summary" to "Download this authoritative API contract", "responses" to (errors() + mapOf("200" to mapOf("description" to "Equivalent OpenAPI 3.1.1 document serialized as $media", "content" to content(mapOf("type" to "string"), media),
+            val schema = if (path == ApiRoutes.OPENAPI_JSON) jsonObject() else string()
+            paths[path] = mapOf("get" to mapOf("operationId" to if (path == ApiRoutes.OPENAPI_JSON) "downloadOpenApiJson" else "downloadOpenApiYaml", "summary" to "Download this authoritative API contract", "responses" to (errors() + mapOf("200" to mapOf("description" to "Equivalent OpenAPI 3.1.1 document serialized as $media", "content" to content(schema, media),
                 "headers" to mapOf("Content-Disposition" to mapOf("schema" to string(), "description" to "OpenAPI attachment filename")))))))
         }
         return linkedMapOf("openapi" to "3.1.1", "info" to mapOf("title" to "NuaForma REST API", "version" to "0.1.0-SNAPSHOT", "license" to mapOf("name" to "Apache License 2.0", "identifier" to "Apache-2.0"),
