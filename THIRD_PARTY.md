@@ -24,6 +24,10 @@ DOCX-only consumers acquire no PDF conversion backend, Office automation depende
 
 The server uses [Ktor 3.6.0](https://github.com/ktorio/ktor/blob/3.6.0/LICENSE), Kotlinx Coroutines 1.11.0, Kotlinx Serialization 1.11.0 and Kotlinx IO 0.9.1 under Apache-2.0, plus Apache-2.0 Typesafe Config 1.4.9 and MIT SLF4J API 2.0.19. They remain separate artifacts, not shaded classes or dependencies of the embedded engine libraries. Preserve their original license/copyright and any applicable notice material in a redistributed service. Ktor's test host and its additional clients, test/debug and logging artifacts are test-only and not part of the production service distribution. A locally built application archive is not a publicly audited or published combined runtime.
 
+## OpenAPI test tooling
+
+[Swagger Parser 2.1.48](https://github.com/swagger-api/swagger-parser/blob/v2.1.48/LICENSE) and its Swagger Core 2.2.53, Jackson 2.22/2.22.3, SnakeYAML 2.6 and Jakarta Validation API 2.0.2 transitives are test-only Apache-2.0 components. Production code uses no Swagger/YAML parser/vendor model, and the service/library distributions do not contain these artifacts. Preserve their original LICENSE/NOTICE and copyright material if distributing the tools independently; NuaForma's license is not a substitute. The existing JAXB/SLF4J/Commons transitive terms remain unchanged. See the dependency review for the deliberately patched Jackson test alignment and advisory snapshot.
+
 ## Barcode verification assets and tools
 
 DOCX tests include the unmodified Libre Barcode 39 font under SIL Open Font License 1.1, with its upstream copyright and license in `nuaforma-docx/src/test/resources/fonts/OFL.txt`. The adjacent README records its pinned source and checksum. It is not included in production JARs or installed by NuaForma. Font licenses remain independent of the engine license; callers are responsible for their font usage rights. The engine follows technical OpenType embedding permissions without requiring license evidence or an additional consent declaration.
