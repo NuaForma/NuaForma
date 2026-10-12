@@ -59,6 +59,8 @@ COPY --from=application / /opt/nuaforma/application/
 COPY start-server.sh /opt/nuaforma/bin/start-server
 USER root
 RUN chmod 0555 /opt/nuaforma/bin/start-server \
+    && mkdir -p /opt/nuaforma/custom-fonts /opt/nuaforma/extensions \
+    && chmod 0555 /opt/nuaforma/custom-fonts /opt/nuaforma/extensions \
     && test -s /opt/nuaforma/application/LICENSE \
     && test -s /opt/nuaforma/application/THIRD_PARTY.md \
     && sha256sum /opt/nuaforma/application/lib/*.jar > /usr/share/nuaforma/application-sha256.txt

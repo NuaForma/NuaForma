@@ -222,8 +222,20 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
                     "available" to mapOf("readFormats" to available.readFormats.map { it.id }.sorted(), "writeFormats" to available.writeFormats.map { it.id }.sorted()),
                     "inputOptions" to declared.inputOptions.mapKeys { it.key.id }.mapValues { definitions(it.value) },
                     "outputOptions" to declared.outputOptions.mapKeys { it.key.id }.mapValues { definitions(it.value) },
-                    "generalOptions" to definitions(declared.generalOptions), "diagnostics" to ApiErrors.diagnostics(available.diagnostics))
+                    "generalOptions" to definitions(declared.generalOptions), "diagnostics" to ApiErrors.diagnostics(available.diagnostics)) +
+                    mapOf("fonts" to fontCatalog(registered.provider))
             })
+    }
+
+    private fun fontCatalog(provider: DocumentProvider): Map<String, Any?> {
+        if (provider !is FontCatalogProvider) return mapOf("status" to "UNSUPPORTED", "entries" to emptyList<Any>())
+        return try {
+            val catalog = provider.fontCatalog(GenerationContext(GenerationLimits(maxDuration = java.time.Duration.ofSeconds(10))))
+            mapOf("status" to "AVAILABLE", "entries" to catalog.fonts.map {
+                mapOf("family" to it.family, "face" to it.face, "source" to it.origin.name.lowercase(), "resource" to it.resource)
+            })
+        } catch (_: Exception) { mapOf("status" to "UNAVAILABLE", "entries" to emptyList<Any>()) }
+        catch (_: LinkageError) { mapOf("status" to "UNAVAILABLE", "entries" to emptyList<Any>()) }
     }
 
     private fun definitions(values: List<OptionDefinition>): List<Map<String, Any?>> = values.map {

@@ -41,6 +41,8 @@ Operator environment variables, never request fields:
 | `NUAFORMA_HEAP_MB` | `512` | JVM maximum heap, 128–16384 MiB; still bounded by container memory |
 | `NUAFORMA_TEMP_DIRECTORY` | `/tmp` | Absolute existing writable private-storage root |
 | `NUAFORMA_PDF_LAUNCHER` | `/opt/nuaforma/bin/render-pdf` | Trusted isolated launcher; a missing path disables PDF only |
+| `NUAFORMA_FONT_DIRECTORY` | `/opt/nuaforma/custom-fonts` | Absolute operator font mount target; startup snapshot, not a request option |
+| `NUAFORMA_EXTENSION_DIRECTORY` | `/opt/nuaforma/extensions` | Absolute operator JAR mount target; startup snapshot of trusted executable code |
 
 All launch arguments remain fixed; shell command strings from requests are never executed. Operator-controlled `JAVA_TOOL_OPTIONS` may set the JVM properties below, e.g. `-Dnuaforma.server.concurrency=2 -Dnuaforma.server.outputBytes=67108864`. This is trusted JVM configuration, not a restricted extension mechanism. Do not put secrets there; the JVM may report these options to stderr. Host/port/temp/launcher are supplied explicitly by the entry point; configure those through the listed environment variables.
 
@@ -77,7 +79,7 @@ curl --fail-with-body http://127.0.0.1:8080/api/v1/documents \
 
 For DOCX, request `{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"name":"Ada"}}`. Both built-in providers write DOCX, so choose explicitly. For PDF, request `{"input":{"format":"docx"},"output":{"format":"pdf","options":{"version":"1.7","profile":"standard"}},"data":{"name":"Ada"}}` and save the response as `document.pdf`. PDF/A, PDF/UA, forms and signature fields are not claimed. Unsupported profiles fail; the accepted approximately 0.60 mm modern inline-text-box difference remains [issue #32](https://github.com/NuaForma/NuaForma/issues/32), not a general tolerance.
 
-DOCX preserves template font choices without requiring server fonts. PDF needs fonts available in the private conversion environment; permitted bundled fonts retain their upstream notices. Supply custom fonts as `resource.<id>` multipart files and select the [PDF font options](../../nuaforma-docx-pdf/README.md), including strict `fontMode: "validate"` when substitution is unacceptable. Only the current request's resources reach the renderer. Technical embedding permissions are enforced without additional ownership declarations or globally installing customer fonts. Operator font/extension mounts remain a separate milestone, [issue #35](https://github.com/NuaForma/NuaForma/issues/35).
+DOCX preserves template font choices without requiring server fonts. PDF needs fonts available in the private conversion environment; permitted bundled fonts retain their upstream notices. Supply custom fonts as `resource.<id>` multipart files or use operator startup snapshots from the [mount guide](MOUNTS.md). Select the [PDF font options](../../nuaforma-docx-pdf/README.md), including strict validation when needed. Only selected resources reach the renderer. Technical embedding permissions remain enforced without ownership declarations or global installation. Capabilities enumerate deployment fonts, not private uploads.
 
 ## Cancellation and shutdown
 

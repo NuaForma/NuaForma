@@ -21,6 +21,8 @@ platform.
 
 > **Project status:** development-stage provider contracts, core discovery/selection, registered [DOCX](nuaforma-docx/README.md) and optional [DOCX/PDF](nuaforma-docx-pdf/README.md) providers, a [restricted template language](nuaforma-template/README.md) and a [bounded REST service with OpenAPI JSON/YAML downloads](nuaforma-server/README.md#openapi-downloads-and-export). Embedded Kotlin/Java 17 applications and multipart REST requests use the same generation contracts for split-run placeholders, conditions/repeats, supported text boxes, selected fonts and dynamic text watermarks. The optional qualified Linux/amd64 runtime converts a private copy to static PDF 1.7 while leaving DOCX output unchanged. Fonts follow technical embedding permissions; conversion/output validation use request-isolated bounded processes within one container. The [on-premise service image and Compose guide](deployment/pdf-runtime/SERVICE.md) define local build, isolation, configuration and shutdown. The guides define supported profiles and fidelity limitations, including issue #32. No stable release, public service or public container image is claimed; [release preparation](docs/container-releases.md) preserves the license/source-distribution gate.
 
+The service supports [read-only operator font and extension mounts](deployment/pdf-runtime/MOUNTS.md), with startup snapshots and restart-based reload. `/api/v1/capabilities` lists deployment-available fonts per provider. Private request fonts stay isolated; installed extensions are operator-trusted application code, not sandboxed document content. Module and contract versions remain on the unpublished `0.1` baseline.
+
 ## The idea
 
 A generation request combines three things:

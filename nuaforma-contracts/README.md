@@ -1,6 +1,12 @@
 # NuaForma provider contracts
 
-Development API for Kotlin and Java 17, in `dev.nuaforma.contracts`. The current contract baseline is **0.1**; no stable release or working document generator is claimed. This module contains value types, a provider interface, descriptor parsing and validation helpers. Provider discovery and selection live in [core](../nuaforma-core/README.md), not this module. No expression engine, DOCX/PDF processing or HTTP serialization is implemented yet.
+Development API for Kotlin and Java 17, in `dev.nuaforma.contracts`. The unpublished contract baseline remains **0.1** by maintainer decision; no stable release is claimed. This module contains value types, provider contracts, descriptor parsing and validation helpers. Discovery and selection live in [core](../nuaforma-core/README.md). Expression evaluation, DOCX/PDF processing and HTTP serialization belong to implementation modules, not contracts.
+
+## Optional font catalog
+
+Providers may implement `FontCatalogProvider.fontCatalog(GenerationContext)` without changing `DocumentProvider`. `FontCatalog` is a bounded immutable deployment-only snapshot of `AvailableFont` entries: `family`, `face`, `origin` (`BUNDLED`/`MOUNTED`) and optional logical `resource` ID. No paths, font bytes, request uploads or template-private fonts belong in it. Faces are provider metadata, not a closed global enum; initial providers report regular/bold/italic/boldItalic, with variable faces also reported by the renderer. Availability does not establish embedding permissions, glyph coverage or successful generation for every template.
+
+Honor cancellation/deadlines, return at most 2048 entries and fail if enumeration is unavailable. An absent facet means enumeration is unsupported, not that no fonts exist. The new facet stays in the unpublished `0.1` draft; released contracts still follow the agreed compatibility/versioning policy.
 
 ## Requests and supplied data
 

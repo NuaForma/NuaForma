@@ -10,7 +10,7 @@ mode=$4
 decoded_limit=${5:-268435456}
 case "$work" in /*) ;; *) exit 64 ;; esac
 case "$file_limit:$cpu_seconds:$decoded_limit" in *[!0-9:]*) exit 64 ;; esac
-case "$mode" in probe|convert|fonts|validate) ;; *) exit 64 ;; esac
+case "$mode" in probe|convert|fonts|catalog|validate) ;; *) exit 64 ;; esac
 test -d "$work"
 test -f /usr/share/nuaforma/renderer-seccomp.bpf
 exec 3</usr/share/nuaforma/renderer-seccomp.bpf
@@ -20,6 +20,8 @@ elif [ "$mode" = validate ]; then
     set -- /validator/java/bin/java -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -Djava.awt.headless=true -cp '/validator/lib/*' dev.nuaforma.docx.pdf.adapters.pdfbox.PdfOutputValidator /work/output/input.pdf "$decoded_limit"
 elif [ "$mode" = fonts ]; then
     set -- /usr/bin/fc-list --format '%{family}\n'
+elif [ "$mode" = catalog ]; then
+    set -- /usr/bin/fc-list --format '%{family}\t%{weight}\t%{slant}\n'
 else
     set -- /opt/libreoffice26.8/program/soffice -env:UserInstallation=file:///work/profile --headless --nologo --nodefault --nofirststartwizard --norestore \
         --convert-to 'pdf:writer_pdf_Export:{"SelectPdfVersion":{"type":"long","value":"17"},"ExportBookmarks":{"type":"boolean","value":"true"},"ExportFormFields":{"type":"boolean","value":"false"}}' \

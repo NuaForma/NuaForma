@@ -1,6 +1,6 @@
 # REST service
 
-Development-stage Java 17 service using Ktor CIO and the same public engine/provider contracts as embedded generation. No second template evaluator, storage backend or implicit resource fetching is introduced. Equivalent OpenAPI JSON/YAML downloads and the [Linux/amd64 on-premise container](../deployment/pdf-runtime/SERVICE.md) are implemented; operator font/extension mounts remain #35. No public service or image is deployed by the build.
+Development-stage Java 17 service using Ktor CIO and the same public engine/provider contracts as embedded generation. No second template evaluator, storage backend or implicit resource fetching is introduced. Equivalent OpenAPI JSON/YAML downloads, the [Linux/amd64 on-premise container](../deployment/pdf-runtime/SERVICE.md), operator mounts and per-provider font catalogs are implemented. No public service or image is deployed by the build.
 
 ## Run locally
 
@@ -16,6 +16,8 @@ The real `Main` entry point also accepts the bounded operator properties documen
 The initial service has no authentication/TLS implementation. Do not expose it directly to an untrusted network; use an authenticated TLS gateway with connection/header limits, access controls and deployment quotas. No forwarded-header trust, CORS, request-body logging or telemetry is enabled by NuaForma. The application starts only on explicit invocation. Installed provider code is trusted executable application code, not protected by the document sandbox.
 
 ## Endpoints
+
+Each provider in `/api/v1/capabilities` includes `fonts: {status, entries}`. Status is `AVAILABLE`, `UNSUPPORTED` (no optional facet) or `UNAVAILABLE` (enumeration failed/not ready). Entries contain `family`, `face`, `source` (`bundled`/`mounted`) and `resource` (opaque mounted selector or null). No uploaded/request-private/template fonts, paths or font bytes are exposed. Empty available catalogs and unsupported enumeration differ; names/styles do not establish embedding rights or glyph coverage. Both OpenAPI downloads describe these fields. The [mount guide](../deployment/pdf-runtime/MOUNTS.md) covers operator configuration and restart behavior.
 
 | Method | Path | Response |
 | --- | --- | --- |

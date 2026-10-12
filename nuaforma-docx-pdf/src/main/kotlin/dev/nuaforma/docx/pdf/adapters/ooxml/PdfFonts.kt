@@ -13,18 +13,18 @@ internal object PdfFonts {
     private const val DRAWING = "http://schemas.openxmlformats.org/drawingml/2006/main"
     private const val OFFICE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 
-    fun supplied(request: GenerationRequest, files: ConversionFiles, context: GenerationContext): Set<String> {
+    fun supplied(request: GenerationRequest, files: ConversionFiles, context: GenerationContext, prefix: String = ""): Set<String> {
         val raw = request.requirements.output.options["fonts"] as? List<*> ?: emptyList<Any?>()
         val declarations = raw.map { it as Map<*, *> }
         if (request.resources.keys != declarations.map { it["resource"] as String }.toSet()) invalid("Supply exactly the declared PDF font resources")
         val paths = mutableMapOf<String, java.nio.file.Path>()
         val families = mutableSetOf<String>()
-        var total = 0L
+        var total = Files.list(files.directory.resolve("fonts")).use { paths -> paths.mapToLong { Files.size(it) }.sum() }
         for ((index, declaration) in declarations.withIndex()) {
             context.checkActive()
             val id = declaration["resource"] as String
             val path = paths.getOrPut(id) {
-                val target = files.directory.resolve("fonts/font-$index.otf")
+                val target = files.directory.resolve("fonts/${prefix}font-$index.otf")
                 Files.newOutputStream(target).use { output -> request.resources.getValue(id).openStream().use {
                     PdfStreams.copy(it, output, minOf(16L * 1024 * 1024, minOf(64L * 1024 * 1024, context.limits.maxExpandedBytes) - total), context)
                 } }
