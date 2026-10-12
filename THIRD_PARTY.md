@@ -4,7 +4,7 @@ NuaForma is Apache-2.0 licensed. Dependencies keep their own licenses; NuaForma 
 
 ## DOCX integration
 
-The `nuaforma-docx` runtime uses docx4j 17.1.0, with its reference JAXB implementation. docx4j is maintained by Plutext Pty Ltd. Its [license](https://github.com/plutext/docx4j/blob/VERSION_17_1_0/legals/LICENSE) is Apache-2.0; its [NOTICE](https://github.com/plutext/docx4j/blob/VERSION_17_1_0/legals/NOTICE) lists bundled sources with additional terms, including BSD, MIT, Microsoft Public License and W3C-related material. Preserve that upstream NOTICE and those licenses when redistributing the unmodified docx4j artifacts. Do not describe the complete dependency stack as exclusively Apache-2.0.
+The `nuaforma-docx` runtime uses docx4j 17.3.2, with its reference JAXB implementation. docx4j is maintained by Plutext Pty Ltd. Its [license](https://github.com/plutext/docx4j/blob/VERSION_17_3_2/legals/LICENSE) is Apache-2.0; its [NOTICE](https://github.com/plutext/docx4j/blob/VERSION_17_3_2/legals/NOTICE) lists bundled sources with additional terms, including BSD, MIT, Microsoft Public License and W3C-related material. Preserve that upstream NOTICE and those licenses when redistributing the unmodified docx4j artifacts. Do not describe the complete dependency stack as exclusively Apache-2.0.
 
 Runtime coordinates and exact resolved versions are recorded in the module lockfiles. The reviewed licensing groups are:
 
@@ -22,11 +22,13 @@ DOCX-only consumers acquire no PDF conversion backend, Office automation depende
 
 ## REST integration
 
-The server uses [Ktor 3.6.0](https://github.com/ktorio/ktor/blob/3.6.0/LICENSE), Kotlinx Coroutines 1.11.0, Kotlinx Serialization 1.11.0 and Kotlinx IO 0.9.1 under Apache-2.0, plus Apache-2.0 Typesafe Config 1.4.9 and MIT SLF4J API 2.0.19. They remain separate artifacts, not shaded classes or dependencies of the embedded engine libraries. Preserve their original license/copyright and any applicable notice material in a redistributed service. Ktor's test host and its additional clients, test/debug and logging artifacts are test-only and not part of the production service distribution. A locally built application archive is not a publicly audited or published combined runtime.
+The server uses [Ktor 3.6.0](https://github.com/ktorio/ktor/blob/3.6.0/LICENSE), Kotlinx Coroutines 1.11.0, Kotlinx Serialization 1.11.0 and Kotlinx IO 0.9.1 under Apache-2.0, plus Apache-2.0 Typesafe Config 1.4.9 and MIT SLF4J API 2.0.20. They remain separate artifacts, not shaded classes or dependencies of the embedded engine libraries. Preserve their original license/copyright and any applicable notice material in a redistributed service. Ktor's test host and its additional clients, test/debug and logging artifacts are test-only and not part of the production service distribution. A locally built application archive is not a publicly audited or published combined runtime.
 
 ## OpenAPI test tooling
 
-[Swagger Parser 2.1.48](https://github.com/swagger-api/swagger-parser/blob/v2.1.48/LICENSE) and its Swagger Core 2.2.53, Jackson 2.22/2.22.3, SnakeYAML 2.6 and Jakarta Validation API 2.0.2 transitives are test-only Apache-2.0 components. Production code uses no Swagger/YAML parser/vendor model, and the service/library distributions do not contain these artifacts. Preserve their original LICENSE/NOTICE and copyright material if distributing the tools independently; NuaForma's license is not a substitute. The existing JAXB/SLF4J/Commons transitive terms remain unchanged. See the dependency review for the deliberately patched Jackson test alignment and advisory snapshot.
+[Swagger Parser 2.1.48](https://github.com/swagger-api/swagger-parser/blob/v2.1.48/LICENSE) and its Swagger Core 2.2.55, Jackson 2.22/2.22.3, SnakeYAML 2.7 and Jakarta Validation API 2.0.2 transitives are test-only Apache-2.0 components. Production code uses no Swagger/YAML parser/vendor model, and the service/library distributions do not contain these artifacts. Preserve their original LICENSE/NOTICE and copyright material if distributing the tools independently; NuaForma's license is not a substitute. The existing JAXB/SLF4J/Commons transitive terms remain unchanged. See the dependency review for the deliberately patched Jackson test alignment and advisory snapshot.
+
+The upgraded MockK/Ktor test graph includes Apache-2.0 Byte Buddy/agent 1.18.14, Objenesis 3.6, JSpecify 1.0.1 and Apache HTTP components 5.6.5/5.4.4. JNA/platform 5.19.1 remain test-only; use the explicit Apache-2.0 alternative of their [Apache-2.0 OR LGPL-2.1-or-later license](https://github.com/java-native-access/jna/blob/5.19.1/LICENSE), retaining original artifact/native subcomponent notices when redistributing test tooling. These tools are not added to service/library distributions.
 
 ## Barcode verification assets and tools
 

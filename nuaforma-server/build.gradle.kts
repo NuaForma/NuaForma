@@ -30,10 +30,23 @@ dependencies {
     implementation(libs.ktor.server.body.limit)
     implementation(libs.ktor.server.status.pages)
     implementation(libs.kotlinx.json)
+    implementation(libs.slf4j.api)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.swagger.parser)
     // Patched, aligned parser transitives; never part of the production JSON adapter.
     testImplementation(platform(libs.jackson.test.bom))
+    constraints {
+        testImplementation(libs.commons.lang)
+        testImplementation(libs.jna)
+        testImplementation(libs.jna.platform)
+        testImplementation(libs.httpclient.tests)
+        testImplementation(libs.httpcore.tests)
+        testImplementation(libs.httpcore.h2.tests)
+        testImplementation(libs.swagger.core.tests)
+        testImplementation(libs.swagger.models.tests)
+        testImplementation(libs.swagger.annotations.tests)
+        testImplementation(libs.snakeyaml.tests)
+    }
     // Already present through MockK at test runtime; compile the Kotlin visibility checks explicitly.
     testImplementation(libs.kotlin.reflect)
     implementation(project(":nuaforma-core"))

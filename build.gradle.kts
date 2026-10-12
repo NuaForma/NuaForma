@@ -15,6 +15,10 @@ val junitJupiter = libs.junit.jupiter
 val junitLauncher = libs.junit.launcher
 val mockk = libs.mockk
 val archunit = libs.archunit
+val annotations = libs.annotations
+val testTransitives = listOf(libs.byte.buddy, libs.byte.buddy.agent, libs.objenesis, libs.jspecify, libs.coroutines.bom, libs.coroutines.core, libs.slf4j.api)
+val docxRuntimeUpgrades = listOf(libs.commons.codec, libs.commons.collections, libs.commons.lang, libs.istack, libs.jaxb.plugins,
+    libs.checker.qual, libs.error.prone.annotations, libs.slf4j.jcl, libs.slf4j.api).map { it.get() }
 
 subprojects {
     group = rootProject.group
@@ -39,11 +43,15 @@ subprojects {
         }
         dependencies {
             add("implementation", platform(kotlinBom))
+            add("implementation", annotations)
             add("testImplementation", platform(junitBom))
             add("testImplementation", junitJupiter)
             add("testImplementation", mockk)
             add("testImplementation", archunit)
             add("testRuntimeOnly", junitLauncher)
+            constraints {
+                testTransitives.forEach { add("testImplementation", it) }
+            }
         }
         tasks.withType<Test>().configureEach {
             useJUnitPlatform()
@@ -115,6 +123,12 @@ tasks.register("verifyBuildStructure") {
             ":nuaforma-server" to subprojects.map { it.path }.toSet(),
         )
         subprojects.forEach { module ->
+            val requiredPublicationDependencies = if (module.path == ":nuaforma-docx") docxRuntimeUpgrades + annotations.get() else listOf(annotations.get())
+            requiredPublicationDependencies.forEach { required ->
+                check(module.configurations.getByName("implementation").dependencies.any {
+                    it.group == required.group && it.name == required.name && it.version == required.versionConstraint.requiredVersion
+                }) { "${module.path} must declare ${required.module} directly so Maven consumers retain the reviewed runtime version" }
+            }
             val components = module.configurations.getByName("runtimeClasspath")
                 .incoming.resolutionResult.allComponents
             val projectPaths = components.mapNotNull { (it.id as? ProjectComponentIdentifier)?.projectPath }.toSet()
