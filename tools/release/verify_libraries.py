@@ -20,6 +20,14 @@ DEPENDENCIES = {
 NS = {"m": "http://maven.apache.org/POM/4.0.0"}
 
 
+def project_version():
+    root = pathlib.Path(__file__).resolve().parents[2]
+    versions = [line.removeprefix("version=").strip() for line in (root / "gradle.properties").read_text(encoding="utf-8").splitlines()
+                if line.startswith("version=")]
+    assert len(versions) == 1 and re.fullmatch(r"[A-Za-z0-9_.+-]+", versions[0])
+    return versions[0]
+
+
 def artifacts(repository, module, version):
     folder = repository / "dev/nuaforma" / module / version
     selections = [("pom", ""), ("jar", ""), ("jar", "sources"), ("jar", "javadoc")]

@@ -4,6 +4,7 @@ import json
 import pathlib
 import subprocess
 import uuid
+from verify_libraries import project_version
 
 
 def main():
@@ -11,6 +12,7 @@ def main():
     parser.add_argument("--docker", required=True)
     parser.add_argument("--image", required=True)
     parser.add_argument("--output", type=pathlib.Path, required=True)
+    parser.add_argument("--version", default=project_version())
     args = parser.parse_args()
     root = pathlib.Path(__file__).resolve().parents[2]
     output = args.output.resolve()
@@ -27,7 +29,7 @@ def main():
             "--mount", "type=bind,source=" + str(target) + ",target=/consumer,readonly",
             "--mount", "type=bind,source=" + str(output) + ",target=/request",
             "--entrypoint", "/opt/java/openjdk/bin/java", args.image,
-            "-Xmx512m", "-cp", "/consumer/classes:/consumer/dependency/*", "dev.nuaforma.examples.PdfExample",
+            "-Xmx512m", "-cp", "/consumer/classes:/consumer/dependency/" + args.version + "/*", "dev.nuaforma.examples.PdfExample",
             "/opt/nuaforma/bin/render-pdf", "/request/output.pdf")
     try:
         result = subprocess.run([args.docker, "start", "--attach", name], capture_output=True, text=True, timeout=180)

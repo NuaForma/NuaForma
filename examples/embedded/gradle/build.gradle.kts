@@ -5,8 +5,8 @@ plugins {
 
 kotlin { jvmToolchain(17) }
 dependencies {
-    implementation("dev.nuaforma:nuaforma-core:${providers.gradleProperty("nuaformaVersion").getOrElse("0.1.0-SNAPSHOT")}")
-    implementation("dev.nuaforma:nuaforma-docx:${providers.gradleProperty("nuaformaVersion").getOrElse("0.1.0-SNAPSHOT")}")
+    implementation("dev.nuaforma:nuaforma-core:${providers.gradleProperty("nuaformaVersion").getOrElse("0.1.0-alpha.1")}")
+    implementation("dev.nuaforma:nuaforma-docx:${providers.gradleProperty("nuaformaVersion").getOrElse("0.1.0-alpha.1")}")
 }
 application { mainClass.set("dev.nuaforma.examples.KotlinExampleKt") }
 

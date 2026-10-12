@@ -12,7 +12,7 @@
 
 NuaForma is an open-source Kotlin/JVM document-generation engine for Java 17 applications, with a REST service and a self-hostable Docker container. Supply a Word template, your own structured data and generation options to produce DOCX or PDF documents without a proprietary platform or mandatory cloud service.
 
-> **Development preview:** working implementations and local qualification exist, but no library release, public container image or hosted service is available yet. The development version is `0.1.0-SNAPSHOT`, with contract baseline `0.1`; APIs are not stable released contracts. Build from source for evaluation. Maven Central and GHCR publication remain subject to the separate release gates below.
+> **Alpha candidate:** working implementations and local qualification exist, but no library release, public container image or hosted service is available yet. The selected version is `0.1.0-alpha.1`, with contract baseline `0.1`; APIs are not stable released contracts. Build from source for evaluation. Maven Central and GHCR publication remain subject to the separate release gates below.
 
 ## What works today
 
@@ -136,7 +136,7 @@ Source/documentation JARs and POMs are staged only to an ignored local repositor
 
 ## Roadmap and publication
 
-Independent library consumption and Maven Central signing preparation are implemented; the protected check with the maintainer's actual signing key remains pending. First publication still requires an explicit release-version decision, that actual-key check, exact-artifact dependency/license review and an authorized publisher. Container distribution additionally requires the final image's matching source/license materials and fidelity qualification. The preparation workflows publish neither libraries nor images.
+Independent library consumption and Maven Central signing preparation are implemented; the protected check with the maintainer's actual signing key passed. The selected first release candidate is `0.1.0-alpha.1`. First publication still requires exact-candidate consumer/signature and dependency/license checks plus a protected publisher. Container distribution additionally requires the final image's matching source/license materials and fidelity qualification. The preparation workflows publish neither libraries nor images, and the alpha will not receive a `latest` container tag.
 
 - [Maven Central release preparation](docs/maven-central-releases.md)
 - [GHCR container release gates](docs/container-releases.md)

@@ -8,8 +8,9 @@ if not __debug__:
     raise RuntimeError("Release verification must run without Python optimization")
 
 
-def check(environment, policies):
-    assert environment["name"] == "maven-central" and environment["can_admins_bypass"] is False
+def check(environment, policies, name="maven-central"):
+    assert name in {"maven-central", "ghcr-release"}
+    assert environment["name"] == name and environment["can_admins_bypass"] is False
     reviewers = [rule for rule in environment["protection_rules"] if rule["type"] == "required_reviewers"]
     assert len(reviewers) == 1 and reviewers[0]["prevent_self_review"] is False
     identities = [(item["type"], item["reviewer"]["login"]) for item in reviewers[0]["reviewers"]]
@@ -20,15 +21,17 @@ def check(environment, policies):
 
 
 def main():
-    argparse.ArgumentParser(description=__doc__).parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--environment", choices=("maven-central", "ghcr-release"), default="maven-central")
+    args = parser.parse_args()
     assert os.environ.get("GITHUB_REPOSITORY") == "NuaForma/NuaForma" and os.environ.get("GITHUB_REF") == "refs/heads/main"
     def read(suffix):
-        request = urllib.request.Request("https://api.github.com/repos/NuaForma/NuaForma/environments/maven-central" + suffix,
+        request = urllib.request.Request("https://api.github.com/repos/NuaForma/NuaForma/environments/" + args.environment + suffix,
             headers={"Accept": "application/vnd.github+json",
                      "X-GitHub-Api-Version": "2022-11-28"})
         with urllib.request.urlopen(request, timeout=30) as response:
             return json.load(response)
-    check(read(""), read("/deployment-branch-policies"))
+    check(read(""), read("/deployment-branch-policies"), args.environment)
     print("Release environment protection verified")
 
 

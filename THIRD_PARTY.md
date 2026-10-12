@@ -12,11 +12,13 @@ Runtime coordinates and exact resolved versions are recorded in the module lockf
 | --- | --- |
 | docx4j core, generated objects, copy, JAXB selector; JAXB SVG bindings; relocated Xalan; Apache Commons, FontBox/PDFBox IO, XML Graphics; QDox; SparseBitSet; Error Prone annotations; Kotlin and JetBrains annotations | Apache-2.0, with upstream subcomponent notices where applicable |
 | JAXB API, JAXB runtime/core/txw2, Jakarta Activation, Angus Activation and istack runtime | Eclipse Distribution License 1.0 / BSD-style terms |
-| ANTLR 2/3, StringTemplate and JAXB plugins runtime | BSD-style terms |
+| ANTLR 2; ANTLR 3, StringTemplate and JAXB plugins runtime | ANTLR 2 public-domain/permissive terms plus BSD-3-Clause Python-generator code; BSD-style terms for the others |
 | MBassador, Checker Framework qualifiers and SLF4J API | MIT |
 | SLF4J Commons Logging bridge | Apache-2.0 |
 
 Licenses were checked against the pinned Maven POMs (including parent inheritance) and upstream artifact license material. For JAXB, see the [reference implementation license](https://github.com/eclipse-ee4j/jaxb-ri/blob/master/LICENSE.md) and [API license](https://github.com/jakartaee/jaxb-api/blob/main/LICENSE.md). EDL is a permissive distribution license, distinct from EPL. Preserve the actual artifact notices rather than using this summary as replacement license text.
+
+The service container supplements artifact-level metadata with original dependency source/notice materials, including source-file copyright headers, docx4j's version-specific LICENSE/NOTICE and ANTLR 2's separate terms. Several upstream binary JARs contain no licence text; retaining those JARs unchanged alone does not fulfil all attribution duties. The unmodified material under `/opt/nuaforma/application/third-party-materials` is outside the runtime classpath. ANTLR 2's unrelated Python runtime is not included in the application binary JAR; the retained upstream source archive preserves its original licensing distinction. See [ANTLR 2's license statement](https://www.antlr2.org/license.html) and the release's [source-access instructions](deployment/pdf-runtime/SOURCES.md).
 
 DOCX-only consumers acquire no PDF conversion backend, Office automation dependency, server framework, log implementation or paid docx4j component. Local Word rendering of synthetic fixtures is an optional fidelity check only and does not form part of NuaForma's runtime or distributable dependencies.
 

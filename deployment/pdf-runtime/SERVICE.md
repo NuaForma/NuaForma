@@ -9,6 +9,7 @@ Use Java 17, the checked-in wrapper and Docker with BuildKit/named build context
 ```sh
 ./gradlew --no-daemon build :nuaforma-server:installDist :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation
 python3 tools/container/prepare_verapdf_materials.py nuaforma-docx-pdf/build/verapdf-validation
+python3 tools/container/prepare_application_materials.py
 docker compose -f deployment/pdf-runtime/compose.yaml build
 docker compose -f deployment/pdf-runtime/compose.yaml up -d
 curl --fail http://127.0.0.1:8080/api/v1/capabilities
@@ -26,7 +27,7 @@ docker build --platform linux/amd64 --file deployment/pdf-runtime/Dockerfile \
   --target service --tag nuaforma:local deployment/pdf-runtime
 ```
 
-The application context contains only Gradle's production distribution; qualification classes, tests, private fonts, local agreements and the checkout are not copied. The Docker context is allowlisted. Original dependency JARs are unshaded, preserving embedded notices. The final image records their SHA-256 inventory and includes NuaForma's LICENSE, THIRD_PARTY.md and DEPENDENCIES.md. The base image/runtime sources, licenses and publication gate in the [runtime guide](README.md#components-and-licenses) apply unchanged; that gate must be completed before redistributing any image, even one built locally.
+The application context contains Gradle's production distribution plus the original dependency source/notice materials prepared by the explicit helper; qualification classes, tests, private fonts, local agreements and the checkout are not copied. The Docker context is allowlisted. Original dependency JARs are unshaded, preserving embedded notices. Matching source JARs retain copyright/license headers omitted by some binary JARs; original docx4j notices and ANTLR 2 terms are supplemented separately. These materials are not on the runtime classpath. The final image records runtime SHA-256 inventories and includes NuaForma's LICENSE, THIRD_PARTY.md, DEPENDENCIES.md and [source-access instructions](SOURCES.md). The base image/runtime sources, licenses and publication gate in the [runtime guide](README.md#components-and-licenses) apply unchanged; that gate must be completed before redistributing any image, even one built locally.
 
 Compose binds the host port to loopback, runs UID/GID 1000, includes Docker's child-reaping init, a read-only root, no capabilities, no-new-privileges and the reviewed default-deny seccomp profile. It limits CPU to 2, memory to 2 GiB, processes to 128 and `/tmp` to a 512 MiB tmpfs. A bridge network permits host access to the published port; it does not deny outer-JVM outbound traffic. The application performs no implicit network fetching, and each renderer/validator has its own network-denying sandbox. Add deployment-level egress controls when needed. An internal-only network behind a gateway container is an alternative, but Docker Desktop does not publish its ports to the host. Do not replace isolation with privileged mode, unconfined seccomp, host capabilities or mounted Docker sockets. Sandbox incompatibility leaves PDF unavailable, with no unsandboxed fallback. Linux/amd64 on Docker Desktop is the qualified platform; other kernels/security policies/architectures require independent qualification. Do not disable host protections to make a deployment start.
 

@@ -36,6 +36,7 @@ jobs:
       - name: Build local service image
         run: |
           python3 tools/container/prepare_verapdf_materials.py nuaforma-docx-pdf/build/verapdf-validation
+          python3 tools/container/prepare_application_materials.py
           docker build --platform linux/amd64 --file deployment/pdf-runtime/Dockerfile \
             --build-context pdfvalidation=nuaforma-docx-pdf/build/pdf-validation \
             --build-context verapdfvalidation=nuaforma-docx-pdf/build/verapdf-validation \

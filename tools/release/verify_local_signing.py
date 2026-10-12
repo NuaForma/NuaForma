@@ -6,8 +6,9 @@ import shutil
 import subprocess
 import tempfile
 
-from verify_libraries import MODULES, artifacts
+from verify_libraries import MODULES, artifacts, project_version
 from verify_signatures import verify_signature
+from prepare_central_bundle import prepare
 
 
 def command(arguments, **options):
@@ -20,7 +21,7 @@ def command(arguments, **options):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repository", type=pathlib.Path, required=True)
-    parser.add_argument("--version", default="0.1.0-SNAPSHOT")
+    parser.add_argument("--version", default=project_version())
     parser.add_argument("--output", type=pathlib.Path, required=True)
     args = parser.parse_args()
     root = pathlib.Path(__file__).resolve().parents[2]
@@ -40,13 +41,15 @@ def main():
             public = home / "public.asc"
             command(gpg + ["--armor", "--output", str(public), "--export", fingerprint])
             environment = dict(os.environ, MAVEN_SIGNING_KEY=key, MAVEN_SIGNING_PASSWORD=password)
-            built = subprocess.run([str(root / "gradlew"), "--no-daemon", "stageLibraries", "-PsignArtifacts=true",
+            built = subprocess.run([str(root / "gradlew"), "--no-daemon", "stageLibraries", "-PsignArtifacts=true", "-Pversion=" + args.version,
                                     "--no-build-cache", "--no-configuration-cache", "--console=plain"],
                                    cwd=root, env=environment, capture_output=True, text=True, timeout=600)
             (args.output / "gradle.log").write_text(built.stdout + built.stderr, encoding="utf-8")
             assert built.returncode == 0, "Synthetic artifact signing failed; inspect the ignored build log"
             command(["python3", "tools/release/verify_signatures.py", str(args.repository), "--version", args.version,
                      "--public-key", str(public), "--fingerprint", fingerprint, "--output", str(args.output / "signatures.json")], cwd=root)
+            if not args.version.endswith("-SNAPSHOT"):
+                prepare(args.repository, args.version, fingerprint, public, args.output / "synthetic-central.zip")
             source = artifacts(args.repository, MODULES[0], args.version)[1]
             altered = home / "altered.jar"
             shutil.copyfile(source, altered)

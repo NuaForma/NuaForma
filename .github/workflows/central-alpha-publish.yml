@@ -1,0 +1,48 @@
+name: Publish validated alpha on Central
+
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_id:
+        description: Exact USER_MANAGED deployment UUID returned by the reviewed alpha upload
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alpha-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'NuaForma/NuaForma' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: maven-central
+    steps:
+      - name: Check out approved release policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify complete release gate before loading Portal credentials
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/release/check_environment.py
+          python3 tools/release/validate_release_gate.py --version 0.1.0-alpha.1 --review release-approvals/0.1.0-alpha.1.json
+      - name: Verify staged bytes and request publication once
+        env:
+          CENTRAL_DEPLOYMENT_ID: ${{ inputs.deployment_id }}
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+        run: python3 tools/release/central_publish.py --confirm-publish --review release-approvals/0.1.0-alpha.1.json --output build/alpha/publish-request.json
+      - name: Retain publication request metadata only
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: central-alpha-publish-${{ github.run_id }}
+          path: build/alpha/publish-request.json
+          if-no-files-found: error
+          retention-days: 14

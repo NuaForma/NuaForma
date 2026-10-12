@@ -50,7 +50,8 @@ jobs:
         run: ./gradlew --no-daemon stageLibraries -PsignArtifacts=true --warning-mode=fail --no-build-cache --no-configuration-cache
       - name: Verify signatures independently
         run: |
-          python3 tools/release/verify_signatures.py build/library-repository --version 0.1.0-SNAPSHOT \
+          VERSION=$(python3 -c 'import sys; sys.path.insert(0, "tools/release"); from verify_libraries import project_version; print(project_version())')
+          python3 tools/release/verify_signatures.py build/library-repository --version "$VERSION" \
             --fingerprint 74317C6CE9C61B80A2A1C0B40F736E8D598CB08B \
             --public-key build/release-review/public-key.asc --output build/release-review/signatures.json
       - name: Retain non-executable review records only

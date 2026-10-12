@@ -22,6 +22,20 @@ def verify_signature(file, fingerprint, home):
     return {"file": file.name, "sha256": hashlib.sha256(file.read_bytes()).hexdigest(), "fingerprint": fingerprint}
 
 
+def verify_all(repository, version, fingerprint, public_key):
+    assert re.fullmatch(r"[0-9A-F]{40}", fingerprint), "Expected a complete OpenPGP fingerprint"
+    assert 0 < public_key.stat().st_size <= 1024 * 1024, "Public verification key exceeds its bound"
+    verify(repository, version)
+    with tempfile.TemporaryDirectory(prefix="nuaforma-public-verification-") as directory:
+        home = pathlib.Path(directory)
+        home.chmod(0o700)
+        imported = subprocess.run(["gpg", "--homedir", str(home), "--batch", "--import", str(public_key)],
+                                  capture_output=True, timeout=30)
+        assert imported.returncode == 0, "Public key import failed"
+        return [verify_signature(file, fingerprint, home) for module in MODULES
+                for file in artifacts(repository, module, version)]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("repository", type=pathlib.Path)
@@ -30,17 +44,7 @@ def main():
     parser.add_argument("--public-key", type=pathlib.Path, required=True)
     parser.add_argument("--output", type=pathlib.Path, required=True)
     args = parser.parse_args()
-    assert re.fullmatch(r"[0-9A-F]{40}", args.fingerprint), "Expected a complete OpenPGP fingerprint"
-    assert 0 < args.public_key.stat().st_size <= 1024 * 1024, "Public verification key exceeds its bound"
-    verify(args.repository, args.version)
-    with tempfile.TemporaryDirectory(prefix="nuaforma-public-verification-") as directory:
-        home = pathlib.Path(directory)
-        home.chmod(0o700)
-        imported = subprocess.run(["gpg", "--homedir", str(home), "--batch", "--import", str(args.public_key)],
-                                  capture_output=True, timeout=30)
-        assert imported.returncode == 0, "Public key import failed"
-        records = [verify_signature(file, args.fingerprint, home) for module in MODULES
-                   for file in artifacts(args.repository, module, args.version)]
+    records = verify_all(args.repository, args.version, args.fingerprint, args.public_key)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(records, indent=2), encoding="utf-8")
     print("Verified signatures for", len(records), "artifacts with the expected public identity")
