@@ -19,6 +19,8 @@ The Gradle build, initial public provider contracts, core provider discovery/sel
 - Future signable PDF forms require empty digital-signature fields that another application can sign. NuaForma does not itself manage signing identities, certificates or private keys, or apply signatures.
 - Storage and database integrations are optional adapters. Direct engine users must be able to supply all inputs themselves without configuring a database.
 - The project license is Apache-2.0. Commercial use, internal use and private modifications are intended use cases.
+- LibreOffice is the approved early DOCX-to-PDF backend (decision 2026-10-12). It remains a separate executable behind the optional PDF adapter; neither Microsoft Word nor Euro-Office is a production dependency. Backend selection does not establish an implemented provider or a qualified Linux deployment. Preserve the approved conversion-copy scope and issue #32 limitation, and verify the actual isolated runtime before exposing PDF availability.
+- LibreOffice and bundled components retain their own licenses. The user approved the additional redistribution obligations; follow the [LibreOffice distribution checklist](docs/libreoffice-licensing.md) for the exact packages and images distributed. NuaForma's independently written engine remains Apache-2.0. Do not publish a bundled renderer/image until its notices, corresponding source availability and component-specific obligations have been verified.
 
 Do not expand the implementation scope merely because a capability appears in this section. Implement the requested milestone; document limitations and ask before materially expanding it.
 

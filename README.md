@@ -72,7 +72,7 @@ NuaForma is intended for teams generating letters, reports, agreements,
 statements, and other documents from application data. It should be useful
 both as an internal service and as a component integrated into other products.
 
-The project uses Kotlin/JVM with Java 17 as its minimum runtime. DOCX round-trip processing uses docx4j behind NuaForma-owned facades. The restricted language is implemented separately from document libraries; the PDF conversion backend still needs to be selected and verified.
+The project uses Kotlin/JVM with Java 17 as its minimum runtime. DOCX round-trip processing uses docx4j behind NuaForma-owned facades. The restricted language is implemented separately from document libraries. LibreOffice is selected as the optional early PDF conversion backend; its production adapter and isolated runtime still need implementation and verification.
 
 ## Initial development direction
 
@@ -84,7 +84,7 @@ The project uses Kotlin/JVM with Java 17 as its minimum runtime. DOCX round-trip
 
 Track scoped work in the [GitHub roadmap issues](https://github.com/NuaForma/NuaForma/issues?q=is%3Aissue%20label%3Aroadmap) and [milestones](https://github.com/NuaForma/NuaForma/milestones). Later format and storage extensions are separate follow-up work.
 
-The [PDF backend evaluation](docs/pdf-backend-evaluation.md) records reproducible renderer comparisons and current fidelity blockers. Research tooling is separate from the production modules; no PDF backend has been adopted.
+The [PDF backend evaluation](docs/pdf-backend-evaluation.md) records reproducible renderer comparisons and the approved LibreOffice conversion-copy direction. A measured modern inline-text-box vertical difference of approximately 0.60 mm is temporarily accepted and tracked in [issue #32](https://github.com/NuaForma/NuaForma/issues/32); this is not a general layout tolerance. Research tooling is separate from the production modules, and no production PDF provider is implemented yet. The [LibreOffice distribution checklist](docs/libreoffice-licensing.md) records obligations for future bundled runtimes.
 
 Security will be part of the design: untrusted templates, rendering processes,
 database access, and sensitive document data need explicit boundaries and
