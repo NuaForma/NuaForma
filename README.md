@@ -1,6 +1,6 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/branding/nuaforma-dark.png">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/branding/nuaforma-dark-transparent.png">
     <source media="(prefers-color-scheme: light)" srcset="assets/branding/nuaforma-light.png">
     <img src="assets/branding/nuaforma-light.png" alt="NuaForma — rounded teal and navy N logo" width="320">
   </picture>
@@ -8,11 +8,15 @@
 
 # NuaForma
 
+[![Maven Central](https://img.shields.io/maven-central/v/dev.nuaforma/nuaforma-core?strategy=highestVersion&label=Maven%20Central&color=008b90)](https://central.sonatype.com/artifact/dev.nuaforma/nuaforma-core)
+
 **Turn templates and structured data into documents.**
 
 NuaForma is an open-source Kotlin/JVM document-generation engine for Java 17 applications, with a REST service and a self-hostable Docker container. Supply a Word template, your own structured data and generation options to produce DOCX or PDF documents without a proprietary platform or mandatory cloud service.
 
-> **Alpha candidate:** working implementations and local qualification exist, but no library release, public container image or hosted service is available yet. The selected version is `0.1.0-alpha.1`, with contract baseline `0.1`; APIs are not stable released contracts. Build from source for evaluation. Maven Central and GHCR publication remain subject to the separate release gates below.
+Visit [nuaforma.dev](https://nuaforma.dev) for deployment examples, endpoint documentation and a downloadable Word/JSON example kit you can run against your own installation.
+
+> **Evaluation alpha:** `0.1.0-alpha.1` is available on Maven Central and as `ghcr.io/nuaforma/nuaforma:0.1.0-alpha.1`, with contract baseline `0.1`. APIs are not stable; review the [release notes](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.1), including accepted native-runtime security findings. There is no hosted document-generation service and no `latest` container tag.
 
 ## What works today
 
@@ -83,7 +87,7 @@ The repository contains five independently publishable libraries and one optiona
 
 Use core plus DOCX for Word-only applications; add the DOCX/PDF module and its qualified external runtime for PDF. Core depends on contracts, not concrete providers. Both built-in providers can write DOCX, so select a provider explicitly when both are installed. Custom providers can introduce their own format identifiers through ServiceLoader or explicit registration.
 
-DOCX-only applications need neither the server, Docker nor LibreOffice. PDF's isolated converter/validator runtime is not supplied by Maven dependencies alone. The [standalone Java/Maven and Kotlin/Gradle examples](examples/embedded/README.md) show local artifact staging and usage; there are no published Central coordinates to download yet.
+DOCX-only applications need neither the server, Docker nor LibreOffice. PDF's isolated converter/validator runtime is not supplied by Maven dependencies alone. Libraries use Maven Central coordinates `dev.nuaforma:<module>:0.1.0-alpha.1`. The [standalone Java/Maven and Kotlin/Gradle examples](examples/embedded/README.md) also show local artifact staging and usage.
 
 ### Run the REST service or container
 
@@ -136,7 +140,7 @@ Source/documentation JARs and POMs are staged only to an ignored local repositor
 
 ## Roadmap and publication
 
-Independent library consumption and Maven Central signing preparation are implemented; the protected check with the maintainer's actual signing key passed. The selected first release candidate is `0.1.0-alpha.1`. First publication still requires exact-candidate consumer/signature and dependency/license checks plus a protected publisher. Container distribution additionally requires the final image's matching source/license materials and fidelity qualification. The preparation workflows publish neither libraries nor images, and the alpha will not receive a `latest` container tag.
+The first evaluation release is `0.1.0-alpha.1`. Signed libraries are published on Maven Central; the public container is available on GHCR without a `latest` tag. Matching native-component source/license materials are attached to the [GitHub release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.1). Preparation workflows remain non-publishing; future releases must pass their separate protected publication gates. Accepted alpha native-runtime security findings are tracked in [issue #51](https://github.com/NuaForma/NuaForma/issues/51).
 
 - [Maven Central release preparation](docs/maven-central-releases.md)
 - [GHCR container release gates](docs/container-releases.md)

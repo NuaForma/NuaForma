@@ -1,0 +1,57 @@
+{
+  "input": {
+    "format": "docx"
+  },
+  "output": {
+    "format": "pdf",
+    "options": {
+      "profile": "pdfa-2b"
+    }
+  },
+  "filename": "example",
+  "data": {
+    "reference": "NF-006",
+    "issuedOn": "2026-10-13",
+    "status": " APPROVED ",
+    "customer": {
+      "name": " Ada Lovelace ",
+      "company": "Example Studio",
+      "email": "ada@example.invalid",
+      "phone": null,
+      "nickname": null,
+      "address": {
+        "city": "Utrecht",
+        "country": "Netherlands"
+      }
+    },
+    "description": "Regular project delivery",
+    "currency": "EUR",
+    "total": 875.5,
+    "lines": [
+      {
+        "description": "Template design",
+        "quantity": 1,
+        "unitPrice": 500,
+        "amount": 500,
+        "optional": false
+      },
+      {
+        "description": "Document delivery",
+        "quantity": 3,
+        "unitPrice": 125.1667,
+        "amount": 375.5,
+        "optional": true
+      }
+    ],
+    "showProjects": true,
+    "projects": [],
+    "delivery": {
+      "filename": "summary.pdf"
+    },
+    "message": "Literal markers stay literal: {customer.name}"
+  },
+  "options": {
+    "locale": "en-GB",
+    "timeZone": "Europe/Amsterdam"
+  }
+}
