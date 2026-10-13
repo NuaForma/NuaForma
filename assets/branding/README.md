@@ -6,8 +6,10 @@ a light background and white on a dark charcoal background.
 
 - `nuaforma-light.png`: standalone light-background asset.
 - `nuaforma-dark.png`: standalone dark-background asset.
+- `nuaforma-dark-transparent.png`: transparent dark-mode derivative with a white wordmark, used by the README and website; the original dark-background asset remains unchanged. Prepared with the built-in image generation tool by removing the charcoal background while retaining the teal/navy symbol and white wordmark. The complete preparation prompt is recorded in `site/assets/README.md`.
 - `nuaforma-icon.png`: square N-only icon on a light background, intended for
   the GitHub organization avatar and other small-format uses.
+- `nuaforma-icon-transparent.png`: transparent N-only avatar derivative, centered with generous margins for small and circular displays; the original icon remains unchanged.
 - `nuaforma-approved-design.png`: original approved two-panel concept, retained
   as the design reference.
 
@@ -19,6 +21,10 @@ They are not pixel-exact crops or final vector masters; minor rendering
 differences can exist between the reference and standalone versions.
 
 ## Asset preparation prompts
+
+### Transparent organization icon
+
+Prepared with the built-in image generation tool. Input is the approved transparent NuaForma logo edit target. Create a square organization avatar using ONLY the rounded flowing N mark. Remove the entire white NuaForma wordmark and leave only the original teal diagonal ribbon and dark navy rounded vertical shapes. Preserve its original colors and geometry, no redesign. Enlarge and center N to occupy about 76% of square canvas height and width, balanced generous margin suited to circular avatar cropping. Smooth crisp clean edges, no stray pixels, no shadow, no halo, no lettering, no outline, no badges. Truly transparent background with alpha, no gray or white rectangle and no painted checkerboard.
 
 ### Organization icon
 

@@ -1,0 +1,26 @@
+services:
+  nuaforma:
+    image: ghcr.io/nuaforma/nuaforma:0.1.0-alpha.1
+    platform: linux/amd64
+    init: true
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+      - seccomp=./seccomp.json
+    pids_limit: 128
+    mem_limit: 2g
+    cpus: 2
+    tmpfs:
+      - /tmp:rw,size=512m,mode=1777
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      NUAFORMA_HEAP_MB: "512"
+      NUAFORMA_HOST: "0.0.0.0"
+      NUAFORMA_PORT: "8080"
+    volumes:
+      - ./custom-fonts:/opt/nuaforma/custom-fonts:ro
+      - ./extensions:/opt/nuaforma/extensions:ro
+    stop_grace_period: 15s
