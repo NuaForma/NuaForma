@@ -2,6 +2,12 @@ name: Prepare container release
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: Explicit container version (does not publish Maven artifacts)
+        required: true
+        default: '0.1.0-alpha.2'
+        type: string
 
 # Preparation never authenticates to a registry or uploads executable images.
 permissions:
@@ -25,6 +31,8 @@ jobs:
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
+    env:
+      CONTAINER_VERSION: ${{ inputs.version }}
     steps:
       - name: Check out sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,7 +48,7 @@ jobs:
           echo '7a9ce74cff467ca1bf60a4fcd9f05185acceda4d0f382434d393e17864262c5d  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check --strict
           test -x gradlew
       - name: Build and test release inputs
-        run: ./gradlew --no-daemon build :nuaforma-server:installDist :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation :nuaforma-server:generateOpenApi generatePomFileForMavenJavaPublication --warning-mode=fail
+        run: ./gradlew --no-daemon "-PcontainerVersion=$CONTAINER_VERSION" build :nuaforma-server:installDist :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation :nuaforma-server:generateOpenApi generatePomFileForMavenJavaPublication --warning-mode=fail
       - name: Build local service image
         run: |
           python3 tools/container/prepare_verapdf_materials.py nuaforma-docx-pdf/build/verapdf-validation
@@ -49,6 +57,8 @@ jobs:
             --build-context pdfvalidation=nuaforma-docx-pdf/build/pdf-validation \
             --build-context verapdfvalidation=nuaforma-docx-pdf/build/verapdf-validation \
             --build-context application=nuaforma-server/build/install/nuaforma-server \
+            --build-arg "NUAFORMA_CONTAINER_VERSION=$CONTAINER_VERSION" \
+            --label "org.opencontainers.image.version=$CONTAINER_VERSION" \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             --target service --tag nuaforma:release-candidate deployment/pdf-runtime
       - name: Qualify shipped HTTP entry point and shutdown
@@ -61,7 +71,7 @@ jobs:
           python3 tools/container/check_renderer_filter.py --image nuaforma:release-candidate --architecture ${{ matrix.architecture }} --output build/container-release/renderer-seccomp.bpf
           python3 tools/container/qualify_sandbox.py --image nuaforma:release-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --output build/container-release/isolation
           python3 tools/container/qualify_sandbox.py --image nuaforma:release-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --exec-hint --output build/container-release/compatibility-isolation
-          python3 tools/container/qualify_service.py --image nuaforma:release-candidate --apparmor nuaforma-runtime --output build/container-release/qualification
+          python3 tools/container/qualify_service.py --image nuaforma:release-candidate --apparmor nuaforma-runtime --expected-version "$CONTAINER_VERSION" --output build/container-release/qualification
       - name: Export exact inventory for distribution review
         run: |
           python3 tools/container/collect_inventory.py --image nuaforma:release-candidate --destination build/container-release/inventory

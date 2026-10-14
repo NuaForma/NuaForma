@@ -2,7 +2,7 @@
 
 This runtime combines separately licensed, unmodified components; it is not wholly Apache-2.0. NuaForma's code and original launcher/build scripts are Apache-2.0. Nothing here restricts recipients' rights under the component licenses. The service requires no activation, licence server or account to obtain the source or run generation.
 
-The first candidate is `0.1.0-alpha.1`. Before binary distribution, the release procedure must make its matching source assets anonymously downloadable at [the versioned release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.1). A locally built candidate is not evidence those assets have been published. Never distribute it before the source-access gate passes.
+The default source-build version is `0.1.0-alpha.1`; the image build replaces it with the selected container version. Before binary distribution, the release procedure must make its matching source assets anonymously downloadable at [the versioned release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.1). A locally built candidate is not evidence those assets have been published. Never distribute it before the source-access gate passes.
 
 The versioned release provides a SHA-256 manifest and these source archives, separately from container binaries:
 

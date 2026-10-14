@@ -3,6 +3,7 @@ import argparse
 import hashlib
 import json
 import pathlib
+import re
 import tarfile
 
 
@@ -25,7 +26,7 @@ def add_record(entries, root, path, digest, prefix):
 
 
 def package(args):
-    assert args.version == "0.1.0-alpha.1"
+    assert re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?", args.version)
     args.output.mkdir(parents=True, exist_ok=False)
     sources = json.loads((args.sources / "collection.json").read_text())
     externals = json.loads((args.externals / "collection.json").read_text())
