@@ -52,7 +52,12 @@ profile nuaforma-runtime flags=(attach_disconnected,mediate_deleted) {
   # Private proc/dev/tmp, not host filesystems or arbitrary device nodes.
   mount fstype=tmpfs options=(rw,nosuid,nodev) -> /newroot/{dev,tmp}/,
   mount fstype=devpts options=(rw,nosuid,noexec) -> /newroot/dev/pts/,
-  mount options=(rw,silent,bind) /oldroot/dev/{null,zero,full,random,urandom,tty} -> /newroot/dev/{null,zero,full,random,urandom,tty},
+  mount options=(rw,rbind) /oldroot/dev/null -> /newroot/dev/null,
+  mount options=(rw,rbind) /oldroot/dev/zero -> /newroot/dev/zero,
+  mount options=(rw,rbind) /oldroot/dev/full -> /newroot/dev/full,
+  mount options=(rw,rbind) /oldroot/dev/random -> /newroot/dev/random,
+  mount options=(rw,rbind) /oldroot/dev/urandom -> /newroot/dev/urandom,
+  mount options=(rw,rbind) /oldroot/dev/tty -> /newroot/dev/tty,
 
   # Read-only remounts never authorize a writable renderer or validator root.
   mount options=(ro,remount,bind,silent,nosuid,nodev) -> /newroot/,
