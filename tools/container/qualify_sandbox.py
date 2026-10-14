@@ -19,7 +19,10 @@ def main():
     label = "dev.nuaforma.isolation"
 
     def command(*values):
-        return subprocess.check_output([args.docker, *values], text=True, stderr=subprocess.STDOUT, timeout=60).strip()
+        try:
+            return subprocess.check_output([args.docker, *values], text=True, stderr=subprocess.STDOUT, timeout=60).strip()
+        except subprocess.CalledProcessError as error:
+            raise RuntimeError("Synthetic sandbox probe failed:\n" + error.output) from error
 
     def remove(name):
         assert command("inspect", name, "--format", '{{index .Config.Labels "' + label + '"}}') == owner
