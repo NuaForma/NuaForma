@@ -125,4 +125,12 @@ class ContainerPackagingTest {
         assertTrue(launcher.contains("--setenv LD_LIBRARY_PATH /opt/libreoffice26.8/program:/validator/java/lib:/validator/java/lib/server"))
         assertTrue(launcher.contains("set -- /opt/libreoffice26.8/program/oosplash"))
     }
+
+    @Test fun `bounded validators use serial collection without suppressing warnings`() {
+        val launcher = Files.readString(root.resolve("deployment/pdf-runtime/render-pdf.sh"))
+        assertEquals(4, Regex("/validator/java/bin/java ").findAll(launcher).count())
+        assertEquals(4, Regex("/validator/java/bin/java -XX:\\+UseSerialGC -Xmx256m ").findAll(launcher).count())
+        assertTrue(launcher.contains("--as=1610612736"))
+        assertFalse(launcher.contains("-Xlog:off"))
+    }
 }

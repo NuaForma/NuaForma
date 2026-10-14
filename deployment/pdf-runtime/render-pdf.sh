@@ -17,11 +17,11 @@ test -d "$work"
 test -f /usr/share/nuaforma/renderer-seccomp.bpf
 exec 3</usr/share/nuaforma/renderer-seccomp.bpf
 if [ "$mode" = probe ]; then
-    set -- /bin/sh -c '/opt/libreoffice26.8/program/soffice.bin --version && /validator/java/bin/java -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -cp "/validator/lib/*" dev.nuaforma.docx.pdf.adapters.pdfbox.PdfOutputValidator --version && /validator/java/bin/java -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -cp "/validator/lib/*:/tmp/verapdf/*" dev.nuaforma.docx.pdf.adapters.verapdf.VeraPdfValidator --version'
+    set -- /bin/sh -c '/opt/libreoffice26.8/program/soffice.bin --version && /validator/java/bin/java -XX:+UseSerialGC -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -cp "/validator/lib/*" dev.nuaforma.docx.pdf.adapters.pdfbox.PdfOutputValidator --version && /validator/java/bin/java -XX:+UseSerialGC -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -cp "/validator/lib/*:/tmp/verapdf/*" dev.nuaforma.docx.pdf.adapters.verapdf.VeraPdfValidator --version'
 elif [ "$mode" = validate ]; then
-    set -- /validator/java/bin/java -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -Djava.awt.headless=true -cp '/validator/lib/*' dev.nuaforma.docx.pdf.adapters.pdfbox.PdfOutputValidator /work/output/input.pdf "$decoded_limit" "$pdf_version"
+    set -- /validator/java/bin/java -XX:+UseSerialGC -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -Djava.awt.headless=true -cp '/validator/lib/*' dev.nuaforma.docx.pdf.adapters.pdfbox.PdfOutputValidator /work/output/input.pdf "$decoded_limit" "$pdf_version"
 elif [ "${mode#validate-pdfa-}" != "$mode" ]; then
-    set -- /validator/java/bin/java -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -Djava.awt.headless=true -Duser.home=/work/home -cp '/validator/lib/*:/tmp/verapdf/*' dev.nuaforma.docx.pdf.adapters.verapdf.VeraPdfValidator /work/output/input.pdf "${mode#validate-}"
+    set -- /validator/java/bin/java -XX:+UseSerialGC -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -Djava.awt.headless=true -Duser.home=/work/home -cp '/validator/lib/*:/tmp/verapdf/*' dev.nuaforma.docx.pdf.adapters.verapdf.VeraPdfValidator /work/output/input.pdf "${mode#validate-}"
 elif [ "$mode" = fonts ]; then
     set -- /usr/bin/fc-list --format '%{family}\n'
 elif [ "$mode" = catalog ]; then

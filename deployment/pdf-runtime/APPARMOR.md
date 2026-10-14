@@ -12,6 +12,8 @@ AppArmor mount permissions do not grant capabilities. The container still runs a
 
 ## Operator setup on an AppArmor-enabled Linux host
 
+The bounded validator JVMs explicitly use Java 17's serial collector on both architectures. Native ARM64 diagnostics with the ergonomic default collector produced repeated GC-thread allocation warnings, despite a successful validation exit. Such output exceeds the intentionally strict conformance-response budget and is correctly rejected. Serial collection avoids those extra GC workers without increasing the 256 MiB heap, address-space limit or PID budget. Warnings are not suppressed and the exact profile/digest proof remains mandatory. See [Java 17 collector selection](https://docs.oracle.com/en/java/javase/17/gctuning/available-collectors.html).
+
 The operator must review and load the policy on the actual Linux container host, not inside the container and not merely on the macOS client. Loading a host profile requires administrative rights; the service itself receives none.
 
 ```sh
