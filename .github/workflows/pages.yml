@@ -29,7 +29,11 @@ jobs:
       - name: Check JavaScript syntax
         run: node --check site/app.js
       - name: Check Compose configuration
-        run: docker compose --project-directory site/downloads/docker config --quiet
+        run: |
+          for kit in docker docker-arm64; do
+            docker compose --project-directory "site/downloads/$kit" config --quiet
+            docker compose --project-directory "site/downloads/$kit" --file "site/downloads/$kit/compose.yaml" --file "site/downloads/$kit/compose.apparmor.yaml" config --quiet
+          done
   deploy:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: check

@@ -6,10 +6,12 @@ import zipfile
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 DOWNLOADS = ROOT / "site/downloads"
 
-for name in ("docker", "helm"):
+for name in ("docker", "docker-arm64", "helm"):
     folder = DOWNLOADS / name
-    for source, target in (("seccomp.json", "seccomp.json"), ("NOTICE", "NOTICE"), ("licenses/APACHE-2.0.txt", "LICENSE")):
+    for source, target in (("seccomp.json", "seccomp.json"), ("NOTICE", "NOTICE"), ("licenses/APACHE-2.0.txt", "LICENSE"), ("nuaforma.apparmor", "nuaforma.apparmor")):
         shutil.copyfile(ROOT / "deployment/pdf-runtime" / source, folder / target)
+    if name.startswith("docker"):
+        shutil.copyfile(ROOT / "deployment/pdf-runtime/compose.apparmor.yaml", folder / "compose.apparmor.yaml")
     with zipfile.ZipFile(DOWNLOADS / (name + "-kit.zip"), "w", zipfile.ZIP_DEFLATED) as archive:
         for file in sorted(folder.rglob("*")):
             if file.is_file():

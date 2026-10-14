@@ -49,7 +49,7 @@ document.addEventListener("click", event => {
   const link = event.target.closest("a[data-download-status]");
   if (!link) return;
   const status = document.getElementById(link.dataset.downloadStatus);
-  if (status) status.textContent = "Download requested: docker-kit.zip. Check your browser's downloads. If no file appears, use the seccomp.json link or the ‘Download not starting?’ instructions below.";
+  if (status) status.textContent = `Download requested: ${new URL(link.href).pathname.split("/").pop()}. Check your browser's downloads. If no file appears, use the seccomp.json link or the ‘Download not starting?’ instructions below.`;
 });
 
 document.addEventListener("click", async event => {
@@ -123,26 +123,15 @@ loadExamples().catch(() => {
 async function latestRelease() {
   const versionPattern = /^\d+\.\d+\.\d+(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?$/;
   try {
-    const response = await fetch("https://repo.maven.apache.org/maven2/dev/nuaforma/nuaforma-core/maven-metadata.xml", { signal: AbortSignal.timeout(4000) });
-    if (!response.ok) throw new Error("Central metadata unavailable");
-    const xml = new DOMParser().parseFromString(await response.text(), "application/xml");
-    const version = xml.querySelector("versioning > latest")?.textContent?.trim();
-    if (!versionPattern.test(version ?? "")) throw new Error("Unknown version");
+    const response = await fetch("https://api.github.com/repos/NuaForma/NuaForma/releases?per_page=20", { signal: AbortSignal.timeout(4000) });
+    if (!response.ok) return;
+    const releases = await response.json();
+    const release = releases.filter(item => !item.draft && versionPattern.test(item.tag_name?.replace(/^v/, "") ?? "")).sort((a, b) => Date.parse(b.published_at) - Date.parse(a.published_at))[0];
+    if (!release) return;
+    const version = release.tag_name.replace(/^v/, "");
     document.querySelector("#release-version").textContent = version;
-    document.querySelector("#release-link").href = "https://central.sonatype.com/artifact/dev.nuaforma/nuaforma-core/" + encodeURIComponent(version);
-    document.querySelector("#release-source").textContent = `Version from Maven Central.${version.includes("-") ? " Prerelease; APIs are not yet stable." : ""}`;
-  } catch {
-    try {
-      const response = await fetch("https://api.github.com/repos/NuaForma/NuaForma/releases?per_page=20", { signal: AbortSignal.timeout(4000) });
-      if (!response.ok) return;
-      const releases = await response.json();
-      const release = releases.filter(item => !item.draft && versionPattern.test(item.tag_name?.replace(/^v/, "") ?? "")).sort((a, b) => Date.parse(b.published_at) - Date.parse(a.published_at))[0];
-      if (!release) return;
-      const version = release.tag_name.replace(/^v/, "");
-      document.querySelector("#release-version").textContent = version;
-      document.querySelector("#release-link").href = "https://github.com/NuaForma/NuaForma/releases/tag/" + encodeURIComponent(release.tag_name);
-      document.querySelector("#release-source").textContent = `Version from GitHub Releases.${release.prerelease ? " Evaluation prerelease." : ""}`;
-    } catch { /* The known published alpha remains available without metadata services. */ }
-  }
+    document.querySelector("#release-link").href = "https://github.com/NuaForma/NuaForma/releases/tag/" + encodeURIComponent(release.tag_name);
+    document.querySelector("#release-source").textContent = `Container release from GitHub. Maven library versions are listed separately.${release.prerelease ? " Evaluation alpha; APIs are not yet stable." : ""}`;
+  } catch { /* The known release stays visible when metadata is unavailable. */ }
 }
 latestRelease();

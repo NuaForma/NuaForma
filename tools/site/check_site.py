@@ -22,14 +22,22 @@ for scenario in index:
         assert request["options"]["watermark"]["opacity"] == 1
 compose = html.unescape(re.search(r'<code id="compose-code">(.*?)</code>', source, re.S)[1])
 assert compose.strip() == (SITE / "downloads/docker/compose.yaml").read_text().strip()
+arm_compose = html.unescape(re.search(r'<code id="compose-arm64-code">(.*?)</code>', source, re.S)[1])
+assert arm_compose.strip() == (SITE / "downloads/docker-arm64/compose.yaml").read_text().strip()
+assert "platform: linux/arm64" in arm_compose
+assert arm_compose.replace("platform: linux/arm64", "platform: linux/amd64").strip() == compose.strip()
+assert 'href="downloads/docker-arm64-kit.zip"' in source
 assert 'href="downloads/docker/seccomp.json" download="seccomp.json"' in source
 assert 'href="downloads/docker-kit.zip" download="docker-kit.zip" data-download-status="docker-kit-status"' in source
 assert 'id="docker-kit-status"' in source
 assert 'id="docker-kit-download"' in source
 assert "curl --fail --location https://nuaforma.dev/downloads/docker-kit.zip --output docker-kit.zip" in source
-for name in ("docker", "helm"):
+for name in ("docker", "docker-arm64", "helm"):
     folder = SITE / "downloads" / name
     assert (folder / "seccomp.json").read_bytes() == (ROOT / "deployment/pdf-runtime/seccomp.json").read_bytes()
+    assert (folder / "nuaforma.apparmor").read_bytes() == (ROOT / "deployment/pdf-runtime/nuaforma.apparmor").read_bytes()
+    if name.startswith("docker"):
+        assert (folder / "compose.apparmor.yaml").read_bytes() == (ROOT / "deployment/pdf-runtime/compose.apparmor.yaml").read_bytes()
     with zipfile.ZipFile(SITE / "downloads" / (name + "-kit.zip")) as archive:
         expected = {p.relative_to(folder).as_posix() for p in folder.rglob("*") if p.is_file()}
         assert set(archive.namelist()) == expected
