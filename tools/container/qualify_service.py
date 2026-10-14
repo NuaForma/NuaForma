@@ -10,6 +10,7 @@ import urllib.error
 import urllib.request
 import uuid
 import zipfile
+from verify_isolation_config import verify as verify_isolation
 
 
 def template(paragraphs=1):
@@ -59,11 +60,13 @@ class Runtime:
     def __init__(self, args, *environment):
         self.args = args
         self.name = "nuaforma-qualification-" + uuid.uuid4().hex
+        apparmor = getattr(args, "apparmor", None)
+        policy = ["--security-opt", "apparmor=" + apparmor] if apparmor else []
         self.command("run", "-d", "--init", "--name", self.name, "--label", "dev.nuaforma.qualification=" + self.name,
                      "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
                      "--security-opt", "seccomp=" + str(args.seccomp.resolve()), "--pids-limit", "128",
                      "--memory", "2g", "--cpus", "2", "--tmpfs", "/tmp:rw,size=512m,mode=1777",
-                     "--publish", "127.0.0.1::8080", *environment, args.image)
+                     "--publish", "127.0.0.1::8080", *policy, *environment, args.image)
 
     def command(self, *command, timeout=45):
         return subprocess.check_output([self.args.docker, *command], text=True, stderr=subprocess.STDOUT, timeout=timeout).strip()
@@ -102,6 +105,7 @@ def main():
     parser.add_argument("--fixtures", type=pathlib.Path)
     parser.add_argument("--fonts", type=pathlib.Path)
     parser.add_argument("--expected-version")
+    parser.add_argument("--apparmor", choices=("nuaforma-runtime",))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     checks = []
@@ -109,6 +113,7 @@ def main():
     try:
         base = runtime.connect()
         config = json.loads(runtime.command("inspect", runtime.name))[0]
+        verify_isolation(config, args.apparmor)
         assert config["Config"]["User"] == "1000:1000" and config["HostConfig"]["ReadonlyRootfs"]
         assert config["HostConfig"]["Init"] and not config["HostConfig"]["Privileged"]
         assert config["HostConfig"]["CapDrop"] == ["ALL"]

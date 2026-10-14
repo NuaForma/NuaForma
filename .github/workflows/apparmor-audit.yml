@@ -1,0 +1,55 @@
+name: Diagnose inherited AppArmor mount denial
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/apparmor-audit.yml', 'deployment/pdf-runtime/nuaforma.apparmor', 'tools/container/collect_mount_audit.py']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Kernel mount audit (${{ matrix.architecture }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: amd64
+            runner: ubuntu-24.04
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build only the namespace and synthetic probe fixtures
+        run: |
+          docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile --target sandbox-check --tag nuaforma:host-audit deployment/pdf-runtime
+          docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile --build-context qualificationfixtures=tools/pdf-evaluation --target sandbox-probe-build --tag nuaforma:host-probe deployment/pdf-runtime
+      - name: Reproduce the default-policy denial and collect matching kernel evidence
+        run: |
+          docker info --format '{{json .SecurityOptions}}'
+          mkdir -p build
+          sudo python3 tools/container/collect_mount_audit.py --image nuaforma:host-audit --probe-image nuaforma:host-probe --output build/host-audit
+      - name: Require the enforcing candidate profile to pass real negative probes
+        run: |
+          sudo apparmor_parser --add --skip-cache deployment/pdf-runtime/nuaforma.apparmor
+          sudo grep -F 'nuaforma-runtime (enforce)' /sys/kernel/security/apparmor/profiles
+          started="$(date --iso-8601=seconds)"
+          set +e
+          python3 tools/container/qualify_sandbox.py --image nuaforma:host-audit --probe-image nuaforma:host-probe --apparmor nuaforma-runtime --output build/host-apparmor
+          result=$?
+          set -e
+          sudo journalctl --dmesg --since "$started" --no-pager | grep 'profile="nuaforma-runtime"' | grep 'apparmor="DENIED"' || true
+          exit "$result"
+      - name: Require immutable executable-hint isolation without real procfs
+        run: python3 tools/container/qualify_sandbox.py --image nuaforma:host-audit --probe-image nuaforma:host-probe --apparmor nuaforma-runtime --exec-hint --output build/host-apparmor-hint
+
+# A passing diagnostic proves the inherited policy denial, not a qualified runtime.
+# Only denial logging is temporarily expanded and restored; enforcement is unchanged.
+# The separate named candidate profile is loaded without changing docker-default.
+# No host capability grants, unconfined execution or executable uploads.

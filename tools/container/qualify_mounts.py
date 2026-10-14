@@ -15,6 +15,7 @@ def main():
     parser.add_argument("--extensions", type=pathlib.Path, required=True)
     parser.add_argument("--fixtures", type=pathlib.Path, required=True)
     parser.add_argument("--output", type=pathlib.Path, required=True)
+    parser.add_argument("--apparmor", choices=("nuaforma-runtime",))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     runtime = Runtime(args, "--mount", "type=bind,source=" + str(args.fonts.resolve()) + ",target=/opt/nuaforma/custom-fonts,readonly",

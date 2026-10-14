@@ -1,0 +1,68 @@
+"""Check a reviewed platform archive and loaded config; never run or publish it."""
+import argparse
+import hashlib
+import json
+import pathlib
+import subprocess
+import tarfile
+from validate_multiarch_release import PLATFORMS, check
+
+
+def validate_archive(path, review, architecture):
+    version = review["version"]
+    check(review, version, review["sourceCommit"])
+    platform = review["platforms"][architecture]
+    if path.name != f"nuaforma-container-{version}-{architecture}.tar.gz" or not 0 < path.stat().st_size <= 2 * 1024 * 1024 * 1024:
+        raise ValueError("Unexpected platform archive")
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        while block := source.read(1024 * 1024):
+            digest.update(block)
+    if digest.hexdigest() != platform["containerArchiveSha256"]:
+        raise ValueError("Archive differs from approved candidate")
+    config = None
+    with tarfile.open(path, "r|gz") as archive:
+        count, expanded = 0, 0
+        for member in archive:
+            count += 1
+            expanded += member.size
+            if count > 100_000 or expanded > 8 * 1024 * 1024 * 1024:
+                raise ValueError("Archive expansion budget exceeded")
+            if member.isfile() and member.size <= 1024 * 1024:
+                data = archive.extractfile(member).read()
+                if hashlib.sha256(data).hexdigest() == platform["containerConfigSha256"]:
+                    config = json.loads(data)
+    if config is None or config.get("architecture") != architecture or config.get("os") != "linux":
+        raise ValueError("Approved native image configuration missing")
+    if config["config"].get("User") != "1000:1000":
+        raise ValueError("Non-root runtime required")
+    labels = config["config"].get("Labels", {})
+    if labels.get("org.opencontainers.image.version") != version or labels.get("org.opencontainers.image.revision") != review["sourceCommit"]:
+        raise ValueError("Image source/version differs from review")
+    return config
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--review", type=pathlib.Path, required=True)
+    parser.add_argument("--architecture", choices=PLATFORMS, required=True)
+    parser.add_argument("--archive", type=pathlib.Path, required=True)
+    parser.add_argument("--check-loaded", action="store_true")
+    args = parser.parse_args()
+    review = json.loads(args.review.read_text())
+    config = validate_archive(args.archive, review, args.architecture)
+    if args.check_loaded:
+        tag = f'nuaforma:{review["version"]}-{args.architecture}-archive'
+        image = json.loads(subprocess.check_output(["docker", "image", "inspect", tag], text=True, timeout=30))[0]
+        if image["Id"] != "sha256:" + review["platforms"][args.architecture]["containerConfigSha256"]:
+            raise ValueError("Loaded configuration identity differs from approved archive")
+        if image["Os"] != "linux" or image["Architecture"] != args.architecture or image["RootFS"]["Layers"] != config["rootfs"]["diff_ids"]:
+            raise ValueError("Loaded platform layers differ from approved candidate")
+        for key, value in config["config"].items():
+            if image["Config"].get(key) != value:
+                raise ValueError("Loaded runtime configuration differs from archive")
+    print("Exact reviewed " + args.architecture + " image identity: PASS")
+
+
+if __name__ == "__main__":
+    main()

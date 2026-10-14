@@ -1,0 +1,82 @@
+name: Publish audited multi-platform container
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: New explicit release version with approved amd64 and arm64 archives
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: multi-platform-container-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'NuaForma/NuaForma' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: ghcr-release
+    permissions:
+      contents: read
+      packages: write
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require both native reviews and matching recipient-accessible sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/release/check_environment.py --environment ghcr-release
+          python3 tools/release/validate_multiarch_release.py --version "$RELEASE_VERSION" --review "release-approvals/$RELEASE_VERSION.json"
+          mkdir -p build/multiarch
+          for arch in amd64 arm64; do
+            archive="nuaforma-container-$RELEASE_VERSION-$arch.tar.gz"
+            gh release download "v$RELEASE_VERSION" --repo NuaForma/NuaForma --pattern "$archive" --dir build/multiarch
+            python3 tools/release/check_multiarch_archive.py --review "release-approvals/$RELEASE_VERSION.json" --architecture "$arch" --archive "build/multiarch/$archive"
+            docker load --input "build/multiarch/$archive"
+            python3 tools/release/check_multiarch_archive.py --review "release-approvals/$RELEASE_VERSION.json" --architecture "$arch" --archive "build/multiarch/$archive" --check-loaded
+          done
+      - name: Authenticate after all review gates pass
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Publish both exact platform images and one versioned index
+        run: |
+          reference="ghcr.io/nuaforma/nuaforma:$RELEASE_VERSION"
+          python3 tools/release/ensure_tag_absent.py --reference "$reference"
+          for arch in amd64 arm64; do
+            python3 tools/release/ensure_tag_absent.py --reference "$reference-$arch"
+          done
+          for arch in amd64 arm64; do
+            docker tag "nuaforma:$RELEASE_VERSION-$arch-archive" "$reference-$arch"
+            docker push "$reference-$arch"
+          done
+          docker manifest create "$reference" "$reference-amd64" "$reference-arm64"
+          docker manifest push "$reference"
+          docker manifest inspect "$reference" > build/multiarch/published-index.json
+          for arch in amd64 arm64; do
+            docker manifest inspect --verbose "$reference-$arch" > "build/multiarch/$arch-manifest.json"
+          done
+          python3 tools/release/check_multiarch_index.py build/multiarch/published-index.json --review "release-approvals/$RELEASE_VERSION.json" --amd64-manifest build/multiarch/amd64-manifest.json --arm64-manifest build/multiarch/arm64-manifest.json
+      - name: Update stable alias only after the complete version index is verified
+        run: |
+          case "$RELEASE_VERSION" in *-*) exit 0 ;; esac
+          reference="ghcr.io/nuaforma/nuaforma:$RELEASE_VERSION"
+          docker manifest create ghcr.io/nuaforma/nuaforma:latest "$reference-amd64" "$reference-arm64" --amend
+          docker manifest push ghcr.io/nuaforma/nuaforma:latest
+          docker manifest inspect ghcr.io/nuaforma/nuaforma:latest > build/multiarch/latest-index.json
+          python3 tools/release/check_multiarch_index.py build/multiarch/latest-index.json --review "release-approvals/$RELEASE_VERSION.json" --amd64-manifest build/multiarch/amd64-manifest.json --arm64-manifest build/multiarch/arm64-manifest.json
+      - name: Clear registry authentication
+        if: always()
+        run: docker logout ghcr.io
+
+# Never rebuild at publication, overwrite a version, or substitute an emulated qualification.

@@ -17,28 +17,37 @@ test -d "$work"
 test -f /usr/share/nuaforma/renderer-seccomp.bpf
 exec 3</usr/share/nuaforma/renderer-seccomp.bpf
 if [ "$mode" = probe ]; then
-    set -- /bin/sh -c '/opt/libreoffice26.8/program/soffice --version && /validator/java/bin/java -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -cp "/validator/lib/*" dev.nuaforma.docx.pdf.adapters.pdfbox.PdfOutputValidator --version && /validator/java/bin/java -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -cp "/validator/lib/*:/tmp/verapdf/*" dev.nuaforma.docx.pdf.adapters.verapdf.VeraPdfValidator --version'
+    set -- /bin/sh -c '/opt/libreoffice26.8/program/soffice.bin --version && /validator/java/bin/java -XX:+UseSerialGC -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -cp "/validator/lib/*" dev.nuaforma.docx.pdf.adapters.pdfbox.PdfOutputValidator --version && /validator/java/bin/java -XX:+UseSerialGC -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -cp "/validator/lib/*:/tmp/verapdf/*" dev.nuaforma.docx.pdf.adapters.verapdf.VeraPdfValidator --version'
 elif [ "$mode" = validate ]; then
-    set -- /validator/java/bin/java -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -Djava.awt.headless=true -cp '/validator/lib/*' dev.nuaforma.docx.pdf.adapters.pdfbox.PdfOutputValidator /work/output/input.pdf "$decoded_limit" "$pdf_version"
+    set -- /validator/java/bin/java -XX:+UseSerialGC -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -Djava.awt.headless=true -cp '/validator/lib/*' dev.nuaforma.docx.pdf.adapters.pdfbox.PdfOutputValidator /work/output/input.pdf "$decoded_limit" "$pdf_version"
 elif [ "${mode#validate-pdfa-}" != "$mode" ]; then
-    set -- /validator/java/bin/java -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -Djava.awt.headless=true -Duser.home=/work/home -cp '/validator/lib/*:/tmp/verapdf/*' dev.nuaforma.docx.pdf.adapters.verapdf.VeraPdfValidator /work/output/input.pdf "${mode#validate-}"
+    set -- /validator/java/bin/java -XX:+UseSerialGC -Xmx256m -XX:MaxMetaspaceSize=128m -XX:CompressedClassSpaceSize=64m -XX:ReservedCodeCacheSize=64m -XX:ActiveProcessorCount=2 -Xss512k -Djava.awt.headless=true -Duser.home=/work/home -cp '/validator/lib/*:/tmp/verapdf/*' dev.nuaforma.docx.pdf.adapters.verapdf.VeraPdfValidator /work/output/input.pdf "${mode#validate-}"
 elif [ "$mode" = fonts ]; then
     set -- /usr/bin/fc-list --format '%{family}\n'
 elif [ "$mode" = catalog ]; then
     set -- /usr/bin/fc-list --format '%{family}\t%{weight}\t%{slant}\n'
 else
     case "$mode" in convert) pdf_selection=17 ;; convert-pdfa-1b) pdf_selection=1 ;; convert-pdfa-2b) pdf_selection=2 ;; convert-pdfa-3b) pdf_selection=3 ;; *) exit 64 ;; esac
-    set -- /opt/libreoffice26.8/program/soffice -env:UserInstallation=file:///work/profile --headless --nologo --nodefault --nofirststartwizard --norestore \
+    set -- /opt/libreoffice26.8/program/oosplash -env:UserInstallation=file:///work/profile --headless --nologo --nodefault --nofirststartwizard --norestore \
         --convert-to "pdf:writer_pdf_Export:{\"SelectPdfVersion\":{\"type\":\"long\",\"value\":\"$pdf_selection\"},\"ExportBookmarks\":{\"type\":\"boolean\",\"value\":\"true\"},\"ExportFormFields\":{\"type\":\"boolean\",\"value\":\"false\"},\"IsAddStream\":{\"type\":\"boolean\",\"value\":\"false\"}}" \
         --outdir /work/output /work/input.docx
 fi
+case "$mode" in
+    convert|convert-pdfa-*)
+        set -- --tmpfs /proc --dir /proc/self \
+            --symlink /opt/libreoffice26.8/program/soffice.bin /proc/self/exe \
+            --symlink /dev/null /proc/version \
+            --remount-ro /proc -- "$@" ;;
+    *) set -- -- "$@" ;;
+esac
 exec /usr/bin/prlimit --core=0 --as=1610612736 --fsize="$file_limit" --cpu="$cpu_seconds" -- \
     /usr/local/bin/bwrap --unshare-user --unshare-ipc --unshare-pid --unshare-net --unshare-uts \
     --die-with-parent --new-session --cap-drop ALL --clearenv \
-    --ro-bind /opt/nuaforma/renderer / --proc /proc --dev /dev --tmpfs /tmp \
+    --ro-bind /opt/nuaforma/renderer / --dev /dev --tmpfs /tmp \
     --ro-bind /opt/java/openjdk /validator/java --ro-bind /opt/nuaforma/pdf-validation /validator/lib \
     --ro-bind /opt/nuaforma/verapdf-validation /tmp/verapdf \
     --bind "$work" /work --chdir /work --seccomp 3 \
     --setenv HOME /work/home --setenv LANG C.UTF-8 --setenv LC_ALL C.UTF-8 \
     --setenv SAL_USE_VCLPLUGIN svp --setenv FONTCONFIG_FILE /work/fonts.conf \
-    --setenv XDG_CACHE_HOME /work/cache --setenv TMPDIR /work/tmp -- "$@"
+    --setenv LD_LIBRARY_PATH /opt/libreoffice26.8/program:/validator/java/lib:/validator/java/lib/server \
+    --setenv XDG_CACHE_HOME /work/cache --setenv TMPDIR /work/tmp "$@"

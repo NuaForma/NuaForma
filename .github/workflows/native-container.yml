@@ -1,0 +1,71 @@
+name: Native container candidates
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['deployment/pdf-runtime/**', 'tools/container/**', 'tools/pdf-evaluation/**', 'nuaforma-*/**', 'gradle/**', '*.gradle.kts', '.github/workflows/native-container.yml', '.github/workflows/container-release.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-container-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualify:
+    name: Native container (${{ matrix.architecture }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: amd64
+            runner: ubuntu-24.04
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify wrapper and prepare Java 17 inputs
+        run: |
+          echo '7a9ce74cff467ca1bf60a4fcd9f05185acceda4d0f382434d393e17864262c5d  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check --strict
+          test -x gradlew
+          ./gradlew --no-daemon build :nuaforma-server:installDist :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation --warning-mode=fail
+          python3 tools/container/prepare_verapdf_materials.py nuaforma-docx-pdf/build/verapdf-validation
+          python3 tools/container/prepare_application_materials.py
+      - name: Build native candidate without publishing
+        run: |
+          docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile \
+            --build-context pdfvalidation=nuaforma-docx-pdf/build/pdf-validation \
+            --build-context verapdfvalidation=nuaforma-docx-pdf/build/verapdf-validation \
+            --build-context application=nuaforma-server/build/install/nuaforma-server \
+            --target service --tag nuaforma:native-candidate deployment/pdf-runtime
+      - name: Check native platform, compiled filter and real service
+        run: |
+          sudo apparmor_parser --add --skip-cache deployment/pdf-runtime/nuaforma.apparmor
+          sudo grep -F 'nuaforma-runtime (enforce)' /sys/kernel/security/apparmor/profiles
+          docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile --build-context qualificationfixtures=tools/pdf-evaluation --target sandbox-probe-build --tag nuaforma:native-probe deployment/pdf-runtime
+          python3 tools/container/verify_native_platform.py --image nuaforma:native-candidate --architecture ${{ matrix.architecture }}
+          python3 tools/container/check_renderer_filter.py --image nuaforma:native-candidate --architecture ${{ matrix.architecture }} --output build/native-container/renderer-seccomp.bpf
+          python3 tools/container/qualify_sandbox.py --image nuaforma:native-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --output build/native-container/isolation
+          python3 tools/container/qualify_sandbox.py --image nuaforma:native-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --exec-hint --output build/native-container/compatibility-isolation
+          python3 tools/container/qualify_service.py --image nuaforma:native-candidate --apparmor nuaforma-runtime --output build/native-container/qualification
+      - name: Show only matching synthetic policy denials on failure
+        if: failure()
+        run: sudo journalctl --dmesg --no-pager | grep 'profile="nuaforma-runtime"' | grep 'apparmor="DENIED"' || true
+      - name: Diagnose the already generated synthetic document without exposing request logs
+        if: failure()
+        run: |
+          if test -f build/native-container/qualification/document.docx; then
+            python3 tools/container/diagnose_synthetic_render.py --image nuaforma:native-candidate --apparmor nuaforma-runtime --document build/native-container/qualification/document.docx --output build/native-container/synthetic-diagnosis
+          fi
+
+# No binary artifacts, registry writes, image push or security-policy bypass.
