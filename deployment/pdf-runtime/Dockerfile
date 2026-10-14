@@ -55,6 +55,7 @@ RUN apt-get install -y --no-install-recommends libxinerama1 libx11-6 libx11-xcb1
 FROM eclipse-temurin:17-jre-noble@sha256:900322f4cc1b9da9d730ae4bb56d8a1dabbaa9cfa32809fc8b542b600370a045 AS java-runtime
 
 FROM sandbox-check AS qualification
+ARG NUAFORMA_CONTAINER_VERSION=0.1.0-alpha.1
 COPY --from=libreoffice / /opt/nuaforma/renderer/
 COPY --from=java-runtime /opt/java/openjdk /opt/java/openjdk/
 COPY --from=pdfvalidation / /opt/nuaforma/pdf-validation/
@@ -66,6 +67,8 @@ COPY licenses/APACHE-2.0.txt /usr/share/nuaforma/licenses/APACHE-2.0.txt
 COPY licenses/kotlin /usr/share/nuaforma/licenses/kotlin/
 USER root
 RUN chmod 0555 /opt/nuaforma/bin/render-pdf \
+    && printf '%s' "$NUAFORMA_CONTAINER_VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[A-Za-z0-9][A-Za-z0-9.-]*)?$' \
+    && sed -i "s/0\.1\.0-alpha\.1/$NUAFORMA_CONTAINER_VERSION/g" /usr/share/nuaforma/SOURCES.md \
     && dpkg-query -W -f='${binary:Package}\t${Version}\t${source:Package}\t${source:Version}\n' > /usr/share/nuaforma/outer-packages.tsv \
     && dpkg-query --admindir=/opt/nuaforma/renderer/var/lib/dpkg -W -f='${binary:Package}\t${Version}\t${source:Package}\t${source:Version}\n' > /usr/share/nuaforma/renderer-packages.tsv \
     && sha256sum /opt/nuaforma/pdf-validation/*.jar > /usr/share/nuaforma/validator-sha256.txt
