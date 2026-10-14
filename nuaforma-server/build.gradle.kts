@@ -18,7 +18,8 @@ val sourceCommit = providers.provider {
         }.standardOutput.asText.get().trim()
     }.getOrDefault("")
 }.map { if (it.matches(Regex("[0-9a-f]{40}|[0-9a-f]{64}"))) it else "unknown" }
-val buildVersion = providers.gradleProperty("containerVersion").orElse(provider { project.version.toString() }).map {
+val libraryVersion = project.version.toString()
+val buildVersion = providers.gradleProperty("containerVersion").orElse(libraryVersion).map {
     require(it.matches(Regex("(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?"))) { "Invalid container build version" }
     it
 }
@@ -108,6 +109,7 @@ tasks.named<Test>("test") {
     inputs.files(productionOutputs.values).withPropertyName("architectureProductionClasses")
     doFirst {
         systemProperty("nuaforma.expectedBuildVersion", buildVersion.get())
+        systemProperty("nuaforma.expectedLibraryVersion", libraryVersion)
         systemProperty("nuaforma.expectedBuildCommit", sourceCommit.get())
         systemProperty("nuaforma.serverJar", tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath)
         systemProperty("nuaforma.repositoryRoot", rootProject.projectDir.absolutePath)

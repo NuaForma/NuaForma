@@ -133,4 +133,19 @@ class ContainerPackagingTest {
         assertTrue(launcher.contains("--as=1610612736"))
         assertFalse(launcher.contains("-Xlog:off"))
     }
+
+    @Test fun `native archive transfer requires protected review and matching sources first`() {
+        val workflow = yaml(".github/workflows/container-archive.yml")
+        assertEquals(mapOf("contents" to "read"), workflow["permissions"])
+        val job = (workflow["jobs"] as Map<*, *>)["archive"] as Map<*, *>
+        assertEquals("ghcr-release", job["environment"])
+        assertEquals("github.repository == 'NuaForma/NuaForma' && github.ref == 'refs/heads/main'", job["if"])
+        assertEquals(mapOf("contents" to "write"), job["permissions"])
+        val commands = (job["steps"] as List<*>).joinToString("\n") { (it as Map<*, *>)["run"].toString() }
+        assertTrue(commands.indexOf("check_container_source_coverage.py") < commands.indexOf("docker save"))
+        assertTrue(commands.indexOf("qualify_service.py") < commands.indexOf("gh release upload"))
+        listOf("docker push", "docker login", "--privileged", "unconfined", "--clobber").forEach { assertFalse(commands.contains(it), it) }
+        assertTrue(commands.contains(".verification.verified"))
+        assertTrue(commands.contains("--expected-version"))
+    }
 }

@@ -1,0 +1,99 @@
+name: Retain audited native container archives
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Signed container version with publicly available matching sources
+        required: true
+        default: '0.1.0-alpha.2'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-container-archive
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    if: github.repository == 'NuaForma/NuaForma' && github.ref == 'refs/heads/main'
+    environment: ghcr-release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: amd64
+            runner: ubuntu-24.04
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      CONTAINER_VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require protected approval and a verified immutable source tag
+        run: |
+          python3 tools/release/check_environment.py --environment ghcr-release
+          python3 -c 'import os,re; assert re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?",os.environ["CONTAINER_VERSION"]); assert os.environ["CONTAINER_VERSION"] != "0.1.0-alpha.1"'
+          tag="refs/tags/v$CONTAINER_VERSION"
+          test "$(git cat-file -t "$tag")" = tag
+          git merge-base --is-ancestor "$tag^{commit}" origin/main
+          tag_object="$(git rev-parse "$tag")"
+          test "$(gh api "repos/NuaForma/NuaForma/git/tags/$tag_object" --jq '.verification.verified')" = true
+          git checkout --detach "$tag^{commit}"
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Prepare version-bound inputs and original legal material
+        run: |
+          echo '7a9ce74cff467ca1bf60a4fcd9f05185acceda4d0f382434d393e17864262c5d  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check --strict
+          ./gradlew --no-daemon "-PcontainerVersion=$CONTAINER_VERSION" build :nuaforma-server:installDist :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation --warning-mode=fail
+          python3 tools/container/prepare_verapdf_materials.py nuaforma-docx-pdf/build/verapdf-validation
+          python3 tools/container/prepare_application_materials.py
+      - name: Build exact native version without registry publication
+        run: |
+          docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile \
+            --build-context pdfvalidation=nuaforma-docx-pdf/build/pdf-validation \
+            --build-context verapdfvalidation=nuaforma-docx-pdf/build/verapdf-validation \
+            --build-context application=nuaforma-server/build/install/nuaforma-server \
+            --build-arg "NUAFORMA_CONTAINER_VERSION=$CONTAINER_VERSION" \
+            --label "org.opencontainers.image.version=$CONTAINER_VERSION" \
+            --label "org.opencontainers.image.revision=$(git rev-parse HEAD)" \
+            --target service --tag "nuaforma:$CONTAINER_VERSION-${{ matrix.architecture }}-archive" deployment/pdf-runtime
+      - name: Verify exact component source coverage before any binary transfer
+        run: |
+          image="nuaforma:$CONTAINER_VERSION-${{ matrix.architecture }}-archive"
+          python3 tools/container/collect_inventory.py --image "$image" --destination build/container-archive/inventory
+          python3 tools/release/check_container_source_coverage.py --review "release-materials/$CONTAINER_VERSION.json" --version "$CONTAINER_VERSION" --architecture ${{ matrix.architecture }} --inventory build/container-archive/inventory
+      - name: Qualify the exact native image with the enforcing policy
+        run: |
+          image="nuaforma:$CONTAINER_VERSION-${{ matrix.architecture }}-archive"
+          sudo apparmor_parser --add --skip-cache deployment/pdf-runtime/nuaforma.apparmor
+          sudo grep -F 'nuaforma-runtime (enforce)' /sys/kernel/security/apparmor/profiles
+          docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile --build-context qualificationfixtures=tools/pdf-evaluation --target sandbox-probe-build --tag nuaforma:native-probe deployment/pdf-runtime
+          python3 tools/container/verify_native_platform.py --image "$image" --architecture ${{ matrix.architecture }}
+          python3 tools/container/check_renderer_filter.py --image "$image" --architecture ${{ matrix.architecture }} --output build/container-archive/filter.bpf
+          python3 tools/container/qualify_sandbox.py --image "$image" --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --output build/container-archive/isolation
+          python3 tools/container/qualify_sandbox.py --image "$image" --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --exec-hint --output build/container-archive/compatibility-isolation
+          python3 tools/container/qualify_service.py --image "$image" --apparmor nuaforma-runtime --expected-version "$CONTAINER_VERSION" --output build/container-archive/qualification
+      - name: Retain immutable archive and checksum metadata after source and native gates
+        run: |
+          archive="nuaforma-container-$CONTAINER_VERSION-${{ matrix.architecture }}.tar.gz"
+          test "$(gh release view "v$CONTAINER_VERSION" --repo NuaForma/NuaForma --json assets --jq ".assets[] | select(.name == \"$archive\") | .name" | wc -l)" = 0
+          docker save "nuaforma:$CONTAINER_VERSION-${{ matrix.architecture }}-archive" | gzip -1 > "build/container-archive/$archive"
+          test "$(stat -c %s "build/container-archive/$archive")" -lt 2147483648
+          sha256sum "build/container-archive/$archive" > "build/container-archive/SHA256SUMS.${{ matrix.architecture }}"
+          tar -czf "build/container-archive/metadata-${{ matrix.architecture }}.tar.gz" -C build/container-archive inventory isolation compatibility-isolation qualification/qualification.json
+          gh release upload "v$CONTAINER_VERSION" --repo NuaForma/NuaForma "build/container-archive/$archive" "build/container-archive/SHA256SUMS.${{ matrix.architecture }}" "build/container-archive/metadata-${{ matrix.architecture }}.tar.gz"
+
+# Sources precede every binary transfer. This does not publish registry tags.

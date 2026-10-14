@@ -42,6 +42,6 @@ class LibraryReleasePreparationTest {
         assertTrue(build.contains("buildDirectory.dir(\"library-repository\")"))
         assertTrue(build.contains("useInMemoryPgpKeys"))
         assertFalse(Files.readString(root.resolve("gradle.properties")).contains("signingPassword"))
-        assertEquals(System.getProperty("nuaforma.expectedBuildVersion"), Files.readAllLines(root.resolve("gradle.properties")).single { it.startsWith("version=") }.removePrefix("version="))
+        assertEquals(System.getProperty("nuaforma.expectedLibraryVersion"), Files.readAllLines(root.resolve("gradle.properties")).single { it.startsWith("version=") }.removePrefix("version="))
     }
 }
