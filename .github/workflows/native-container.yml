@@ -50,10 +50,15 @@ jobs:
             --target service --tag nuaforma:native-candidate deployment/pdf-runtime
       - name: Check native platform, compiled filter and real service
         run: |
+          sudo apparmor_parser --add --skip-cache deployment/pdf-runtime/nuaforma.apparmor
+          sudo grep -F 'nuaforma-runtime (enforce)' /sys/kernel/security/apparmor/profiles
           docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile --build-context qualificationfixtures=tools/pdf-evaluation --target sandbox-probe-build --tag nuaforma:native-probe deployment/pdf-runtime
           python3 tools/container/verify_native_platform.py --image nuaforma:native-candidate --architecture ${{ matrix.architecture }}
           python3 tools/container/check_renderer_filter.py --image nuaforma:native-candidate --architecture ${{ matrix.architecture }} --output build/native-container/renderer-seccomp.bpf
-          python3 tools/container/qualify_sandbox.py --image nuaforma:native-candidate --probe-image nuaforma:native-probe --output build/native-container/isolation
-          python3 tools/container/qualify_service.py --image nuaforma:native-candidate --output build/native-container/qualification
+          python3 tools/container/qualify_sandbox.py --image nuaforma:native-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --output build/native-container/isolation
+          python3 tools/container/qualify_service.py --image nuaforma:native-candidate --apparmor nuaforma-runtime --output build/native-container/qualification
+      - name: Show only matching synthetic policy denials on failure
+        if: failure()
+        run: sudo journalctl --dmesg --no-pager | grep 'profile="nuaforma-runtime"' | grep 'apparmor="DENIED"' || true
 
 # No binary artifacts, registry writes, image push or security-policy bypass.

@@ -33,6 +33,7 @@ jobs:
       - name: Reproduce the default-policy denial and collect matching kernel evidence
         run: |
           docker info --format '{{json .SecurityOptions}}'
+          mkdir -p build
           sudo python3 tools/container/collect_mount_audit.py --image nuaforma:host-audit --probe-image nuaforma:host-probe --output build/host-audit
       - name: Require the enforcing candidate profile to pass real negative probes
         run: |
@@ -40,7 +41,7 @@ jobs:
           sudo grep -F 'nuaforma-runtime (enforce)' /sys/kernel/security/apparmor/profiles
           started="$(date --iso-8601=seconds)"
           set +e
-          python3 tools/container/qualify_sandbox.py --image nuaforma:host-audit --probe-image nuaforma:host-probe --apparmor nuaforma-runtime --output build/host-audit/confined
+          python3 tools/container/qualify_sandbox.py --image nuaforma:host-audit --probe-image nuaforma:host-probe --apparmor nuaforma-runtime --output build/host-apparmor
           result=$?
           set -e
           sudo journalctl --dmesg --since "$started" --no-pager | grep 'profile="nuaforma-runtime"' | grep 'apparmor="DENIED"' || true

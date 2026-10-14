@@ -1,0 +1,4 @@
+services:
+  nuaforma:
+    security_opt:
+      - apparmor=nuaforma-runtime
