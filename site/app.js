@@ -45,6 +45,13 @@ document.querySelectorAll("[role=tab]").forEach(tab => {
   });
 });
 
+document.addEventListener("click", event => {
+  const link = event.target.closest("a[data-download-status]");
+  if (!link) return;
+  const status = document.getElementById(link.dataset.downloadStatus);
+  if (status) status.textContent = "Download requested: docker-kit.zip. Check your browser's downloads. If no file appears, use the seccomp.json link or the ‘Download not starting?’ instructions below.";
+});
+
 document.addEventListener("click", async event => {
   const button = event.target.closest("[data-copy]");
   if (!button) return;
