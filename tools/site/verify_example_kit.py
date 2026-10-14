@@ -5,10 +5,12 @@ import io
 import json
 import pathlib
 import subprocess
+import sys
 import zipfile
 from pypdf import PdfReader
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools/container"))
 spec = importlib.util.spec_from_file_location("qualification", ROOT / "tools/container/qualify_service.py")
 qualification = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(qualification)

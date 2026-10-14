@@ -10,6 +10,7 @@ import urllib.error
 import urllib.request
 import uuid
 import zipfile
+from verify_isolation_config import verify as verify_isolation
 
 
 def template(paragraphs=1):
@@ -112,6 +113,7 @@ def main():
     try:
         base = runtime.connect()
         config = json.loads(runtime.command("inspect", runtime.name))[0]
+        verify_isolation(config, args.apparmor)
         assert config["Config"]["User"] == "1000:1000" and config["HostConfig"]["ReadonlyRootfs"]
         assert config["HostConfig"]["Init"] and not config["HostConfig"]["Privileged"]
         assert config["HostConfig"]["CapDrop"] == ["ALL"]

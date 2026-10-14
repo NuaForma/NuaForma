@@ -27,6 +27,7 @@ RUN cc -Wall -Wextra -Werror -O2 -static /src/sandbox_probe.c -o /src/sandbox-pr
 FROM base AS sandbox-check
 RUN apt-get update && apt-get install -y --no-install-recommends libcap2
 COPY --from=base / /opt/nuaforma/renderer/
+RUN mkdir -p /opt/nuaforma/renderer/work
 COPY --from=bubblewrap-build /src/build/bwrap /usr/local/bin/bwrap
 COPY --from=bubblewrap-build /src/COPYING /usr/share/nuaforma/licenses/bubblewrap/COPYING
 COPY --from=bubblewrap-build /src/COPYING.LIB /usr/share/nuaforma/licenses/bubblewrap/COPYING.LIB

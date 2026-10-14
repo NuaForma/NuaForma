@@ -14,6 +14,7 @@ class AppArmorPolicyTest(unittest.TestCase):
         self.assertNotIn("mount,", [line.strip() for line in policy.splitlines()])
         self.assertNotIn("complain", policy)
         self.assertNotIn("change_profile", policy)
+        self.assertNotIn("fstype=proc", policy)
         self.assertNotIn(" ux", policy)
         for forbidden in ("application", "extensions", "custom-fonts", "/oldroot/**"):
             self.assertFalse(any(forbidden in rule for rule in rules), forbidden)

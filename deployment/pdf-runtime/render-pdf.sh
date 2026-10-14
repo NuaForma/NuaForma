@@ -28,10 +28,18 @@ elif [ "$mode" = catalog ]; then
     set -- /usr/bin/fc-list --format '%{family}\t%{weight}\t%{slant}\n'
 else
     case "$mode" in convert) pdf_selection=17 ;; convert-pdfa-1b) pdf_selection=1 ;; convert-pdfa-2b) pdf_selection=2 ;; convert-pdfa-3b) pdf_selection=3 ;; *) exit 64 ;; esac
-    set -- /opt/libreoffice26.8/program/soffice.bin -env:UserInstallation=file:///work/profile --headless --nologo --nodefault --nofirststartwizard --norestore \
+    set -- /opt/libreoffice26.8/program/oosplash -env:UserInstallation=file:///work/profile --headless --nologo --nodefault --nofirststartwizard --norestore \
         --convert-to "pdf:writer_pdf_Export:{\"SelectPdfVersion\":{\"type\":\"long\",\"value\":\"$pdf_selection\"},\"ExportBookmarks\":{\"type\":\"boolean\",\"value\":\"true\"},\"ExportFormFields\":{\"type\":\"boolean\",\"value\":\"false\"},\"IsAddStream\":{\"type\":\"boolean\",\"value\":\"false\"}}" \
         --outdir /work/output /work/input.docx
 fi
+case "$mode" in
+    convert|convert-pdfa-*)
+        set -- --tmpfs /proc --dir /proc/self \
+            --symlink /opt/libreoffice26.8/program/soffice.bin /proc/self/exe \
+            --symlink /dev/null /proc/version \
+            --remount-ro /proc -- "$@" ;;
+    *) set -- -- "$@" ;;
+esac
 exec /usr/bin/prlimit --core=0 --as=1610612736 --fsize="$file_limit" --cpu="$cpu_seconds" -- \
     /usr/local/bin/bwrap --unshare-user --unshare-ipc --unshare-pid --unshare-net --unshare-uts \
     --die-with-parent --new-session --cap-drop ALL --clearenv \
@@ -42,4 +50,4 @@ exec /usr/bin/prlimit --core=0 --as=1610612736 --fsize="$file_limit" --cpu="$cpu
     --setenv HOME /work/home --setenv LANG C.UTF-8 --setenv LC_ALL C.UTF-8 \
     --setenv SAL_USE_VCLPLUGIN svp --setenv FONTCONFIG_FILE /work/fonts.conf \
     --setenv LD_LIBRARY_PATH /opt/libreoffice26.8/program:/validator/java/lib:/validator/java/lib/server \
-    --setenv XDG_CACHE_HOME /work/cache --setenv TMPDIR /work/tmp -- "$@"
+    --setenv XDG_CACHE_HOME /work/cache --setenv TMPDIR /work/tmp "$@"

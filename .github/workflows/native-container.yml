@@ -56,6 +56,7 @@ jobs:
           python3 tools/container/verify_native_platform.py --image nuaforma:native-candidate --architecture ${{ matrix.architecture }}
           python3 tools/container/check_renderer_filter.py --image nuaforma:native-candidate --architecture ${{ matrix.architecture }} --output build/native-container/renderer-seccomp.bpf
           python3 tools/container/qualify_sandbox.py --image nuaforma:native-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --output build/native-container/isolation
+          python3 tools/container/qualify_sandbox.py --image nuaforma:native-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --exec-hint --output build/native-container/compatibility-isolation
           python3 tools/container/qualify_service.py --image nuaforma:native-candidate --apparmor nuaforma-runtime --output build/native-container/qualification
       - name: Show only matching synthetic policy denials on failure
         if: failure()

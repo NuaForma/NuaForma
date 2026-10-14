@@ -50,7 +50,7 @@ profile nuaforma-runtime flags=(attach_disconnected,mediate_deleted) {
   mount options=(rw,silent,rbind) /oldroot/tmp/nuaforma-[^/]*/ -> /newroot/work/,
 
   # Private proc/dev/tmp, not host filesystems or arbitrary device nodes.
-  mount fstype=tmpfs options=(rw,nosuid,nodev) -> /newroot/{dev,tmp}/,
+  mount fstype=tmpfs options=(rw,nosuid,nodev) -> /newroot/{dev,tmp,proc}/,
   mount fstype=devpts options=(rw,nosuid,noexec) -> /newroot/dev/pts/,
   mount options=(rw,rbind) /oldroot/dev/null -> /newroot/dev/null,
   mount options=(rw,rbind) /oldroot/dev/zero -> /newroot/dev/zero,
@@ -66,4 +66,6 @@ profile nuaforma-runtime flags=(attach_disconnected,mediate_deleted) {
   mount options=(ro,remount,bind,silent,nosuid,nodev,relatime) -> /newroot/validator/{java,lib}/,
   mount options=(ro,remount,bind,silent,nosuid,nodev) -> /newroot/tmp/verapdf/,
   mount options=(ro,remount,bind,silent,nosuid,nodev,relatime) -> /newroot/tmp/verapdf/,
+  mount options=(ro,remount,bind,silent,nosuid,nodev) -> /newroot/proc/,
+  mount options=(ro,remount,bind,silent,nosuid,nodev,relatime) -> /newroot/proc/,
 }

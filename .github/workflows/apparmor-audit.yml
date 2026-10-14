@@ -46,6 +46,8 @@ jobs:
           set -e
           sudo journalctl --dmesg --since "$started" --no-pager | grep 'profile="nuaforma-runtime"' | grep 'apparmor="DENIED"' || true
           exit "$result"
+      - name: Require immutable executable-hint isolation without real procfs
+        run: python3 tools/container/qualify_sandbox.py --image nuaforma:host-audit --probe-image nuaforma:host-probe --apparmor nuaforma-runtime --exec-hint --output build/host-apparmor-hint
 
 # A passing diagnostic proves the inherited policy denial, not a qualified runtime.
 # Only denial logging is temporarily expanded and restored; enforcement is unchanged.

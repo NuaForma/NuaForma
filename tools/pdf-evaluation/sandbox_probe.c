@@ -23,7 +23,9 @@ static void check(int result, const char *name) {
     printf("PASS %s\n", name);
 }
 
-int main(void) {
+int main(int argc, char **argv) {
+    int hint = argc == 2 && strcmp(argv[1], "--exec-hint") == 0;
+    if (argc != 1 && !hint) return 64;
     int fd = open("/work/visible.txt", O_RDONLY);
     check(fd >= 0, "own-request-readable");
     close(fd);
@@ -51,6 +53,21 @@ int main(void) {
     check(getrlimit(RLIMIT_CPU, &limit) == 0 && limit.rlim_cur <= 10, "cpu-limit-applied");
     check(access("/proc/self/status", F_OK) == -1 && errno == ENOENT &&
           access("/proc/1/status", F_OK) == -1 && errno == ENOENT, "procfs-not-exposed");
+    if (hint) {
+        struct statfs compatibility;
+        check(statfs("/proc", &compatibility) == 0 && compatibility.f_type == TMPFS_MAGIC,
+              "compatibility-view-is-tmpfs-not-procfs");
+        char executable[128] = {0};
+        ssize_t length = readlink("/proc/self/exe", executable, sizeof executable - 1);
+        check(length == (ssize_t) strlen("/work/sandbox-probe") &&
+              strcmp(executable, "/work/sandbox-probe") == 0, "immutable-executable-hint");
+        int hint_fd = open("/proc/self/status", O_CREAT | O_WRONLY, 0600);
+        check(hint_fd == -1 && errno == EROFS, "compatibility-view-read-only");
+        hint_fd = open("/proc/version", O_RDONLY);
+        char marker;
+        check(hint_fd >= 0 && read(hint_fd, &marker, 1) == 0, "version-marker-has-no-kernel-data");
+        close(hint_fd);
+    }
     struct __user_cap_header_struct header = { _LINUX_CAPABILITY_VERSION_3, 0 };
     struct __user_cap_data_struct capabilities[2] = {{0}, {0}};
     check(syscall(SYS_capget, &header, capabilities) == 0 &&

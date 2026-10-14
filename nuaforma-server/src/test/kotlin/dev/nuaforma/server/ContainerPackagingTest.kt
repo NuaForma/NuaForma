@@ -62,7 +62,7 @@ class ContainerPackagingTest {
         assertEquals(1, uploads.size)
         val paths = ((uploads.single()["with"] as Map<*, *>)["path"] as String).trim().lines()
         assertEquals(listOf("build/container-release/inventory/", "build/container-release/qualification/qualification.json",
-            "build/container-release/isolation/isolation.txt"), paths)
+            "build/container-release/isolation/isolation.txt", "build/container-release/compatibility-isolation/isolation.txt"), paths)
         assertFalse(steps.any { (it as Map<*, *>)["run"].toString().contains("docker push") })
         assertFalse(steps.any { (it as Map<*, *>)["run"].toString().contains("docker login") })
         assertTrue(steps.any { (it as Map<*, *>)["run"].toString().contains("verify_native_platform.py") })
@@ -111,5 +111,18 @@ class ContainerPackagingTest {
         assertTrue(launcher.contains("-cp '/opt/nuaforma/application/lib/*' dev.nuaforma.server.Main"))
         assertFalse(launcher.contains("eval "))
         assertFalse(launcher.contains("\r"))
+    }
+
+    @Test fun `renderer keeps namespaces without exposing procfs or caller library paths`() {
+        val launcher = Files.readString(root.resolve("deployment/pdf-runtime/render-pdf.sh"))
+        listOf("--unshare-user", "--unshare-pid", "--unshare-net", "--unshare-ipc", "--unshare-uts",
+            "--cap-drop ALL", "--clearenv", "--seccomp 3").forEach { assertTrue(launcher.contains(it), it) }
+        assertFalse(launcher.contains("--proc /proc"))
+        assertFalse(launcher.contains("--ro-bind /proc"))
+        assertTrue(launcher.contains("--symlink /opt/libreoffice26.8/program/soffice.bin /proc/self/exe"))
+        assertTrue(launcher.contains("--symlink /dev/null /proc/version"))
+        assertTrue(launcher.contains("--remount-ro /proc"))
+        assertTrue(launcher.contains("--setenv LD_LIBRARY_PATH /opt/libreoffice26.8/program:/validator/java/lib:/validator/java/lib/server"))
+        assertTrue(launcher.contains("set -- /opt/libreoffice26.8/program/oosplash"))
     }
 }

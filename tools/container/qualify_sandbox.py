@@ -4,6 +4,8 @@ import pathlib
 import subprocess
 import tempfile
 import uuid
+import json
+from verify_isolation_config import verify as verify_isolation
 
 
 def main():
@@ -14,6 +16,7 @@ def main():
     parser.add_argument("--output", type=pathlib.Path, required=True)
     parser.add_argument("--seccomp", type=pathlib.Path, default=pathlib.Path("deployment/pdf-runtime/seccomp.json"))
     parser.add_argument("--apparmor", choices=("nuaforma-runtime",))
+    parser.add_argument("--exec-hint", action="store_true")
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     owner = "nuaforma-isolation-" + uuid.uuid4().hex
@@ -58,9 +61,11 @@ def main():
                 "--mount", "type=bind,source=" + str(outer) + ",target=/other,readonly",
                 "--mount", "type=bind,source=" + str(script) + ",target=/probe.sh,readonly",
                 *( ["--security-opt", "apparmor=" + args.apparmor] if args.apparmor else [] ),
+                *( ["--env", "SYNTHETIC_EXEC_HINT=1"] if args.exec_hint else [] ),
                 "--env", "SYNTHETIC_TENANT_SECRET=synthetic-only", "--entrypoint", "/bin/sh",
                 args.image, "/probe.sh")
         try:
+            verify_isolation(json.loads(command("inspect", name))[0], args.apparmor)
             try:
                 result = command("start", "--attach", name)
             except RuntimeError:
@@ -68,7 +73,7 @@ def main():
                       '{{json .HostConfig.MaskedPaths}} {{json .HostConfig.ReadonlyPaths}} {{json .AppArmorProfile}}'), flush=True)
                 raise
             assert command("inspect", name, "--format", "{{.State.ExitCode}}") == "0", result
-            assert len([line for line in result.splitlines() if line.startswith("PASS ")]) == 25, result
+            assert len([line for line in result.splitlines() if line.startswith("PASS ")]) == (29 if args.exec_hint else 25), result
             (args.output / "isolation.txt").write_text(result + "\n", encoding="utf-8")
             print(result)
         finally:

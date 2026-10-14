@@ -60,6 +60,7 @@ jobs:
           python3 tools/container/verify_native_platform.py --image nuaforma:release-candidate --architecture ${{ matrix.architecture }}
           python3 tools/container/check_renderer_filter.py --image nuaforma:release-candidate --architecture ${{ matrix.architecture }} --output build/container-release/renderer-seccomp.bpf
           python3 tools/container/qualify_sandbox.py --image nuaforma:release-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --output build/container-release/isolation
+          python3 tools/container/qualify_sandbox.py --image nuaforma:release-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --exec-hint --output build/container-release/compatibility-isolation
           python3 tools/container/qualify_service.py --image nuaforma:release-candidate --apparmor nuaforma-runtime --output build/container-release/qualification
       - name: Export exact inventory for distribution review
         run: |
@@ -73,5 +74,6 @@ jobs:
             build/container-release/inventory/
             build/container-release/qualification/qualification.json
             build/container-release/isolation/isolation.txt
+            build/container-release/compatibility-isolation/isolation.txt
           if-no-files-found: error
           retention-days: 14
