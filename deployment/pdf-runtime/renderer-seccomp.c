@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: Apache-2.0 */
-/* Emit an amd64 classic BPF filter loaded by Bubblewrap after namespace setup. */
+/* Emit a native amd64/arm64 BPF filter loaded after namespace setup. */
 #define _GNU_SOURCE
 #include <errno.h>
 #include <linux/audit.h>
@@ -11,12 +11,20 @@
 #include <sys/socket.h>
 #include <sys/syscall.h>
 
+#if defined(__x86_64__) && !defined(__ILP32__)
+#define RENDERER_AUDIT_ARCH AUDIT_ARCH_X86_64
+#elif defined(__aarch64__) && __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define RENDERER_AUDIT_ARCH AUDIT_ARCH_AARCH64
+#else
+#error "The renderer sandbox supports only native amd64 and little-endian arm64"
+#endif
+
 #define DENY(nr) BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, nr, 0, 1), BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_ERRNO | EPERM)
 
 int main(void) {
     struct sock_filter filter[] = {
         BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, arch)),
-        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, AUDIT_ARCH_X86_64, 1, 0),
+        BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, RENDERER_AUDIT_ARCH, 1, 0),
         BPF_STMT(BPF_RET | BPF_K, SECCOMP_RET_KILL_PROCESS),
         BPF_STMT(BPF_LD | BPF_W | BPF_ABS, offsetof(struct seccomp_data, nr)),
         BPF_JUMP(BPF_JMP | BPF_JSET | BPF_K, 0x40000000, 0, 1),

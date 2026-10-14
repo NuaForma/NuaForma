@@ -5,19 +5,19 @@ services:
       context: .
       dockerfile: Dockerfile
       target: service
-      platforms: [linux/amd64]
+      platforms: ["${NUAFORMA_PLATFORM:-linux/amd64}"]
       additional_contexts:
         pdfvalidation: ../../nuaforma-docx-pdf/build/pdf-validation
         verapdfvalidation: ../../nuaforma-docx-pdf/build/verapdf-validation
         application: ../../nuaforma-server/build/install/nuaforma-server
-    platform: linux/amd64
+    platform: ${NUAFORMA_PLATFORM:-linux/amd64}
     init: true
     user: "1000:1000"
     read_only: true
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
-      - seccomp=./seccomp.json
+      - seccomp=${NUAFORMA_SECCOMP_PROFILE:-./seccomp.json}
     pids_limit: 128
     mem_limit: 2g
     cpus: 2

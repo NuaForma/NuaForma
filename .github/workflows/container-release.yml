@@ -14,8 +14,16 @@ concurrency:
 jobs:
   qualify:
     if: github.ref == 'refs/heads/main'
-    name: Qualify release candidate (Java 17, amd64)
-    runs-on: ubuntu-24.04
+    name: Qualify release candidate (Java 17, ${{ matrix.architecture }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: amd64
+            runner: ubuntu-24.04
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     steps:
       - name: Check out sources
@@ -37,14 +45,20 @@ jobs:
         run: |
           python3 tools/container/prepare_verapdf_materials.py nuaforma-docx-pdf/build/verapdf-validation
           python3 tools/container/prepare_application_materials.py
-          docker build --platform linux/amd64 --file deployment/pdf-runtime/Dockerfile \
+          docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile \
             --build-context pdfvalidation=nuaforma-docx-pdf/build/pdf-validation \
             --build-context verapdfvalidation=nuaforma-docx-pdf/build/verapdf-validation \
             --build-context application=nuaforma-server/build/install/nuaforma-server \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             --target service --tag nuaforma:release-candidate deployment/pdf-runtime
       - name: Qualify shipped HTTP entry point and shutdown
-        run: python3 tools/container/qualify_service.py --image nuaforma:release-candidate --output build/container-release/qualification
+        run: |
+          docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile --build-context qualificationfixtures=tools/pdf-evaluation --target sandbox-probe-build --tag nuaforma:native-probe deployment/pdf-runtime
+          python3 tools/container/test_native_platform.py
+          python3 tools/container/verify_native_platform.py --image nuaforma:release-candidate --architecture ${{ matrix.architecture }}
+          python3 tools/container/check_renderer_filter.py --image nuaforma:release-candidate --architecture ${{ matrix.architecture }} --output build/container-release/renderer-seccomp.bpf
+          python3 tools/container/qualify_sandbox.py --image nuaforma:release-candidate --probe-image nuaforma:native-probe --output build/container-release/isolation
+          python3 tools/container/qualify_service.py --image nuaforma:release-candidate --output build/container-release/qualification
       - name: Export exact inventory for distribution review
         run: |
           python3 tools/container/collect_inventory.py --image nuaforma:release-candidate --destination build/container-release/inventory
@@ -52,9 +66,10 @@ jobs:
       - name: Retain review metadata only
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: container-release-review-${{ github.sha }}
+          name: container-release-review-${{ github.sha }}-${{ matrix.architecture }}
           path: |
             build/container-release/inventory/
             build/container-release/qualification/qualification.json
+            build/container-release/isolation/isolation.txt
           if-no-files-found: error
           retention-days: 14

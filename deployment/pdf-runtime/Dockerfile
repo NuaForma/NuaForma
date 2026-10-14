@@ -1,7 +1,11 @@
 # syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 # Local qualification/service targets. Binary redistribution remains gated by
 # the candidate-specific distribution audit and first-release prerequisites.
-FROM debian:trixie-slim@sha256:918311b7b6c4c6f68b232ba516584925f6c78ad82b6fd534b98979df6438e483 AS base
+# The pinned index retains the qualified amd64 child and adds its arm64 sibling.
+FROM debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS base
+ARG TARGETARCH
+RUN case "$TARGETARCH" in amd64|arm64) ;; *) echo "Unsupported runtime architecture: $TARGETARCH" >&2; exit 64 ;; esac \
+    && test "$(dpkg --print-architecture)" = "$TARGETARCH"
 COPY debian.sources /etc/apt/sources.list.d/debian.sources
 
 FROM base AS bubblewrap-build
@@ -15,6 +19,11 @@ COPY renderer-seccomp.c /src/renderer-seccomp.c
 RUN cc -Wall -Wextra -Werror -O2 /src/renderer-seccomp.c -o /src/renderer-seccomp \
     && /src/renderer-seccomp > /src/renderer-seccomp.bpf
 
+# Qualification-only target; never copied into the production service.
+FROM bubblewrap-build AS sandbox-probe-build
+COPY --from=qualificationfixtures sandbox_probe.c /src/sandbox_probe.c
+RUN cc -Wall -Wextra -Werror -O2 -static /src/sandbox_probe.c -o /src/sandbox-probe
+
 FROM base AS sandbox-check
 RUN apt-get update && apt-get install -y --no-install-recommends libcap2
 COPY --from=base / /opt/nuaforma/renderer/
@@ -27,15 +36,22 @@ USER 1000:1000
 ENTRYPOINT ["/usr/local/bin/bwrap"]
 
 FROM base AS libreoffice
+ARG TARGETARCH
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl fontconfig
-RUN curl --fail --location --output /tmp/libreoffice.tar.gz https://download.documentfoundation.org/libreoffice/stable/26.8.1/deb/x86_64/LibreOffice_26.8.1_Linux_x86-64_deb.tar.gz \
-    && echo '30903df3b9f61360d9660cd707de48cd2831469114492a5008ed58a0ac77d044  /tmp/libreoffice.tar.gz' | sha256sum --check \
+RUN case "$TARGETARCH" in \
+      amd64) archive_arch=x86_64; archive_name=x86-64; archive_sha256=30903df3b9f61360d9660cd707de48cd2831469114492a5008ed58a0ac77d044 ;; \
+      arm64) archive_arch=aarch64; archive_name=aarch64; archive_sha256=1b069c20dd237f6decad3ea02cb02f39fdf458b03d09c2a9facb7b9b71e6a27a ;; \
+      *) exit 64 ;; \
+    esac \
+    && curl --fail --location --output /tmp/libreoffice.tar.gz "https://download.documentfoundation.org/libreoffice/stable/26.8.1/deb/$archive_arch/LibreOffice_26.8.1_Linux_${archive_name}_deb.tar.gz" \
+    && echo "$archive_sha256  /tmp/libreoffice.tar.gz" | sha256sum --check \
     && mkdir /tmp/lo && tar -xzf /tmp/libreoffice.tar.gz -C /tmp/lo \
     && apt-get install -y --no-install-recommends /tmp/lo/*/DEBS/*.deb
 RUN apt-get install -y --no-install-recommends libxinerama1 libx11-6 libx11-xcb1 libxext6 libxrender1 libxrandr2 libsm6 libice6 libnss3 libnspr4 libdbus-1-3 libcairo2 libglib2.0-0t64 libcups2t64 \
     && mkdir /work && mkdir -p /validator/java /validator/lib
 
-FROM eclipse-temurin:17-jre-noble@sha256:af3852c35f8339ab7beba6f17b7fc15c4aca4d72979c5f09776c9ff74385058f AS java-runtime
+# Both architectures use the same Java 17.0.20.1+1 release.
+FROM eclipse-temurin:17-jre-noble@sha256:900322f4cc1b9da9d730ae4bb56d8a1dabbaa9cfa32809fc8b542b600370a045 AS java-runtime
 
 FROM sandbox-check AS qualification
 COPY --from=libreoffice / /opt/nuaforma/renderer/

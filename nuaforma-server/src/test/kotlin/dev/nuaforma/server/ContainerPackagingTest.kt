@@ -21,7 +21,8 @@ class ContainerPackagingTest {
         assertEquals(true, service["read_only"])
         assertEquals("1000:1000", service["user"])
         assertEquals(listOf("ALL"), service["cap_drop"])
-        assertEquals(listOf("no-new-privileges:true", "seccomp=./seccomp.json"), service["security_opt"])
+        assertEquals(listOf("no-new-privileges:true", "seccomp=\${NUAFORMA_SECCOMP_PROFILE:-./seccomp.json}"), service["security_opt"])
+        assertEquals("\${NUAFORMA_PLATFORM:-linux/amd64}", service["platform"])
         assertEquals(128, service["pids_limit"])
         assertEquals("2g", service["mem_limit"])
         assertEquals(2, service["cpus"])
@@ -33,6 +34,7 @@ class ContainerPackagingTest {
         assertTrue(mounts.all { (it as Map<*, *>)["read_only"] == true && it["type"] == "bind" })
         val build = service["build"] as Map<*, *>
         assertEquals("service", build["target"])
+        assertEquals(listOf("\${NUAFORMA_PLATFORM:-linux/amd64}"), build["platforms"])
         assertEquals(mapOf("pdfvalidation" to "../../nuaforma-docx-pdf/build/pdf-validation",
             "verapdfvalidation" to "../../nuaforma-docx-pdf/build/verapdf-validation",
             "application" to "../../nuaforma-server/build/install/nuaforma-server"), build["additional_contexts"])
@@ -46,6 +48,12 @@ class ContainerPackagingTest {
         assertEquals(mapOf("contents" to "read"), workflow["permissions"])
         val job = (workflow["jobs"] as Map<*, *>)["qualify"] as Map<*, *>
         assertEquals("github.ref == 'refs/heads/main'", job["if"])
+        assertEquals("\${{ matrix.runner }}", job["runs-on"])
+        val strategy = job["strategy"] as Map<*, *>
+        assertEquals(false, strategy["fail-fast"])
+        val matrix = strategy["matrix"] as Map<*, *>
+        assertEquals(listOf(mapOf("architecture" to "amd64", "runner" to "ubuntu-24.04"),
+            mapOf("architecture" to "arm64", "runner" to "ubuntu-24.04-arm")), matrix["include"])
         val steps = job["steps"] as List<*>
         steps.map { it as Map<*, *> }.filter { "uses" in it }.forEach {
             assertTrue(Regex("[^@]+@[a-f0-9]{40}").matches(it["uses"] as String))
@@ -53,9 +61,44 @@ class ContainerPackagingTest {
         val uploads = steps.map { it as Map<*, *> }.filter { (it["uses"] as? String)?.startsWith("actions/upload-artifact@") == true }
         assertEquals(1, uploads.size)
         val paths = ((uploads.single()["with"] as Map<*, *>)["path"] as String).trim().lines()
-        assertEquals(listOf("build/container-release/inventory/", "build/container-release/qualification/qualification.json"), paths)
+        assertEquals(listOf("build/container-release/inventory/", "build/container-release/qualification/qualification.json",
+            "build/container-release/isolation/isolation.txt"), paths)
         assertFalse(steps.any { (it as Map<*, *>)["run"].toString().contains("docker push") })
         assertFalse(steps.any { (it as Map<*, *>)["run"].toString().contains("docker login") })
+        assertTrue(steps.any { (it as Map<*, *>)["run"].toString().contains("verify_native_platform.py") })
+    }
+
+    @Test fun `native candidates exercise both platforms without publishing`() {
+        val workflow = yaml(".github/workflows/native-container.yml")
+        assertEquals(mapOf("contents" to "read"), workflow["permissions"])
+        val job = (workflow["jobs"] as Map<*, *>)["qualify"] as Map<*, *>
+        assertEquals("\${{ matrix.runner }}", job["runs-on"])
+        val matrix = ((job["strategy"] as Map<*, *>)["matrix"] as Map<*, *>)["include"] as List<*>
+        assertEquals(setOf("amd64", "arm64"), matrix.map { (it as Map<*, *>)["architecture"] }.toSet())
+        val steps = (job["steps"] as List<*>).map { it as Map<*, *> }
+        assertFalse(steps.any { (it["uses"] as? String)?.startsWith("actions/upload-artifact@") == true })
+        val commands = steps.joinToString("\n") { it["run"].toString() }
+        listOf("verify_native_platform.py", "check_renderer_filter.py", "qualify_sandbox.py", "qualify_service.py").forEach {
+            assertTrue(commands.contains(it), it)
+        }
+        listOf("docker push", "docker login", "--privileged", "seccomp=unconfined").forEach {
+            assertFalse(commands.contains(it), it)
+        }
+    }
+
+    @Test fun `future publisher requires both exact archives before authentication`() {
+        val workflow = yaml(".github/workflows/ghcr-multiarch-publish.yml")
+        val events = (workflow["on"] ?: workflow[true]) as Map<*, *>
+        assertEquals(setOf("workflow_dispatch"), events.keys)
+        val job = (workflow["jobs"] as Map<*, *>)["publish"] as Map<*, *>
+        assertEquals("ghcr-release", job["environment"])
+        assertEquals("github.repository == 'NuaForma/NuaForma' && github.ref == 'refs/heads/main'", job["if"])
+        val commands = (job["steps"] as List<*>).joinToString("\n") { (it as Map<*, *>)["run"].toString() }
+        assertTrue(commands.indexOf("check_multiarch_archive.py") < commands.indexOf("docker login"))
+        assertTrue(commands.contains("for arch in amd64 arm64"))
+        assertTrue(commands.contains("check_multiarch_index.py"))
+        assertFalse(commands.contains("docker build"))
+        assertTrue(commands.contains("case \"\$RELEASE_VERSION\" in *-*) exit 0 ;; esac"))
     }
 
     @Test fun `build context denies incidental files and launcher keeps fixed classpath`() {
