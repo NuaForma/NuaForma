@@ -1,0 +1,49 @@
+name: Diagnose inherited AppArmor mount denial
+
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/apparmor-audit.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Kernel mount audit (${{ matrix.architecture }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: amd64
+            runner: ubuntu-24.04
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build only the namespace and synthetic probe fixtures
+        run: |
+          docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile --target sandbox-check --tag nuaforma:host-audit deployment/pdf-runtime
+          docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile --build-context qualificationfixtures=tools/pdf-evaluation --target sandbox-probe-build --tag nuaforma:host-probe deployment/pdf-runtime
+      - name: Reproduce the default-policy denial and collect matching kernel evidence
+        run: |
+          started="$(date --iso-8601=seconds)"
+          set +e
+          python3 tools/container/qualify_sandbox.py --image nuaforma:host-audit --probe-image nuaforma:host-probe --output build/host-audit/probe > build-host-audit.txt 2>&1
+          result=$?
+          set -e
+          cat build-host-audit.txt
+          docker info --format '{{json .SecurityOptions}}'
+          sudo journalctl --kernel --since "$started" --no-pager | grep 'apparmor="DENIED"' | grep 'comm="bwrap"' > build/host-audit/kernel.txt
+          cat build/host-audit/kernel.txt
+          test "$result" -ne 0
+          grep -F 'profile="docker-default"' build/host-audit/kernel.txt
+          grep -F 'operation="mount"' build/host-audit/kernel.txt
+
+# A passing diagnostic proves the inherited policy denial, not a qualified runtime.
+# No profile loading, privilege grants, policy changes or executable uploads.
