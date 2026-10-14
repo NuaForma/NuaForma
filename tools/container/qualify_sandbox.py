@@ -13,6 +13,7 @@ def main():
     parser.add_argument("--docker", default="docker")
     parser.add_argument("--output", type=pathlib.Path, required=True)
     parser.add_argument("--seccomp", type=pathlib.Path, default=pathlib.Path("deployment/pdf-runtime/seccomp.json"))
+    parser.add_argument("--apparmor", choices=("nuaforma-runtime",))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     owner = "nuaforma-isolation-" + uuid.uuid4().hex
@@ -52,10 +53,11 @@ def main():
                 "--security-opt", "seccomp=" + str(args.seccomp.resolve()),
                 "--pids-limit", "128", "--memory", "2g", "--cpus", "2",
                 "--tmpfs", "/tmp:rw,size=64m,mode=1777", "--network", "none",
-                "--mount", "type=bind,source=" + str(work) + ",target=/work",
+                "--mount", "type=bind,source=" + str(work) + ",target=/tmp/nuaforma-sandbox-probe",
                 "--mount", "type=bind,source=" + str(outer) + ",target=/app,readonly",
                 "--mount", "type=bind,source=" + str(outer) + ",target=/other,readonly",
                 "--mount", "type=bind,source=" + str(script) + ",target=/probe.sh,readonly",
+                *( ["--security-opt", "apparmor=" + args.apparmor] if args.apparmor else [] ),
                 "--env", "SYNTHETIC_TENANT_SECRET=synthetic-only", "--entrypoint", "/bin/sh",
                 args.image, "/probe.sh")
         try:

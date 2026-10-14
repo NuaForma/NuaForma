@@ -10,4 +10,4 @@ exec /usr/bin/prlimit --core=0 --as=1610612736 --fsize=1048576 --cpu=10 -- \
     /usr/local/bin/bwrap --unshare-user --unshare-ipc --unshare-pid --unshare-net --unshare-uts \
     --die-with-parent --new-session --cap-drop ALL --clearenv \
     --ro-bind /opt/nuaforma/renderer / --proc /proc --dev /dev --tmpfs /tmp \
-    --bind /work /work --chdir /work --seccomp 3 -- /work/sandbox-probe
+    --bind /tmp/nuaforma-sandbox-probe /work --chdir /work --seccomp 3 -- /work/sandbox-probe
