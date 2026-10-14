@@ -3,14 +3,19 @@
 #define _GNU_SOURCE
 #include <errno.h>
 #include <fcntl.h>
+#include <linux/capability.h>
+#include <linux/magic.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mount.h>
+#include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/syscall.h>
+#include <sys/vfs.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 static void check(int result, const char *name) {
@@ -44,17 +49,33 @@ int main(void) {
     struct rlimit limit;
     check(getrlimit(RLIMIT_CORE, &limit) == 0 && limit.rlim_cur == 0, "core-dumps-disabled");
     check(getrlimit(RLIMIT_CPU, &limit) == 0 && limit.rlim_cur <= 10, "cpu-limit-applied");
-    FILE *status = fopen("/proc/self/status", "r");
-    check(status != NULL, "private-proc-readable");
-    char line[256];
-    int no_capabilities = 0, no_privileges = 0, filtered = 0;
-    while (fgets(line, sizeof line, status)) {
-        if (strncmp(line, "CapEff:", 7) == 0) no_capabilities = strtoull(line + 7, NULL, 16) == 0;
-        if (strncmp(line, "NoNewPrivs:", 11) == 0) no_privileges = strtoul(line + 11, NULL, 10) == 1;
-        if (strncmp(line, "Seccomp_filters:", 16) == 0) filtered = strtoul(line + 16, NULL, 10) >= 2;
+    check(access("/proc/self/status", F_OK) == -1 && errno == ENOENT &&
+          access("/proc/1/status", F_OK) == -1 && errno == ENOENT, "procfs-not-exposed");
+    struct __user_cap_header_struct header = { _LINUX_CAPABILITY_VERSION_3, 0 };
+    struct __user_cap_data_struct capabilities[2] = {{0}, {0}};
+    check(syscall(SYS_capget, &header, capabilities) == 0 &&
+          capabilities[0].effective == 0 && capabilities[1].effective == 0 &&
+          capabilities[0].permitted == 0 && capabilities[1].permitted == 0 &&
+          capabilities[0].inheritable == 0 && capabilities[1].inheritable == 0 &&
+          prctl(PR_GET_NO_NEW_PRIVS, 0, 0, 0, 0) == 1 &&
+          prctl(PR_GET_SECCOMP, 0, 0, 0, 0) == 2,
+          "capabilities-cleared-and-seccomp-active");
+    check(getpid() == 2 && getppid() == 1, "private-pid-namespace-retained");
+    check(getrlimit(RLIMIT_NOFILE, &limit) == 0 && limit.rlim_cur <= 1048576, "descriptor-probe-budget");
+    int proc_descriptor = 0;
+    for (rlim_t descriptor = 0; descriptor < limit.rlim_cur; descriptor++) {
+        struct statfs filesystem;
+        if (fstatfs((int) descriptor, &filesystem) == 0 && filesystem.f_type == PROC_SUPER_MAGIC)
+            proc_descriptor = 1;
     }
-    fclose(status);
-    check(no_capabilities && no_privileges && filtered, "capabilities-cleared-and-inner-seccomp-active");
+    check(!proc_descriptor, "no-inherited-procfs-descriptor");
+    fflush(stdout);
+    pid_t child = fork();
+    if (child == 0) _exit(getppid() == 2 && getpid() > 2 ? 0 : 1);
+    check(child >= 0, "child-process-creation-available");
+    int child_status = 0;
+    check(waitpid(child, &child_status, 0) == child && WIFEXITED(child_status) &&
+          WEXITSTATUS(child_status) == 0, "child-process-stays-in-private-pid-namespace");
     check(getuid() == 1000, "non-root-uid");
     return 0;
 }

@@ -35,7 +35,7 @@ fi
 exec /usr/bin/prlimit --core=0 --as=1610612736 --fsize="$file_limit" --cpu="$cpu_seconds" -- \
     /usr/local/bin/bwrap --unshare-user --unshare-ipc --unshare-pid --unshare-net --unshare-uts \
     --die-with-parent --new-session --cap-drop ALL --clearenv \
-    --ro-bind /opt/nuaforma/renderer / --proc /proc --dev /dev --tmpfs /tmp \
+    --ro-bind /opt/nuaforma/renderer / --dev /dev --tmpfs /tmp \
     --ro-bind /opt/java/openjdk /validator/java --ro-bind /opt/nuaforma/pdf-validation /validator/lib \
     --ro-bind /opt/nuaforma/verapdf-validation /tmp/verapdf \
     --bind "$work" /work --chdir /work --seccomp 3 \
