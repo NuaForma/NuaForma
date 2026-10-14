@@ -32,18 +32,9 @@ jobs:
           docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile --build-context qualificationfixtures=tools/pdf-evaluation --target sandbox-probe-build --tag nuaforma:host-probe deployment/pdf-runtime
       - name: Reproduce the default-policy denial and collect matching kernel evidence
         run: |
-          started="$(date --iso-8601=seconds)"
-          set +e
-          python3 tools/container/qualify_sandbox.py --image nuaforma:host-audit --probe-image nuaforma:host-probe --output build/host-audit/probe > build-host-audit.txt 2>&1
-          result=$?
-          set -e
-          cat build-host-audit.txt
           docker info --format '{{json .SecurityOptions}}'
-          sudo journalctl --dmesg --since "$started" --no-pager | grep 'apparmor="DENIED"' | grep 'comm="bwrap"' > build/host-audit/kernel.txt
-          cat build/host-audit/kernel.txt
-          test "$result" -ne 0
-          grep -F 'profile="docker-default"' build/host-audit/kernel.txt
-          grep -F 'operation="mount"' build/host-audit/kernel.txt
+          sudo python3 tools/container/collect_mount_audit.py --image nuaforma:host-audit --probe-image nuaforma:host-probe --output build/host-audit
 
 # A passing diagnostic proves the inherited policy denial, not a qualified runtime.
-# No profile loading, privilege grants, policy changes or executable uploads.
+# Only denial logging is temporarily expanded and restored; enforcement is unchanged.
+# No profile loading, privilege grants, permission changes or executable uploads.
