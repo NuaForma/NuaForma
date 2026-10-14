@@ -61,7 +61,12 @@ def main():
                 "--env", "SYNTHETIC_TENANT_SECRET=synthetic-only", "--entrypoint", "/bin/sh",
                 args.image, "/probe.sh")
         try:
-            result = command("start", "--attach", name)
+            try:
+                result = command("start", "--attach", name)
+            except RuntimeError:
+                print("Candidate OCI security metadata: " + command("inspect", name, "--format",
+                      '{{json .HostConfig.MaskedPaths}} {{json .HostConfig.ReadonlyPaths}} {{json .AppArmorProfile}}'), flush=True)
+                raise
             assert command("inspect", name, "--format", "{{.State.ExitCode}}") == "0", result
             assert len([line for line in result.splitlines() if line.startswith("PASS ")]) == 20, result
             (args.output / "isolation.txt").write_text(result + "\n", encoding="utf-8")
