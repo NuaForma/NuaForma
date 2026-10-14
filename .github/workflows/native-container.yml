@@ -61,5 +61,11 @@ jobs:
       - name: Show only matching synthetic policy denials on failure
         if: failure()
         run: sudo journalctl --dmesg --no-pager | grep 'profile="nuaforma-runtime"' | grep 'apparmor="DENIED"' || true
+      - name: Diagnose the already generated synthetic document without exposing request logs
+        if: failure()
+        run: |
+          if test -f build/native-container/qualification/document.docx; then
+            python3 tools/container/diagnose_synthetic_render.py --image nuaforma:native-candidate --apparmor nuaforma-runtime --document build/native-container/qualification/document.docx --output build/native-container/synthetic-diagnosis
+          fi
 
 # No binary artifacts, registry writes, image push or security-policy bypass.
