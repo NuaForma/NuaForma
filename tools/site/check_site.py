@@ -22,6 +22,11 @@ for scenario in index:
         assert request["options"]["watermark"]["opacity"] == 1
 compose = html.unescape(re.search(r'<code id="compose-code">(.*?)</code>', source, re.S)[1])
 assert compose.strip() == (SITE / "downloads/docker/compose.yaml").read_text().strip()
+assert 'href="downloads/docker/seccomp.json" download="seccomp.json"' in source
+assert 'href="downloads/docker-kit.zip" download="docker-kit.zip" data-download-status="docker-kit-status"' in source
+assert 'id="docker-kit-status"' in source
+assert 'id="docker-kit-download"' in source
+assert "curl --fail --location https://nuaforma.dev/downloads/docker-kit.zip --output docker-kit.zip" in source
 for name in ("docker", "helm"):
     folder = SITE / "downloads" / name
     assert (folder / "seccomp.json").read_bytes() == (ROOT / "deployment/pdf-runtime/seccomp.json").read_bytes()
