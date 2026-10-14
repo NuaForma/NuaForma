@@ -39,7 +39,7 @@ jobs:
           set -e
           cat build-host-audit.txt
           docker info --format '{{json .SecurityOptions}}'
-          sudo journalctl --kernel --since "$started" --no-pager | grep 'apparmor="DENIED"' | grep 'comm="bwrap"' > build/host-audit/kernel.txt
+          sudo journalctl --dmesg --since "$started" --no-pager | grep 'apparmor="DENIED"' | grep 'comm="bwrap"' > build/host-audit/kernel.txt
           cat build/host-audit/kernel.txt
           test "$result" -ne 0
           grep -F 'profile="docker-default"' build/host-audit/kernel.txt
