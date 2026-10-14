@@ -1,0 +1,104 @@
+{
+  "version": "0.1.0-alpha.2",
+  "sourceCommit": "f058700b43010f6360ba13afb7299640db18a303",
+  "reviewer": "mrhoeve",
+  "latest": false,
+  "platforms": {
+    "amd64": {
+      "nativeQualificationArchitecture": "amd64",
+      "containerArchiveSha256": "919145544897d6ca9ed6e088b663064403c1fc49faa0e298b2513be4de9c524a",
+      "containerConfigSha256": "4bac53699d792120dcff9956cdff644dedeba6fb7df329b634604578dea18265",
+      "approved": {
+        "containerAudit": true,
+        "sourceAccess": true,
+        "fidelityQualification": true,
+        "securityReview": true
+      },
+      "sourceMaterials": [
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.2/nuaforma-sources-debian-0.1.0-alpha.2.tar",
+          "sha256": "b8cf080795e5ff50925c5bb11ce2840ac48060649b669dba8136153d32eeb27b",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.2/nuaforma-sources-libreoffice-0.1.0-alpha.2.tar",
+          "sha256": "80bf39753e2f4534801a4b14038f923d44ac30f48bfadb425d1b1269e0e01451",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.2/nuaforma-sources-java-0.1.0-alpha.2.tar",
+          "sha256": "bdbab3fc095f5aa8e21dfd68a19f72157f73037ea5f674b9e56c0d2aa0cef0d0",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.2/nuaforma-sources-jvm-0.1.0-alpha.2.tar",
+          "sha256": "5e4abb040ca7d2f31ff4bfe5310aca32f60cbaf473b2d750a38d00858641d6cb",
+          "verifiedAnonymousAccess": true
+        }
+      ],
+      "evidence": {
+        "nativeArchiveRun": "https://github.com/NuaForma/NuaForma/actions/runs/38590527015",
+        "metadata": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.2/metadata-amd64.tar.gz",
+        "componentSourceReview": "release-materials/0.1.0-alpha.2.json",
+        "checks": [
+          "non-root/read-only/capabilities/init",
+          "packaged-release-version",
+          "default-PDF-A-3b/explicit-B-profiles/standard/conflict-rejection",
+          "shipped-entrypoint/DOCX/PDF/private-cleanup",
+          "SIGTERM-during-real-conversion/no-forced-kill",
+          "missing-converter/DOCX-usable/PDF-rejected",
+          "handler-deadline/cancellation/private-cleanup"
+        ],
+        "securityDisposition": "Unchanged third-party runtime package/source versions and JAR bytes retain the evaluation-alpha advisory disposition tracked in #51."
+      }
+    },
+    "arm64": {
+      "nativeQualificationArchitecture": "arm64",
+      "containerArchiveSha256": "d6f47d41f0904dda54fad9aa0bd8c2f2673a6986ee1a41901e8a89a1c21851b1",
+      "containerConfigSha256": "0a770313f5a239f6ca3225d1c84602dfc5308e5298dccec20c66abbab263805b",
+      "approved": {
+        "containerAudit": true,
+        "sourceAccess": true,
+        "fidelityQualification": true,
+        "securityReview": true
+      },
+      "sourceMaterials": [
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.2/nuaforma-sources-debian-0.1.0-alpha.2.tar",
+          "sha256": "b8cf080795e5ff50925c5bb11ce2840ac48060649b669dba8136153d32eeb27b",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.2/nuaforma-sources-libreoffice-0.1.0-alpha.2.tar",
+          "sha256": "80bf39753e2f4534801a4b14038f923d44ac30f48bfadb425d1b1269e0e01451",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.2/nuaforma-sources-java-0.1.0-alpha.2.tar",
+          "sha256": "bdbab3fc095f5aa8e21dfd68a19f72157f73037ea5f674b9e56c0d2aa0cef0d0",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.2/nuaforma-sources-jvm-0.1.0-alpha.2.tar",
+          "sha256": "5e4abb040ca7d2f31ff4bfe5310aca32f60cbaf473b2d750a38d00858641d6cb",
+          "verifiedAnonymousAccess": true
+        }
+      ],
+      "evidence": {
+        "nativeArchiveRun": "https://github.com/NuaForma/NuaForma/actions/runs/38590527015",
+        "metadata": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.2/metadata-arm64.tar.gz",
+        "componentSourceReview": "release-materials/0.1.0-alpha.2.json",
+        "checks": [
+          "non-root/read-only/capabilities/init",
+          "packaged-release-version",
+          "default-PDF-A-3b/explicit-B-profiles/standard/conflict-rejection",
+          "shipped-entrypoint/DOCX/PDF/private-cleanup",
+          "SIGTERM-during-real-conversion/no-forced-kill",
+          "missing-converter/DOCX-usable/PDF-rejected",
+          "handler-deadline/cancellation/private-cleanup"
+        ],
+        "securityDisposition": "Unchanged third-party runtime package/source versions and JAR bytes retain the evaluation-alpha advisory disposition tracked in #51."
+      }
+    }
+  }
+}
