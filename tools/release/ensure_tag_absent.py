@@ -4,6 +4,11 @@ import argparse
 import re
 
 
+def check_reference(reference):
+    assert re.fullmatch(r"ghcr\.io/nuaforma/nuaforma(?:-playground)?:[A-Za-z0-9][A-Za-z0-9_.-]*", reference), \
+        "Only the production and Playground repositories are publication targets"
+
+
 def check(code, output):
     assert code != 0, "Existing version tag must not be overwritten"
     assert not any(message in output.lower() for message in ("unauthorized", "denied", "forbidden", "timeout", "connection refused", "connection reset")), \
@@ -16,7 +21,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference", default="ghcr.io/nuaforma/nuaforma:0.1.0-alpha.1")
     args = parser.parse_args()
-    assert re.fullmatch(r"ghcr\.io/nuaforma/nuaforma:[A-Za-z0-9][A-Za-z0-9_.-]*", args.reference)
+    check_reference(args.reference)
     result = subprocess.run(["docker", "manifest", "inspect", args.reference],
                             capture_output=True, text=True, timeout=60)
     check(result.returncode, result.stdout + result.stderr)

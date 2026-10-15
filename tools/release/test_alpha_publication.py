@@ -10,6 +10,7 @@ import urllib.error
 from central_portal import upload
 from central_publish import publish
 from ensure_tag_absent import check as absent_tag
+from ensure_tag_absent import check_reference
 from validate_release_gate import check
 from verify_libraries import MODULES
 
@@ -44,6 +45,29 @@ class AlphaGateTest(unittest.TestCase):
 
 
 class PortalTest(unittest.TestCase):
+    def test_only_both_explicitly_supported_image_repositories_are_accepted(self):
+        for image in ('nuaforma', 'nuaforma-playground'):
+            for tag in ('0.2.0-alpha.1', '0.2.0-alpha.1-amd64', '0.2.0-alpha.1-arm64'):
+                check_reference('ghcr.io/nuaforma/' + image + ':' + tag)
+        for reference in ('ghcr.io/other/nuaforma:0.2.0', 'ghcr.io/nuaforma/unknown:0.2.0',
+                          'ghcr.io/nuaforma/nuaforma-playground-extra:0.2.0', 'ghcr.io/nuaforma/nuaforma@sha256:abc',
+                          'ghcr.io/nuaforma/nuaforma:', 'https://ghcr.io/nuaforma/nuaforma:0.2.0',
+                          'ghcr.io/nuaforma/nuaforma:0.2.0\n'):
+            with self.subTest(reference=reference), self.assertRaises(AssertionError):
+                check_reference(reference)
+
+    def test_partial_application_recovery_retains_both_review_gate_and_absence_guards(self):
+        workflow = (pathlib.Path(__file__).resolve().parents[2] / '.github/workflows/ghcr-multiarch-publish.yml').read_text()
+        self.assertIn('options: [both, server, playground]', workflow)
+        self.assertIn("fromJSON(inputs.application == 'server'", workflow)
+        self.assertIn("inputs.application == 'playground'", workflow)
+        gate = workflow.index('validate_multiarch_release.py --application server')
+        authentication = workflow.index('docker login ghcr.io')
+        self.assertLess(gate, authentication)
+        self.assertIn('--companion-review "release-approvals/$RELEASE_VERSION-playground.json"', workflow)
+        self.assertIn('ensure_tag_absent.py --reference "$reference"', workflow)
+        self.assertIn('ensure_tag_absent.py --reference "$reference-$arch"', workflow)
+
     def test_registry_absence_must_be_explicit_without_authentication_or_network_failure(self):
         absent_tag(1, "manifest unknown")
         for code, output in ((0, "existing manifest"), (1, "denied: manifest unknown"), (1, "unauthorized"), (1, "connection reset")):
