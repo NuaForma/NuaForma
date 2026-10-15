@@ -4,6 +4,7 @@ import dev.nuaforma.contracts.*
 import dev.nuaforma.docx.adapters.docx4j.Docx4jDocuments
 import dev.nuaforma.docx.internal.FontPolicy
 import dev.nuaforma.docx.internal.WatermarkPolicy
+import dev.nuaforma.docx.internal.ImagePipe
 import java.io.OutputStream
 
 /** Stateless DOCX-to-DOCX provider; each call owns a separate document and template session. */
@@ -13,7 +14,7 @@ class DocxProvider @JvmOverloads constructor(private val deploymentFonts: Deploy
 
     /** Keep the original constructors, including Kotlin's default-argument bytecode entry point. */
     constructor(deploymentFonts: DeploymentFonts, pipes: List<ContentPipe>) : this(deploymentFonts) {
-        require(pipes.size <= 128) { "Content pipe registrations exceed the generator limit" }
+        require(pipes.size <= 127) { "Content pipe registrations exceed the generator limit including built-in image" }
         this.pipes = java.util.Collections.unmodifiableList(pipes.map { implementation ->
             val captured = implementation.definition
             object : ContentPipe {
@@ -23,14 +24,15 @@ class DocxProvider @JvmOverloads constructor(private val deploymentFonts: Deploy
             }
         })
         definitions = this.pipes.map { it.definition }
-        require(definitions.map { it.name }.distinct().size == definitions.size) { "Content pipe registrations must be unique" }
+        require(definitions.map { it.name }.distinct().size == definitions.size && definitions.none { it.name == "image" }) { "Content pipe registrations must be unique; image is reserved" }
         require(definitions.all { definition -> definition.support.any {
             it.input == DocumentFormat.DOCX && it.output == DocumentFormat.DOCX && it.profiles.isEmpty()
         } }) { "DOCX content pipes must declare unprofiled DOCX-to-DOCX support" }
     }
-    override fun contentPipes(): List<ContentPipeDefinition> = java.util.Collections.unmodifiableList(definitions.map { definition ->
+    override fun contentPipes(): List<ContentPipeDefinition> = java.util.Collections.unmodifiableList(listOf(ImagePipe.DEFINITION) + definitions.map { definition ->
         ContentPipeDefinition(definition.name, definition.description, definition.arguments,
-            definition.support.filter { it.input == DocumentFormat.DOCX && it.output == DocumentFormat.DOCX && it.profiles.isEmpty() }, definition.nullBehavior)
+            definition.support.filter { it.input == DocumentFormat.DOCX && it.output == DocumentFormat.DOCX && it.profiles.isEmpty() }, definition.nullBehavior,
+            definition.contentTypes)
     })
     override fun fontCatalog(context: GenerationContext): FontCatalog { context.checkActive(); return deploymentFonts.catalog }
     override fun capabilities() = ProviderCapabilities(setOf(DocumentFormat.DOCX), setOf(DocumentFormat.DOCX),
@@ -57,7 +59,7 @@ class DocxProvider @JvmOverloads constructor(private val deploymentFonts: Deploy
         context.checkActive()
         val assessment = assess(request.requirements)
         if (assessment.status != AssessmentStatus.SUPPORTED) throw GenerationException(assessment.diagnostics)
-        Docx4jDocuments.generate(deploymentFonts.bind(request), output, context, pipes)
+        Docx4jDocuments.generate(deploymentFonts.bind(request), output, context, listOf(ImagePipe(context)) + pipes)
         return GenerationResult(request.requirements.output)
     }
 }

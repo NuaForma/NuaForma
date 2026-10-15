@@ -29,6 +29,32 @@ class RestApiTest {
     private val envelope = """{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"name":"Ada","nested":{"a":[null,true,42]}},"options":{"watermark":{"text":"CONCEPT — {name}","color":"#A1B2C3","opacity":0.3,"rotation":-30}}}"""
 
     @Test
+    fun `standard image insertion has identical HTTP and embedded semantics and cleanup`() = testApplication {
+        val registry = ProviderRegistry.discover()
+        application { KtorServer(registry, ServerConfiguration(temporaryDirectory = temporary)).installRoutes(this) }
+        val image = java.awt.image.BufferedImage(16, 8, java.awt.image.BufferedImage.TYPE_INT_RGB)
+        val bytes = ByteArrayOutputStream().also { javax.imageio.ImageIO.write(image, "png", it) }.toByteArray()
+        val encoded = java.util.Base64.getEncoder().encodeToString(bytes)
+        val source = template("Before {picture | image(10, 5)} after {missing ?? null | image()}")
+        val json = """{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"picture":"$encoded"}}"""
+        val response = client.post("/api/v1/documents") {
+            contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY")); setBody(multipart(json, source))
+        }
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        val expected = ByteArrayOutputStream()
+        registry.generate(GenerationRequest(source.inputStream(), GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.DOCX)),
+            mapOf("picture" to encoded)), expected, GenerationContext(), "nuaforma-docx")
+        assertEquals(entries(expected.toByteArray()), entries(response.bodyAsBytes()))
+        val rejected = client.post("/api/v1/documents") {
+            contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY"))
+            setBody(multipart(json.replace(encoded, "PRIVATE-BAD-IMAGE"), source))
+        }
+        assertEquals(HttpStatusCode.UnprocessableEntity, rejected.status)
+        assertFalse(rejected.bodyAsText().contains("PRIVATE-BAD-IMAGE"))
+        assertEmpty()
+    }
+
+    @Test
     fun `registered generator content has identical HTTP and embedded semantics with safe failures`() = testApplication {
         val pipe = object : ContentPipe {
             override val definition = ContentPipeDefinition("company", "Synthetic label", support = listOf(ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.DOCX)))

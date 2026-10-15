@@ -22,6 +22,7 @@ internal class ArchitecturePolicy {
     private val integrations = mapOf(
         "org.docx4j" to "dev.nuaforma.docx.adapters.docx4j",
         "jakarta.xml.bind" to "dev.nuaforma.docx.adapters.docx4j",
+        "javax.imageio" to "dev.nuaforma.docx.adapters.imageio",
         "org.apache.pdfbox" to "dev.nuaforma.docx.pdf.adapters.pdfbox",
         "org.verapdf" to "dev.nuaforma.docx.pdf.adapters.verapdf",
         "io.ktor" to "dev.nuaforma.server.adapters.ktor",

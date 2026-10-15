@@ -69,6 +69,10 @@ class ArchitecturePolicyTest {
             "dev.nuaforma.docx.ProbeDirectJaxb" to "public class ProbeDirectJaxb { private jakarta.xml.bind.ProbeNode value; }",
             "dev.nuaforma.docx.adapters.docx4j.ProbeJdkXml" to "public class ProbeJdkXml { private javax.xml.stream.XMLInputFactory factory; }",
             "dev.nuaforma.docx.adapters.docx4j.ProbeQName" to "public class ProbeQName { private javax.xml.namespace.QName name; }",
+            "dev.nuaforma.docx.adapters.imageio.ProbeImageIo" to "public class ProbeImageIo { private javax.imageio.ImageReader reader; }",
+            "dev.nuaforma.docx.ProbeImageIoDirect" to "public class ProbeImageIoDirect { private javax.imageio.ImageReader reader; }",
+            "dev.nuaforma.docx.adapters.docx4j.ProbeImageIoWrongAdapter" to "public class ProbeImageIoWrongAdapter { private javax.imageio.ImageReader reader; }",
+            "dev.nuaforma.docx.ProbeImageIoLeak" to "public class ProbeImageIoLeak { public javax.imageio.ImageReader reader; }",
             "dev.nuaforma.docx.adapters.docx4j.ProbeOtherXmlName" to "public class ProbeOtherXmlName { private javax.xml.namespace.NamespaceContext context; }",
             "dev.nuaforma.docx.ProbeExternalInheritance" to "public class ProbeExternalInheritance extends org.docx4j.ProbeWidget {}",
             "dev.nuaforma.docx.adapters.other.ProbeWrongAdapter" to "public class ProbeWrongAdapter { private org.docx4j.ProbeWidget value; }",
@@ -111,6 +115,9 @@ class ArchitecturePolicyTest {
 
     @ParameterizedTest
     @CsvSource(
+        "adapters,dev.nuaforma.docx.ProbeImageIoDirect",
+        "adapters,dev.nuaforma.docx.adapters.docx4j.ProbeImageIoWrongAdapter",
+        "api-leaks,dev.nuaforma.docx.ProbeImageIoLeak",
         "direction,dev.nuaforma.core.ProbeConcreteProvider",
         "direction,dev.nuaforma.template.ProbeTemplateCore",
         "direction,dev.nuaforma.template.ProbeTemplateDocx",
@@ -173,6 +180,7 @@ class ArchitecturePolicyTest {
             "dev.nuaforma.core.ProbeOwnInternal", "dev.nuaforma.docx.ProbeSibling",
             "dev.nuaforma.docx.adapters.docx4j.ProbeJdkXml",
             "dev.nuaforma.docx.adapters.docx4j.ProbeQName",
+            "dev.nuaforma.docx.adapters.imageio.ProbeImageIo",
             "dev.nuaforma.docx.ProbeTemplateReuse", "dev.nuaforma.template.ProbeTemplateApi",
         )
         ArchitecturePolicy.RULES.forEach { ArchitecturePolicy().rule(it, permitted).check(fixtures) }

@@ -15,6 +15,46 @@ class DocxPdfProviderTest {
         GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(format, options))
 
     @Test
+    fun `image insertion precedes conversion and alpha sources are rejected for 1b without flattening`() {
+        val parts = PdfFixture.parts().apply {
+            this["word/document.xml"] = getValue("word/document.xml").decodeToString().replace("{name}", "{picture | image(10, 5)}").toByteArray()
+        }
+        fun picture(alpha: Boolean): String {
+            val image = java.awt.image.BufferedImage(16, 8, if (alpha) java.awt.image.BufferedImage.TYPE_INT_ARGB else java.awt.image.BufferedImage.TYPE_INT_RGB)
+            return java.util.Base64.getEncoder().encodeToString(ByteArrayOutputStream().also { javax.imageio.ImageIO.write(image, "png", it) }.toByteArray())
+        }
+        mockkConstructor(LibreOfficeProcesses::class)
+        try {
+            every { anyConstructed<LibreOfficeProcesses>().verify(any()) } just Runs
+            every { anyConstructed<LibreOfficeProcesses>().fontFamilies(any(), any()) } returns setOf("DejaVu Sans")
+            every { anyConstructed<LibreOfficeProcesses>().validate(any(), any()) } just Runs
+            every { anyConstructed<LibreOfficeProcesses>().convert(any(), any()) } answers {
+                val files = firstArg<ConversionFiles>()
+                val transformed = PdfFixture.unzip(Files.readAllBytes(files.conversionCopy))
+                assertTrue(transformed.keys.any { it.startsWith("word/media/nuaforma-image-") })
+                assertFalse(transformed.getValue("word/document.xml").decodeToString().contains("| image"))
+                Files.write(files.pdf, StaticPdfFixture.bytes().decodeToString().replace("%PDF-1.7", "%PDF-${files.profile.version}").toByteArray())
+            }
+            val provider = DocxPdfProvider()
+            assertEquals(setOf("standard", "pdfa-1b", "pdfa-2b", "pdfa-3b"), provider.contentPipes().single().support.single { it.output == DocumentFormat.PDF }.profiles)
+            for (profile in listOf("standard", "pdfa-1b", "pdfa-2b", "pdfa-3b")) {
+                val output = ByteArrayOutputStream()
+                provider.generate(GenerationRequest(PdfFixture.zip(parts).inputStream(), requirements(DocumentFormat.PDF, mapOf("profile" to profile)),
+                    mapOf("picture" to picture(false))), output, GenerationContext())
+                assertTrue(output.size() > 0)
+            }
+            val rejected = ByteArrayOutputStream()
+            val error = assertThrows(GenerationException::class.java) {
+                provider.generate(GenerationRequest(PdfFixture.zip(parts).inputStream(), requirements(DocumentFormat.PDF, mapOf("profile" to "pdfa-1b")),
+                    mapOf("picture" to picture(true))), rejected, GenerationContext())
+            }
+            assertEquals(DiagnosticCodes.UNSUPPORTED_INPUT, error.diagnostics.single().code)
+            assertEquals(0, rejected.size())
+            verify(exactly = 4) { anyConstructed<LibreOfficeProcesses>().convert(any(), any()) }
+        } finally { unmockkConstructor(LibreOfficeProcesses::class) }
+    }
+
+    @Test
     fun `content is resolved in DOCX before conversion and unqualified profile fails without publication`() {
         val pipe = object : ContentPipe {
             override val definition = ContentPipeDefinition("company", "Synthetic content", support = listOf(

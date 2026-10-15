@@ -80,7 +80,15 @@ Requested watermarks have the same defaults, validation and restricted language 
 
 The HTTP envelope does not register content pipes or carry executable code. An installed trusted provider may explicitly compose the new generator-owned content registry; its DOCX template uses the same `{value | registeredName(arguments)}` syntax, data scopes and safe failure rules as embedded generation. JSON values remain literal, including strings containing braces. Output profile selection remains in `output.options`, not in a separate content-pipe request object. Text watermarks reject content markers.
 
-There is no standard content pipe in this change and none in the published alpha images. The optional `ContentPipeProvider` contract is the metadata boundary for #60; the current `/api/v1/capabilities` and OpenAPI response fields remain unchanged until that separately scoped integration. See the [DOCX registration example](../nuaforma-docx/README.md#generator-content-pipes-unreleased-source), and preserve the existing extension trust, mount and gateway policies. REST callers cannot install implementations or choose arbitrary classes.
+Source builds include the [bounded standard image pipe](../nuaforma-docx/README.md#image-content-pipe-unreleased-source); published alpha images do not. Use `{company.logo | image(40, 20)}` in ordinary template text and submit the same Base64 data in the existing JSON envelope, for example:
+
+```json
+{"input":{"format":"docx"},"output":{"format":"pdf","options":{"profile":"pdfa-3b"}},"data":{"company":{"logo":"<strict padded Base64 PNG or JPEG bytes>"}}}
+```
+
+The angle-bracket text is explanatory, not valid image data: replace it with your encoded image. Use `null` to omit an image, or `{company.logo ?? null | image(40, 20)}` to explicitly handle a missing path. There is no additional multipart image resource or image URL. Image data is subject to the same JSON/upload quotas as other data, plus the generator's stricter image budgets. Invalid image content returns a sanitized generation error without document bytes. For DOCX output choose `output.format = docx` and `providerId = nuaforma-docx`; for transparent PNG choose standard PDF or PDF/A-2b/3b, not restricted 1b.
+
+The optional `ContentPipeProvider` contract is the metadata boundary for #60; the current `/api/v1/capabilities` and OpenAPI response fields remain unchanged until that separately scoped integration. See the [DOCX registration example](../nuaforma-docx/README.md#generator-content-pipes-unreleased-source), and preserve the existing extension trust, mount and gateway policies. REST callers cannot install implementations or choose arbitrary classes.
 
 ## Multipart and resources
 
