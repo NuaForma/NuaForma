@@ -8,6 +8,9 @@ plugins {
 
 description = "Bounded REST transport for the NuaForma engine"
 application { mainClass.set("dev.nuaforma.server.Main") }
+tasks.withType<JavaExec>().configureEach {
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(25)) })
+}
 
 val sourceCommit = providers.provider {
     runCatching {
@@ -43,6 +46,7 @@ distributions { main { contents {
     from(rootProject.file("DEPENDENCIES.md"))
     from(rootProject.file("docs/libreoffice-licensing.md")) { into("docs") }
     from(rootProject.file("docs/container-releases.md")) { into("docs") }
+    from(rootProject.file("docs/java-runtime-compatibility.md")) { into("docs") }
 } } }
 
 tasks.register<Sync>("prepareEngineQualification") {
@@ -53,6 +57,15 @@ tasks.register<Sync>("prepareEngineQualification") {
     from(sourceSets.main.get().output) { into("classes") }
     from(sourceSets.test.get().output.classesDirs) { into("classes") }
     into(layout.buildDirectory.dir("engine-qualification"))
+}
+
+tasks.register<JavaExec>("prepareMountedProviderQualification") {
+    group = "verification"
+    description = "Compiles a synthetic independent Java 17 extension using the server's Java 25 runtime."
+    dependsOn(tasks.named("testClasses"))
+    classpath = sourceSets.main.get().runtimeClasspath + sourceSets.test.get().output.classesDirs
+    mainClass.set("dev.nuaforma.server.MountedProviderFixture")
+    args(layout.buildDirectory.dir("mounted-provider-qualification").get().asFile.absolutePath)
 }
 
 dependencies {
@@ -101,6 +114,7 @@ tasks.named<Test>("test") {
     dependsOn(tasks.named("jar"))
     inputs.dir(rootProject.file("deployment/pdf-runtime")).withPropertyName("containerRuntime")
     inputs.file(rootProject.file(".github/workflows/container-release.yml")).withPropertyName("containerReleasePreparation")
+    inputs.file(rootProject.file(".github/workflows/build.yml")).withPropertyName("splitJvmBuildMatrix")
     val modules = rootProject.subprojects.sortedBy { it.name }
     val productionOutputs = modules.associateWith { module ->
         module.provider { module.extensions.getByType<SourceSetContainer>().getByName("main").output.classesDirs }

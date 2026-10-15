@@ -20,6 +20,8 @@ def collect(image, destination, docker="docker"):
     try:
         for file in ("outer-packages.tsv", "renderer-packages.tsv", "validator-sha256.txt", "verapdf-sha256.txt", "application-sha256.txt"):
             command("cp", name + ":/usr/share/nuaforma/" + file, str(destination / file))
+        if metadata["Labels"].get("dev.nuaforma.jvm-layout") == "server25-validator17":
+            command("cp", name + ":/usr/share/nuaforma/java-sha256.txt", str(destination / "java-sha256.txt"))
     finally:
         assert command("inspect", name, "--format", '{{index .Config.Labels "dev.nuaforma.inventory"}}') == name
         command("rm", name)

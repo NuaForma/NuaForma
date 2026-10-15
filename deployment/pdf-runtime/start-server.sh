@@ -8,7 +8,7 @@ fi
 heap=${NUAFORMA_HEAP_MB:-512}
 case "$heap" in ''|*[!0-9]*) exit 64 ;; esac
 if [ "$heap" -lt 128 ] || [ "$heap" -gt 16384 ]; then exit 64; fi
-exec /opt/java/openjdk/bin/java "-Xmx${heap}m" -Djava.awt.headless=true \
+exec /opt/java/server/bin/java "-Xmx${heap}m" -Djava.awt.headless=true \
     "-Djava.io.tmpdir=${NUAFORMA_TEMP_DIRECTORY:-/tmp}" \
     "-Dnuaforma.server.host=${NUAFORMA_HOST:-0.0.0.0}" \
     "-Dnuaforma.server.port=${NUAFORMA_PORT:-8080}" \

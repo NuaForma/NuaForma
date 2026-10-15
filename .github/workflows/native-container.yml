@@ -33,12 +33,16 @@ jobs:
       - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
           java-version: '17'
-      - name: Verify wrapper and prepare Java 17 inputs
+      - name: Verify wrapper and prepare Java 17 libraries / Java 25 server
         run: |
           echo '7a9ce74cff467ca1bf60a4fcd9f05185acceda4d0f382434d393e17864262c5d  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check --strict
           test -x gradlew
-          ./gradlew --no-daemon build :nuaforma-server:installDist :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation --warning-mode=fail
+          ./gradlew --no-daemon build :nuaforma-server:installDist :nuaforma-server:prepareMountedProviderQualification :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation --warning-mode=fail
           python3 tools/container/prepare_verapdf_materials.py nuaforma-docx-pdf/build/verapdf-validation
           python3 tools/container/prepare_application_materials.py
       - name: Build native candidate without publishing
@@ -58,6 +62,12 @@ jobs:
           python3 tools/container/qualify_sandbox.py --image nuaforma:native-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --output build/native-container/isolation
           python3 tools/container/qualify_sandbox.py --image nuaforma:native-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --exec-hint --output build/native-container/compatibility-isolation
           python3 tools/container/qualify_service.py --image nuaforma:native-candidate --apparmor nuaforma-runtime --output build/native-container/qualification
+      - name: Qualify fonts and trusted extension boundaries with existing native tools
+        run: |
+          mkdir -p build/native-container/fonts build/native-container/extensions
+          cp nuaforma-server/build/mounted-provider-qualification/mounted-provider.jar build/native-container/extensions/
+          cp nuaforma-docx/src/test/resources/fonts/LibreBarcode39-Regular.ttf build/native-container/fonts/
+          python3 tools/container/qualify_java_runtime.py --image nuaforma:native-candidate --architecture ${{ matrix.architecture }} --apparmor nuaforma-runtime --fonts build/native-container/fonts --extensions build/native-container/extensions --output build/native-container/java-runtime
       - name: Show only matching synthetic policy denials on failure
         if: failure()
         run: sudo journalctl --dmesg --no-pager | grep 'profile="nuaforma-runtime"' | grep 'apparmor="DENIED"' || true

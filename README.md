@@ -16,7 +16,7 @@ NuaForma is an open-source Kotlin/JVM document-generation engine for Java 17 app
 
 Visit [nuaforma.dev](https://nuaforma.dev) for deployment examples, endpoint documentation and a downloadable Word/JSON example kit you can run against your own installation.
 
-> **Evaluation alpha:** `0.1.0-alpha.1` is available on Maven Central and as `ghcr.io/nuaforma/nuaforma:0.1.0-alpha.1`, with contract baseline `0.1`. APIs are not stable; review the [release notes](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.1), including accepted native-runtime security findings. There is no hosted document-generation service and no `latest` container tag.
+> **Evaluation alpha:** libraries are available as `0.1.0-alpha.1` on Maven Central; the container is `ghcr.io/nuaforma/nuaforma:0.1.0-alpha.3`, with contract baseline `0.1`. APIs are not stable; review the [library release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.1) and [container release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.3), including accepted native-runtime security findings. There is no hosted document-generation service and no `latest` container tag.
 
 ## What works today
 
@@ -28,7 +28,7 @@ Visit [nuaforma.dev](https://nuaforma.dev) for deployment examples, endpoint doc
 - **Dynamic text watermarks:** resolve watermark placeholders and conditions against the same data, with configurable color, opacity and rotation.
 - **DOCX → PDF:** standard PDF or independently validated PDF/A-1b, PDF/A-2b and PDF/A-3b, using the isolated LibreOffice runtime. DOCX output is not changed by PDF compatibility processing.
 - **Embedded and REST use:** the same generation contracts from Kotlin/Java or multipart HTTP, with capabilities, preflight assessment and downloadable OpenAPI JSON/YAML.
-- **On-premise container:** one Linux/amd64 service container, with read-only mounts for operator fonts and trusted provider extensions; capabilities list deployment-available fonts.
+- **On-premise container:** native Linux/amd64 and Linux/arm64 variants of one service image, with read-only mounts for operator fonts and trusted provider extensions; capabilities list deployment-available fonts.
 
 These capabilities have bounded supported profiles, not a promise to preserve every Word feature or reproduce every renderer's pagination. See the module guides for exact rules.
 
@@ -110,7 +110,7 @@ Omit `version` to derive it from the profile; an explicit version must match. Ea
 
 PDF requires explicit ASCII/hAnsi document-default font names and available fonts. Fonts can come from the qualified bundled catalog, operator mounts, supplied request resources or template embedding. Technical embedding permissions are enforced; callers remain responsible for usage rights. Barcode encoding, quiet zones and scanability are separate from text replacement and must be checked for the intended template/font combination.
 
-The qualified runtime is Linux/amd64. A measured modern inline-text-box vertical difference of approximately 0.60 mm remains temporarily accepted in [issue #32](https://github.com/NuaForma/NuaForma/issues/32), with a result warning. It is not a general layout tolerance. See the [PDF options and fidelity profile](nuaforma-docx-pdf/README.md) before choosing templates or deployment platforms.
+Container releases include native Linux/amd64 and Linux/arm64 variants; each host must still pass PDF isolation readiness. The source Java 25 service requires renewed native qualification, not reliance on a previous image's checks. A measured modern inline-text-box vertical difference of approximately 0.60 mm remains temporarily accepted in [issue #32](https://github.com/NuaForma/NuaForma/issues/32), with a result warning. It is not a general layout tolerance. See the [PDF options and fidelity profile](nuaforma-docx-pdf/README.md) before choosing templates or deployment platforms.
 
 ## Security and deployment boundaries
 
@@ -120,7 +120,9 @@ The service has no built-in authentication or TLS. Keep local access on loopback
 
 ## Build and verify
 
-Install JDK 17 and Python 3, then use the checked-in Gradle Wrapper. No global Gradle installation is required; the first build downloads pinned build tools and dependencies. On Windows the corresponding launcher is `gradlew.bat`.
+Install JDK 17, JDK 25 and Python 3, then use the checked-in Gradle Wrapper. The five libraries compile and test on Java 17; the standalone server compiles and tests on Java 25. The wrapper can run on either JDK. If automatic toolchain discovery does not find both installations, set `JDK17` and `JDK25` to their installation directories. No global Gradle installation is required; the first build downloads pinned build tools and dependencies. On Windows the corresponding launcher is `gradlew.bat`.
+
+This source branch requires Java 25 for the standalone server. Previously published `0.1.0-alpha.3` containers remain immutable and use Java 17; this change does not publish a new image or raise the Java 17 minimum of embedded libraries. The new service image deliberately retains separate Java 17 child runtimes for bounded PDF validation; see the [runtime compatibility decision](docs/java-runtime-compatibility.md).
 
 ```sh
 ./gradlew build

@@ -1,10 +1,10 @@
 # On-premise service container
 
-The `service` target packages the REST application, Java 17, LibreOffice and the isolated PDF validator in one Linux/amd64 container. It needs no Office desktop, cloud account, worker container or Docker socket. Runtime generation does not fetch dependencies, templates or fonts; there is no application telemetry. Building requires access to the pinned artifacts. No public image or stable release is implied by a local build.
+The `service` source target packages the Java 25 REST application, separately pinned Java 17 PDF validators and LibreOffice in one native Linux AMD64/ARM64 container. It needs no Office desktop, cloud account, worker container or Docker socket. Runtime generation does not fetch dependencies, templates or fonts; there is no application telemetry. Building requires access to the pinned artifacts. Published containers through `0.1.0-alpha.3` remain unchanged Java 17 releases; a local build does not publish a new image. See [runtime compatibility](../../docs/java-runtime-compatibility.md).
 
 ## Build and start
 
-Use Java 17, the checked-in wrapper and Docker with BuildKit/named build contexts:
+Install JDK 17 and JDK 25, then use the checked-in wrapper and Docker with BuildKit/named build contexts. Libraries compile/test on 17, server on 25; set `JDK17`/`JDK25` when automatic toolchain discovery needs installation paths:
 
 ```sh
 ./gradlew --no-daemon build :nuaforma-server:installDist :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation
@@ -89,6 +89,8 @@ DOCX preserves template font choices without requiring server fonts. PDF needs f
 SIGTERM goes through Docker's init to the JVM. The server's shutdown hook stops admission, permits a short grace period and then cancels handlers; cancellation reaches the provider's bounded process handling. Compose allows 15 seconds before forced termination. SIGKILL cannot guarantee application cleanup; destroying the container's tmpfs removes remaining private files. A client disconnect alone may not immediately interrupt CPU-bound generation; the independent server/engine deadlines remain necessary. Preserve init/reaping and bounded process limits even for DOCX-only requests in this image.
 
 ## Qualification and release preparation
+
+The source Java 25 migration adds `:nuaforma-server:prepareMountedProviderQualification` and `tools/container/qualify_java_runtime.py`. The latter checks the native platform, exact Java 25 server/Java 17 validator versions, live PDF readiness, an independently compiled Java 17 provider, two concurrent tenant references and a mounted open font's catalog/DOCX embedding/PDF-A conversion. Supply private generated extension/font directories through `--extensions` and `--fonts`; native CI uses only the already checked-in Libre Barcode 39 fixture. It adds no image-processing test dependency or production font. It complements, not replaces, the service, sandbox, independent layout/barcode and failure/cleanup qualification below. See [the split runtime decision](../../docs/java-runtime-compatibility.md).
 
 `python3 tools/container/qualify_service.py --image nuaforma:local --output build/container-qualification` exercises the actual shipped entry point through published loopback HTTP, non-root/read-only execution, DOCX/PDF generation, per-request cleanup, SIGTERM during actual LibreOffice conversion, an absent converter and handler-deadline cancellation. It creates randomly named, labelled containers and removes only those containers. The output must be a fresh directory. Optional `--fixtures <docx-build-directory> --fonts <private-QA-font-directory>` adds two concurrent barcode tenants and a five-page dynamic-watermark fixture; these private fonts remain request inputs and must not be packaged or uploaded. Independently rasterize, inspect embedded fonts and decode barcodes as described in the [runtime guide](README.md#reproducible-qualification).
 

@@ -32,6 +32,9 @@ def main():
     root = pathlib.Path(__file__).resolve().parents[2]
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
+    java = subprocess.run(["java", "-XshowSettings:properties", "-version"], capture_output=True, text=True, timeout=30)
+    (output / "java-runtime.log").write_text(java.stdout + java.stderr, encoding="utf-8")
+    assert java.returncode == 0 and re.search(r"java.specification.version\s*=\s*17\b", java.stderr), "Independent library consumers must actually run on Java 17"
     repository = args.repository.resolve()
     reviewed = json.loads((root / "build/library-runtime-files.json").read_text(encoding="utf-8"))
     def verify_runtime(files, modules):
@@ -75,7 +78,7 @@ def main():
         command = ["java", "-cp", classpath, "dev.nuaforma.examples." + entrypoint]
         if module == "docx": command.append(str(output / "maven.docx"))
         message = run(command, root, output / (module + ".log"))
-        records.append({"consumer": "maven-" + module, "passed": True, "modules": sorted(names), "result": message.strip()})
+        records.append({"consumer": "maven-" + module, "passed": True, "javaFeature": 17, "modules": sorted(names), "result": message.strip()})
     provider_files = list((root / "examples/embedded/maven/provider/target/dependency" / args.version).glob("*.jar"))
     assert own_modules(provider_files) == {"nuaforma-contracts"}
     run([str(root / "gradlew"), "--no-daemon", "--project-dir", "examples/embedded/gradle", "--refresh-dependencies",

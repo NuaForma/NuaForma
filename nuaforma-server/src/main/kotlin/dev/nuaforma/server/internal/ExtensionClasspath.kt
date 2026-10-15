@@ -54,7 +54,18 @@ internal object ExtensionClasspath {
                             val entry = iterator.next()
                             val name = entry.name
                             require(!name.startsWith('/') && !name.contains('\\') && name.split('/').none { it == ".." }) { "INVALID_EXTENSION_ARCHIVE" }
-                            if (!entry.isDirectory && name.endsWith(".class") && !name.startsWith("META-INF/") && name != "module-info.class") ownClasses.add(name)
+                            if (!entry.isDirectory && name.endsWith(".class") && !name.startsWith("META-INF/") && name != "module-info.class") {
+                                require(name !in classes && parent.getResource(name) == null) { "EXTENSION_CLASS_CONFLICT" }
+                                require(entry.size in 8..(16L * 1024 * 1024)) { "INVALID_EXTENSION_CLASS" }
+                                jar.getInputStream(entry).use { input ->
+                                    val header = input.readNBytes(8)
+                                    require(header.size == 8 && header.take(4) == listOf(0xca.toByte(), 0xfe.toByte(), 0xba.toByte(), 0xbe.toByte())) { "INVALID_EXTENSION_CLASS" }
+                                    val minor = ((header[4].toInt() and 255) shl 8) or (header[5].toInt() and 255)
+                                    val major = ((header[6].toInt() and 255) shl 8) or (header[7].toInt() and 255)
+                                    require(major in 45..(Runtime.version().feature() + 44) && minor != 65535) { "UNSUPPORTED_EXTENSION_CLASS_VERSION" }
+                                }
+                                ownClasses.add(name)
+                            }
                         }
                         for (name in ownClasses) {
                             require(classes.add(name) && parent.getResource(name) == null) { "EXTENSION_CLASS_CONFLICT" }

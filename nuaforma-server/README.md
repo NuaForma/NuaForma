@@ -1,6 +1,6 @@
 # REST service
 
-Development-stage Java 17 service using Ktor CIO and the same public engine/provider contracts as embedded generation. No second template evaluator, storage backend or implicit resource fetching is introduced. Equivalent OpenAPI JSON/YAML downloads, the [Linux/amd64 on-premise container](../deployment/pdf-runtime/SERVICE.md), operator mounts and per-provider font catalogs are implemented. No public service or image is deployed by the build.
+Development-stage Java 25 service using Ktor CIO and the same public Java-17-compatible engine/provider contracts as embedded generation. No second template evaluator, storage backend or implicit resource fetching is introduced. Equivalent OpenAPI JSON/YAML downloads, the [native AMD64/ARM64 on-premise container](../deployment/pdf-runtime/SERVICE.md), operator mounts and per-provider font catalogs are implemented. Install JDK 17 and JDK 25 for the source build; Gradle selects the appropriate module toolchains. Published containers through `0.1.0-alpha.3` remain on Java 17 until a separately approved release; see [runtime compatibility](../docs/java-runtime-compatibility.md). No public service or image is deployed by the build.
 
 ## Run locally
 
@@ -8,6 +8,8 @@ Development-stage Java 17 service using Ktor CIO and the same public engine/prov
 ./gradlew :nuaforma-server:installDist
 ./nuaforma-server/build/install/nuaforma-server/bin/nuaforma-server
 ```
+
+Launch the installed script with `JAVA_HOME` pointing to JDK 25, or Java 25 on `PATH` when `JAVA_HOME` is unset. Gradle's compile/test toolchain selection does not change your shell's runtime. `./gradlew :nuaforma-server:run` selects the Java 25 launcher explicitly. The container entry point likewise uses its own pinned Java 25 installation.
 
 The default listener is `127.0.0.1:8080`. Trusted JVM properties `nuaforma.server.host` and `nuaforma.server.port` override it; use the launcher's `JAVA_OPTS` or `:nuaforma-server:run` JVM configuration. PDF additionally needs `-Dnuaforma.pdf.launcher=/opt/nuaforma/bin/render-pdf` inside the [qualified runtime](../deployment/pdf-runtime/README.md); setting a property without that isolated runtime does not enable PDF. Missing PDF support leaves DOCX usable. Libraries do not start this server automatically.
 
