@@ -1,6 +1,6 @@
 # Endpoint and Playground integration (unreleased source)
 
-Issues #60, #80, #48 and #78 are delivered together with one signed issue commit each and one combined pull request. Publication is excluded; existing alpha artifacts and website downloads remain unchanged. The maintainer reviewed and approved the local Playground before final delivery.
+Issues #60, #80, #48 and #78 were merged in [PR #81](https://github.com/NuaForma/NuaForma/pull/81), with one signed commit per issue. Java 17/25 builds and native AMD64/ARM64 checks passed. Nothing was published; existing alpha artifacts and website downloads remain unchanged. The maintainer reviewed and approved the local Playground, and its preview was stopped.
 
 ## Pipe capabilities (#60)
 
@@ -10,7 +10,7 @@ Playground impact: populate pipe help and supported contexts/profile hints from 
 
 ## Health (#80)
 
-Source liveness/readiness and Docker/Kubernetes probes are implemented; see the [health guide](health.md). Readiness uses a background snapshot rather than invoking converters from each health request. Targeted lifecycle, capacity and HTTP contract tests pass; final native-image qualification remains part of the combined delivery.
+Source liveness/readiness and Docker/Kubernetes probes are implemented; see the [health guide](health.md). Readiness uses a background snapshot rather than invoking converters from each health request. Lifecycle, capacity, HTTP contract and native AMD64/ARM64 service checks passed, including automatic Docker health transitions. This does not claim cluster qualification or approve publication of a different release candidate.
 
 ## Static shipped-component SBOM (#48)
 

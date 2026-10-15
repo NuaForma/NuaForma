@@ -2,6 +2,10 @@
 
 Container examples target `0.1.0-alpha.3`. This archive contains configuration and synthetic examples, not container images or client binaries. An internet connection is needed to pull the image; document generation runs on your installation.
 
+## Documentation and version scope
+
+Use the [documentation index](https://github.com/NuaForma/NuaForma/blob/main/docs/README.md), [build guide](https://github.com/NuaForma/NuaForma/blob/main/docs/development.md) or [extension guide](https://github.com/NuaForma/NuaForma/blob/main/docs/extensions.md) for deeper instructions. Repository `main` also describes newer source features. This kit deliberately retains alpha.3-compatible requests, Java 17 extensions and deployment settings: health/SBOM endpoints, value/content pipes, image insertion and the separate Playground require a matching newer/source build. No new release is supplied by these documentation changes.
+
 ## Contents
 
 ```text

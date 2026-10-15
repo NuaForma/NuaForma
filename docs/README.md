@@ -1,0 +1,63 @@
+# NuaForma documentation
+
+Choose a guide for the task you want to complete. Module guides are the technical reference; this index links to them rather than maintaining duplicate API descriptions.
+
+## Use NuaForma
+
+- [Project overview](../README.md) and [website/downloads](https://nuaforma.dev).
+- [Template language](../nuaforma-template/README.md): placeholders, null/missing values, conditions, nested repetitions, formatting and pipes.
+- [Word templates](../nuaforma-docx/README.md): paragraph/table rules, text boxes, images, fonts and watermarks.
+- [PDF output](../nuaforma-docx-pdf/README.md): standard/PDF-A profiles, font requirements, isolation and fidelity limits.
+- [REST API](../nuaforma-server/README.md): multipart requests/resources, capabilities, assessment, errors and downloadable OpenAPI JSON/YAML.
+- [Embedded Java/Kotlin examples](../examples/embedded/README.md): consume library artifacts without running a server.
+- [Development Playground](../nuaforma-playground/README.md): prepare/export requests, select/upload fonts and generate documents through the same API; available in source builds, not existing alpha images.
+
+## Deploy and operate
+
+- [Source service container](../deployment/pdf-runtime/SERVICE.md): building, configuration, limits and shutdown. For published images, use the version-matched website kits instead of source-only build instructions.
+- [ARM64 and Podman](../deployment/pdf-runtime/ARM64.md), [AppArmor](../deployment/pdf-runtime/APPARMOR.md) and [renderer isolation](../deployment/pdf-runtime/README.md).
+- [Font and extension mounts](../deployment/pdf-runtime/MOUNTS.md).
+- [Operational logging](logging.md): correlation, safe errors and sensitive development diagnostics.
+- [Health endpoints](health.md) and [source Helm chart](../deployment/helm/README.md).
+- [Static CycloneDX inventory](sbom.md): component scope, exclusions and build-time validation.
+- [Java runtime compatibility](java-runtime-compatibility.md): Java 17 libraries, Java 25 server/Playground and separate Java 17 validators.
+
+## Develop, extend and contribute
+
+- [Build and test](development.md).
+- [Create/install extensions](extensions.md) and the [independent value-pipe example](../examples/value-pipes/README.md).
+- [Contribution guidelines](../CONTRIBUTING.md).
+- [Architecture decisions](../ARCHITECTURE.md), [provider contracts](../nuaforma-contracts/README.md) and [provider discovery/core](../nuaforma-core/README.md).
+- [Dependency reviews](../DEPENDENCIES.md), [third-party notices](../THIRD_PARTY.md) and [license](../LICENSE).
+
+## Source versus published versions
+
+As of the documentation review on 2026-10-15:
+
+| Distribution | Available version and scope |
+| --- | --- |
+| Maven Central libraries | `0.1.0-alpha.1`; [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.1) |
+| GHCR service image | `0.1.0-alpha.3`, native Linux AMD64/ARM64, Java 17; [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.3) |
+| Current source | Adds Java 25 server runtime, extensible value/content pipes and the image pipe, correlated development logging, pipe catalogs, health endpoints, SBOM and the separate Playground application |
+
+The current source has passed Java 17/25 builds and native AMD64/ARM64 container checks in [PR #81](https://github.com/NuaForma/NuaForma/pull/81). These checks do not publish artifacts, establish arbitrary-platform compatibility or replace the next candidate's source/license/security audit. Source changes do not alter immutable alpha libraries/images. Source artifact coordinates can still match the old alpha while development is unreleased; use the exclusive local repository described in the development/examples guides to test these changes, never assume Central's alpha contains them. Contract baseline remains `0.1`; release numbering is a separate decision.
+
+Published alphas are for evaluation and retain documented native-runtime security findings tracked in [issue #51](https://github.com/NuaForma/NuaForma/issues/51). Review their release notes and deployment boundaries; earlier risk acceptance is not approval of a different release candidate.
+
+XLSX, ODT and ODS, external template retrieval, signable PDF fields and a LibreOffice-free renderer remain roadmap work. PDF/A level A and PDF/UA are not supported. Attachments and encryption are not implemented. See the [issues](https://github.com/NuaForma/NuaForma/issues) for current planning and the PDF guide for supported profiles and the scoped text-box limitation.
+
+## Maintainer release guides
+
+- [Maven Central signing, upload and publication](maven-central-releases.md).
+- [Container qualification and publication](container-releases.md), including mandatory website/download synchronization.
+- [Bundled runtime licensing/source provision](libreoffice-licensing.md).
+
+Preparation, publication and website deployment are separate actions. These guides do not authorize a release or deploy the site.
+
+## Historical research
+
+- [PDF backend comparison](pdf-backend-evaluation.md).
+- [PDF/A-3a feasibility](pdfa-3a-feasibility.md).
+- [Endpoint/Playground delivery and impact review](endpoint-integration.md).
+
+Research records describe the measured baseline, not current supported features or uncompleted release requirements. Follow the current module guides for actual behavior.

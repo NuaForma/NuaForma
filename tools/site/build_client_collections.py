@@ -101,6 +101,8 @@ def client_readme(client):
 
 For the NuaForma 0.1.0-alpha.3 service. Start your own installation first; this kit does not start a service or contact the website.
 
+See the [documentation index](https://github.com/NuaForma/NuaForma/blob/main/docs/README.md) for template/API/PDF guides. Current repository source also documents newer APIs; this collection keeps its 11 alpha.3-compatible requests. Health/SBOM routes, extensible pipes and the separate Playground need a matching newer/source build, not an unchanged alpha.3 image.
+
 {steps}
 The collection contains 11 requests: version, capabilities, one JSON assessment, OpenAPI JSON/YAML, and all six document scenarios. An HTTP-success test does not establish renderer readiness or visual/PDF-A conformance. Check the PDF provider's `available.writeFormats`; declared formats alone are not sufficient. Assessment does not validate the Word template.
 

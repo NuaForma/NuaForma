@@ -21,4 +21,4 @@ The maintained source chart is under `deployment/helm/nuaforma`; see its adjacen
 
 Keep probe traffic internal to the workload; no public ingress is required. Preserve non-root execution, reviewed seccomp/device/user-namespace policy, read-only filesystems and all existing limits. OpenShift must satisfy these same prerequisites; chart syntax validation is not a claim that an arbitrary OpenShift cluster is qualified. Operators control ingress/authentication and platform tuning.
 
-Existing public alpha images remain immutable and do not acquire new routes. Their website deployment kits retain compatible defaults; enable health probes only with a matching source/new-release image. The future Playground shares the server lifecycle and endpoints, not a second readiness model.
+Existing public alpha images remain immutable and do not acquire new routes. Their website deployment kits retain compatible defaults; enable health probes only with a matching source/new-release image. The separate Playground shares the server lifecycle and endpoints, not a second readiness model.
