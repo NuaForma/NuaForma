@@ -106,6 +106,8 @@ The optional `ContentPipeProvider` contract supplies source `/api/v1/capabilitie
 
 ## Service health
 
+`GET /api/v1/sbom` separately downloads the immutable build-generated CycloneDX 1.7 shipped-component inventory. It includes explicit standalone/container scope and source identity, excludes private/operator resources, and does not scan the host or start providers. See the [SBOM guide](../docs/sbom.md) for build validation, coverage, headers and trusted startup configuration.
+
 Source builds expose lightweight `GET /health/live` and `GET /health/ready` outside generation admission slots. Readiness requires initialization and a recent background observation with at least one executable provider pair; missing PDF does not disable usable DOCX generation. Responses contain only `status: UP|DOWN`, use 200/503 and retain request correlation without routine access-log noise. See the [health/lifecycle and deployment guide](../docs/health.md) for snapshot freshness, shutdown, the bundled Docker probe and Helm/Kubernetes/OpenShift settings. Previously published alpha images do not gain these routes retroactively.
 
 ## Multipart and resources

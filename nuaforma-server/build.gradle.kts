@@ -1,9 +1,13 @@
 import java.io.File
+import org.cyclonedx.gradle.CyclonedxDirectTask
+import org.cyclonedx.Version
+import org.cyclonedx.model.Component
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
     java
     application
+    alias(libs.plugins.cyclonedx)
 }
 
 description = "Bounded REST transport for the NuaForma engine"
@@ -38,6 +42,76 @@ val generateBuildInformation = tasks.register("generateBuildInformation") {
     }
 }
 sourceSets.main { resources.srcDir(buildInformationDirectory) }
+val rawSbom = layout.buildDirectory.file("reports/cyclonedx/runtime.json")
+tasks.named<CyclonedxDirectTask>("cyclonedxDirectBom") {
+    includeConfigs = listOf("runtimeClasspath")
+    skipConfigs = listOf("(?i).*test.*")
+    testConfigs = emptyList()
+    schemaVersion = Version.VERSION_17
+    projectType = Component.Type.APPLICATION
+    includeBomSerialNumber = false
+    includeBuildSystem = false
+    componentVersion = buildVersion.get()
+    jsonOutput = rawSbom
+    xmlOutput.convention(null as RegularFile?)
+}
+val runtimeInventory = tasks.register("writeSbomRuntimeInventory") {
+    val output = layout.buildDirectory.file("sbom-runtime-files.json")
+    inputs.files(configurations.runtimeClasspath)
+    outputs.file(output)
+    doLast {
+        val artifacts = configurations.runtimeClasspath.get().resolvedConfiguration.resolvedArtifacts.map {
+            mapOf("group" to it.moduleVersion.id.group, "name" to it.name, "version" to it.moduleVersion.id.version, "file" to it.file.absolutePath)
+        }
+        output.get().asFile.writeText(groovy.json.JsonOutput.toJson(artifacts))
+    }
+}
+val sbomDirectory = layout.buildDirectory.dir("generated/sbom")
+val sbomScript = rootProject.file("tools/sbom/normalize_runtime.py")
+val sbomModuleName = project.name
+val sbomRuntimeManifest = layout.buildDirectory.file("sbom-runtime-files.json")
+val externalSbomFile = providers.gradleProperty("sbomFile").map { rootProject.file(it) }
+val generateSbom = tasks.register<Exec>("generateSbom") {
+    dependsOn("cyclonedxDirectBom", runtimeInventory)
+    inputs.files(configurations.runtimeClasspath).withPropertyName("resolvedProductionArtifacts")
+    inputs.file(rawSbom)
+    inputs.file(layout.buildDirectory.file("sbom-runtime-files.json"))
+    inputs.file(rootProject.file("tools/sbom/normalize_runtime.py"))
+    inputs.property("version", buildVersion)
+    inputs.property("commit", sourceCommit)
+    outputs.dir(sbomDirectory)
+    doFirst { commandLine("python3", sbomScript, rawSbom.get().asFile,
+        sbomRuntimeManifest.get().asFile, sbomDirectory.get().file("META-INF/nuaforma/sbom.json").asFile,
+        "--name", sbomModuleName, "--version", buildVersion.get(), "--commit", sourceCommit.get()) }
+    doLast {
+        val file = sbomDirectory.get().file("META-INF/nuaforma/sbom.json").asFile
+        val errors = org.cyclonedx.parsers.JsonParser().validate(file, Version.VERSION_17)
+        check(errors.isEmpty()) { "CycloneDX 1.7 schema validation failed: $errors" }
+    }
+}
+sourceSets.main { resources.srcDir(sbomDirectory) }
+tasks.named("processResources") { dependsOn(generateSbom) }
+tasks.register("validateSbomFile") {
+    group = "verification"
+    doLast {
+        val file = externalSbomFile.get()
+        check(file.length() in 2..16 * 1024 * 1024)
+        val errors = org.cyclonedx.parsers.JsonParser().validate(file, Version.VERSION_17)
+        check(errors.isEmpty()) { "CycloneDX 1.7 schema validation failed: $errors" }
+    }
+}
+val verifyShippedSboms = tasks.register("verifyShippedSboms") {
+    group = "verification"
+    dependsOn(generateSbom)
+    doLast {
+        listOf(sbomDirectory.get().file("META-INF/nuaforma/sbom.json").asFile).forEach { file ->
+            check(org.cyclonedx.parsers.JsonParser().validate(file, Version.VERSION_17).isEmpty()) { "Invalid shipped SBOM" }
+        }
+        val invalid = "{\"bomFormat\":\"CycloneDX\",\"specVersion\":\"1.7\",\"version\":\"invalid\"}"
+        check(org.cyclonedx.parsers.JsonParser().validate(invalid, Version.VERSION_17).isNotEmpty()) { "Schema validator must reject invalid documents" }
+    }
+}
+tasks.named("check") { dependsOn(verifyShippedSboms) }
 tasks.named("processResources") { dependsOn(generateBuildInformation) }
 tasks.named<Jar>("jar") { from(rootProject.file("LICENSE")) { into("META-INF") } }
 distributions { main { contents {
@@ -129,6 +203,7 @@ tasks.named<Test>("test") {
         systemProperty("nuaforma.expectedLibraryVersion", libraryVersion)
         systemProperty("nuaforma.expectedBuildCommit", sourceCommit.get())
         systemProperty("nuaforma.serverJar", tasks.named<Jar>("jar").get().archiveFile.get().asFile.absolutePath)
+        systemProperty("nuaforma.sbomRuntimeManifest", sbomRuntimeManifest.get().asFile.absolutePath)
         systemProperty("nuaforma.repositoryRoot", rootProject.projectDir.absolutePath)
         systemProperty("nuaforma.architecture.modules", modules.joinToString("|") { it.name })
         productionOutputs.forEach { (module, output) ->

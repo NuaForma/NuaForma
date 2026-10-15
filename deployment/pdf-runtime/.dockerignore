@@ -4,8 +4,9 @@
 !renderer-seccomp.c
 !render-pdf.sh
 !start-server.sh
+!healthcheck.sh
+!generate-sbom.py
 !NOTICE
 !SOURCES.md
 !licenses/
 !licenses/**
-!healthcheck.sh

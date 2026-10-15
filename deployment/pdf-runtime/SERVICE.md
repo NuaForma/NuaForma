@@ -33,6 +33,8 @@ Compose binds the host port to loopback, runs UID/GID 1000, includes Docker's ch
 
 The service has no built-in authentication or TLS. Keep it behind an authenticated TLS gateway for remote callers, with connection/header quotas. A successful HTTP response from capabilities proves HTTP availability, not PDF readiness: check the PDF provider's usable write formats and readiness diagnostics, or assess the intended request. DOCX remains usable when the converter is absent or isolation cannot start.
 
+Source builds include the [static SBOM endpoint](../../docs/sbom.md), [health probes](../../docs/health.md) and maintained source chart under `deployment/helm/nuaforma`. Published alpha kits remain unchanged.
+
 ## Configuration and private storage
 
 Operator environment variables, never request fields:

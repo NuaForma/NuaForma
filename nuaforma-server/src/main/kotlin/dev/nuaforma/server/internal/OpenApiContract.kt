@@ -103,6 +103,10 @@ internal object OpenApiContract {
             "additionalProperties" to false,
             "description" to "Exactly one request (application/json) and template file part, plus optional resource.<id> file parts in any order. Duplicates/unknown names fail. Resource suffixes are the logical font/resource IDs in provider options, never paths/URLs. For DOCX, template media type must be its document type or application/octet-stream. Some OpenAPI clients do not support patternProperties multipart fields; add named resource file parts explicitly.")
         val paths = linkedMapOf<String, Any>(
+            ApiRoutes.SBOM to mapOf("get" to mapOf("operationId" to "downloadSbom", "summary" to "Download the static shipped-component CycloneDX 1.7 inventory",
+                "description" to "Build-generated snapshot, not a runtime scan, vulnerability assessment or license audit. Standalone scope is JVM production dependencies; container scope includes bundled native/JVM/OS components. Operator extensions, private fonts and request data are excluded. Read metadata properties for scope and source identity.",
+                "responses" to (errors() + mapOf("200" to mapOf("description" to "Build-validated CycloneDX 1.7 JSON attachment", "content" to content(jsonObject(), "application/vnd.cyclonedx+json"),
+                    "headers" to mapOf("Content-Disposition" to mapOf("schema" to string()), "ETag" to mapOf("schema" to string()), "Cache-Control" to mapOf("schema" to string()))))))),
             ApiRoutes.LIVE to mapOf("get" to mapOf("operationId" to "getLiveness", "summary" to "Check HTTP application liveness",
                 "description" to "Independent of converters and generation slots; no document or provider processing. No internal details in any mode.",
                 "responses" to mapOf("200" to response("Application is live", ref("Health")), "503" to response("Application is not live", ref("Health"))))),

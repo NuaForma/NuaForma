@@ -30,7 +30,8 @@ import java.util.UUID
 import io.ktor.util.AttributeKey
 
 internal class KtorServer(private val registry: ProviderRegistry, private val config: ServerConfiguration,
-                          private val logSink: GenerationLogSink = OperationalLogging) {
+                          private val logSink: GenerationLogSink = OperationalLogging,
+                          private val sbom: ShippedSbom = ShippedSbom.packaged()) {
     private val json: JsonCodec = KotlinxJsonCodec()
     private val slots = Semaphore(config.maximumConcurrentRequests)
     private val documentation = ApiDocumentation(json)
@@ -90,6 +91,13 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
         routing {
             get(ApiRoutes.LIVE) { healthResponse(call, health.live()) }
             get(ApiRoutes.READY) { healthResponse(call, health.ready()) }
+            get(ApiRoutes.SBOM) { guarded(call) {
+                call.response.headers.append(HttpHeaders.CacheControl, "no-store")
+                call.response.headers.append(HttpHeaders.ContentDisposition, "attachment; filename=\"nuaforma-sbom.json\"")
+                call.response.headers.append("X-Content-Type-Options", "nosniff")
+                call.response.headers.append(HttpHeaders.ETag, sbom.etag)
+                call.respondBytes(sbom.bytes, ContentType.parse("application/vnd.cyclonedx+json"))
+            } }
             get(ApiRoutes.VERSION) { guarded(call) {
                 call.response.headers.append(HttpHeaders.CacheControl, "no-store")
                 call.response.headers.append("X-Content-Type-Options", "nosniff")

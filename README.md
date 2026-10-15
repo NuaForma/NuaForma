@@ -95,6 +95,10 @@ For a local JVM service, follow the [server launch guide](nuaforma-server/README
 
 The service exposes `/api/v1/documents`, `/api/v1/assess`, `/api/v1/capabilities`, `/api/v1/version`, `/openapi.json` and `/openapi.yaml`. The version endpoint returns packaged build version/source identity and the runtime contract version without checking converters; source archives report a null commit. The [mount guide](deployment/pdf-runtime/MOUNTS.md) describes custom fonts, trusted extensions and restart-based reload. The container is published as `ghcr.io/nuaforma/nuaforma:0.1.0-alpha.3`, with native Linux AMD64 and ARM64 variants and no `latest` alias. Download the complete [AMD64](https://nuaforma.dev/downloads/docker-kit.zip) or [ARM64](https://nuaforma.dev/downloads/docker-arm64-kit.zip) deployment kit, including the required seccomp profile.
 
+### Shipped-component inventory
+
+Source builds expose a static [CycloneDX 1.7 SBOM](docs/sbom.md) at `/api/v1/sbom`, with explicit JVM/container scope and no runtime scans or private-resource inventory. Published alpha images remain unchanged.
+
 ## PDF choices and important limits
 
 For PDF, set `output.format` to `pdf` and omit the DOCX provider preference. Select `output.options.profile`:

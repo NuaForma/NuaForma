@@ -84,7 +84,7 @@ USER 1000:1000
 ENTRYPOINT ["/opt/nuaforma/bin/render-pdf"]
 
 # Only the explicit Gradle installDist directory is accepted, never the checkout.
-FROM qualification AS service
+FROM qualification AS service-base
 COPY --from=server-java-runtime /opt/java/openjdk /opt/java/server/
 COPY --from=application / /opt/nuaforma/application/
 COPY start-server.sh /opt/nuaforma/bin/start-server
@@ -109,3 +109,22 @@ LABEL org.opencontainers.image.source="https://github.com/NuaForma/NuaForma" \
       org.opencontainers.image.title="NuaForma" \
       org.opencontainers.image.description="DOCX and isolated PDF generation; bundled components retain their own licenses"
 ENTRYPOINT ["/opt/nuaforma/bin/start-server"]
+
+FROM bubblewrap-build AS service-inventory
+ARG TARGETARCH
+COPY generate-sbom.py /generate-sbom.py
+COPY --from=service-base /opt/nuaforma/application /inventory/application/
+COPY --from=service-base /opt/nuaforma/pdf-validation /inventory/pdf-validation/
+COPY --from=service-base /opt/nuaforma/verapdf-validation /inventory/verapdf-validation/
+COPY --from=service-base /usr/share/nuaforma/outer-packages.tsv /usr/share/nuaforma/renderer-packages.tsv /inventory/
+COPY --from=service-base /usr/local/bin/bwrap /inventory/bwrap
+COPY --from=service-base /usr/share/nuaforma/renderer-seccomp.bpf /inventory/renderer-seccomp.bpf
+COPY --from=service-base /opt/java/server/release /inventory/java-server-release
+COPY --from=service-base /opt/java/openjdk/release /inventory/java-validator-release
+COPY --from=service-base /var/lib/dpkg/status /inventory/outer-status
+COPY --from=service-base /opt/nuaforma/renderer/var/lib/dpkg/status /inventory/renderer-status
+RUN python3 /generate-sbom.py --root /inventory --architecture "$TARGETARCH" --application server --output /sbom.json
+
+FROM service-base AS service
+COPY --from=service-inventory /sbom.json /usr/share/nuaforma/sbom.json
+ENV NUAFORMA_SBOM_PATH=/usr/share/nuaforma/sbom.json

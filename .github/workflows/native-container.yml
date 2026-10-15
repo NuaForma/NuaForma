@@ -62,6 +62,8 @@ jobs:
           python3 tools/container/qualify_sandbox.py --image nuaforma:native-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --output build/native-container/isolation
           python3 tools/container/qualify_sandbox.py --image nuaforma:native-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --exec-hint --output build/native-container/compatibility-isolation
           python3 tools/container/qualify_service.py --image nuaforma:native-candidate --apparmor nuaforma-runtime --output build/native-container/qualification
+          python3 tools/container/qualify_endpoints.py --image nuaforma:native-candidate --architecture ${{ matrix.architecture }} --application server --apparmor nuaforma-runtime --output build/native-container/endpoints
+          ./gradlew :nuaforma-server:validateSbomFile -PsbomFile=build/native-container/endpoints/sbom.json --warning-mode=fail
       - name: Qualify fonts and trusted extension boundaries with existing native tools
         run: |
           mkdir -p build/native-container/fonts build/native-container/extensions

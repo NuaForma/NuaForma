@@ -6,6 +6,7 @@ import dev.nuaforma.server.adapters.logging.OperationalLogging
 import dev.nuaforma.contracts.LoggingMode
 import dev.nuaforma.server.internal.ServerProperties
 import dev.nuaforma.server.internal.ExtensionClasspath
+import dev.nuaforma.server.internal.ShippedSbom
 import java.nio.file.Path
 
 object Main {
@@ -29,13 +30,14 @@ object Main {
         val configuration = ServerConfiguration(ServerProperties.read(System.getProperties()), mode)
         if (mode == LoggingMode.DEVELOPMENT) OperationalLogging.developmentWarning()
         val startupLogging = OperationalLogging.configured(mode)
+        val sbom = ShippedSbom.configured(System.getenv("NUAFORMA_SBOM_PATH"))
         val parent = Thread.currentThread().contextClassLoader ?: Main::class.java.classLoader
         val directory = System.getProperty("nuaforma.extensions.directory")?.let { Path.of(it) }
         ExtensionClasspath.open(directory, parent).use { loader ->
             val thread = Thread.currentThread()
             val original = thread.contextClassLoader
             thread.contextClassLoader = loader
-            try { KtorServer(ProviderRegistry.discover(loader, emptyList(), startupLogging), configuration).startAndWait() }
+            try { KtorServer(ProviderRegistry.discover(loader, emptyList(), startupLogging), configuration, sbom = sbom).startAndWait() }
             finally { thread.contextClassLoader = original }
         }
     }

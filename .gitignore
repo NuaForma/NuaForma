@@ -25,6 +25,7 @@ target/
 /deployment/pdf-runtime/extensions/
 /tools/container/__pycache__/
 /tools/site/__pycache__/
+/tools/sbom/__pycache__/
 
 # IDE-local configuration
 .idea/
