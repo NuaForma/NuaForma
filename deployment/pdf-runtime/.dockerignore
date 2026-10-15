@@ -8,3 +8,4 @@
 !SOURCES.md
 !licenses/
 !licenses/**
+!healthcheck.sh

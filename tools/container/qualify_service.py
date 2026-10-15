@@ -88,7 +88,7 @@ class Runtime:
                      "--publish", "127.0.0.1::8080", *policy, *environment, args.image)
 
     def command(self, *command, timeout=45):
-        return subprocess.check_output([self.args.docker, *command], text=True, stderr=subprocess.STDOUT, timeout=timeout).strip()
+        return subprocess.check_output([self.args.docker, *command], text=True, encoding="utf-8", stderr=subprocess.STDOUT, timeout=timeout).strip()
 
     def connect(self):
         port = json.loads(self.command("inspect", self.name))[0]["NetworkSettings"]["Ports"]["8080/tcp"][0]["HostPort"]
@@ -139,6 +139,19 @@ def main():
         assert runtime.command("exec", runtime.name, "id", "-u") == "1000"
         assert runtime.command("exec", runtime.name, "/bin/sh", "-c", "test ! -w /opt/nuaforma/application && test ! -w /opt/nuaforma/renderer && echo immutable") == "immutable"
         checks.append("non-root/read-only/capabilities/init")
+        assert config["Config"]["Healthcheck"]["Test"] == ["CMD", "/opt/nuaforma/bin/healthcheck"]
+        assert http(base, "/health/live")[0] == 200
+        ready_deadline = time.monotonic() + 10
+        while time.monotonic() < ready_deadline:
+            ready_status, ready_headers, ready_body = http(base, "/health/ready", timeout=2)
+            if ready_status == 200:
+                break
+            assert ready_status == 503 and json.loads(ready_body) == {"status": "DOWN"}
+            time.sleep(0.05)
+        assert ready_status == 200 and json.loads(ready_body) == {"status": "UP"}
+        request_id(ready_headers)
+        runtime.command("exec", runtime.name, "/opt/nuaforma/bin/healthcheck")
+        checks.append("lightweight-health/readiness/liveness/bundled-probe")
         if args.expected_version:
             status, headers, body = http(base, "/api/v1/version")
             identity = json.loads(body)
@@ -236,6 +249,11 @@ def main():
                 (args.output / ("watermark-opaque-" + profile + ".pdf")).write_bytes(body)
             runtime.clean()
             checks.append("private-fonts/concurrent-tenants/dynamic-watermark/1b-transparency-rejection/opaque-watermark")
+        health_deadline = time.monotonic() + 40
+        while runtime.command("inspect", runtime.name, "--format", "{{.State.Health.Status}}") == "starting" and time.monotonic() < health_deadline:
+            time.sleep(0.2)
+        assert runtime.command("inspect", runtime.name, "--format", "{{.State.Health.Status}}") == "healthy"
+        checks.append("automatic-Docker-health-transition")
         # Stop only after seeing the actual converter, not merely a queued HTTP request.
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(generate, base, "pdf", template(2000), {"name": "SHUTDOWN"})
@@ -248,6 +266,8 @@ def main():
                     break
                 time.sleep(0.1)
             assert running, "Did not observe active LibreOffice conversion for shutdown test"
+            assert http(base, "/health/live", timeout=2)[0] == 200
+            assert http(base, "/health/ready", timeout=2)[0] == 200
             started = time.monotonic()
             runtime.command("stop", "--time", "15", runtime.name, timeout=25)
             assert time.monotonic() - started < 15
@@ -271,6 +291,7 @@ def main():
         status, _, body = http(base, "/api/v1/capabilities")
         pdf = next(item for item in json.loads(body)["providers"] if item["id"] == "nuaforma-docx-pdf")
         assert status == 200 and pdf["available"]["writeFormats"] == ["docx"]
+        assert http(base, "/health/ready", timeout=2)[0] == 200
         assert generate(base, "docx", template(), {"name": "MISSING-CONVERTER"})[0] == 200
         assert generate(base, "pdf", template(), {"name": "MISSING-CONVERTER"})[0] == 503
         logs = runtime.command("logs", runtime.name)

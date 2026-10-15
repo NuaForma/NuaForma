@@ -35,6 +35,8 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
     private val slots = Semaphore(config.maximumConcurrentRequests)
     private val documentation = ApiDocumentation(json)
     private val loggingKey = AttributeKey<GenerationLogging>("nuaforma.request.logging")
+    private val health = ServiceHealth(registry, GenerationLogging(config.loggingMode, null, logSink))
+
 
     private fun logging(call: ApplicationCall): GenerationLogging = call.attributes[loggingKey]
     private suspend fun context(call: ApplicationCall): GenerationContext {
@@ -48,25 +50,30 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
             shutdownGracePeriod = 1000
             shutdownTimeout = 5000
         }) { installRoutes(this) }
-        val shutdown = Thread({ server.stop(1000, 5000) }, "nuaforma-shutdown")
+        val shutdown = Thread({ health.drain(); server.stop(1000, 5000) }, "nuaforma-shutdown")
         Runtime.getRuntime().addShutdownHook(shutdown)
         try { server.start(wait = true) }
         finally {
+            health.close()
             try { Runtime.getRuntime().removeShutdownHook(shutdown) }
             catch (_: IllegalStateException) { /* JVM shutdown is already in progress. */ }
         }
     }
 
     fun installRoutes(application: Application) = with(application) {
+        monitor.subscribe(ApplicationStarted) { health.start() }
+        monitor.subscribe(ApplicationStopping) { health.drain() }
+        monitor.subscribe(ApplicationStopped) { health.close() }
         intercept(ApplicationCallPipeline.Setup) {
             val identity = UUID.randomUUID().toString()
             val log = GenerationLogging(config.loggingMode, identity, logSink)
             call.attributes.put(loggingKey, log)
             call.response.headers.append("X-Request-ID", identity)
+            val healthRequest = call.request.path() == ApiRoutes.LIVE || call.request.path() == ApiRoutes.READY
             withContext(RequestLogging(log)) {
-                log.operation("REQUEST_STARTED")
+                if (!healthRequest) log.operation("REQUEST_STARTED")
                 try { proceed() }
-                finally { log.operation("REQUEST_FINISHED") }
+                finally { if (!healthRequest) log.operation("REQUEST_FINISHED") }
             }
         }
         install(StatusPages) {
@@ -81,6 +88,8 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
         }
         install(RequestBodyLimit) { bodyLimit { config.maximumRequestBytes } }
         routing {
+            get(ApiRoutes.LIVE) { healthResponse(call, health.live()) }
+            get(ApiRoutes.READY) { healthResponse(call, health.ready()) }
             get(ApiRoutes.VERSION) { guarded(call) {
                 call.response.headers.append(HttpHeaders.CacheControl, "no-store")
                 call.response.headers.append("X-Content-Type-Options", "nosniff")
@@ -99,6 +108,13 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
             } }
             post(ApiRoutes.DOCUMENTS) { guarded(call) { generate(call) } }
         }
+    }
+
+    private suspend fun healthResponse(call: ApplicationCall, healthy: Boolean) {
+        call.response.headers.append(HttpHeaders.CacheControl, "no-store")
+        call.response.headers.append("X-Content-Type-Options", "nosniff")
+        call.respondText(json.encode(mapOf("status" to if (healthy) "UP" else "DOWN")), ContentType.Application.Json,
+            if (healthy) HttpStatusCode.OK else HttpStatusCode.ServiceUnavailable)
     }
 
     private suspend fun openApi(call: ApplicationCall, text: String, extension: String, type: ContentType) {

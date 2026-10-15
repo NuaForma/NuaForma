@@ -11,7 +11,7 @@ import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.server.testing.*
 import io.mockk.mockk
-import io.mockk.Called
+import io.mockk.every
 import io.mockk.verify
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -27,6 +27,13 @@ class VersionEndpointTest {
     @Test
     fun `version returns packaged build identity without consulting providers and matches OpenAPI`() = testApplication {
         val registry = mockk<ProviderRegistry>()
+        val observer = java.util.concurrent.CountDownLatch(1)
+        val observationThreads = java.util.Collections.synchronizedList(mutableListOf<String>())
+        every { registry.providers } answers {
+            observationThreads.add(Thread.currentThread().name)
+            observer.countDown()
+            emptyList()
+        }
         application { KtorServer(registry, ServerConfiguration(temporaryDirectory = temporary)).installRoutes(this) }
         val response = client.get(ApiRoutes.VERSION)
         assertEquals(HttpStatusCode.OK, response.status)
@@ -46,7 +53,9 @@ class VersionEndpointTest {
         assertTrue(OpenApiSchemaChecks(contract).matches("BuildVersion", value))
         assertEquals("#/components/schemas/BuildVersion", contract.path("paths").path(ApiRoutes.VERSION)
             .path("get").path("responses").path("200").path("content").path("application/json").path("schema").path("\$ref").asText())
-        verify { registry wasNot Called }
+        assertTrue(observer.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        assertTrue(observationThreads.all { it == "nuaforma-readiness" }, "Only the independent readiness observer may consult the provider catalog")
+        verify(exactly = 0) { registry.availability(any(), any()) }
         Files.list(temporary).use { assertEquals(0, it.count()) }
     }
 

@@ -104,6 +104,10 @@ The angle-bracket text is explanatory, not valid image data: replace it with you
 
 The optional `ContentPipeProvider` contract supplies source `/api/v1/capabilities` content metadata through #60, with declared and currently usable combinations. See the [DOCX registration example](../nuaforma-docx/README.md#generator-content-pipes-unreleased-source), and preserve the existing extension trust, mount and gateway policies. REST callers cannot install implementations or choose arbitrary classes.
 
+## Service health
+
+Source builds expose lightweight `GET /health/live` and `GET /health/ready` outside generation admission slots. Readiness requires initialization and a recent background observation with at least one executable provider pair; missing PDF does not disable usable DOCX generation. Responses contain only `status: UP|DOWN`, use 200/503 and retain request correlation without routine access-log noise. See the [health/lifecycle and deployment guide](../docs/health.md) for snapshot freshness, shutdown, the bundled Docker probe and Helm/Kubernetes/OpenShift settings. Previously published alpha images do not gain these routes retroactively.
+
 ## Multipart and resources
 
 Generation requires exactly one `request` part (`application/json`) and one binary `template` file part. A DOCX template uses its document media type or `application/octet-stream`. Optional binary file parts named `resource.<id>` supply fonts/resources; IDs match `[A-Za-z0-9][A-Za-z0-9._-]{0,127}`. The suffix becomes the existing engine resource ID referenced by provider options, e.g. `resource.barcode` with a font declaration `{"family":"Libre Barcode 39","face":"regular","resource":"barcode"}`. No server path or URL resolution occurs. Parts may arrive in any order; duplicate/unknown names are rejected. Each request has private storage and resource factories; no global font installation occurs. Follow technical embedding permissions without proof-of-ownership/extra-consent requirements.

@@ -88,8 +88,9 @@ FROM qualification AS service
 COPY --from=server-java-runtime /opt/java/openjdk /opt/java/server/
 COPY --from=application / /opt/nuaforma/application/
 COPY start-server.sh /opt/nuaforma/bin/start-server
+COPY healthcheck.sh /opt/nuaforma/bin/healthcheck
 USER root
-RUN chmod 0555 /opt/nuaforma/bin/start-server \
+RUN chmod 0555 /opt/nuaforma/bin/start-server /opt/nuaforma/bin/healthcheck \
     && test -s /opt/java/server/legal/java.base/LICENSE \
     && test -s /opt/java/openjdk/legal/java.base/LICENSE \
     && find /opt/java/openjdk /opt/java/server -type f -exec sha256sum {} + | sort > /usr/share/nuaforma/java-sha256.txt
@@ -102,6 +103,7 @@ RUN mkdir -p /opt/nuaforma/custom-fonts /opt/nuaforma/extensions \
 USER 1000:1000
 EXPOSE 8080
 STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 CMD ["/opt/nuaforma/bin/healthcheck"]
 LABEL org.opencontainers.image.source="https://github.com/NuaForma/NuaForma" \
       dev.nuaforma.jvm-layout="server25-validator17" \
       org.opencontainers.image.title="NuaForma" \

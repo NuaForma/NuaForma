@@ -32,6 +32,7 @@ internal object OpenApiContract {
             "options" to mapOf("locale" to "nl-NL", "timeZone" to "Europe/Amsterdam",
                 "watermark" to mapOf("text" to "CONCEPT — {customer.name}", "color" to "#B0B0B0", "opacity" to 0.25, "rotation" to -45)))
         val schemas = linkedMapOf<String, Any>(
+            "Health" to obj(mapOf("status" to (string() + mapOf("enum" to listOf("UP", "DOWN"))))),
             "BuildVersion" to obj(mapOf(
                 "version" to (string() + mapOf("description" to "Application release/development version recorded during the build.")),
                 "contractVersion" to (string() + mapOf("description" to "Runtime contract major.minor, independent of the full release version.")),
@@ -102,6 +103,12 @@ internal object OpenApiContract {
             "additionalProperties" to false,
             "description" to "Exactly one request (application/json) and template file part, plus optional resource.<id> file parts in any order. Duplicates/unknown names fail. Resource suffixes are the logical font/resource IDs in provider options, never paths/URLs. For DOCX, template media type must be its document type or application/octet-stream. Some OpenAPI clients do not support patternProperties multipart fields; add named resource file parts explicitly.")
         val paths = linkedMapOf<String, Any>(
+            ApiRoutes.LIVE to mapOf("get" to mapOf("operationId" to "getLiveness", "summary" to "Check HTTP application liveness",
+                "description" to "Independent of converters and generation slots; no document or provider processing. No internal details in any mode.",
+                "responses" to mapOf("200" to response("Application is live", ref("Health")), "503" to response("Application is not live", ref("Health"))))),
+            ApiRoutes.READY to mapOf("get" to mapOf("operationId" to "getReadiness", "summary" to "Check cached service readiness",
+                "description" to "Initialization complete, accepting work and at least one executable pair. Background observations every 30 seconds expire after 60 seconds; no probe runs in this request. Not a template or PDF-specific guarantee.",
+                "responses" to mapOf("200" to response("Service accepts generation work", ref("Health")), "503" to response("Starting, draining, stale or no usable providers", ref("Health"))))),
             ApiRoutes.VERSION to mapOf("get" to mapOf("operationId" to "getVersion", "summary" to "Identify the running application build",
                 "description" to "Packaged build metadata and runtime contract version. Does not query provider readiness, fonts or converters; uses normal HTTP admission/deadline limits.",
                 "responses" to (errors() + mapOf("200" to (response("Build identity; not a readiness or release-approval signal", ref("BuildVersion")) + mapOf("headers" to mapOf(

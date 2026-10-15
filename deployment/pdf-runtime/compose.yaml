@@ -39,6 +39,12 @@ services:
         target: /opt/nuaforma/extensions
         read_only: true
     stop_grace_period: 15s
+    healthcheck:
+      test: ["CMD", "/opt/nuaforma/bin/healthcheck"]
+      interval: ${NUAFORMA_HEALTH_INTERVAL:-30s}
+      timeout: ${NUAFORMA_HEALTH_TIMEOUT:-5s}
+      start_period: ${NUAFORMA_HEALTH_START_PERIOD:-60s}
+      retries: ${NUAFORMA_HEALTH_RETRIES:-3}
     networks: [private]
 networks:
   private:
