@@ -105,7 +105,7 @@ internal class WordIdentities(private val context: GenerationContext) {
         walk(root) { _, node -> if (node is P.Hyperlink) renamed[node.anchor]?.let { node.anchor = it } }
     }
 
-    private fun nextDrawing(): Long {
+    fun nextDrawing(): Long {
         if (drawing >= 0xFFFF_FFFFL) fail("No free drawing identifiers remain")
         return ++drawing
     }
@@ -125,7 +125,10 @@ internal class WordIdentities(private val context: GenerationContext) {
             if (depth > 128) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "DOCX identity traversal is too deep")
             val node = XmlUtils.unwrap(raw)
             action(raw, node)
-            (TraversalUtil.getChildrenImpl(node) ?: emptyList()).forEach { visit(it, depth + 1) }
+            val graphic = when (node) { is Inline -> node.graphic; is Anchor -> node.graphic; else -> null }
+            val children = graphic?.graphicData?.wordprocessingShape?.txbx?.txbxContent?.content
+                ?: TraversalUtil.getChildrenImpl(node) ?: emptyList()
+            children.forEach { visit(it, depth + 1) }
         }
         visit(root, 1)
     }

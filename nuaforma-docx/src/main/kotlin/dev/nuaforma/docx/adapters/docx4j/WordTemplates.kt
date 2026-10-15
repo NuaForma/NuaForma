@@ -18,12 +18,16 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
     private val watermark = options.watermark
     private val identities = WordIdentities(context)
     private var visits = 0L
+    private lateinit var images: WordImages
+    private lateinit var owner: org.docx4j.openpackaging.parts.Part
 
     fun apply(document: WordprocessingMLPackage): TextWatermark? {
         watermark?.let { root.validateText(it.text) }
-        val roots = listOf(document.mainDocumentPart.jaxbElement.body) + document.parts.parts.values.mapNotNull {
-            when (it) { is HeaderPart -> it.jaxbElement; is FooterPart -> it.jaxbElement; else -> null }
+        images = WordImages(document, identities, context)
+        val parts = listOf(document.mainDocumentPart to document.mainDocumentPart.jaxbElement.body) + document.parts.parts.values.mapNotNull {
+            when (it) { is HeaderPart -> it to it.jaxbElement; is FooterPart -> it to it.jaxbElement; else -> null }
         }
+        val roots = parts.map { it.second }
         val unsupported = document.parts.parts.values.mapNotNull { when (it) {
             is org.docx4j.openpackaging.parts.WordprocessingML.FootnotesPart -> it.jaxbElement
             is org.docx4j.openpackaging.parts.WordprocessingML.EndnotesPart -> it.jaxbElement
@@ -32,8 +36,8 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         } }
         (roots + unsupported).forEach { identities.collect(it) }
         unsupported.forEach { rejectUnsupportedContent(it, 1) }
-        roots.forEach { process(it, root, true, 1) }
-        roots.forEach { process(it, root, false, 1) }
+        parts.forEach { (part, value) -> owner = part; process(value, root, true, 1) }
+        parts.forEach { (part, value) -> owner = part; process(value, root, false, 1) }
         return watermark?.let { requested ->
             val text = StringBuilder()
             root.expand(requested.text).forEach { fragment ->
@@ -68,7 +72,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
             ContentTemplates.containsContentMarker(WordRuns.source(listOf(node)), context)) {
             invalid("Content pipes require ordinary paragraph or hyperlink text, not field results or content controls")
         }
-        if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context)
+        if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context) { images.drawing(it, owner) }
         if (node is R) WordRuns.mixed(node, session, validateOnly, context)
         if (node is Body || node is Hdr || node is Ftr || node is Tc || node is Tbl || node is CTTxbxContent ||
             node is org.docx4j.vml.CTTextbox || modernTextBox(node)) blocks(children, session, validateOnly, depth)

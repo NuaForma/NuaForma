@@ -6,6 +6,7 @@ import dev.nuaforma.contracts.ContentResult
 import dev.nuaforma.template.ContentTemplates
 import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.docx.internal.DocxFailure
+import dev.nuaforma.docx.internal.ImageContent
 import dev.nuaforma.contracts.GenerationContext
 import jakarta.xml.bind.JAXBElement
 import org.docx4j.XmlUtils
@@ -52,7 +53,8 @@ internal object WordRuns {
         }
     }
 
-    fun apply(content: MutableList<Any>, session: ContentTemplateSession, validateOnly: Boolean, context: GenerationContext) {
+    fun apply(content: MutableList<Any>, session: ContentTemplateSession, validateOnly: Boolean, context: GenerationContext,
+              image: (ImageContent) -> org.docx4j.wml.Drawing) {
         if (validateOnly) {
             val instructions = content.joinToString("") { raw -> when (val node = XmlUtils.unwrap(raw)) {
                 is R -> node.content.filterIsInstance<JAXBElement<*>>().filter { it.name.localPart != "t" && it.value is Text }
@@ -111,6 +113,14 @@ internal object WordRuns {
                     }
                 } else {
                     val anchor = segments[segmentIndex(fragment.sourceStart)]
+                    val structured = fragment.content
+                    if (structured is ImageContent) {
+                        val run = XmlUtils.deepCopy(anchor.run)
+                        run.content.clear()
+                        run.content.add(image(structured))
+                        replacements.add(run)
+                        continue
+                    }
                     val text = when (val result = fragment.content) {
                         null -> fragment.text
                         is ContentResult.Text -> result.text

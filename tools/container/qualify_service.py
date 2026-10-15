@@ -1,19 +1,22 @@
 """Exercise the shipped container entry point; only synthetic test data is used."""
 import argparse
+import base64
 import concurrent.futures
 import io
 import json
 import pathlib
+import struct
 import subprocess
 import time
 import urllib.error
 import urllib.request
 import uuid
 import zipfile
+import zlib
 from verify_isolation_config import verify as verify_isolation
 
 
-def template(paragraphs=1):
+def template(paragraphs=1, text="Hello {name}"):
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("[Content_Types].xml", '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>')
@@ -21,8 +24,18 @@ def template(paragraphs=1):
         archive.writestr("word/_rels/document.xml.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="styles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>')
         archive.writestr("word/styles.xml", '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Liberation Serif" w:hAnsi="Liberation Serif"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr/></w:pPrDefault></w:docDefaults></w:styles>')
         archive.writestr("word/document.xml", '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
-                         '<w:p><w:r><w:t>Hello {name}</w:t></w:r></w:p>' * paragraphs + '<w:sectPr/></w:body></w:document>')
+                         ('<w:p><w:r><w:t>' + text + '</w:t></w:r></w:p>') * paragraphs + '<w:sectPr/></w:body></w:document>')
     return output.getvalue()
+
+
+def image_fixture(alpha=False):
+    """Small deterministic static PNG; standard-library-only native qualification input."""
+    def chunk(kind, value):
+        return struct.pack(">I", len(value)) + kind + value + struct.pack(">I", zlib.crc32(kind + value))
+    pixel = bytes((0, 140, 150, 128)) if alpha else bytes((0, 140, 150))
+    pixels = (b"\0" + pixel * 96) * 48
+    header = struct.pack(">IIBBBBB", 96, 48, 8, 6 if alpha else 2, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(b"IDAT", zlib.compress(pixels)) + chunk(b"IEND", b"")
 
 
 def multipart(envelope, document, resources=None):
@@ -150,6 +163,30 @@ def main():
         runtime.clean()
         checks.append("default-PDF-A-3b/explicit-B-profiles/standard/conflict-rejection")
         checks.append("shipped-entrypoint/DOCX/PDF/private-cleanup")
+        image_source = template(text="Before {picture | image(10, 5)} after {missing ?? null | image()}")
+        image_data = {"picture": base64.b64encode(image_fixture()).decode("ascii")}
+        status, _, body = generate(base, "docx", image_source, image_data)
+        assert status == 200, (status, body[:2048])
+        with zipfile.ZipFile(io.BytesIO(body)) as archive:
+            assert any(name.startswith("word/media/nuaforma-image-") for name in archive.namelist())
+            assert b"| image" not in archive.read("word/document.xml")
+        (args.output / "image.docx").write_bytes(body)
+        for profile, version in (("standard", "1.7"), ("pdfa-1b", "1.4"), ("pdfa-2b", "1.7"), ("pdfa-3b", "1.7")):
+            status, _, body = generate(base, "pdf", image_source, image_data, {"profile": profile})
+            assert status == 200 and body.startswith(("%PDF-" + version).encode()), (profile, status, body[:2048])
+            (args.output / ("image-" + profile + ".pdf")).write_bytes(body)
+        transparent = {"picture": base64.b64encode(image_fixture(alpha=True)).decode("ascii")}
+        assert generate(base, "pdf", image_source, transparent, {"profile": "pdfa-1b"})[0] == 422
+        status, _, body = generate(base, "pdf", image_source, transparent, {"profile": "pdfa-3b"})
+        assert status == 200, (status, body[:2048])
+        (args.output / "image-alpha-pdfa-3b.pdf").write_bytes(body)
+        jpeg = (pathlib.Path(__file__).resolve().parent / "fixtures/image-jpeg.base64").read_text(encoding="ascii").strip()
+        for format_id in ("docx", "pdf"):
+            status, _, body = generate(base, format_id, image_source, {"picture": jpeg}, {"profile": "pdfa-3b"} if format_id == "pdf" else {})
+            assert status == 200, (format_id, status, body[:2048])
+            (args.output / ("image-jpeg." + format_id)).write_bytes(body)
+        runtime.clean()
+        checks.append("bounded-PNG-JPEG-image/DOCX/all-PDF-profiles/alpha-1b-rejection/alpha-3b/private-cleanup")
         if args.fixtures or args.fonts:
             assert args.fixtures and args.fonts
             ids = ("arial", "arialbd", "ariali", "arialbi", "barcode")

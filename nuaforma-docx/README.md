@@ -48,7 +48,7 @@ All supported syntax is validated before generation, including unselected branch
 
 ## Generator content pipes (unreleased source)
 
-Trusted generators/extensions may explicitly register `ContentPipe` implementations through the additive two-argument `DocxProvider(deploymentFonts, pipes)` constructor. Existing constructors retain their original JVM entry points and behavior. An empty registration list adds no syntax or output changes; no standard pipe is bundled yet (#59 adds images separately). Do not use this API against published alpha artifacts.
+Trusted generators/extensions may explicitly register `ContentPipe` implementations through the additive two-argument `DocxProvider(deploymentFonts, pipes)` constructor. Existing constructor JVM entry points and ordinary template behavior remain unchanged. The built-in `image` pipe is always registered; an empty custom list adds no other pipes. Up to 127 custom pipes fit alongside it within the 128-registration ceiling. Do not use this API against published alpha artifacts.
 
 ```kotlin
 val companyLabel = object : ContentPipe {
@@ -72,7 +72,43 @@ The same constructor is available from Java as `new DocxProvider(DeploymentFonts
 
 Use `{company.name | companyLabel("Company: ")}` in ordinary inline text, including split runs, table cells, headers/footers and supported VML/DrawingML text boxes. Nested if/each scopes share the same registrations and budgets. Returned text is literal and inherits the opening marker's formatting; empty results remove only that marker. Content markers inside mixed runs containing field/drawing/break objects, field instructions/results, content controls, comments/footnotes/endnotes or requested text watermarks are not supported insertion locations and fail explicitly. Keep content markers in ordinary text spans; ordinary text in previously unprocessed note/comment parts retains its existing policy.
 
-All content chains and unknown registrations are rejected by the existing whole-document validation pass before transformation or output publication. The open `ContentResult` contract permits other generators to own additional structured variants, but this DOCX implementation accepts only its explicitly supported `Text`/`Empty` variants. Unknown results fail with sanitized diagnostics without reflection, stringification or fallback. Other invalid data/results also leave the output untouched because package serialization remains transactional. See the [language grammar and limits](../nuaforma-template/README.md#generator-content-pipes-unreleased-source).
+All content chains and unknown registrations are rejected by the existing whole-document validation pass before transformation or output publication. The open `ContentResult` contract permits other generators to own additional structured variants; this DOCX implementation accepts standard `Text`/`Empty` and its bounded image result. Unknown results fail with sanitized diagnostics without reflection, stringification or fallback. Other invalid data/results also leave the output untouched because package serialization remains transactional. See the [language grammar and limits](../nuaforma-template/README.md#generator-content-pipes-unreleased-source).
+
+### Image content pipe (unreleased source)
+
+The built-in `image` content pipe accepts a **strict padded RFC 4648 Base64 string containing one static PNG or JPEG**. It never fetches a URL or opens a supplied path. Data URIs, whitespace, URL-safe Base64, empty strings, SVG/GIF/animated PNG, corrupt/truncated images and PNG compressed text/color-profile chunks are rejected. Explicit null inserts nothing; missing paths still fail unless an explicit fallback is supplied.
+
+```text
+{company.logo | image()}
+{company.logo | image(40, 20)}
+{optionalPhoto ?? null | image(25, 35, true)}
+{picture | image(30, 10, false)}
+{#each people as person}{#if person.photo != null}{person.photo | image(20, 20)}{/if}{/each}
+```
+
+Arguments are positional `maxWidthMm`, `maxHeightMm`, `keepRatio`, defaulting to `50`, `50`, `true`. Both maxima must be finite numbers from **0.1 through 500 millimetres**, not pixels or centimetres. Intrinsic dimensions use **96 pixels per inch**, ignoring source DPI/EXIF metadata. With ratio preservation, fit within both maxima without cropping or distortion. With `false`, each axis is independently capped, so an image can be distorted. Neither mode enlarges an image beyond its intrinsic dimensions. Dimensions are rounded to the nearest OOXML EMU (1/36000 mm). The template remains responsible for sufficient paragraph/cell/text-box space; fixed row heights or existing exact line spacing may clip any inserted content.
+
+Insertions support ordinary paragraph/hyperlink text, tables, headers/footers and the supported VML/DrawingML text boxes, including split-run markers and nested conditions/repetitions. The image inherits the opening marker's run properties; surrounding text and paragraph geometry remain unchanged. Only the marker is replaced with an inline drawing, using an internal relationship in its owning part. Fields, mixed object/text runs, content controls, comments/notes, watermarks and text-only evaluation reject content pipes. `image` is reserved and cannot be overridden or chained before/after another pipe.
+
+The generator validates actual PNG/JPEG framing and pixels, then normalizes to metadata-free PNG. Metadata-driven rotation is not applied; pre-orient the source pixels if needed. Alpha is retained, never flattened. The Java SE ImageIO integration uses per-call memory streams and JDK codecs only, without modifying global cache/registry settings, installing fonts or creating image cache files. It adds no dependency or third-party asset/license.
+
+Per generation: at most **128 images**, **8 MiB Base64 characters / 6 MiB decoded input per image**, **8192 pixels per dimension**, **4 million pixels per image**, **32 MiB cumulative Base64 characters**, **16 million cumulative pixels** and **32 MiB cumulative normalized image bytes**. `maxExpandedBytes` additionally caps individual decoded input and charges cumulative Base64 characters plus **12 bytes per cumulative pixel before decoding** (source raster plus normalized raster). `maxOutputBytes` also caps cumulative retained normalized bytes; normalized encoding has a 20 MiB single-image ceiling. Lower `maxRepetitions`, cancellation and deadline limits still apply. No cross-request image cache exists. These are bounded in-process operations, not a claim of a separate process/heap sandbox.
+
+Kotlin and Java use the same default provider; no registration is needed:
+
+```kotlin
+DocxProvider().generate(GenerationRequest(templateStream,
+    GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.DOCX)),
+    mapOf("company" to mapOf("logo" to base64Png))), outputStream, GenerationContext())
+```
+
+```java
+new DocxProvider().generate(new GenerationRequest(templateStream,
+    new GenerationRequirements(new FormatRequest(DocumentFormat.DOCX), new FormatRequest(DocumentFormat.DOCX)),
+    Map.of("company", Map.of("logo", base64Png))), outputStream, new GenerationContext());
+```
+
+`ContentPipeProvider.contentPipes()` describes this provider's registered image formats, sizing arguments, defaults, contexts and combinations. REST capability listing remains a separate #60 change. PDF uses the same transformed DOCX before conversion; PDF/A-1b rejects alpha-bearing image sources rather than flattening them. These source features have not been published in alpha libraries or containers.
 
 ## Requested watermarks
 

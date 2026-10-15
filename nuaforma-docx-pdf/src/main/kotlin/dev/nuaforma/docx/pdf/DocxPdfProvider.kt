@@ -17,7 +17,7 @@ class DocxPdfProvider @JvmOverloads constructor(configuration: LibreOfficeConfig
     private val deploymentFonts = DeploymentFonts.configured()
     private var docx = DocxProvider(deploymentFonts)
     constructor(configuration: LibreOfficeConfiguration?, pipes: List<ContentPipe>) : this(configuration) {
-        require(pipes.size <= 128) { "Content pipe registrations exceed the generator limit" }
+        require(pipes.size <= 127) { "Content pipe registrations exceed the generator limit including built-in image" }
         this.pipes = java.util.Collections.unmodifiableList(pipes.map { implementation ->
             val captured = implementation.definition
             require(captured.support.all { support -> support.input == DocumentFormat.DOCX &&
@@ -32,7 +32,12 @@ class DocxPdfProvider @JvmOverloads constructor(configuration: LibreOfficeConfig
         })
         docx = DocxProvider(deploymentFonts, this.pipes)
     }
-    override fun contentPipes(): List<ContentPipeDefinition> = java.util.Collections.unmodifiableList(pipes.map { it.definition })
+    override fun contentPipes(): List<ContentPipeDefinition> = java.util.Collections.unmodifiableList(
+        listOf(docx.contentPipes().first { it.name == "image" }.let { image ->
+            ContentPipeDefinition(image.name, image.description + "; PDF/A-1b requires opaque source images", image.arguments,
+                listOf(ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.DOCX),
+                    ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.PDF, PdfProfile.entries.map { it.id }.toSet())), image.nullBehavior, image.contentTypes)
+        }) + pipes.map { it.definition })
     private val converter: PdfConverter = LibreOfficeProcesses(configuration ?: System.getProperty("nuaforma.pdf.launcher")?.let {
         LibreOfficeConfiguration(Path.of(it))
     })

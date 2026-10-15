@@ -31,6 +31,18 @@ class ContentPipeDefinition @JvmOverloads constructor(
     val support: List<ContentPipeSupport> = immutableList(support)
     val chainable: Boolean get() = false
     val contexts: Set<ContentInsertionContext> = setOf(ContentInsertionContext.INLINE)
+    private var declaredContentTypes: Set<String> = emptySet()
+    /** Accepted source media types, not a generic document representation or MIME-based dispatch. */
+    val contentTypes: Set<String> get() = declaredContentTypes
+
+    /** Preserve the original primary/default-argument constructor descriptors. */
+    constructor(name: String, description: String, arguments: List<OptionDefinition>, support: List<ContentPipeSupport>,
+                nullBehavior: String, contentTypes: Set<String>) : this(name, description, arguments, support, nullBehavior) {
+        require(contentTypes.size <= 32 && contentTypes.all {
+            it.length <= 127 && it.matches(Regex("[a-z][a-z0-9.+-]*/[a-z0-9][a-z0-9.+-]*"))
+        })
+        declaredContentTypes = java.util.Collections.unmodifiableSet(LinkedHashSet(contentTypes))
+    }
     init {
         require(name.matches(Regex("[A-Za-z_][A-Za-z0-9_]{0,63}")) && name !in setOf("number", "date"))
         require(description.isNotBlank() && description.length <= 1024)

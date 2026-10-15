@@ -129,7 +129,7 @@ class DocxContentPipesTest {
     @Test
     fun `provider scopes metadata and isolates literal values across concurrent requests`() {
         val provider = DocxProvider(DeploymentFonts.configured(), listOf(pipe))
-        assertTrue(provider.contentPipes().single().support.all { it.output == DocumentFormat.DOCX })
+        assertTrue(provider.contentPipes().single { it.name == "content" }.support.all { it.output == DocumentFormat.DOCX })
         val executor = Executors.newFixedThreadPool(2)
         try {
             val results = (1..4).map { n -> executor.submit<String> {
