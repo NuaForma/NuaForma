@@ -41,6 +41,12 @@ Before any image/binary publication, complete [the distribution checklist](../..
 
 ## Reproducible qualification
 
+### Headless device boundary
+
+The development launcher no longer uses Bubblewrap's `--dev`, which also mounts `devpts`. It creates a private tmpfs at `/dev`, a private `/dev/shm` directory, and individually binds only the standard character devices `/dev/null`, `/dev/zero`, `/dev/full`, `/dev/random` and `/dev/urandom`. There is no `/dev/pts`, `/dev/ptmx`, `/dev/tty`, host device-directory bind or interactive-terminal requirement. Conversion, font enumeration and both PDF validators use this same boundary. The existing namespaces, OCI masks, seccomp policies, capability restrictions and resource limits remain unchanged; failure still makes PDF unavailable. This source change does not modify previously published images.
+
+`python3 -m unittest discover -s tools/container -p 'test_*.py'` verifies that the synthetic probe uses the exact production device arguments. The real sandbox probe additionally checks device identities and usability, private shared-memory storage and absent terminal paths. Native runtime qualification is still required on each target architecture and host security policy; absence of a SELinux audit record is not proof that SELinux permits a mount. Do not disable SELinux, AppArmor or seccomp to work around setup failures.
+
 `./gradlew :nuaforma-docx-pdf:test :nuaforma-server:test` exercises lifecycle, interfaces, provider discovery, security policies and architecture on Java 17. `prepareRuntimeQualification` in the PDF module and `prepareEngineQualification` in server stage explicit test-only main programs without test libraries in their executable classpath. The latter includes server main classes and runtime dependencies for the real-HTTP qualification below. Do not treat these test entry points or read-only qualification mounts as final service/container packaging.
 
 `RuntimeQualification <fixture-root> <fresh-copy-directory> copy-matrix` runs the production conversion-copy implementation over the fourteen synthetic fixtures. The copies are then converted and structurally validated with the actual bundled runtime using `tools/pdf-evaluation/qualify_runtime.ps1 -SourceDirectory <copies> -Destination <fresh-run> -Mode convert`. `verify_production_copies.py` independently compares structure and unaffected binary parts to the approved research copies; it normalizes only three known generated diagnostic shape labels, not IDs, text, fonts or geometry. Source hashes must remain unchanged.

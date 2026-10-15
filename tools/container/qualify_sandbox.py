@@ -73,7 +73,7 @@ def main():
                       '{{json .HostConfig.MaskedPaths}} {{json .HostConfig.ReadonlyPaths}} {{json .AppArmorProfile}}'), flush=True)
                 raise
             assert command("inspect", name, "--format", "{{.State.ExitCode}}") == "0", result
-            assert len([line for line in result.splitlines() if line.startswith("PASS ")]) == (29 if args.exec_hint else 25), result
+            assert len([line for line in result.splitlines() if line.startswith("PASS ")]) == (36 if args.exec_hint else 32), result
             (args.output / "isolation.txt").write_text(result + "\n", encoding="utf-8")
             print(result)
         finally:
