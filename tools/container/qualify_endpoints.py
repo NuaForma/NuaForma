@@ -31,6 +31,7 @@ def main():
     parser.add_argument('--image', required=True)
     parser.add_argument('--architecture', choices=('amd64','arm64'), required=True)
     parser.add_argument('--application', choices=('server','playground'), required=True)
+    parser.add_argument('--expected-version', help='Require this exact packaged application and SBOM version')
     parser.add_argument('--docker', default='docker')
     parser.add_argument('--seccomp', type=pathlib.Path, default=pathlib.Path('deployment/pdf-runtime/seccomp.json'))
     parser.add_argument('--apparmor', choices=('nuaforma-runtime',))
@@ -46,6 +47,12 @@ def main():
         assert headers.get('Cache-Control') == 'no-store'
         assert headers.get('ETag') == '"' + hashlib.sha256(data).hexdigest() + '"'
         bom = json.loads(data)
+        if args.expected_version:
+            assert bom['metadata']['component']['version'] == args.expected_version
+            status, _, version = http(base, '/api/v1/version')
+            version = json.loads(version)
+            assert status == 200 and version['version'] == args.expected_version
+            assert version['contractVersion'] == '0.2'
         verify_bom(bom, args.architecture, args.application)
         (args.output / 'sbom.json').write_bytes(data)
         status, headers, body = http(base, '/playground/')

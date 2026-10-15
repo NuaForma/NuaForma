@@ -55,7 +55,7 @@ The JSON/YAML files are written beneath `nuaforma-server/build/generated/openapi
 
 These checks stage POM/main/source/documentation JARs to the ignored `build/library-repository` and test independently compiled Java/Maven and Kotlin/Gradle consumers. They do not upload to Maven Central. Documentation JARs contain module guides and architecture material, not generated Kotlin API pages.
 
-Unreleased source can retain an existing alpha coordinate. Use the examples' exclusive local repository and exact staged artifact hashes when testing new source APIs, rather than resolving that coordinate from Central. See [embedded examples](../examples/embedded/README.md) and the [value-pipe example](../examples/value-pipes/README.md).
+The unreleased `0.2.0-alpha.1` candidate uses contract `0.2`. Use the examples' exclusive local repository and exact staged artifact hashes when testing candidate APIs; changing metadata does not make the version available on Central. See [embedded examples](../examples/embedded/README.md) and the [value-pipe example](../examples/value-pipes/README.md).
 
 ## Modules
 

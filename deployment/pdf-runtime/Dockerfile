@@ -58,7 +58,7 @@ FROM eclipse-temurin:17-jre-noble@sha256:900322f4cc1b9da9d730ae4bb56d8a1dabbaa9c
 FROM eclipse-temurin:25-jre-noble@sha256:d9a39a23634650173f1e2bbc176227af9728587ecf0f4b62d53e9355cd7a19ab AS server-java-runtime
 
 FROM sandbox-check AS qualification
-ARG NUAFORMA_CONTAINER_VERSION=0.1.0-alpha.1
+ARG NUAFORMA_CONTAINER_VERSION=0.2.0-alpha.1
 COPY --from=libreoffice / /opt/nuaforma/renderer/
 COPY --from=java-runtime /opt/java/openjdk /opt/java/openjdk/
 COPY --from=pdfvalidation / /opt/nuaforma/pdf-validation/

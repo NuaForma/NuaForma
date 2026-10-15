@@ -8,6 +8,7 @@ import subprocess
 import urllib.request
 
 PLATFORMS = ("amd64", "arm64")
+APPLICATIONS = {"server": "nuaforma", "playground": "nuaforma-playground"}
 VERSION = re.compile(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?")
 SHA256 = re.compile(r"[a-f0-9]{64}")
 
@@ -15,6 +16,8 @@ SHA256 = re.compile(r"[a-f0-9]{64}")
 def check(record, version, commit):
     if not VERSION.fullmatch(version) or version == "0.1.0-alpha.1":
         raise ValueError("A new explicit version is required; historical alpha is immutable")
+    if record.get("application", "server") not in APPLICATIONS:
+        raise ValueError("Unknown reviewed application")
     if not re.fullmatch(r"[a-f0-9]{40}", commit) or record.get("sourceCommit") != commit or record.get("version") != version:
         raise ValueError("Review must match signed source and selected release version")
     if record.get("reviewer") != "mrhoeve" or record.get("latest") is not ("-" not in version):
@@ -43,6 +46,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", required=True)
     parser.add_argument("--review", type=pathlib.Path, required=True)
+    parser.add_argument("--application", choices=APPLICATIONS, default="server")
+    parser.add_argument("--companion-review", type=pathlib.Path)
     args = parser.parse_args()
     if not VERSION.fullmatch(args.version) or args.version == "0.1.0-alpha.1":
         raise ValueError("Invalid or historical version")
@@ -57,9 +62,18 @@ def main():
     if verified != "true":
         raise ValueError("Require verified source signature")
     record = json.loads(args.review.read_text())
+    if record.get("application", "server") != args.application:
+        raise ValueError("Review belongs to a different application")
     check(record, args.version, commit)
+    records = [record]
+    if args.companion_review:
+        companion = json.loads(args.companion_review.read_text())
+        if companion.get("application") not in APPLICATIONS or companion.get("application") == args.application:
+            raise ValueError("Companion must review the other application")
+        check(companion, args.version, commit)
+        records.append(companion)
     checked = set()
-    for platform in record["platforms"].values():
+    for platform in (platform for item in records for platform in item["platforms"].values()):
         for asset in platform["sourceMaterials"]:
             identity = asset["url"], asset["sha256"]
             if identity in checked:

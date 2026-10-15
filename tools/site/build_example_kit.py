@@ -61,7 +61,7 @@ def normalize_zip(file):
     file.write_bytes(output.getvalue())
 
 
-def build_template():
+def build_template(include_content_image=False):
     doc = Document()
     # The python-docx starter carries an unused bibliography custom-XML part.
     # This authored template has no bibliography; omit that unrelated starter metadata.
@@ -208,8 +208,15 @@ def build_template():
     stream.seek(0)
     picture = doc.add_paragraph().add_run().add_picture(stream, width=table_width)
     picture._inline.docPr.set("descr", "Template and structured data produce a document")
+    delivery_end = len(doc.paragraphs)
+    if include_content_image:
+        doc.add_paragraph('{#if (image ?? null) != null}')
+        doc.add_paragraph('Supplied illustration', 'Heading 1')
+        doc.add_paragraph('The image below comes from the JSON data and fits within 60 by 25 millimetres without changing its aspect ratio.')
+        doc.add_paragraph('{image | image(60, 25, true)}')
+        doc.add_paragraph('{/if}')
     delivery_started = False
-    for paragraph in doc.paragraphs[:-1]:
+    for paragraph in doc.paragraphs[:delivery_end - 1]:
         if paragraph.text == "Delivery details":
             delivery_started = True
         if delivery_started:

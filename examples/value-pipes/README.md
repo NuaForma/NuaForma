@@ -13,9 +13,9 @@ Then run the independent project with the repository URI and the exact source ar
 ```sh
 ./gradlew --project-dir examples/value-pipes --refresh-dependencies \
   -PnuaformaRepository=file:///absolute/path/to/NuaForma/build/library-repository \
-  -PnuaformaVersion=0.1.0-alpha.1 :consumer:run
+  -PnuaformaVersion=0.2.0-alpha.1 :consumer:run
 ```
 
-The version may match a historical alpha coordinate in this unpublished checkout, but the exclusive local repository ensures this example uses the staged source artifacts, never a claim that Central's immutable alpha includes value pipes. Both subprojects use Java 17. The consumer runs the extension as a JAR so the class/service/descriptor have one artifact origin, rather than mixing Gradle class and resource directories.
+The candidate `0.2.0-alpha.1` is not published by building this checkout. The exclusive local repository ensures this example uses staged candidate artifacts. This pipe declares minimum contract `0.2`; historical alpha libraries do not contain the SPI. Both subprojects use Java 17. The consumer runs the extension as a JAR so the class/service/descriptor have one artifact origin, rather than mixing Gradle class and resource directories.
 
 For a Java implementation, see the public [SPI guide](../../nuaforma-template/README.md#implementation-and-registration). The template test suite compiles independent Java-17 contracts-only extension JARs. Operators install the extension JAR and explicitly packaged non-conflicting runtime dependencies in the read-only extension mount, then restart; normal application users place it on their classpath or call `TemplatePipes.discover(extensionLoader)` explicitly. No request may upload or install executable extensions. Installed implementations have host-process permissions and must be thread-safe, bound their own work and cooperate with cancellation.

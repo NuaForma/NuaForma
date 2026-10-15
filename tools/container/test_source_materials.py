@@ -10,6 +10,21 @@ from stage_application_materials import stage
 
 
 class SourceMaterialsTest(unittest.TestCase):
+    def test_notice_staging_accepts_new_version_without_accepting_unsafe_names(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            application, collection, provenance = [root / name for name in ("app", "collection", "provenance")]
+            (application / "lib").mkdir(parents=True)
+            collection.mkdir()
+            provenance.mkdir()
+            (collection / "inventory.json").write_text(json.dumps(dict(components=[], errors=[])))
+            (provenance / "inventory.json").write_text(json.dumps(dict(files=[])))
+            stage(collection, provenance, application, "0.2.0-alpha.1")
+            self.assertEqual("0.2.0-alpha.1", json.loads((application / "third-party-materials/inventory.json").read_text())["version"])
+            for version in ("../escape", "0.2.0/alpha.1", "0.2.0-alpha.1;exit", "02.0.0"):
+                with self.assertRaises(AssertionError):
+                    stage(collection, provenance, application, version)
+
     def test_versioned_source_packaging_accepts_new_alpha_and_rejects_unsafe_names(self):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)

@@ -69,7 +69,7 @@ class ValuePipeDiscoveryTest {
             "wrong-class" -> good.replace("independent.$name", "independent.Other")
             "oversize" -> " ".repeat(8193)
             "bad-version" -> good.replace("pipe.version=2.3.4", "pipe.version=bad")
-            "bad-minor" -> good.replace("contract.minor=1", "contract.minor=01")
+            "bad-minor" -> good.replace("contract.minor=2", "contract.minor=02")
             "reserved-name" -> good.replace("pipe.name=${name.lowercase(Locale.ROOT)}", "pipe.name=number")
             else -> good
         }
@@ -83,7 +83,7 @@ class ValuePipeDiscoveryTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["1.0", "0.2"])
+    @ValueSource(strings = ["1.0", "0.3"])
     fun `incompatible major and minimum minor fail before any implementation initialization`(version: String) {
         val fixtures = PipeJars(directory)
         fixtures.loader(fixtures.jar("Future", descriptor = fixtures.metadata("Future", version))).use { loader ->
@@ -185,7 +185,7 @@ class ValuePipeDiscoveryTest {
         private var sequence = 0
         private val prefix = "nuaforma.value-pipe.fixture.${root.fileName}."
         fun key(name: String) = prefix + name
-        fun metadata(name: String, version: String = "0.1", pipeName: String = name.lowercase(Locale.ROOT)) = """
+        fun metadata(name: String, version: String = "0.2", pipeName: String = name.lowercase(Locale.ROOT)) = """
             pipe.name=$pipeName
             pipe.class=independent.$name
             pipe.version=2.3.4

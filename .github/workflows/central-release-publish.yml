@@ -1,0 +1,54 @@
+name: Publish validated release on Central
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Explicit reviewed release version
+        required: true
+        type: string
+      deployment_id:
+        description: Exact USER_MANAGED deployment UUID returned by the reviewed release upload
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: central-release-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'NuaForma/NuaForma' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: maven-central
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - name: Check out approved release policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify complete release gate before loading Portal credentials
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/release/check_environment.py
+          python3 tools/release/validate_library_release.py --version "$RELEASE_VERSION" --review "release-approvals/$RELEASE_VERSION.json" --companion-review "release-approvals/$RELEASE_VERSION-playground.json"
+      - name: Verify staged bytes and request publication once
+        env:
+          CENTRAL_DEPLOYMENT_ID: ${{ inputs.deployment_id }}
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+        run: python3 tools/release/central_publish.py --confirm-publish --review "release-approvals/$RELEASE_VERSION.json" --output build/central-release/publish-request.json
+      - name: Retain publication request metadata only
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: central-release-publish-${{ github.run_id }}
+          path: build/central-release/publish-request.json
+          if-no-files-found: error
+          retention-days: 14

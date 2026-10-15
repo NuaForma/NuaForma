@@ -40,7 +40,7 @@ As of the documentation review on 2026-10-15:
 | GHCR service image | `0.1.0-alpha.3`, native Linux AMD64/ARM64, Java 17; [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.3) |
 | Current source | Adds Java 25 server runtime, extensible value/content pipes and the image pipe, correlated development logging, pipe catalogs, health endpoints, SBOM and the separate Playground application |
 
-The current source has passed Java 17/25 builds and native AMD64/ARM64 container checks in [PR #81](https://github.com/NuaForma/NuaForma/pull/81). These checks do not publish artifacts, establish arbitrary-platform compatibility or replace the next candidate's source/license/security audit. Source changes do not alter immutable alpha libraries/images. Source artifact coordinates can still match the old alpha while development is unreleased; use the exclusive local repository described in the development/examples guides to test these changes, never assume Central's alpha contains them. Contract baseline remains `0.1`; release numbering is a separate decision.
+The current source has passed Java 17/25 builds and native AMD64/ARM64 container checks in [PR #81](https://github.com/NuaForma/NuaForma/pull/81). These checks do not publish artifacts, establish arbitrary-platform compatibility or replace the next candidate's source/license/security audit. Source changes do not alter immutable alpha libraries/images. The next candidate is `0.2.0-alpha.1` with contract `0.2`; it is not published by changing source metadata. Use the exclusive local staging repository to test candidate APIs. Contract `0.2` accepts existing `0.1` providers; implementations using the new contracts require at least `0.2` and are rejected by older runtimes before initialization.
 
 Published alphas are for evaluation and retain documented native-runtime security findings tracked in [issue #51](https://github.com/NuaForma/NuaForma/issues/51). Review their release notes and deployment boundaries; earlier risk acceptance is not approval of a different release candidate.
 
@@ -48,6 +48,7 @@ XLSX, ODT and ODS, external template retrieval, signable PDF fields and a LibreO
 
 ## Maintainer release guides
 
+- [0.2.0-alpha.1 candidate preparation](release-0.2.0-alpha.1.md), including contract `0.2` and pending distribution gates.
 - [Maven Central signing, upload and publication](maven-central-releases.md).
 - [Container qualification and publication](container-releases.md), including mandatory website/download synchronization.
 - [Bundled runtime licensing/source provision](libreoffice-licensing.md).

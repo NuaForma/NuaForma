@@ -35,8 +35,15 @@ def main():
     parser.add_argument("--inventory", type=pathlib.Path, required=True)
     parser.add_argument("--architecture", choices=("amd64", "arm64"), required=True)
     parser.add_argument("--version", required=True)
+    parser.add_argument("--application", choices=("server", "playground"), default="server")
     args = parser.parse_args()
     record = json.loads(args.review.read_text())
+    if record.get("application", "server") != args.application:
+        raise ValueError("Source review belongs to a different application")
+    if "application" in record:
+        image = json.loads((args.inventory / "image.json").read_text())
+        if image.get("Labels", {}).get("dev.nuaforma.application") != args.application:
+            raise ValueError("Image application differs from source review")
     if record["version"] != args.version or set(record["platforms"]) != {"amd64", "arm64"}:
         raise ValueError("Source review must cover this version and both architectures")
     if args.version not in ("0.1.0-alpha.1", "0.1.0-alpha.2", "0.1.0-alpha.3"):
