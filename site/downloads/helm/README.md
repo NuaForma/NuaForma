@@ -2,6 +2,8 @@
 
 This chart is an example, not a claim that an arbitrary Kubernetes cluster is qualified. It does not install an ingress, expose a public endpoint, mount a Docker socket, install host profiles or relax node security. Keep the service internal and add an authenticated TLS gateway before remote access.
 
+See the [documentation index](https://github.com/NuaForma/NuaForma/blob/main/docs/README.md) for deeper guides. This download stays pinned to alpha.3; do not replace its version probes with newer `/health/*` routes from the separate source chart until using a matching image. Source-only pipes, SBOM and Playground are not added to an existing alpha by updating this kit's documentation.
+
 ## Node prerequisites
 
 - Eligible Linux/amd64 nodes must allow the existing unprivileged-user-namespace Bubblewrap sandbox. Host AppArmor/SELinux/runtime policies may prevent it; do not disable protections or choose privileged execution as a workaround.

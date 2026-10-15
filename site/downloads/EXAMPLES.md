@@ -2,6 +2,8 @@
 
 Use these files with your own NuaForma 0.1.0-alpha.3 service. This website hosts files and instructions, not a document generator. All people, companies and example.invalid email addresses in the requests are illustrative.
 
+Find the language, API, PDF and operating guides in the [documentation index](https://github.com/NuaForma/NuaForma/blob/main/docs/README.md). Current repository source contains additional features; this kit's six requests and endpoint list remain compatible with alpha.3. Do not assume that source-only health/SBOM routes, extensible pipes or the Playground are available in that image.
+
 The same Word template works with all six complete JSON request envelopes. Open it in Word to inspect paragraph-level conditional/repetition markers and dedicated merged table-marker rows. Do not place table-row markers in ordinary populated rows. The final images are opaque JPEGs so this kit also fits the restricted PDF/A-1b image profile.
 
 ## Run a request

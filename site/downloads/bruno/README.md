@@ -2,6 +2,8 @@
 
 For the NuaForma 0.1.0-alpha.3 service. Start your own installation first; this kit does not start a service or contact the website.
 
+See the [documentation index](https://github.com/NuaForma/NuaForma/blob/main/docs/README.md) for template/API/PDF guides. Current repository source also documents newer APIs; this collection keeps its 11 alpha.3-compatible requests. Health/SBOM routes, extensible pipes and the separate Playground need a matching newer/source build, not an unchanged alpha.3 image.
+
 1. Extract the entire ZIP into a local folder. In Bruno, choose **Open Collection** and select the folder containing `bruno.json` (not just an individual `.bru` file).
 2. Open the collection variables and set `baseUrl` if your service is not at `http://localhost:8080`. No environment selection is required.
 3. Files are relative to the collection root. Keep `assets/` beside `bruno.json`; no filesystem scripts or Node sandbox permissions are needed.

@@ -2,6 +2,8 @@
 
 For the NuaForma 0.1.0-alpha.3 service. Start your own installation first; this kit does not start a service or contact the website.
 
+See the [documentation index](https://github.com/NuaForma/NuaForma/blob/main/docs/README.md) for template/API/PDF guides. Current repository source also documents newer APIs; this collection keeps its 11 alpha.3-compatible requests. Health/SBOM routes, extensible pipes and the separate Playground need a matching newer/source build, not an unchanged alpha.3 image.
+
 1. Extract the entire ZIP. In Postman desktop, choose **Import** and select `NuaForma.postman_collection.json`.
 2. In **Settings > General > Working directory**, choose the extracted folder containing this JSON and `assets/`. Leave **Read files outside working directory** off. File paths are relative to that working directory, not to the imported JSON.
 3. Set collection variable `baseUrl` if your service is not at `http://localhost:8080`. If a client version asks to reselect a file, select the matching file under `assets/` in its existing form-data row.

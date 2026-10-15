@@ -10,6 +10,10 @@ curl --fail http://127.0.0.1:8080/api/v1/capabilities
 
 The service is available on loopback port 8080. Stop with `docker compose down`. There is no built-in authentication or TLS; do not publish the HTTP port to an untrusted network. Add an authenticated TLS gateway and request quotas if remote callers are needed.
 
+## Documentation
+
+For the complete guide set, see the [documentation index](https://github.com/NuaForma/NuaForma/blob/main/docs/README.md). The [extension guide](https://github.com/NuaForma/NuaForma/blob/main/docs/extensions.md) also describes newer source-only APIs; this kit's alpha.3 image runs Java 17 and does not include value/content pipes, health/SBOM endpoints or the separate Playground. Keep its version-matched settings when following source documentation.
+
 ## Fonts
 
 Place standalone TTF/OTF files in `custom-fonts`. UID/GID 1000 needs read/traverse access. Compose mounts this directory read-only at `/opt/nuaforma/custom-fonts`; never mount it into the renderer root. Capabilities lists families/faces and logical resource IDs. Restart after changes because fonts are snapshotted at startup. WOFF/TTC, symlinks and conflicting family/face files are rejected. Availability does not waive embedding flags or your responsibility for font usage rights.

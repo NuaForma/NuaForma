@@ -30,6 +30,9 @@ class Tabs(HTMLParser):
 
 tabs = Tabs()
 tabs.feed(source)
+for guide in ('docs/README.md', 'docs/development.md', 'docs/extensions.md', 'CONTRIBUTING.md'):
+    assert (ROOT / guide).is_file()
+    assert 'href="https://github.com/NuaForma/NuaForma/blob/main/' + guide + '"' in source
 assert len(tabs.tabs) == len(tabs.panels) == 8
 for name, tab in tabs.tabs.items():
     panel = tabs.panels[tab["aria-controls"]]

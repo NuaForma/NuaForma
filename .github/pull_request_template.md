@@ -13,5 +13,5 @@ Use a closing reference only when the issue's full acceptance criteria are satis
 - [ ] The required Build (Java 17) check passes.
 - [ ] Relevant regression and integration tests are included, or their absence is explained.
 - [ ] Public contract, architecture, security and document-fidelity impact has been reviewed where applicable.
-- [ ] Documentation reflects implemented and verified behavior without advertising planned features as available.
+- [ ] Documentation impact is recorded: relevant guides, examples, API/deployment documentation and architecture are updated, or no change is needed with an explanation. Source/release claims reflect implemented and verified behavior.
 - [ ] Playground impact is recorded: update controls, capability/schema interpretation, exports, warnings and tests, or explain why no change is needed.

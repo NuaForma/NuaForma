@@ -2,6 +2,8 @@
 
 This is a buildless static GitHub Pages website. It never receives templates or generates documents. The complete downloadable requests are submitted to the visitor's own NuaForma service.
 
+Project documentation starts at [docs/README.md](../docs/README.md); source development and extension instructions have separate guides. Keep the site's documentation links and download READMEs aligned with those entry points. Do not upgrade kit endpoints, image tags or Helm probes to unreleased source behavior: existing alpha.3 kits must remain runnable with their matching immutable image. Repackage changed kit documentation and verify all archive members against their sources.
+
 Preview from the repository root with `python3 -m http.server 8430 --bind 127.0.0.1 --directory site`. Validate with `python3 tools/site/check_site.py` and `node --check site/app.js`.
 
 Run `node --test tools/site/test_tabs.cjs` to verify independent deployment/architecture tab groups and keyboard navigation. AMD64 is the default Compose architecture; choosing ARM64 must not change the selected deployment method.

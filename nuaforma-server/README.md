@@ -23,10 +23,15 @@ The initial service has no authentication/TLS implementation. Do not expose it d
 
 ## Endpoints
 
+This table describes current source. Health/SBOM/pipe catalogs are not retroactively added to existing alpha images; see [published versus source versions](../docs/README.md#source-versus-published-versions). The separate [Playground](../nuaforma-playground/README.md) is a development UI, not an OpenAPI operation.
+
 Each provider in `/api/v1/capabilities` includes `fonts: {status, entries}`. Status is `AVAILABLE`, `UNSUPPORTED` (no optional facet) or `UNAVAILABLE` (enumeration failed/not ready). Entries contain `family`, `face`, `source` (`bundled`/`mounted`) and `resource` (opaque mounted selector or null). No uploaded/request-private/template fonts, paths or font bytes are exposed. Empty available catalogs and unsupported enumeration differ; names/styles do not establish embedding rights or glyph coverage. Both OpenAPI downloads describe these fields. The [mount guide](../deployment/pdf-runtime/MOUNTS.md) covers operator configuration and restart behavior.
 
 | Method | Path | Response |
 | --- | --- | --- |
+| GET | `/health/live` | Lightweight application liveness, independent of optional converters and generation slots |
+| GET | `/health/ready` | Cached lifecycle/provider readiness; DOCX can remain ready without PDF |
+| GET | `/api/v1/sbom` | Static build-generated CycloneDX 1.7 JSON inventory |
 | GET | `/api/v1/version` | Packaged application version, runtime contract version and source commit; no provider/readiness query |
 | GET | `/api/v1/capabilities` | Registered providers, declared/usable formats, option metadata and safe readiness/discovery diagnostics |
 | POST | `/api/v1/assess` | JSON envelope; selected provider or structured rejection, without document validation or font/resource reservation |

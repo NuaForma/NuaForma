@@ -4,7 +4,7 @@ These Java 17 and Kotlin examples consume the five library publications by Maven
 
 ## Stage the libraries
 
-From the repository root, with Java 17, Python 3 and the checked-in Gradle Wrapper:
+From the repository root, with JDK 17 and JDK 25, Python 3 and the checked-in Gradle Wrapper (the independent consumers themselves use Java 17):
 
 ```sh
 ./gradlew verifyLibraryPublication
@@ -30,7 +30,7 @@ This compiles/runs the independent Maven reactor under `maven/` and independent 
 | Maven PDF | core, docx-pdf | Explicit trusted runtime configuration; missing conversion leaves PDF unavailable and DOCX selectable |
 | Gradle Kotlin DOCX | core, docx | Actual generation through the same public contracts and runtime dependency isolation |
 
-The examples' parent POM accepts `-Dnuaforma.repository=<local-file-repository-URL>` and `-Dnuaforma.version=<version>`. The Gradle example accepts `-PnuaformaRepository=<URL>` and `-PnuaformaVersion=<version>`. The selected alpha candidate is `0.1.0-alpha.1`; Central availability is not implied before publication is verified. There are no project substitutions, composite builds or dependencies on the service.
+The examples' parent POM accepts `-Dnuaforma.repository=<local-file-repository-URL>` and `-Dnuaforma.version=<version>`. The Gradle example accepts `-PnuaformaRepository=<URL>` and `-PnuaformaVersion=<version>`. Published libraries are available as `0.1.0-alpha.1`. Unreleased source still uses that coordinate; these verification commands deliberately consume the exclusive local staging repository, not Central's immutable alpha. There are no project substitutions, composite builds or dependencies on the service.
 
 Runtime assertions reject server/test/veraPDF dependencies in the embedded host. The DOCX stack legitimately includes PDFBox IO/FontBox helpers, but not the optional full PDFBox parser, LibreOffice executable or isolated veraPDF validator. The PDF module's host dependencies differ from the converter's separate runtime; that runtime is not delivered through Maven.
 
