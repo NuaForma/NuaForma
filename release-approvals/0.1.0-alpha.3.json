@@ -1,0 +1,116 @@
+{
+  "version": "0.1.0-alpha.3",
+  "sourceCommit": "9227ae5ac6735ce1532dadbb6c4683b920d9a48e",
+  "reviewer": "mrhoeve",
+  "latest": false,
+  "platforms": {
+    "amd64": {
+      "nativeQualificationArchitecture": "amd64",
+      "containerArchiveSha256": "12587eb2a622be2dda4fcae6bc677e9aae0b1aa5a1323f8de46761db6b4727fb",
+      "containerConfigSha256": "77809de1401eb055200267089050cb5b3388fae6424f75e3dce8b76594dda61f",
+      "approved": {
+        "containerAudit": true,
+        "sourceAccess": true,
+        "fidelityQualification": true,
+        "securityReview": true
+      },
+      "sourceMaterials": [
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.3/nuaforma-sources-debian-0.1.0-alpha.3.tar",
+          "sha256": "b8cf080795e5ff50925c5bb11ce2840ac48060649b669dba8136153d32eeb27b",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.3/nuaforma-sources-libreoffice-0.1.0-alpha.3.tar",
+          "sha256": "80bf39753e2f4534801a4b14038f923d44ac30f48bfadb425d1b1269e0e01451",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.3/nuaforma-sources-java-0.1.0-alpha.3.tar",
+          "sha256": "bdbab3fc095f5aa8e21dfd68a19f72157f73037ea5f674b9e56c0d2aa0cef0d0",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.3/nuaforma-sources-jvm-0.1.0-alpha.3.tar",
+          "sha256": "5e4abb040ca7d2f31ff4bfe5310aca32f60cbaf473b2d750a38d00858641d6cb",
+          "verifiedAnonymousAccess": true
+        }
+      ],
+      "evidence": {
+        "nativeArchiveRun": "https://github.com/NuaForma/NuaForma/actions/runs/38683188492",
+        "metadata": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.3/metadata-amd64.tar.gz",
+        "componentSourceReview": "release-materials/0.1.0-alpha.3.json",
+        "checks": [
+          "non-root/read-only/capabilities/init",
+          "packaged-release-version",
+          "default-PDF-A-3b/explicit-B-profiles/standard/conflict-rejection",
+          "shipped-entrypoint/DOCX/PDF/private-cleanup",
+          "SIGTERM-during-real-conversion/no-forced-kill",
+          "missing-converter/DOCX-usable/PDF-rejected",
+          "handler-deadline/cancellation/private-cleanup"
+        ],
+        "securityDisposition": "Unchanged third-party runtime package/source versions and JAR bytes retain the evaluation-alpha advisory disposition tracked in #51.",
+        "isolationChecks": {
+          "plain": 32,
+          "compatibilityView": 36,
+          "pseudoTerminalsExposed": false
+        },
+        "fidelityScope": "Native service/profile/cancellation checks on each architecture; unchanged third-party renderer/JAR/font inputs. Local AMD64 headless-device qualification also passed all-page pixel equality for ten PDFs, four independent barcode scans and five embedded DOCX font checks; no additional ARM64 visual tooling was introduced."
+      }
+    },
+    "arm64": {
+      "nativeQualificationArchitecture": "arm64",
+      "containerArchiveSha256": "39fcf306c69b9b7840afd6a6183208693c84a2a7a9916a6e96a0d6c24efdf6bf",
+      "containerConfigSha256": "e83e390dd2d714b837ae4d636b8d0704851e6f4d3e2b6e2f7e48e8124ef7c504",
+      "approved": {
+        "containerAudit": true,
+        "sourceAccess": true,
+        "fidelityQualification": true,
+        "securityReview": true
+      },
+      "sourceMaterials": [
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.3/nuaforma-sources-debian-0.1.0-alpha.3.tar",
+          "sha256": "b8cf080795e5ff50925c5bb11ce2840ac48060649b669dba8136153d32eeb27b",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.3/nuaforma-sources-libreoffice-0.1.0-alpha.3.tar",
+          "sha256": "80bf39753e2f4534801a4b14038f923d44ac30f48bfadb425d1b1269e0e01451",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.3/nuaforma-sources-java-0.1.0-alpha.3.tar",
+          "sha256": "bdbab3fc095f5aa8e21dfd68a19f72157f73037ea5f674b9e56c0d2aa0cef0d0",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.3/nuaforma-sources-jvm-0.1.0-alpha.3.tar",
+          "sha256": "5e4abb040ca7d2f31ff4bfe5310aca32f60cbaf473b2d750a38d00858641d6cb",
+          "verifiedAnonymousAccess": true
+        }
+      ],
+      "evidence": {
+        "nativeArchiveRun": "https://github.com/NuaForma/NuaForma/actions/runs/38683188492",
+        "metadata": "https://github.com/NuaForma/NuaForma/releases/download/v0.1.0-alpha.3/metadata-arm64.tar.gz",
+        "componentSourceReview": "release-materials/0.1.0-alpha.3.json",
+        "checks": [
+          "non-root/read-only/capabilities/init",
+          "packaged-release-version",
+          "default-PDF-A-3b/explicit-B-profiles/standard/conflict-rejection",
+          "shipped-entrypoint/DOCX/PDF/private-cleanup",
+          "SIGTERM-during-real-conversion/no-forced-kill",
+          "missing-converter/DOCX-usable/PDF-rejected",
+          "handler-deadline/cancellation/private-cleanup"
+        ],
+        "securityDisposition": "Unchanged third-party runtime package/source versions and JAR bytes retain the evaluation-alpha advisory disposition tracked in #51.",
+        "isolationChecks": {
+          "plain": 32,
+          "compatibilityView": 36,
+          "pseudoTerminalsExposed": false
+        },
+        "fidelityScope": "Native service/profile/cancellation checks on each architecture; unchanged third-party renderer/JAR/font inputs. Local AMD64 headless-device qualification also passed all-page pixel equality for ten PDFs, four independent barcode scans and five embedded DOCX font checks; no additional ARM64 visual tooling was introduced."
+      }
+    }
+  }
+}
