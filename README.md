@@ -114,6 +114,8 @@ Container releases include native Linux/amd64 and Linux/arm64 variants; each hos
 
 ## Security and deployment boundaries
 
+The source branch adds unreleased correlated operational logging and explicit `NUAFORMA_MODE=development` diagnostics. Production remains the default; API errors stay safe, while the warning makes sensitive field/pipe logging explicit. See the [logging guide](docs/logging.md) before enabling it. Published alpha images are unchanged.
+
 The restricted language exposes only supplied `data`, not host objects, credentials or arbitrary methods. Providers enforce archive, expression and output limits. Conversion and PDF validation use bounded request-isolated child processes with network denial. These protections do not make in-process DOCX parsing a complete process/heap sandbox.
 
 The service has no built-in authentication or TLS. Keep local access on loopback; use an authenticated TLS gateway and deployment quotas for remote access. Installed extensions are operator-trusted executable code with application-process permissions, not sandboxed templates. Preserve the isolation and storage settings in the deployment guides.

@@ -78,7 +78,10 @@ internal object Docx4jDocuments {
             try { transform(model) }
             catch (error: GenerationException) { throw error }
             catch (_: JAXBException) { DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "DOCX structured transformation cannot be completed safely") }
-            catch (_: RuntimeException) { DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "DOCX structure cannot be transformed safely; simplify the template") }
+            catch (error: RuntimeException) {
+                context.logging.failure("DOCX_TRANSFORMATION_FAILED", error)
+                DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "DOCX structure cannot be transformed safely; simplify the template")
+            }
             context.checkActive()
             Document(model, context)
         }
@@ -95,6 +98,7 @@ internal object Docx4jDocuments {
                     Files.newOutputStream(spool).use { current.save(BoundedStreams.Output(it, context.limits.maxOutputBytes, context)) }
                 } catch (error: Docx4JException) {
                     generateSequence<Throwable>(error) { it.cause }.filterIsInstance<GenerationException>().firstOrNull()?.let { throw it }
+                    context.logging.failure("DOCX_SERIALIZATION_FAILED", error)
                     DocxFailure.fail(DiagnosticCodes.GENERATION_FAILED, "DOCX serialization failed; no output was published")
                 }
                 PackageValidation.validate(spool, context)

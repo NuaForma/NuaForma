@@ -46,8 +46,10 @@ internal class Format(val kind: String, val pattern: String) {
                 else -> error("Unknown compiled formatter")
             }
         } catch (_: IllegalArgumentException) {
+            state.pipeRejected(kind, "Value does not match the requested format")
             Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Value cannot be formatted with the requested format")
         } catch (_: DateTimeException) {
+            state.pipeRejected(kind, "Expected an ISO date or timestamp with offset matching the requested format")
             Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Date must be an ISO date or an ISO timestamp with an offset and match the requested format")
         }
     }
@@ -79,6 +81,27 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
     private val values = ValueRegistry(valuePipes)
     private val copies = PipeValues(context, ::step)
     private var pipeCalls = 0L
+    fun pipeRejected(name: String, reason: String) = context.logging.operation("PIPE_REJECTED", mapOf("pipe" to name, "reason" to reason, "position" to offset.toString()))
+    private var secretTrace = false
+    val tracing: Boolean get() = context.logging.enabled && context.logging.mode == dev.nuaforma.contracts.LoggingMode.DEVELOPMENT
+    private val secretValues = java.util.IdentityHashMap<Any, Boolean>()
+    fun traceRoot(value: Any?) {
+        if (!context.logging.enabled || context.logging.mode != dev.nuaforma.contracts.LoggingMode.DEVELOPMENT) return
+        if (value != null && secretValues.containsKey(value)) secretTrace = true
+    }
+    fun tracePath(path: String, value: Any?) {
+        if (!context.logging.enabled || context.logging.mode != dev.nuaforma.contracts.LoggingMode.DEVELOPMENT) return
+        if (Regex("(?i)(authorization|cookie|token|password|passwd|secret|credential|private.?key|api.?key)").containsMatchIn(path)) secretTrace = true
+        if (secretTrace && value != null) secretValues[value] = true
+        context.logging.trace("FIELD_RESOLVED", mapOf("position" to offset, "path" to path, "value" to if (secretTrace) "[redacted]" else value))
+    }
+    fun tracePipe(name: String, value: Any?, arguments: Any?, result: Any?) {
+        if (!tracing) return
+        context.logging.trace("PIPE_RESULT", mapOf("position" to offset, "pipe" to name,
+            "input" to if (secretTrace) "[redacted]" else if (name == "image") "[image payload omitted]" else value,
+            "arguments" to if (secretTrace) "[redacted]" else arguments,
+            "output" to if (secretTrace) "[redacted]" else result))
+    }
     init {
         if (contentNames.any { it in values.names }) Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Value and content pipe names must not collide")
     }
@@ -117,9 +140,11 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
     private fun scopeSequence(value: Any?, scope: Map<String, Any?>, alias: String): Sequence<Map<String, Any?>> = sequence {
         present(value)
         if (value !is List<*>) typeFailure()
+        val secretCollection = secretTrace || secretValues.containsKey(value)
         value.forEachIndexed { index, item ->
             step()
             if (++repetitions > context.limits.maxRepetitions) Safety.limit()
+            if (secretCollection && item != null) secretValues[item] = true
             val loop = mapOf("index" to BigDecimal(index), "number" to BigDecimal(index + 1),
                 "first" to (index == 0), "last" to (index == value.lastIndex), "size" to BigDecimal(value.size))
             yield(scope + mapOf(alias to item, "loop" to loop))
@@ -141,12 +166,17 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
     fun render(nodes: List<Node>, scope: Map<String, Any?>) {
         for (node in nodes) {
             step()
+            secretTrace = false
             when (node) {
                 is Node.Text -> append(node.text, node.offset, node.end, true)
                 is Node.Value -> {
                     offset = node.offset
                     val value = node.expression.evaluate(this, scope)
-                    append(node.format?.apply(value, this) ?: scalar(value), node.offset, node.end, false)
+                    val formatted = node.format?.let { format ->
+                        tracePipe(format.kind, value, listOf(format.pattern), "[pending]")
+                        format.apply(value, this).also { tracePipe(format.kind, value, listOf(format.pattern), it) }
+                    }
+                    append(formatted ?: scalar(value), node.offset, node.end, false)
                 }
                 is Node.Content -> {
                     offset = node.offset
@@ -155,6 +185,7 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
                     val value = node.expression.evaluate(this, scope)
                     present(value)
                     val arguments = node.arguments.map { it.evaluate(this, scope).also(::present) }
+                    tracePipe(node.name, value, arguments, "[structured content]")
                     val result = content.apply(node.name, value, arguments, options, context, ::step)
                     if (result is ContentResult.Text) charge(result.text)
                     if (fragments.size >= Safety.MAX_NODES) Safety.limit()

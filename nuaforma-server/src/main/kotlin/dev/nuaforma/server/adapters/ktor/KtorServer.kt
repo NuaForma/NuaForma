@@ -3,6 +3,7 @@ package dev.nuaforma.server.adapters.ktor
 import dev.nuaforma.contracts.*
 import dev.nuaforma.core.ProviderRegistry
 import dev.nuaforma.server.ServerConfiguration
+import dev.nuaforma.server.adapters.logging.OperationalLogging
 import dev.nuaforma.server.adapters.json.KotlinxJsonCodec
 import dev.nuaforma.server.internal.*
 import io.ktor.http.*
@@ -24,11 +25,22 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 import java.util.concurrent.Semaphore
+import java.time.Clock
+import java.util.UUID
+import io.ktor.util.AttributeKey
 
-internal class KtorServer(private val registry: ProviderRegistry, private val config: ServerConfiguration) {
+internal class KtorServer(private val registry: ProviderRegistry, private val config: ServerConfiguration,
+                          private val logSink: GenerationLogSink = OperationalLogging) {
     private val json: JsonCodec = KotlinxJsonCodec()
     private val slots = Semaphore(config.maximumConcurrentRequests)
     private val documentation = ApiDocumentation(json)
+    private val loggingKey = AttributeKey<GenerationLogging>("nuaforma.request.logging")
+
+    private fun logging(call: ApplicationCall): GenerationLogging = call.attributes[loggingKey]
+    private suspend fun context(call: ApplicationCall): GenerationContext {
+        val job = currentCoroutineContext().job
+        return GenerationContext(config.generationLimits, CancellationToken { !job.isActive }, null, Clock.systemUTC(), logging(call))
+    }
 
     fun startAndWait() {
         val server = embeddedServer(CIO, configure = {
@@ -46,9 +58,25 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
     }
 
     fun installRoutes(application: Application) = with(application) {
+        intercept(ApplicationCallPipeline.Setup) {
+            val identity = UUID.randomUUID().toString()
+            val log = GenerationLogging(config.loggingMode, identity, logSink)
+            call.attributes.put(loggingKey, log)
+            call.response.headers.append("X-Request-ID", identity)
+            withContext(RequestLogging(log)) {
+                log.operation("REQUEST_STARTED")
+                try { proceed() }
+                finally { log.operation("REQUEST_FINISHED") }
+            }
+        }
         install(StatusPages) {
             exception<PayloadTooLargeException> { call, _ -> failure(call, 413, "RESOURCE_LIMIT_EXCEEDED", "Request body exceeds its limit") }
             exception<BadRequestException> { call, _ -> failure(call, 400, "INVALID_REQUEST", "Malformed HTTP request") }
+            exception<Exception> { call, error ->
+                if (error is java.util.concurrent.CancellationException) throw error
+                logging(call).failure("HTTP_PROCESSING_FAILED", error)
+                failure(call, 500, "GENERATION_FAILED", "Request processing failed")
+            }
             status(HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed) { call, status -> failure(call, status.value, "INVALID_REQUEST", "Unknown API route or method") }
         }
         install(RequestBodyLimit) { bodyLimit { config.maximumRequestBytes } }
@@ -60,12 +88,13 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
             } }
             get(ApiRoutes.OPENAPI_JSON) { guarded(call) { openApi(call, documentation.jsonText, "json", ContentType.Application.Json) } }
             get(ApiRoutes.OPENAPI_YAML) { guarded(call) { openApi(call, documentation.yamlText, "yaml", ContentType.parse("application/yaml")) } }
-            get(ApiRoutes.CAPABILITIES) { guarded(call) { call.respondText(json.encode(capabilities()), ContentType.Application.Json) } }
+            get(ApiRoutes.CAPABILITIES) { guarded(call) { call.respondText(json.encode(capabilities(context(call))), ContentType.Application.Json) } }
             post(ApiRoutes.ASSESS) { guarded(call) {
                 if (!call.request.contentType().match(ContentType.Application.Json)) throw ApiFailure(415, "UNSUPPORTED_MEDIA_TYPE", "Expected application/json")
                 val bytes = receiveBytes(call.receiveChannel(), config.maximumJsonBytes)
                 val request = json.decode(bytes)
-                val provider = runInterruptible(Dispatchers.IO) { registry.select(request.requirements, request.providerId) }
+                val context = context(call)
+                val provider = runInterruptible(Dispatchers.IO) { registry.select(request.requirements, request.providerId, context) }
                 call.respondText(json.encode(mapOf("status" to "SUPPORTED", "providerId" to provider.metadata.id)), ContentType.Application.Json)
             } }
             post(ApiRoutes.DOCUMENTS) { guarded(call) { generate(call) } }
@@ -93,16 +122,21 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
         } catch (error: java.util.concurrent.CancellationException) { throw error }
         catch (error: ApiFailure) { failure(call, error.status, error.code, error.safeMessage) }
         catch (error: GenerationException) {
-            call.respondText(json.encode(mapOf("diagnostics" to ApiErrors.diagnostics(error.diagnostics))), ContentType.Application.Json,
+            logging(call).operation("GENERATION_REJECTED", mapOf("codes" to error.diagnostics.take(32).joinToString(",") { it.code.id },
+                "locations" to error.diagnostics.mapNotNull { diagnostic -> diagnostic.location?.takeIf { it.matches(Regex("template:[0-9]{1,8}")) } }.take(8).joinToString(",")))
+            call.respondText(json.encode(mapOf("requestId" to logging(call).requestId, "diagnostics" to ApiErrors.diagnostics(error.diagnostics))), ContentType.Application.Json,
                 HttpStatusCode.fromValue(ApiErrors.status(error.diagnostics)))
         } catch (_: PayloadTooLargeException) { failure(call, 413, "RESOURCE_LIMIT_EXCEEDED", "Request body exceeds its limit") }
         catch (_: BadRequestException) { failure(call, 400, "INVALID_REQUEST", "Malformed HTTP request") }
-        catch (_: Exception) { failure(call, 500, "GENERATION_FAILED", "Request processing failed") }
+        catch (error: Exception) { logging(call).failure("HTTP_PROCESSING_FAILED", error); failure(call, 500, "GENERATION_FAILED", "Request processing failed") }
+        catch (error: LinkageError) { logging(call).failure("HTTP_LINKAGE_FAILED", error); failure(call, 500, "GENERATION_FAILED", "Request processing failed") }
+        catch (error: java.util.ServiceConfigurationError) { logging(call).failure("HTTP_SERVICE_FAILED", error); failure(call, 500, "GENERATION_FAILED", "Request processing failed") }
         finally { slots.release() }
     }
 
     private suspend fun failure(call: ApplicationCall, status: Int, code: String, message: String) {
-        if (!call.response.isCommitted) call.respondText(json.encode(mapOf("diagnostics" to listOf(
+        logging(call).operation("REQUEST_REJECTED", mapOf("code" to code, "status" to status.toString()))
+        if (!call.response.isCommitted) call.respondText(json.encode(mapOf("requestId" to logging(call).requestId, "diagnostics" to listOf(
             mapOf("code" to code, "severity" to "ERROR", "message" to message),
         ))), ContentType.Application.Json, HttpStatusCode.fromValue(status))
     }
@@ -150,8 +184,7 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
             val resources = parts.filterKeys { it.startsWith("resource.") }.mapKeys { it.key.removePrefix("resource.") }
                 .mapValues { (_, path) -> ResourceSource { Files.newInputStream(path) } }
             val output = directory.resolve("result")
-            val job = currentCoroutineContext().job
-            val context = GenerationContext(config.generationLimits, CancellationToken { !job.isActive })
+            val context = context(call)
             val result = runInterruptible(Dispatchers.IO) {
                 Files.newInputStream(template).use { input -> Files.newOutputStream(output).use { sink ->
                     val bounded = object : FilterOutputStream(sink) {
@@ -215,12 +248,16 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
         channel.closedCause?.let { throw it }
     }
 
-    private suspend fun capabilities(): Map<String, Any?> = runInterruptible(Dispatchers.IO) {
+    private suspend fun capabilities(context: GenerationContext): Map<String, Any?> = runInterruptible(Dispatchers.IO) {
         mapOf("contractVersion" to ContractVersion.CURRENT.toString(), "diagnostics" to ApiErrors.diagnostics(registry.diagnostics),
             "providers" to registry.providers.map { registered ->
                 val declared = registered.capabilities
-                val available = try { registered.provider.availability().also { it.validateAgainst(declared) } }
-                    catch (_: Exception) { ProviderAvailability(emptySet(), emptySet(), listOf(Diagnostic(DiagnosticCodes.PROVIDER_UNAVAILABLE, "Provider readiness failed"))) }
+                val available = try { registry.availability(registered, context) }
+                    catch (error: Exception) {
+                        context.checkActive()
+                        context.logging.failure("PROVIDER_READINESS_FAILED", error, mapOf("provider" to registered.metadata.id))
+                        ProviderAvailability(emptySet(), emptySet(), listOf(Diagnostic(DiagnosticCodes.PROVIDER_UNAVAILABLE, "Provider readiness failed")))
+                    }
                 mapOf("id" to registered.metadata.id, "releaseVersion" to registered.metadata.releaseVersion,
                     "requiredContract" to registered.metadata.requiredContract.toString(),
                     "declared" to mapOf("readFormats" to declared.readFormats.map { it.id }.sorted(), "writeFormats" to declared.writeFormats.map { it.id }.sorted()),
@@ -228,19 +265,20 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
                     "inputOptions" to declared.inputOptions.mapKeys { it.key.id }.mapValues { definitions(it.value) },
                     "outputOptions" to declared.outputOptions.mapKeys { it.key.id }.mapValues { definitions(it.value) },
                     "generalOptions" to definitions(declared.generalOptions), "diagnostics" to ApiErrors.diagnostics(available.diagnostics)) +
-                    mapOf("fonts" to fontCatalog(registered.provider))
+                    mapOf("fonts" to fontCatalog(registered.provider, context))
             })
     }
 
-    private fun fontCatalog(provider: DocumentProvider): Map<String, Any?> {
+    private fun fontCatalog(provider: DocumentProvider, parent: GenerationContext): Map<String, Any?> {
         if (provider !is FontCatalogProvider) return mapOf("status" to "UNSUPPORTED", "entries" to emptyList<Any>())
         return try {
-            val catalog = provider.fontCatalog(GenerationContext(GenerationLimits(maxDuration = java.time.Duration.ofSeconds(10))))
+            val catalog = provider.fontCatalog(GenerationContext(GenerationLimits(maxDuration = java.time.Duration.ofSeconds(10)), parent.cancellation,
+                parent.deadline, Clock.systemUTC(), parent.logging))
             mapOf("status" to "AVAILABLE", "entries" to catalog.fonts.map {
                 mapOf("family" to it.family, "face" to it.face, "source" to it.origin.name.lowercase(), "resource" to it.resource)
             })
-        } catch (_: Exception) { mapOf("status" to "UNAVAILABLE", "entries" to emptyList<Any>()) }
-        catch (_: LinkageError) { mapOf("status" to "UNAVAILABLE", "entries" to emptyList<Any>()) }
+        } catch (error: Exception) { parent.checkActive(); parent.logging.failure("FONT_CATALOG_UNAVAILABLE", error); mapOf("status" to "UNAVAILABLE", "entries" to emptyList<Any>()) }
+        catch (error: LinkageError) { parent.logging.failure("FONT_CATALOG_UNAVAILABLE", error); mapOf("status" to "UNAVAILABLE", "entries" to emptyList<Any>()) }
     }
 
     private fun definitions(values: List<OptionDefinition>): List<Map<String, Any?>> = values.map {

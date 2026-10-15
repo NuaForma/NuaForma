@@ -40,6 +40,7 @@ Operator environment variables, never request fields:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `NUAFORMA_HOST` | `0.0.0.0` | Container listener; host publication stays loopback in Compose |
+| `NUAFORMA_MODE` | `production` when unset | Source-only explicit `development` enables sensitive diagnostics/banner; empty/unknown values fail startup. See [logging](../../docs/logging.md); published alpha images are unchanged |
 | `NUAFORMA_PORT` | `8080` | Listener port, 0–65535; 0 selects an ephemeral port, unsuitable for the fixed container mapping |
 | `NUAFORMA_HEAP_MB` | `512` | JVM maximum heap, 128–16384 MiB; still bounded by container memory |
 | `NUAFORMA_TEMP_DIRECTORY` | `/tmp` | Absolute existing writable private-storage root |

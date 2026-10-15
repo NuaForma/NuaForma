@@ -4,6 +4,8 @@ Development API for discovering, validating and selecting document providers, us
 
 ## Discovery and generation
 
+For unreleased source logging, additive `discover(classLoader, registrations, logging)`, `registered(registrations, logging)` and `select(requirements, preferredProviderId, context)` overloads carry explicit NuaForma-owned diagnostics/correlation. `availability(registeredProvider, context)` uses an optional `ProviderReadiness` facet or falls back to original provider methods. Identical readiness snapshots are rate-limited per provider, not cached as proof of readiness. See the [logging guide](../docs/logging.md); no backend/global logger is forced on embedded applications.
+
 ```kotlin
 val registry = ProviderRegistry.discover()
 val requirements = GenerationRequirements(

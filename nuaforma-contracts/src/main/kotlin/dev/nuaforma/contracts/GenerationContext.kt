@@ -41,6 +41,13 @@ class GenerationContext @JvmOverloads constructor(
     private val clock: Clock = Clock.systemUTC(),
 ) {
     val deadline: Instant = minOf(deadline ?: Instant.MAX, clock.instant().plus(limits.maxDuration))
+    var logging: GenerationLogging = GenerationLogging.NONE
+        private set
+
+    constructor(limits: GenerationLimits, cancellation: CancellationToken, deadline: Instant?, clock: Clock, logging: GenerationLogging) :
+        this(limits, cancellation, deadline, clock) { this.logging = logging }
+
+    constructor(logging: GenerationLogging) : this() { this.logging = logging }
 
     @Throws(GenerationException::class)
     fun checkActive() {

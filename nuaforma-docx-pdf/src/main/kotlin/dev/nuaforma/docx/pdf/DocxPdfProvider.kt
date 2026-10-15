@@ -13,7 +13,7 @@ import java.nio.file.Path
 import dev.nuaforma.template.TemplatePipes
 
 /** DOCX processing is delegated unchanged; only PDF uses an isolated conversion copy. */
-class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguration?, private val valuePipes: TemplatePipes) : DocumentProvider, FontCatalogProvider, ContentPipeProvider, TemplatePipeProvider {
+class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguration?, private val valuePipes: TemplatePipes) : DocumentProvider, FontCatalogProvider, ContentPipeProvider, TemplatePipeProvider, ProviderReadiness {
     @JvmOverloads
     constructor(configuration: LibreOfficeConfiguration? = null) : this(configuration, TemplatePipes.discover())
     private var pipes: List<ContentPipe> = emptyList()
@@ -81,6 +81,34 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
         val status = converter.readiness()
         return ProviderAvailability(setOf(DocumentFormat.DOCX),
             if (status.status == AssessmentStatus.SUPPORTED) setOf(DocumentFormat.DOCX, DocumentFormat.PDF) else setOf(DocumentFormat.DOCX), status.diagnostics)
+    }
+
+    override fun availability(context: GenerationContext): ProviderAvailability {
+        context.checkActive()
+        val probeContext = GenerationContext(context.limits, context.cancellation,
+            minOf(context.deadline, java.time.Instant.now().plusSeconds(10)), java.time.Clock.systemUTC(), context.logging)
+        val status = try { converter.verify(probeContext); CapabilityAssessment(AssessmentStatus.SUPPORTED) }
+            catch (error: GenerationException) {
+                context.checkActive()
+                context.logging.operation("PDF_BACKEND_UNAVAILABLE", mapOf("reason" to "Check the configured qualified renderer, validators and kernel namespace/isolation support"))
+                CapabilityAssessment(AssessmentStatus.UNAVAILABLE, listOf(Diagnostic(DiagnosticCodes.PROVIDER_UNAVAILABLE,
+                    "Configure the qualified isolated LibreOffice runtime; DOCX output remains available")))
+            } catch (error: java.io.IOException) {
+                context.logging.failure("PDF_BACKEND_IO_FAILED", error)
+                CapabilityAssessment(AssessmentStatus.UNAVAILABLE, listOf(Diagnostic(DiagnosticCodes.PROVIDER_UNAVAILABLE,
+                    "Configure the qualified isolated LibreOffice runtime; DOCX output remains available")))
+            }
+        return ProviderAvailability(setOf(DocumentFormat.DOCX),
+            if (status.status == AssessmentStatus.SUPPORTED) setOf(DocumentFormat.DOCX, DocumentFormat.PDF) else setOf(DocumentFormat.DOCX), status.diagnostics)
+    }
+
+    override fun assess(requirements: GenerationRequirements, context: GenerationContext): CapabilityAssessment {
+        context.checkActive()
+        val validation = validate(requirements)
+        if (validation.status != AssessmentStatus.SUPPORTED || requirements.output.format == DocumentFormat.DOCX) return validation
+        val available = availability(context)
+        return if (available.supports(requirements.input.format, requirements.output.format)) CapabilityAssessment(AssessmentStatus.SUPPORTED)
+            else CapabilityAssessment(AssessmentStatus.UNAVAILABLE, available.diagnostics)
     }
 
     override fun assess(requirements: GenerationRequirements): CapabilityAssessment {

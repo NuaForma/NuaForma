@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="OFF">
+  <Appenders>
+    <Console name="Console" target="SYSTEM_OUT">
+      <PatternLayout pattern="%d{ISO8601} %p %m%n" alwaysWriteExceptions="false"/>
+    </Console>
+  </Appenders>
+  <Loggers>
+    <Logger name="dev.nuaforma.operational" level="DEBUG" additivity="false">
+      <AppenderRef ref="Console"/>
+    </Logger>
+    <Root level="OFF"/>
+  </Loggers>
+</Configuration>

@@ -1,6 +1,7 @@
 package dev.nuaforma.server
 
 import dev.nuaforma.contracts.GenerationLimits
+import dev.nuaforma.contracts.LoggingMode
 import java.nio.file.Path
 import java.time.Duration
 
@@ -16,6 +17,13 @@ class ServerConfiguration @JvmOverloads constructor(
     val requestTimeout: Duration = Duration.ofMinutes(3),
     val generationLimits: GenerationLimits = GenerationLimits(),
 ) {
+    var loggingMode: LoggingMode = LoggingMode.PRODUCTION
+        private set
+
+    constructor(base: ServerConfiguration, loggingMode: LoggingMode) : this(base.host, base.port, base.temporaryDirectory,
+        base.maximumConcurrentRequests, base.maximumRequestBytes, base.maximumJsonBytes, base.maximumResourceBytes,
+        base.maximumResources, base.requestTimeout, base.generationLimits) { this.loggingMode = loggingMode }
+
     init {
         require(host.isNotBlank() && port in 0..65535)
         require(maximumConcurrentRequests in 1..64 && maximumResources in 0..128)

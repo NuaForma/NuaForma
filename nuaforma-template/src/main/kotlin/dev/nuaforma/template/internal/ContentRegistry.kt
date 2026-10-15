@@ -35,6 +35,7 @@ internal class ContentRegistry(pipes: List<ContentPipe>) {
             context.checkActive()
             result ?: Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Content pipe returned no structured result")
         } catch (error: GenerationException) {
+            context.logging.operation("CONTENT_PIPE_REJECTED", mapOf("pipe" to name, "reason" to error.diagnostics.take(4).joinToString(",") { it.code.id }))
             if (error.diagnostics.any { it.code == DiagnosticCodes.CANCELLED || it.code == DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED }) {
                 context.checkActive()
                 Safety.fail(error.diagnostics.first { it.code == DiagnosticCodes.CANCELLED || it.code == DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED }.code,
@@ -42,10 +43,12 @@ internal class ContentRegistry(pipes: List<ContentPipe>) {
             }
             Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Content pipe could not process its value or arguments")
         } catch (error: Exception) {
+            context.logging.failure("CONTENT_PIPE_FAILED", error, mapOf("pipe" to name))
             if (error is InterruptedException) Thread.currentThread().interrupt()
             context.checkActive()
             Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Content pipe could not process its value or arguments")
-        } catch (_: LinkageError) {
+        } catch (error: LinkageError) {
+            context.logging.failure("CONTENT_PIPE_FAILED", error, mapOf("pipe" to name))
             Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Content pipe could not process its value or arguments")
         }
     }

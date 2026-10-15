@@ -69,6 +69,12 @@ def generate(base, format_id, document, data, options=None, resources=None):
     return http(base, "/api/v1/documents", body, "multipart/form-data; boundary=" + boundary)
 
 
+def request_id(headers):
+    identity = next(value for key, value in headers.items() if key.lower() == "x-request-id")
+    assert str(uuid.UUID(identity)) == identity
+    return identity
+
+
 class Runtime:
     def __init__(self, args, *environment):
         self.args = args
@@ -154,6 +160,15 @@ def main():
         status, headers, body = generate(base, "pdf", template(), {"name": "SYNTHETIC-PDF"})
         assert status == 200 and "application/pdf" in headers["Content-Type"] and body.startswith(b"%PDF-1.7"), (status, body[:2048])
         (args.output / "document.pdf").write_bytes(body)
+        identity = request_id(headers)
+        logs = runtime.command("logs", runtime.name)
+        assert "event=SANDBOX_PROCESS_COMPLETED requestId=" + identity in logs
+        assert "event=GENERATION_COMPLETED requestId=" + identity in logs
+        assert "SYNTHETIC-PDF" not in logs and "SYNTHETIC-DOCX" not in logs
+        status, error_headers, error_body = http(base, "/api/v1/assess", b'{"PRIVATE_SENTINEL":}', "application/json")
+        assert status == 400 and json.loads(error_body)["requestId"] == request_id(error_headers)
+        assert b"PRIVATE_SENTINEL" not in error_body
+        checks.append("generated-request-identity/safe-errors/production-data-redaction/correlated-real-sandbox")
         for profile, version in (("standard", "1.7"), ("pdfa-1b", "1.4"), ("pdfa-2b", "1.7"), ("pdfa-3b", "1.7")):
             status, headers, body = generate(base, "pdf", template(), {"name": "SYNTHETIC-PROFILE"}, {"profile": profile})
             assert status == 200 and body.startswith(("%PDF-" + version).encode()), (profile, status, body[:2048])
@@ -258,8 +273,28 @@ def main():
         assert status == 200 and pdf["available"]["writeFormats"] == ["docx"]
         assert generate(base, "docx", template(), {"name": "MISSING-CONVERTER"})[0] == 200
         assert generate(base, "pdf", template(), {"name": "MISSING-CONVERTER"})[0] == 503
+        logs = runtime.command("logs", runtime.name)
+        assert "PDF_LAUNCHER_UNAVAILABLE" in logs and 'state="partial"' in logs
+        assert "MISSING-CONVERTER" not in logs
         runtime.clean()
         checks.append("missing-converter/DOCX-usable/PDF-rejected")
+    finally:
+        runtime.close()
+    runtime = Runtime(args, "--env", "NUAFORMA_MODE=development", "--env", "NUAFORMA_PDF_LAUNCHER=/missing-converter")
+    try:
+        base = runtime.connect()
+        source = template(text='Hello {name} {amount | number("0.00")} {password} {picture | image()}')
+        encoded = base64.b64encode(image_fixture()).decode("ascii")
+        status, headers, _ = generate(base, "docx", source, {"name": "NF_DEVELOPMENT_76", "amount": 12,
+            "password": "NF_PASSWORD_76", "picture": encoded})
+        assert status == 200
+        identity = request_id(headers)
+        logs = runtime.command("logs", runtime.name)
+        assert "DEVELOPMENT MODE — SENSITIVE DATA LOGGING ENABLED" in logs and "DO NOT USE WITH PRODUCTION DATA" in logs
+        assert "NF_DEVELOPMENT_76" in logs and "NF_PASSWORD_76" not in logs and encoded not in logs
+        assert "event=PIPE_RESULT requestId=" + identity in logs and "event=FIELD_RESOLVED requestId=" + identity in logs
+        runtime.clean()
+        checks.append("explicit-development/banner/field-pipe-values/known-secret-redaction/image-payload-omission")
     finally:
         runtime.close()
     runtime = Runtime(args, "--env", "JAVA_TOOL_OPTIONS=-Dnuaforma.server.timeoutMillis=1000")

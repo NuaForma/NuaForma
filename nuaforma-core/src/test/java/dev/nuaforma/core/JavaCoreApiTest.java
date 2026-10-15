@@ -13,6 +13,18 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class JavaCoreApiTest {
     @Test
+    void javaCanSupplyExplicitLoggingWithoutAnyBackendOrGlobalSettings() throws Exception {
+        var events = new java.util.ArrayList<GenerationLogEvent>();
+        var logging = new GenerationLogging(LoggingMode.DEVELOPMENT, "java-correlation", events::add);
+        var metadata = new ProviderMetadata("java-fixture", Fixture.class.getName(), "1.0.0", ContractVersion.CURRENT);
+        var registry = ProviderRegistry.registered(List.of(new ProviderRegistration(metadata, Fixture::new)), logging);
+        var requirements = new GenerationRequirements(new FormatRequest(DocumentFormat.DOCX), new FormatRequest(DocumentFormat.DOCX));
+        registry.generate(new GenerationRequest(new ByteArrayInputStream(new byte[0]), requirements), new ByteArrayOutputStream(), new GenerationContext(logging));
+        assertTrue(events.stream().anyMatch(event -> event.getCode().equals("GENERATION_COMPLETED")));
+        assertTrue(events.stream().anyMatch(event -> event.getCode().equals("PROVIDER_READINESS") && event.getText().contains("state=\"available\"")));
+        assertTrue(events.stream().allMatch(event -> event.getRequestId().equals("java-correlation")));
+    }
+    @Test
     void javaCanRegisterSelectAndGenerateThroughPublicApi() throws Exception {
         var metadata = new ProviderMetadata("java-fixture", Fixture.class.getName(), "1.0.0", ContractVersion.CURRENT);
         var registry = ProviderRegistry.registered(List.of(new ProviderRegistration(metadata, Fixture::new)));

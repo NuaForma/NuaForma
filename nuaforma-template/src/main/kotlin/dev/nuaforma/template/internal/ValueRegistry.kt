@@ -21,21 +21,25 @@ internal class ValueRegistry(private val pipes: TemplatePipes) {
             copies.copy(argument)
         }
         val input = copies.copy(value)
+        val loggedArguments = definitions.mapIndexed { index, definition -> definition.name to supplied[index] }.toMap()
+        state.tracePipe(name, input, loggedArguments, "[pending]")
         context.checkActive()
         return try {
             val result = implementation.apply(input, java.util.Collections.unmodifiableList(supplied), TemplatePipeContext(options.locale, options.timeZone, context))
             context.checkActive()
-            copies.copy(result)
+            copies.copy(result).also { state.tracePipe(name, input, loggedArguments, it) }
         } catch (error: GenerationException) {
+            context.logging.operation("VALUE_PIPE_REJECTED", mapOf("pipe" to name, "reason" to error.diagnostics.take(4).joinToString(",") { it.code.id }))
             context.checkActive()
             val boundary = error.diagnostics.firstOrNull { it.code == DiagnosticCodes.CANCELLED || it.code == DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED }
             if (boundary != null) Safety.fail(boundary.code, "Value pipe processing stopped at a resource or cancellation boundary")
             invalid()
         } catch (error: Exception) {
+            context.logging.failure("VALUE_PIPE_FAILED", error, mapOf("pipe" to name))
             if (error is InterruptedException) Thread.currentThread().interrupt()
             context.checkActive()
             invalid()
-        } catch (_: LinkageError) { invalid() }
+        } catch (error: LinkageError) { context.logging.failure("VALUE_PIPE_FAILED", error, mapOf("pipe" to name)); invalid() }
     }
     private fun matches(value: Any, type: OptionType): Boolean = when (type) {
         OptionType.INTEGER -> type.accepts(value) || value is BigDecimal && value.stripTrailingZeros().scale() <= 0

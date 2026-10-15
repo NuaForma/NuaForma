@@ -74,6 +74,8 @@ dependencies {
     implementation(libs.ktor.server.status.pages)
     implementation(libs.kotlinx.json)
     implementation(libs.slf4j.api)
+    runtimeOnly(libs.log4j.core)
+    runtimeOnly(libs.log4j.slf4j)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.swagger.parser)
     // Patched, aligned parser transitives; never part of the production JSON adapter.
@@ -122,6 +124,7 @@ tasks.named<Test>("test") {
     dependsOn(modules.map { "${it.path}:classes" })
     inputs.files(productionOutputs.values).withPropertyName("architectureProductionClasses")
     doFirst {
+        systemProperty("nuaforma.loggingTestClasspath", sourceSets.test.get().runtimeClasspath.asPath)
         systemProperty("nuaforma.expectedBuildVersion", buildVersion.get())
         systemProperty("nuaforma.expectedLibraryVersion", libraryVersion)
         systemProperty("nuaforma.expectedBuildCommit", sourceCommit.get())

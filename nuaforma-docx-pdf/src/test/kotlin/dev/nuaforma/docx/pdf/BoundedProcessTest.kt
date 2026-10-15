@@ -13,6 +13,21 @@ import java.time.Duration
 @EnabledOnOs(OS.LINUX, disabledReason = "The qualified process runtime is Linux-only")
 class BoundedProcessTest {
     @Test
+    fun `classified child failure is actionable bounded and never logs raw subprocess secrets`() {
+        for (mode in LoggingMode.entries) {
+            val events = mutableListOf<GenerationLogEvent>()
+            val context = GenerationContext(GenerationLogging(mode, "sandbox", events::add))
+            assertThrows(GenerationException::class.java) {
+                BoundedProcess.run(listOf("/bin/sh", "-c", "printf '%s\\n' 'bwrap: Creating new namespace failed PRIVATE_TOKEN' >&2; /usr/bin/head -c 100000 /dev/zero >&2; exit 1"), context)
+            }
+            assertTrue(events.any { it.code == "SANDBOX_PROCESS_FAILED" })
+            assertTrue(events.any { it.text.contains("USER_NAMESPACE_DENIED") })
+            assertFalse(events.any { it.text.contains("PRIVATE_TOKEN") || it.text.contains("\u0000") })
+            assertTrue(events.all { it.requestId == "sandbox" && it.text.toByteArray().size <= 4096 })
+            assertEquals(mode == LoggingMode.DEVELOPMENT, events.any { it.code == "SANDBOX_FAILURE_DETAILS" })
+        }
+    }
+    @Test
     fun `trusted process receives no caller environment and readiness output is bounded`() {
         val output = Files.createTempFile("nf-probe-", ".txt")
         try {

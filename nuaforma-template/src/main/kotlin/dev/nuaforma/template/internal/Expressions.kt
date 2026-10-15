@@ -26,10 +26,12 @@ internal sealed class Expression(val depth: Int) {
             for (pipe in pipes) {
                 state.step()
                 state.present(value)
+                val before = value
                 value = when (pipe) {
                     is PipeStep.Builtin -> pipe.format.apply(value, state)
                     is PipeStep.Custom -> state.pipe(pipe.name, value, pipe.arguments.map { it.evaluate(state, scope).also(state::present) })
                 }
+                if (pipe is PipeStep.Builtin) state.tracePipe(pipe.format.kind, before, listOf(pipe.format.pattern), value)
             }
             return value
         }
@@ -43,6 +45,7 @@ internal sealed class Expression(val depth: Int) {
                 scope.containsKey(root) -> scope[root]
                 else -> state.data.getOrDefault(root, Missing)
             }
+            state.traceRoot(value)
             for (key in keys) {
                 state.step()
                 value = when (value) {
@@ -52,6 +55,7 @@ internal sealed class Expression(val depth: Int) {
                     else -> state.typeFailure()
                 }
             }
+            if (state.tracing) state.tracePath(root + keys.joinToString("") { if (it is String) ".$it" else "[$it]" }, value)
             return value
         }
     }

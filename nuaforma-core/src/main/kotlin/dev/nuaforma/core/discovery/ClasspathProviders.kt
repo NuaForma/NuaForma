@@ -17,7 +17,7 @@ import java.util.Collections
 import java.util.ServiceLoader
 import java.util.function.Supplier
 
-internal class ClasspathProviders(private val loader: ClassLoader) {
+internal class ClasspathProviders(private val loader: ClassLoader, private val logging: GenerationLogging = GenerationLogging.NONE) {
     internal class Scan(val registrations: List<ProviderRegistration>, val diagnostics: List<Diagnostic>)
 
     fun scan(): Scan {
@@ -40,6 +40,7 @@ internal class ClasspathProviders(private val loader: ClassLoader) {
                     require(names.size <= 1024)
                     names.forEach { ProviderMetadata.resourcePath(it) }
                 } catch (error: Exception) {
+                    logging.failure("SERVICE_DESCRIPTOR_FAILED", error)
                     diagnostics += failure("INVALID_PROVIDER_METADATA", "Invalid or unsupported local service descriptor")
                     continue
                 }
@@ -56,11 +57,13 @@ internal class ClasspathProviders(private val loader: ClassLoader) {
                         require(classes.size == 1 && origin(classes.single(), classPath) == serviceOrigin)
                         registrations += ProviderRegistration(metadata, Supplier { instantiate(name, serviceOrigin) })
                     } catch (error: Exception) {
+                        logging.failure("PROVIDER_DESCRIPTOR_FAILED", error, mapOf("implementation" to name))
                         diagnostics += failure("INVALID_PROVIDER_METADATA", "Missing, malformed, duplicated or mismatched provider descriptor/class", name)
                     }
                 }
             }
         } catch (error: Exception) {
+            logging.failure("PROVIDER_ENUMERATION_FAILED", error)
             diagnostics += failure("INVALID_PROVIDER_METADATA", "Classpath service enumeration failed")
         }
         return Scan(registrations, diagnostics)
