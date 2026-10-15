@@ -21,27 +21,29 @@ themeButton.addEventListener("click", () => {
   updateThemeLabel();
 });
 
-document.querySelectorAll("[role=tab]").forEach(tab => {
-  function activate() {
-    document.querySelectorAll("[role=tab]").forEach(other => {
-      const active = other === tab;
-      other.setAttribute("aria-selected", String(active));
-      other.tabIndex = active ? 0 : -1;
-      document.getElementById(other.getAttribute("aria-controls")).hidden = !active;
+document.querySelectorAll("[role=tablist]").forEach(tablist => {
+  const tabs = [...tablist.children].filter(child => child.matches("[role=tab]"));
+  tabs.forEach(tab => {
+    function activate() {
+      tabs.forEach(other => {
+        const active = other === tab;
+        other.setAttribute("aria-selected", String(active));
+        other.tabIndex = active ? 0 : -1;
+        document.getElementById(other.getAttribute("aria-controls")).hidden = !active;
+      });
+    }
+    tab.addEventListener("click", activate);
+    tab.addEventListener("keydown", event => {
+      let index = tabs.indexOf(tab);
+      if (event.key === "ArrowRight") index = (index + 1) % tabs.length;
+      else if (event.key === "ArrowLeft") index = (index + tabs.length - 1) % tabs.length;
+      else if (event.key === "Home") index = 0;
+      else if (event.key === "End") index = tabs.length - 1;
+      else return;
+      event.preventDefault();
+      tabs[index].click();
+      tabs[index].focus();
     });
-  }
-  tab.addEventListener("click", activate);
-  tab.addEventListener("keydown", event => {
-    const tabs = [...document.querySelectorAll("[role=tab]")];
-    let index = tabs.indexOf(tab);
-    if (event.key === "ArrowRight") index = (index + 1) % tabs.length;
-    else if (event.key === "ArrowLeft") index = (index + tabs.length - 1) % tabs.length;
-    else if (event.key === "Home") index = 0;
-    else if (event.key === "End") index = tabs.length - 1;
-    else return;
-    event.preventDefault();
-    tabs[index].click();
-    tabs[index].focus();
   });
 });
 

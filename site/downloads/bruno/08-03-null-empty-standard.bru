@@ -1,0 +1,29 @@
+meta {
+  name: Null, missing and empty
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/documents
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  request: @file(assets/03-null-empty-standard.json) @contentType(application/json)
+  template: @file(assets/nuaforma-example-template.docx) @contentType(application/vnd.openxmlformats-officedocument.wordprocessingml.document)
+}
+
+headers {
+  Accept: application/pdf
+}
+
+assert {
+  res.status: eq 200
+}
+
+docs {
+  Blank email, null address/message, missing nickname, empty work rows and an excluded project section. Header row remains. Expected: A header-only table, blank-email warning, address/message fallbacks, no project details.
+  Save a successful document response as PDF or DOCX. Errors are JSON diagnostics.
+}

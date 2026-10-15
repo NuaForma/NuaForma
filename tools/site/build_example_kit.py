@@ -1,9 +1,12 @@
 """Reproducibly author the downloadable website template and complete request envelopes."""
 import copy
+import argparse
 import io
 import json
 import pathlib
 import zipfile
+from build_client_collections import build as build_client_collections
+from package_complete_kit import package as package_complete_kit
 
 from docx import Document
 from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT
@@ -124,17 +127,25 @@ def build_template():
     table = doc.add_table(rows=1, cols=4)
     table.autofit = False
     widths = (3.15, .6, 1.1, 1.15)
+    table_width = Inches(sum(widths))
+    table._tbl.tblPr.find(qn("w:tblW")).set(qn("w:w"), str(table_width.twips))
+    table._tbl.tblPr.find(qn("w:tblW")).set(qn("w:type"), "dxa")
     for column, width in zip(table.columns, widths):
         column.width = Inches(width)
+    for cell, width in zip(table.rows[0].cells, widths):
+        cell.width = Inches(width)
     for cell, title in zip(table.rows[0].cells, ("Item", "Qty", "Unit price", "Amount")):
         cell.text = title
     element(table.rows[0]._tr.get_or_add_trPr(), "w:tblHeader", {})
     def marker_row(text):
         cells = table.add_row().cells
         cell = cells[0].merge(cells[-1])
+        cell.width = table_width
         cell.text = text
     marker_row("{#each lines as line}")
     cells = table.add_row().cells
+    for cell, width in zip(cells, widths):
+        cell.width = Inches(width)
     for cell, value in zip(cells, ('{line.description}{#if line.optional} (optional){/if}', '{line.quantity}', '{line.unitPrice | number("#,##0.00")}', '{line.amount | number("#,##0.00")}')):
         cell.text = value
     marker_row("{/each}")
@@ -195,7 +206,7 @@ def build_template():
     stream = io.BytesIO()
     illustration.save(stream, format="JPEG", quality=95)
     stream.seek(0)
-    picture = doc.add_paragraph().add_run().add_picture(stream, width=Inches(6.7))
+    picture = doc.add_paragraph().add_run().add_picture(stream, width=table_width)
     picture._inline.docPr.set("descr", "Template and structured data produce a document")
     delivery_started = False
     for paragraph in doc.paragraphs[:-1]:
@@ -269,17 +280,24 @@ def build_requests():
 
 def package():
     files = [OUT / "nuaforma-example-template.docx", OUT / "scenarios.json", *sorted(OUT.glob("0*.json")), OUT / "EXAMPLES.md"]
+    files.extend(path for name in ("bruno", "postman") for path in sorted((OUT / name).rglob("*")) if path.is_file())
     with zipfile.ZipFile(OUT / "example-kit.zip", "w", zipfile.ZIP_DEFLATED) as archive:
         for file in files:
             assert file.is_file(), file
-            info = zipfile.ZipInfo(file.name, (1980, 1, 1, 0, 0, 0))
+            info = zipfile.ZipInfo(file.relative_to(OUT).as_posix(), (1980, 1, 1, 0, 0, 0))
             info.compress_type = zipfile.ZIP_DEFLATED
             archive.writestr(info, file.read_bytes())
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--package-only", action="store_true", help="Reuse the existing Word/JSON examples; rebuild collections and archives only")
+    args = parser.parse_args()
     OUT.mkdir(parents=True, exist_ok=True)
-    build_template()
-    build_requests()
+    if not args.package_only:
+        build_template()
+        build_requests()
+    build_client_collections()
     package()
-    print("Authored example template, six request scenarios and the downloadable kit")
+    package_complete_kit()
+    print("Packaged six examples, client collections and complete starter kit")

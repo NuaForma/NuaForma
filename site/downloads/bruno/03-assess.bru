@@ -1,0 +1,123 @@
+meta {
+  name: Assess final PDF request
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/assess
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "input": {
+      "format": "docx"
+    },
+    "output": {
+      "format": "pdf",
+      "options": {
+        "profile": "pdfa-3b"
+      }
+    },
+    "filename": "example",
+    "data": {
+      "reference": "NF-001",
+      "issuedOn": "2026-10-13",
+      "status": " APPROVED ",
+      "customer": {
+        "name": " Ada Lovelace ",
+        "company": "Example Studio",
+        "email": "ada@example.invalid",
+        "phone": null,
+        "nickname": null,
+        "address": {
+          "city": "Utrecht",
+          "country": "Netherlands"
+        }
+      },
+      "description": "Regular project delivery",
+      "currency": "EUR",
+      "total": 875.5,
+      "lines": [
+        {
+          "description": "Template design",
+          "quantity": 1,
+          "unitPrice": 500,
+          "amount": 500,
+          "optional": false
+        },
+        {
+          "description": "Document delivery",
+          "quantity": 3,
+          "unitPrice": 125.1667,
+          "amount": 375.5,
+          "optional": true
+        }
+      ],
+      "showProjects": true,
+      "projects": [
+        {
+          "name": "Customer onboarding",
+          "active": true,
+          "team": "Delivery",
+          "owner": {
+            "name": "Sam"
+          },
+          "tasks": [
+            {
+              "code": "NF-T01",
+              "name": "Prepare template",
+              "done": true,
+              "blocked": false,
+              "hasNotes": true,
+              "notes": [
+                "Design review complete",
+                "Images and tables retained"
+              ]
+            },
+            {
+              "code": "EXT-02",
+              "name": "Confirm delivery",
+              "done": false,
+              "blocked": true,
+              "hasNotes": false,
+              "notes": null
+            }
+          ]
+        },
+        {
+          "name": "Future rollout",
+          "active": false,
+          "team": "Operations",
+          "owner": {
+            "name": null
+          },
+          "tasks": []
+        }
+      ],
+      "delivery": {
+        "filename": "summary.pdf"
+      },
+      "message": "Ready for the next review."
+    },
+    "options": {
+      "locale": "en-GB",
+      "timeZone": "Europe/Amsterdam"
+    }
+  }
+}
+
+headers {
+  Accept: application/json
+}
+
+assert {
+  res.status: eq 200
+}
+
+docs {
+  Preflight readiness/options only; this does not upload or validate the template.
+  Save a successful document response as PDF or DOCX. Errors are JSON diagnostics.
+}

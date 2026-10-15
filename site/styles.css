@@ -10,5 +10,6 @@
 .fork-corner .fork-banner{top:44px;right:-56px;width:240px;padding:9px 0;text-align:center;transform:rotate(45deg);border-radius:0;pointer-events:auto;box-shadow:0 2px 7px #0003;border-block:1px solid #ffffff40}
 .fork-corner .fork-banner:focus-visible{outline-offset:-4px;outline-color:#fff}
 .document-scene{padding-top:135px}.data-note pre{padding:0;line-height:1.7}
+.security-overview{margin-top:64px;padding-top:48px;border-top:1px solid var(--line)}.architecture-tabs{margin-top:24px}.architecture-tabs button{white-space:normal}
 @media(min-width:1051px){.site-header{padding-right:110px}}
 @media(max-width:720px){.fork-corner{width:130px;height:130px}.fork-corner .fork-banner{top:34px;right:-42px;width:185px;font-size:10px;padding:7px 0}.site-header{padding-top:75px}.theme-toggle{margin-right:45px}}

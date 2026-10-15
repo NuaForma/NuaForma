@@ -1,0 +1,8 @@
+{
+  "version": "1",
+  "name": "NuaForma examples",
+  "type": "collection",
+  "ignore": [
+    "assets"
+  ]
+}

@@ -1,10 +1,12 @@
 # NuaForma example kit
 
-Use these files with your own NuaForma 0.1.0-alpha.1 service. This website hosts files and instructions, not a document generator. All people, companies and example.invalid email addresses in the requests are illustrative.
+Use these files with your own NuaForma 0.1.0-alpha.3 service. This website hosts files and instructions, not a document generator. All people, companies and example.invalid email addresses in the requests are illustrative.
 
 The same Word template works with all six complete JSON request envelopes. Open it in Word to inspect paragraph-level conditional/repetition markers and dedicated merged table-marker rows. Do not place table-row markers in ordinary populated rows. The final images are opaque JPEGs so this kit also fits the restricted PDF/A-1b image profile.
 
 ## Run a request
+
+The complete testset also includes `bruno/` and `postman/` collections, each with 11 preconfigured requests and its own `assets/` directory. In Bruno, open the folder containing `bruno.json`. In Postman desktop, import `NuaForma.postman_collection.json` and select that same `postman/` directory as the working directory; leave unrestricted file access off. See each collection's README. Both use collection variable `baseUrl` (default `http://localhost:8080`). All six JSON scenarios are included as multipart file parts with explicit content types; no automatic file-saving or filesystem scripts are needed.
 
 Start your service using the documented secure Docker settings. Check `GET http://127.0.0.1:8080/api/v1/capabilities` and confirm the PDF provider can write PDF. HTTP availability alone is not PDF readiness.
 
