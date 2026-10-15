@@ -21,6 +21,10 @@ Supply a class loader explicitly when managing your own plugin classpath. `disco
 
 The caller owns and closes the template/output streams. Failed generation may leave partial bytes; use your own bounded staging destination when atomic publication is required. Unexpected provider exceptions become sanitized structured diagnostics, while provider `GenerationException` and I/O failures retain their declared types. Trusted providers remain responsible for sanitized diagnostic content. Fatal JVM errors are not swallowed.
 
+## Embedded pipe metadata (unreleased source)
+
+The optional contracts `TemplatePipeProvider.templatePipes()` and `ContentPipeProvider.contentPipes()` expose a provider's captured execution registry. Obtain current format availability through `registry.availability(registration, context)` and intersect content support with its usable pairs; profile declarations still require full request assessment. No facet means unsupported enumeration, while an empty list means an available empty registry. A provider preference remains necessary when multiple generators match; never merge their registries or select by classpath order. The server's additive pipe catalogs (#60) serialize these same definitions and distinguish declared/usable support without changing core selection or public provider methods.
+
 ## Metadata before provider loading
 
 Providers use standard `META-INF/services/dev.nuaforma.contracts.DocumentProvider` registration and the static properties descriptor specified in the contracts guide. Core performs a resource-only scan first. It validates descriptor syntax, class identity, descriptor/class/service origin and contract compatibility before passing an accepted registration to Java `ServiceLoader`. The supplied class loader is trusted; this is not protection against a malicious class-loader implementation or hostile installed application code.

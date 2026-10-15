@@ -177,7 +177,7 @@ contract.minor=1
 
 The class must be a public, concrete no-argument ServiceLoader implementation. Before initialization, discovery validates all declarations, UTF-8 service files, exact descriptor keys, class identity/origin and same-major/minimum-minor compatibility. Only local JARs/class directories are supported, not network resources or JPMS module-layer services. Class, descriptor and service entry must originate from the same artifact. Duplicate names/classes, reserved `number`/`date`, unsupported contracts, missing/mismatched metadata and later definition-name mismatches fail with sanitized `INVALID_REQUEST`; no classpath-order fallback exists. Content/value name collisions also fail when combined by a generator, even if never referenced by a template. `image` is reserved by the built-in DOCX generator, not by unrelated text engines.
 
-`TemplatePipes.discover(loader)` explicitly selects an application class loader; close a caller-owned URLClassLoader only after its registry/providers are no longer in use. `TemplatePipes.of(listOf(SelectPipe()))` supplies explicitly registered instances without classpath descriptors or any discovery. Both return immutable snapshots with sorted extension `definitions()` for future capability integration. No global cache or request-level class loading is introduced.
+`TemplatePipes.discover(loader)` explicitly selects an application class loader; close a caller-owned URLClassLoader only after its registry/providers are no longer in use. `TemplatePipes.of(listOf(SelectPipe()))` supplies explicitly registered instances without classpath descriptors or any discovery. Both return immutable snapshots with sorted extension `definitions()` reused by source capability integration. No global cache or request-level class loading is introduced.
 
 ```kotlin
 val pipes = TemplatePipes.of(listOf(SelectPipe()))
@@ -200,7 +200,7 @@ A generation and all its structural/watermark scopes share existing operations, 
 
 Installed extensions have full application-process permissions. They must bound their own allocations/work, avoid retaining request state and cooperate with `checkActive()`. NuaForma checks before/after invocation, but cannot safely force-stop a blocking/allocating arbitrary JVM callback. These limits do not turn extensions or hostile host collection implementations into a sandbox. Templates/REST cannot install code, select a class loader or obtain a callback not in the captured registry.
 
-See the independent [Java-17 Kotlin extension and consumer](../examples/value-pipes/README.md), [DOCX registration](../nuaforma-docx/README.md#value-pipes-unreleased-source) and [operator mount guide](../deployment/pdf-runtime/MOUNTS.md). REST capability fields are unchanged; exposing this metadata is #60.
+See the independent [Java-17 Kotlin extension and consumer](../examples/value-pipes/README.md), [DOCX registration](../nuaforma-docx/README.md#value-pipes-unreleased-source) and [operator mount guide](../deployment/pdf-runtime/MOUNTS.md). Source REST capabilities expose these provider-owned catalogs through #60.
 
 ## Generator content pipes (unreleased source)
 
@@ -220,7 +220,7 @@ Format integrations use the additive `ContentTemplates.open(data, pipes, options
 
 Only the evaluated value, positional arguments and explicit locale/time-zone/cooperative cancellation context reach an implementation. Structured inputs are deeply immutable copies. Registration collisions fail deterministically; no classpath-order selection or template-driven class loading occurs. At most 128 registrations, 16 arguments and 4,096 content executions per session are allowed, additionally limited by the caller's repetition budget. Input copies, expressions, Unicode text and inserted output share the existing operation/output/deadline limits. Extension failures are sanitized, without input values or original causes. These are trusted in-process extensions: a blocking or allocating callback cannot be safely preempted; implementations must check cancellation and bound their own work.
 
-See the [DOCX registration example](../nuaforma-docx/README.md#generator-content-pipes-unreleased-source) and [public contracts](../nuaforma-contracts/README.md#optional-generator-content-pipes-unreleased-source). Capability endpoint exposure is a separate follow-up (#60), not implied by this metadata API.
+See the [DOCX registration example](../nuaforma-docx/README.md#generator-content-pipes-unreleased-source) and [public contracts](../nuaforma-contracts/README.md#optional-generator-content-pipes-unreleased-source). Source capability endpoint exposure (#60) reuses these optional metadata facets.
 
 ## Executable specification
 

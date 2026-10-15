@@ -265,7 +265,8 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
                     "inputOptions" to declared.inputOptions.mapKeys { it.key.id }.mapValues { definitions(it.value) },
                     "outputOptions" to declared.outputOptions.mapKeys { it.key.id }.mapValues { definitions(it.value) },
                     "generalOptions" to definitions(declared.generalOptions), "diagnostics" to ApiErrors.diagnostics(available.diagnostics)) +
-                    mapOf("fonts" to fontCatalog(registered.provider, context))
+                    mapOf("fonts" to fontCatalog(registered.provider, context)) +
+                    PipeCatalog.describe(registered.provider, declared, available, context)
             })
     }
 
