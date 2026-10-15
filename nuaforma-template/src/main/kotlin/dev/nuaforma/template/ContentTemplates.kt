@@ -30,6 +30,21 @@ object ContentTemplates {
     @JvmStatic
     @JvmOverloads
     @Throws(GenerationException::class)
+    fun containsContentMarker(source: String, valuePipes: TemplatePipes, context: GenerationContext = GenerationContext()): Boolean =
+        ContentMarkers.contains(source, context, valuePipes.registrations.keys)
+
+    @JvmStatic
+    @JvmOverloads
+    @Throws(GenerationException::class)
     fun open(data: Map<String, *>, pipes: List<ContentPipe>, options: GenerationOptions = GenerationOptions(),
-             context: GenerationContext = GenerationContext()): ContentTemplateSession = Session.openContent(data, pipes, options, context)
+             context: GenerationContext = GenerationContext()): ContentTemplateSession {
+        context.checkActive()
+        return Session.openContent(data, pipes, options, context, TemplatePipes.discover())
+    }
+
+    @JvmStatic
+    @JvmOverloads
+    @Throws(GenerationException::class)
+    fun open(data: Map<String, *>, pipes: List<ContentPipe>, valuePipes: TemplatePipes, options: GenerationOptions = GenerationOptions(),
+             context: GenerationContext = GenerationContext()): ContentTemplateSession = Session.openContent(data, pipes, options, context, valuePipes)
 }

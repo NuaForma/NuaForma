@@ -2,6 +2,14 @@
 
 Development API for Kotlin and Java 17, in `dev.nuaforma.contracts`. The unpublished contract baseline remains **0.1** by maintainer decision; no stable release is claimed. This module contains value types, provider contracts, descriptor parsing and validation helpers. Discovery and selection live in [core](../nuaforma-core/README.md). Expression evaluation, DOCX/PDF processing and HTTP serialization belong to implementation modules, not contracts.
 
+## Optional value pipes (unreleased source)
+
+`TemplatePipe` is the format-independent, Java-17-compatible `Any? → Any?` value SPI. It accepts an evaluated value, positional arguments and `TemplatePipeContext` (explicit locale/time zone and cooperative `checkActive()`). `TemplatePipeDefinition` holds a bounded name/description, immutable `OptionDefinition` arguments and declared null behavior. Supported values/results are recursively JSON-compatible, not arbitrary JVM objects or `ContentResult`. A final map/list needs explicit conversion before insertion. Implementations must be thread-safe and bound their own work; installed code is trusted host code, not sandboxed by the expression language.
+
+`TemplatePipeMetadata` describes one ServiceLoader class before initialization: `pipe.name`, `pipe.class`, `pipe.version`, `contract.major`, `contract.minor` in `META-INF/nuaforma/pipes/<binary-class-name>.properties`. Compatibility uses the existing same-major/minimum-minor policy; unknown/duplicate keys, invalid releases and unsupported contract requirements fail. Explicit application registration needs no descriptor. Discovery/evaluation belongs to `nuaforma-template`, not contracts or core.
+
+Optional `TemplatePipeProvider.templatePipes()` reports immutable extension definitions from a generator's actual registry snapshot without adding a required `DocumentProvider` method. This excludes fixed built-in `number`/`date` formatter definitions; names remain reserved. Endpoint integration remains #60. Existing interfaces and constructors retain their JVM descriptors. See the [language/registration guide](../nuaforma-template/README.md#extensible-value-pipes-unreleased-source) and [independent extension example](../examples/value-pipes/README.md). Published alpha artifacts remain unchanged.
+
 ## Optional font catalog
 
 Providers may implement `FontCatalogProvider.fontCatalog(GenerationContext)` without changing `DocumentProvider`. `FontCatalog` is a bounded immutable deployment-only snapshot of `AvailableFont` entries: `family`, `face`, `origin` (`BUNDLED`/`MOUNTED`) and optional logical `resource` ID. No paths, font bytes, request uploads or template-private fonts belong in it. Faces are provider metadata, not a closed global enum; initial providers report regular/bold/italic/boldItalic, with variable faces also reported by the renderer. Availability does not establish embedding permissions, glyph coverage or successful generation for every template.

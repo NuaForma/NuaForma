@@ -8,6 +8,7 @@ description = "NuaForma DOCX/PDF provider with an optional isolated LibreOffice 
 
 dependencies {
     api(project(":nuaforma-contracts"))
+    api(project(":nuaforma-template"))
     implementation(project(":nuaforma-docx"))
     implementation(libs.pdfbox)
 }

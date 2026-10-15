@@ -15,7 +15,7 @@ MODULES = ("nuaforma-contracts", "nuaforma-core", "nuaforma-template", "nuaforma
 DEPENDENCIES = {
     "nuaforma-contracts": set(), "nuaforma-core": {"nuaforma-contracts"},
     "nuaforma-template": {"nuaforma-contracts"}, "nuaforma-docx": {"nuaforma-contracts", "nuaforma-template"},
-    "nuaforma-docx-pdf": {"nuaforma-contracts", "nuaforma-docx"},
+    "nuaforma-docx-pdf": {"nuaforma-contracts", "nuaforma-docx", "nuaforma-template"},
 }
 NS = {"m": "http://maven.apache.org/POM/4.0.0"}
 

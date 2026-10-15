@@ -6,6 +6,7 @@ import dev.nuaforma.docx.internal.WatermarkPolicy
 import dev.nuaforma.template.TemplateSession
 import dev.nuaforma.template.ContentTemplates
 import dev.nuaforma.template.ContentTemplateSession
+import dev.nuaforma.template.TemplatePipes
 import org.docx4j.TraversalUtil
 import org.docx4j.XmlUtils
 import org.docx4j.openpackaging.packages.WordprocessingMLPackage
@@ -13,8 +14,8 @@ import org.docx4j.openpackaging.parts.WordprocessingML.HeaderPart
 import org.docx4j.openpackaging.parts.WordprocessingML.FooterPart
 import org.docx4j.wml.*
 
-internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, private val context: GenerationContext, pipes: List<ContentPipe>) {
-    private val root = ContentTemplates.open(data, pipes, options, context)
+internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, private val context: GenerationContext, pipes: List<ContentPipe>, private val valuePipes: TemplatePipes) {
+    private val root = ContentTemplates.open(data, pipes, valuePipes, options, context)
     private val watermark = options.watermark
     private val identities = WordIdentities(context)
     private var visits = 0L
@@ -58,7 +59,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         val content = children(node)
         if (node is P || node is P.Hyperlink) {
             val text = WordRuns.detectionSource(content)
-            if (ContentTemplates.containsContentMarker(text, context)) invalid("Content pipes are unsupported in comments, footnotes or endnotes")
+            if (ContentTemplates.containsContentMarker(text, valuePipes, context)) invalid("Content pipes are unsupported in comments, footnotes or endnotes")
         }
         content.forEach { rejectUnsupportedContent(it, depth + 1) }
     }
@@ -69,11 +70,11 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         val node = XmlUtils.unwrap(raw)
         val children = children(node)
         if (validateOnly && node is R && WordRuns.plain(node) && !inlineHandled &&
-            ContentTemplates.containsContentMarker(WordRuns.source(listOf(node)), context)) {
+            ContentTemplates.containsContentMarker(WordRuns.source(listOf(node)), valuePipes, context)) {
             invalid("Content pipes require ordinary paragraph or hyperlink text, not field results or content controls")
         }
-        if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context) { images.drawing(it, owner) }
-        if (node is R) WordRuns.mixed(node, session, validateOnly, context)
+        if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context, valuePipes) { images.drawing(it, owner) }
+        if (node is R) WordRuns.mixed(node, session, validateOnly, context, valuePipes)
         if (node is Body || node is Hdr || node is Ftr || node is Tc || node is Tbl || node is CTTxbxContent ||
             node is org.docx4j.vml.CTTextbox || modernTextBox(node)) blocks(children, session, validateOnly, depth)
         else children.toList().forEach { process(it, session, validateOnly, depth + 1,

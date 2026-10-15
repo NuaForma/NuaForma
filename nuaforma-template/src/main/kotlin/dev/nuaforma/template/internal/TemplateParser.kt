@@ -3,13 +3,14 @@ package dev.nuaforma.template.internal
 import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.template.CompiledTemplate
+import dev.nuaforma.template.TemplatePipes
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 internal class TemplateParser(private val source: String, private val context: GenerationContext, private val captureSpans: Boolean = false,
-                              private val contentNames: Set<String> = emptySet()) {
+                              private val contentNames: Set<String> = emptySet(), private val valuePipes: TemplatePipes = TemplatePipes.of(emptyList())) {
     private data class Marker(val text: String, val offset: Int, val contentOffset: Int, val end: Int)
     private var cursor = 0
     private var nodes = 0
@@ -21,7 +22,7 @@ internal class TemplateParser(private val source: String, private val context: G
         val (program, stop) = sequence(emptySet(), 1)
         if (stop != null) Safety.invalid(stop.offset)
         context.checkActive()
-        return Program(program, maxDepth)
+        return Program(program, maxDepth, valuePipes)
     }
 
     private fun sequence(stops: Set<String>, depth: Int): Pair<List<Node>, Marker?> {
@@ -74,19 +75,28 @@ internal class TemplateParser(private val source: String, private val context: G
                         }
                         marker.text.startsWith('#') || marker.text.startsWith('/') -> Safety.invalid(marker.offset)
                         else -> {
-                            val pipe = formatPosition(marker.text)
-                            val value = if (pipe < 0) marker.text else marker.text.substring(0, pipe)
-                            val tail = if (pipe < 0) null else marker.text.substring(pipe + 1).trim()
-                            val content = tail?.let { CONTENT.matchEntire(it) }
-                            if (content != null && content.groupValues[1] !in setOf("number", "date")) {
-                                if (formatPosition(tail) >= 0 || content.groupValues[1] !in contentNames) Safety.invalid(marker.offset)
-                                val arguments = ExpressionParser(content.groupValues[2], marker.contentOffset + pipe + 1, context).arguments()
-                                arguments.forEach { maxDepth = maxOf(maxDepth, depth + it.depth - 1) }
-                                if (maxDepth > Safety.depth(context)) Safety.limit()
-                                add(Node.Content(expression(value, marker.contentOffset, depth), content.groupValues[1], arguments, marker.offset, marker.end))
+                            val segments = pipeline(marker.text)
+                            val initial = expression(segments.first(), marker.contentOffset, depth)
+                            val content = segments.drop(1).mapNotNull { CONTENT.matchEntire(it.trim()) }
+                                .firstOrNull { it.groupValues[1] in contentNames }
+                            if (content != null) {
+                                if (segments.size != 2) Safety.invalid(marker.offset)
+                                val arguments = arguments(content.groupValues[2], marker, depth)
+                                add(Node.Content(initial, content.groupValues[1], arguments, marker.offset, marker.end))
                             } else {
-                                val format = tail?.let { format(it, marker.offset) }
-                                add(Node.Value(expression(value, marker.contentOffset, depth), format, marker.offset, marker.end))
+                                val steps = segments.drop(1).map { segment ->
+                                    val match = CONTENT.matchEntire(segment.trim()) ?: Safety.invalid(marker.offset)
+                                    val name = match.groupValues[1]
+                                    if (name in setOf("number", "date")) PipeStep.Builtin(format(segment.trim(), marker.offset))
+                                    else {
+                                        if (name !in valuePipes.registrations) Safety.invalid(marker.offset)
+                                        PipeStep.Custom(name, arguments(match.groupValues[2], marker, depth))
+                                    }
+                                }
+                                val value = if (steps.isEmpty()) initial else Expression.Piped(initial, steps)
+                                maxDepth = maxOf(maxDepth, depth + value.depth - 1)
+                                if (maxDepth > Safety.depth(context)) Safety.limit()
+                                add(Node.Value(value, null, marker.offset, marker.end))
                             }
                         }
                     }
@@ -102,6 +112,36 @@ internal class TemplateParser(private val source: String, private val context: G
         maxDepth = maxOf(maxDepth, depth + expression.depth - 1)
         if (maxDepth > Safety.depth(context)) Safety.limit()
         return expression
+    }
+
+    private fun arguments(text: String, marker: Marker, depth: Int): List<Expression> =
+        ExpressionParser(text, marker.contentOffset, context).arguments().also { arguments ->
+            arguments.forEach { maxDepth = maxOf(maxDepth, depth + it.depth - 1) }
+            if (maxDepth > Safety.depth(context)) Safety.limit()
+        }
+
+    private fun pipeline(text: String): List<String> {
+        val result = mutableListOf<String>()
+        var start = 0
+        var quoted = false
+        var escaped = false
+        var nesting = 0
+        for (index in text.indices) {
+            val character = text[index]
+            if (escaped) { escaped = false; continue }
+            if (quoted && character == '\\') { escaped = true; continue }
+            if (character == '"') quoted = !quoted
+            if (quoted) continue
+            if (character == '(' || character == '[') nesting++
+            if (character == ')' || character == ']') nesting--
+            if (nesting == 0 && character == '|' && text.getOrNull(index - 1) != '|' && text.getOrNull(index + 1) != '|') {
+                if (result.size >= 32) Safety.limit()
+                result.add(text.substring(start, index))
+                start = index + 1
+            }
+        }
+        result.add(text.substring(start))
+        return result
     }
 
     private fun marker(): Marker {

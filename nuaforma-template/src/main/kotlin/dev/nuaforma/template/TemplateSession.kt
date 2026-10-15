@@ -25,8 +25,16 @@ interface TemplateSession {
         @JvmStatic
         @JvmOverloads
         @Throws(GenerationException::class)
-        fun open(data: Map<String, *>, options: GenerationOptions = GenerationOptions(), context: GenerationContext = GenerationContext()): TemplateSession =
-            Session.open(data, options, context)
+        fun open(data: Map<String, *>, options: GenerationOptions = GenerationOptions(), context: GenerationContext = GenerationContext()): TemplateSession {
+            context.checkActive()
+            return Session.open(data, options, context, TemplatePipes.discover())
+        }
+
+        @JvmStatic
+        @JvmOverloads
+        @Throws(GenerationException::class)
+        fun open(data: Map<String, *>, pipes: TemplatePipes, options: GenerationOptions = GenerationOptions(), context: GenerationContext = GenerationContext()): TemplateSession =
+            Session.open(data, options, context, pipes)
     }
 }
 

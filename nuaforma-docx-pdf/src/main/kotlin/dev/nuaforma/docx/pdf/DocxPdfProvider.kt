@@ -10,13 +10,22 @@ import dev.nuaforma.docx.pdf.internal.*
 import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.Path
+import dev.nuaforma.template.TemplatePipes
 
 /** DOCX processing is delegated unchanged; only PDF uses an isolated conversion copy. */
-class DocxPdfProvider @JvmOverloads constructor(configuration: LibreOfficeConfiguration? = null) : DocumentProvider, FontCatalogProvider, ContentPipeProvider {
+class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguration?, private val valuePipes: TemplatePipes) : DocumentProvider, FontCatalogProvider, ContentPipeProvider, TemplatePipeProvider {
+    @JvmOverloads
+    constructor(configuration: LibreOfficeConfiguration? = null) : this(configuration, TemplatePipes.discover())
     private var pipes: List<ContentPipe> = emptyList()
     private val deploymentFonts = DeploymentFonts.configured()
-    private var docx = DocxProvider(deploymentFonts)
+    private var docx = DocxProvider(deploymentFonts, emptyList(), valuePipes)
     constructor(configuration: LibreOfficeConfiguration?, pipes: List<ContentPipe>) : this(configuration) {
+        registerContent(pipes)
+    }
+    constructor(configuration: LibreOfficeConfiguration?, pipes: List<ContentPipe>, valuePipes: TemplatePipes) : this(configuration, valuePipes) {
+        registerContent(pipes)
+    }
+    private fun registerContent(pipes: List<ContentPipe>) {
         require(pipes.size <= 127) { "Content pipe registrations exceed the generator limit including built-in image" }
         this.pipes = java.util.Collections.unmodifiableList(pipes.map { implementation ->
             val captured = implementation.definition
@@ -30,8 +39,9 @@ class DocxPdfProvider @JvmOverloads constructor(configuration: LibreOfficeConfig
                     implementation.apply(value, arguments, context)
             }
         })
-        docx = DocxProvider(deploymentFonts, this.pipes)
+        docx = DocxProvider(deploymentFonts, this.pipes, valuePipes)
     }
+    override fun templatePipes(): List<TemplatePipeDefinition> = docx.templatePipes()
     override fun contentPipes(): List<ContentPipeDefinition> = java.util.Collections.unmodifiableList(
         listOf(docx.contentPipes().first { it.name == "image" }.let { image ->
             ContentPipeDefinition(image.name, image.description + "; PDF/A-1b requires opaque source images", image.arguments,
@@ -110,7 +120,7 @@ class DocxPdfProvider @JvmOverloads constructor(configuration: LibreOfficeConfig
             val applicable = pipes.filter { pipe -> pipe.definition.support.any {
                 it.input == DocumentFormat.DOCX && it.output == DocumentFormat.PDF && (it.profiles.isEmpty() || options.profile.id in it.profiles)
             } }
-            Files.newOutputStream(files.docx).use { DocxProvider(deploymentFonts, applicable).generate(intermediate, it, context) }
+            Files.newOutputStream(files.docx).use { DocxProvider(deploymentFonts, applicable, valuePipes).generate(intermediate, it, context) }
             val (required, embedded) = PdfFonts.required(files, context)
             val mounted = deploymentFonts.sourcesFor(required, supplied + embedded)
             val mountedRequest = GenerationRequest(request.template, GenerationRequirements(request.requirements.input,

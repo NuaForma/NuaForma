@@ -8,6 +8,7 @@ import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.docx.internal.DocxFailure
 import dev.nuaforma.docx.internal.ImageContent
 import dev.nuaforma.contracts.GenerationContext
+import dev.nuaforma.template.TemplatePipes
 import jakarta.xml.bind.JAXBElement
 import org.docx4j.XmlUtils
 import org.docx4j.wml.R
@@ -28,10 +29,10 @@ internal object WordRuns {
     fun detectionSource(content: List<Any>): String = content.mapNotNull { XmlUtils.unwrap(it) as? R }
         .joinToString("") { run -> run.content.mapNotNull { XmlUtils.unwrap(it) as? Text }.joinToString("") { it.value } }
 
-    fun mixed(run: R, session: TemplateSession, validateOnly: Boolean, context: GenerationContext) {
+    fun mixed(run: R, session: TemplateSession, validateOnly: Boolean, context: GenerationContext, valuePipes: TemplatePipes) {
         if (plain(run)) return
         if (validateOnly && ContentTemplates.containsContentMarker(run.content.filterIsInstance<JAXBElement<*>>()
-                .filter { it.name.localPart != "t" && it.value is Text }.joinToString("") { (it.value as Text).value }, context)) {
+                .filter { it.name.localPart != "t" && it.value is Text }.joinToString("") { (it.value as Text).value }, valuePipes, context)) {
             DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "Content pipes cannot be inserted into field instructions")
         }
         var index = 0
@@ -53,7 +54,7 @@ internal object WordRuns {
         }
     }
 
-    fun apply(content: MutableList<Any>, session: ContentTemplateSession, validateOnly: Boolean, context: GenerationContext,
+    fun apply(content: MutableList<Any>, session: ContentTemplateSession, validateOnly: Boolean, context: GenerationContext, valuePipes: TemplatePipes,
               image: (ImageContent) -> org.docx4j.wml.Drawing) {
         if (validateOnly) {
             val instructions = content.joinToString("") { raw -> when (val node = XmlUtils.unwrap(raw)) {
@@ -62,7 +63,7 @@ internal object WordRuns {
                 is org.docx4j.wml.CTSimpleField -> node.instr ?: ""
                 else -> ""
             } }
-            if (ContentTemplates.containsContentMarker(instructions, context)) {
+            if (ContentTemplates.containsContentMarker(instructions, valuePipes, context)) {
                 DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "Content pipes cannot be inserted into field instructions")
             }
         }

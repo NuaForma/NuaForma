@@ -6,11 +6,33 @@ import java.math.BigDecimal
 
 internal object Missing
 
+internal sealed interface PipeStep {
+    class Custom(val name: String, val arguments: List<Expression>) : PipeStep
+    class Builtin(val format: Format) : PipeStep
+}
+
 internal sealed class Expression(val depth: Int) {
     abstract fun evaluate(state: Evaluation, scope: Map<String, Any?>): Any?
 
     class Literal(private val value: Any?) : Expression(1) {
         override fun evaluate(state: Evaluation, scope: Map<String, Any?>): Any? { state.step(); return value }
+    }
+
+    class Piped(private val input: Expression, private val pipes: List<PipeStep>) :
+        Expression(maxOf(input.depth, pipes.filterIsInstance<PipeStep.Custom>().flatMap { it.arguments }.maxOfOrNull { it.depth } ?: 1) +
+            pipes.count { it is PipeStep.Custom }) {
+        override fun evaluate(state: Evaluation, scope: Map<String, Any?>): Any? {
+            var value = input.evaluate(state, scope)
+            for (pipe in pipes) {
+                state.step()
+                state.present(value)
+                value = when (pipe) {
+                    is PipeStep.Builtin -> pipe.format.apply(value, state)
+                    is PipeStep.Custom -> state.pipe(pipe.name, value, pipe.arguments.map { it.evaluate(state, scope).also(state::present) })
+                }
+            }
+            return value
+        }
     }
 
     class Path(private val root: String, private val keys: List<Any>) : Expression(keys.size + 1) {

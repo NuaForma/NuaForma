@@ -4,6 +4,14 @@ Development-stage DOCX generation and round-trip processing for Kotlin and Java 
 
 The registered `DocxProvider` reads DOCX and writes DOCX using the [restricted template language](../nuaforma-template/README.md), with optional supplied-font validation/embedding and requested text watermarks. PDF conversion and REST endpoints belong to the separate optional PDF/server modules. Unsupported explicit options and undeclared resources fail rather than being ignored. `DocxDocuments.open` remains a round-trip facade: it does not evaluate placeholders, process supplied fonts or add watermarks.
 
+## Value pipes (unreleased source)
+
+The source provider supports registered [JSON value pipes](../nuaforma-template/README.md#extensible-value-pipes-unreleased-source) in ordinary placeholders, including split runs, nested structural repetitions/conditions, headers/footers, supported text boxes and requested text watermarks. The registry is captured once at provider construction, using the current thread context class loader (fallback: template library loader), never rediscovered on request threads or during PDF intermediary generation. Installed implementations must be thread-safe and cooperate with cancellation. Published alpha images/libraries remain unchanged.
+
+For explicit embedded composition, use `DocxProvider(deploymentFonts, contentPipes, valuePipes)` with `TemplatePipes.of(...)` or `TemplatePipes.discover(extensionLoader)`. Existing constructors and Kotlin default-argument JVM descriptors remain available. The template library is an API dependency because this additive constructor refers to its public registry. Optional `TemplatePipeProvider.templatePipes()` reports that exact immutable extension-definition snapshot; REST metadata integration remains #60. Reserve `image` and every generator content-pipe name against value-pipe collisions. A content-pipe marker cannot be mixed with value/formatter chains.
+
+Source validation checks names/chains before document mutation, including unselected branches. Value pipes retain the marker's insertion formatting and shared generation budgets; maps/lists are not stringified. Watermarks use the same captured registry and root data without granting callbacks implicit access to other fields, options or resources. Existing unsupported field/note/comment processing policies do not change.
+
 ## Generation through the engine
 
 Configure operator fonts using trusted JVM property `nuaforma.fonts.directory`, or `DocxProvider(DeploymentFonts.load(absolutePath))`. The facade takes a bounded immutable startup snapshot and exposes metadata through the optional `FontCatalogProvider` facet; it never globally installs fonts. Absent/empty directories give empty catalogs. Invalid files, symlinks, conflicting family/face identities and overruns fail discovery instead of being silently ignored. Reload requires a new provider instance/service restart.
