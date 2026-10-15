@@ -12,9 +12,27 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /** DOCX processing is delegated unchanged; only PDF uses an isolated conversion copy. */
-class DocxPdfProvider @JvmOverloads constructor(configuration: LibreOfficeConfiguration? = null) : DocumentProvider, FontCatalogProvider {
+class DocxPdfProvider @JvmOverloads constructor(configuration: LibreOfficeConfiguration? = null) : DocumentProvider, FontCatalogProvider, ContentPipeProvider {
+    private var pipes: List<ContentPipe> = emptyList()
     private val deploymentFonts = DeploymentFonts.configured()
-    private val docx = DocxProvider(deploymentFonts)
+    private var docx = DocxProvider(deploymentFonts)
+    constructor(configuration: LibreOfficeConfiguration?, pipes: List<ContentPipe>) : this(configuration) {
+        require(pipes.size <= 128) { "Content pipe registrations exceed the generator limit" }
+        this.pipes = java.util.Collections.unmodifiableList(pipes.map { implementation ->
+            val captured = implementation.definition
+            require(captured.support.all { support -> support.input == DocumentFormat.DOCX &&
+                (support.output == DocumentFormat.DOCX && support.profiles.isEmpty() ||
+                    support.output == DocumentFormat.PDF && support.profiles.all { profile -> PdfProfile.entries.any { it.id == profile } })
+            }) { "Content pipe declares an unsupported PDF generator combination" }
+            object : ContentPipe {
+                override val definition = captured
+                override fun apply(value: Any?, arguments: List<Any?>, context: ContentPipeContext): ContentResult =
+                    implementation.apply(value, arguments, context)
+            }
+        })
+        docx = DocxProvider(deploymentFonts, this.pipes)
+    }
+    override fun contentPipes(): List<ContentPipeDefinition> = java.util.Collections.unmodifiableList(pipes.map { it.definition })
     private val converter: PdfConverter = LibreOfficeProcesses(configuration ?: System.getProperty("nuaforma.pdf.launcher")?.let {
         LibreOfficeConfiguration(Path.of(it))
     })
@@ -84,7 +102,10 @@ class DocxPdfProvider @JvmOverloads constructor(configuration: LibreOfficeConfig
             val intermediate = GenerationRequest(request.template,
                 GenerationRequirements(request.requirements.input, FormatRequest(DocumentFormat.DOCX), request.requirements.options), request.data)
             // PDF resources are validated privately using print permissions, not DOCX editable embedding.
-            Files.newOutputStream(files.docx).use { docx.generate(intermediate, it, context) }
+            val applicable = pipes.filter { pipe -> pipe.definition.support.any {
+                it.input == DocumentFormat.DOCX && it.output == DocumentFormat.PDF && (it.profiles.isEmpty() || options.profile.id in it.profiles)
+            } }
+            Files.newOutputStream(files.docx).use { DocxProvider(deploymentFonts, applicable).generate(intermediate, it, context) }
             val (required, embedded) = PdfFonts.required(files, context)
             val mounted = deploymentFonts.sourcesFor(required, supplied + embedded)
             val mountedRequest = GenerationRequest(request.template, GenerationRequirements(request.requirements.input,

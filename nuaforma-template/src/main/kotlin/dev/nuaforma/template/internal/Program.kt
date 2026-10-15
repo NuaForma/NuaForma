@@ -5,6 +5,8 @@ import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.contracts.GenerationOptions
 import dev.nuaforma.template.CompiledTemplate
 import dev.nuaforma.template.TemplateFragment
+import dev.nuaforma.template.ContentTemplateFragment
+import dev.nuaforma.contracts.ContentResult
 import java.math.BigDecimal
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
@@ -16,6 +18,7 @@ import java.time.DateTimeException
 internal sealed interface Node {
     class Text(val text: String, val offset: Int, val end: Int) : Node
     class Value(val expression: Expression, val format: Format?, val offset: Int, val end: Int) : Node
+    class Content(val expression: Expression, val name: String, val arguments: List<Expression>, val offset: Int, val end: Int) : Node
     class Condition(val expression: Expression, val yes: List<Node>, val no: List<Node>, val offset: Int) : Node
     class Repeat(val expression: Expression, val alias: String, val children: List<Node>, val offset: Int) : Node
 }
@@ -55,6 +58,10 @@ internal class Program(private val nodes: List<Node>, private val depth: Int) : 
         validateDepth(state, scopeDepth)
         return state.fragments { state.render(nodes, scope) }
     }
+    fun expandContent(state: Evaluation, scope: Map<String, Any?>, scopeDepth: Int): List<ContentTemplateFragment> {
+        validateDepth(state, scopeDepth)
+        return state.contentFragments { state.render(nodes, scope) }
+    }
     override fun render(data: Map<String, *>, options: GenerationOptions, context: GenerationContext): String {
         context.checkActive()
         if (depth > Safety.depth(context)) Safety.limit()
@@ -65,13 +72,17 @@ internal class Program(private val nodes: List<Node>, private val depth: Int) : 
     }
 }
 
-internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOptions, private val context: GenerationContext) {
+internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOptions, private val context: GenerationContext,
+                          private val content: ContentRegistry = ContentRegistry(emptyList())) {
+    val contentNames: Set<String> get() = content.names
     private var operations = 0
     private var repetitions = 0L
     private var bytes = 0L
     private val output = StringBuilder()
     private var offset = 0
     private var captured: MutableList<TemplateFragment>? = null
+    private var capturedContent: MutableList<ContentTemplateFragment>? = null
+    private var contentCalls = 0L
 
     fun checkDepth(depth: Int) { if (depth > Safety.depth(context)) Safety.limit() }
     fun fragments(action: () -> Unit): List<TemplateFragment> {
@@ -81,6 +92,14 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
         val start = output.length
         return try { action(); java.util.Collections.unmodifiableList(result) }
         finally { captured = previous; output.setLength(start) }
+    }
+    fun contentFragments(action: () -> Unit): List<ContentTemplateFragment> {
+        val previous = capturedContent
+        val result = mutableListOf<ContentTemplateFragment>()
+        capturedContent = result
+        val start = output.length
+        return try { action(); java.util.Collections.unmodifiableList(result) }
+        finally { capturedContent = previous; output.setLength(start) }
     }
     fun scopes(value: Any?, scope: Map<String, Any?>, alias: String): List<Map<String, Any?>> = scopeSequence(value, scope, alias).toList()
 
@@ -118,6 +137,18 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
                     val value = node.expression.evaluate(this, scope)
                     append(node.format?.apply(value, this) ?: scalar(value), node.offset, node.end, false)
                 }
+                is Node.Content -> {
+                    offset = node.offset
+                    val fragments = capturedContent ?: Safety.fail(DiagnosticCodes.INVALID_TEMPLATE, "Content pipes require a document insertion context", offset)
+                    if (++contentCalls > minOf(context.limits.maxRepetitions, 4096L)) Safety.limit()
+                    val value = node.expression.evaluate(this, scope)
+                    present(value)
+                    val arguments = node.arguments.map { it.evaluate(this, scope).also(::present) }
+                    val result = content.apply(node.name, value, arguments, options, context, ::step)
+                    if (result is ContentResult.Text) charge(result.text)
+                    if (fragments.size >= Safety.MAX_NODES) Safety.limit()
+                    fragments.add(ContentTemplateFragment(node.offset, node.end, "", false, result))
+                }
                 is Node.Condition -> {
                     offset = node.offset
                     render(if (boolean(node.expression.evaluate(this, scope))) node.yes else node.no, scope)
@@ -143,15 +174,22 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
     }
 
     private fun append(text: String, start: Int, end: Int, literal: Boolean) {
-        val size = Safety.utf8Length(text, context, DiagnosticCodes.INVALID_REQUEST)
-        val limit = minOf(context.limits.maxOutputBytes, context.limits.maxExpandedBytes)
-        if (size > limit - bytes || text.length.toLong() + output.length > Int.MAX_VALUE - 8L) Safety.limit()
-        bytes += size
+        charge(text)
+        capturedContent?.let {
+            if (it.size >= Safety.MAX_NODES) Safety.limit()
+            it.add(ContentTemplateFragment(start, end, text, literal, null))
+        }
         captured?.let {
             if (it.size >= Safety.MAX_NODES) Safety.limit()
             it.add(TemplateFragment(start, end, text, literal))
         }
         output.append(text)
+    }
+    private fun charge(text: String) {
+        val size = Safety.utf8Length(text, context, DiagnosticCodes.INVALID_REQUEST)
+        val limit = minOf(context.limits.maxOutputBytes, context.limits.maxExpandedBytes)
+        if (size > limit - bytes || text.length.toLong() + output.length > Int.MAX_VALUE - 8L) Safety.limit()
+        bytes += size
     }
     fun result(): String = output.toString()
 }

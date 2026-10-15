@@ -29,6 +29,43 @@ class RestApiTest {
     private val envelope = """{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"name":"Ada","nested":{"a":[null,true,42]}},"options":{"watermark":{"text":"CONCEPT — {name}","color":"#A1B2C3","opacity":0.3,"rotation":-30}}}"""
 
     @Test
+    fun `registered generator content has identical HTTP and embedded semantics with safe failures`() = testApplication {
+        val pipe = object : ContentPipe {
+            override val definition = ContentPipeDefinition("company", "Synthetic label", support = listOf(ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.DOCX)))
+            override fun apply(value: Any?, arguments: List<Any?>, context: ContentPipeContext): ContentResult {
+                context.checkActive()
+                return ContentResult.Text(value as String)
+            }
+        }
+        // Providers remain runtime-only dependencies of the transport, including this fixture.
+        val providerType = Class.forName("dev.nuaforma.docx.DocxProvider").asSubclass(DocumentProvider::class.java)
+        val fontsType = Class.forName("dev.nuaforma.docx.DeploymentFonts")
+        val fonts = fontsType.getMethod("configured").invoke(null)
+        val registry = ProviderRegistry.registered(listOf(ProviderRegistration(ProviderMetadata("nuaforma-docx",
+            providerType.name, "0.1.0", ContractVersion.CURRENT)) {
+            providerType.getConstructor(fontsType, List::class.java).newInstance(fonts, listOf(pipe))
+        }))
+        application { KtorServer(registry, ServerConfiguration(temporaryDirectory = temporary)).installRoutes(this) }
+        val source = template("Hello {name | company()}")
+        val json = """{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"name":"{literal}"}}"""
+        val response = client.post("/api/v1/documents") {
+            contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY")); setBody(multipart(json, source))
+        }
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        val expected = ByteArrayOutputStream()
+        registry.generate(GenerationRequest(source.inputStream(), GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.DOCX)),
+            mapOf("name" to "{literal}")), expected, GenerationContext())
+        assertEquals(entries(expected.toByteArray()), entries(response.bodyAsBytes()))
+        val rejected = client.post("/api/v1/documents") {
+            contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY"))
+            setBody(multipart(json, template("{name | company() | company()}")))
+        }
+        assertEquals(HttpStatusCode.UnprocessableEntity, rejected.status)
+        assertFalse(rejected.bodyAsText().contains("{literal}"))
+        assertEmpty()
+    }
+
+    @Test
     fun `string functions and null fallback use identical embedded and REST document and watermark semantics`() = testApplication {
         val registry = ProviderRegistry.discover()
         application { KtorServer(registry, ServerConfiguration(temporaryDirectory = temporary)).installRoutes(this) }

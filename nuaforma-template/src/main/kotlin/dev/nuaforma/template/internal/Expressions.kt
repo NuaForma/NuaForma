@@ -95,6 +95,19 @@ internal class ExpressionParser(private val text: String, private val offset: In
         return result
     }
 
+    fun arguments(): List<Expression> {
+        val result = mutableListOf<Expression>()
+        if (token.kind != "end") {
+            result.add(coalesce())
+            while (take(",")) {
+                if (result.size >= 16) Safety.limit()
+                result.add(coalesce())
+            }
+        }
+        if (token.kind != "end") invalid()
+        return result.toList()
+    }
+
     private fun coalesce(): Expression = nested {
         var result = or()
         if (take("??")) result = bounded(Expression.Binary("??", result, coalesce()))

@@ -8,7 +8,8 @@ import java.text.DecimalFormatSymbols
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-internal class TemplateParser(private val source: String, private val context: GenerationContext, private val captureSpans: Boolean = false) {
+internal class TemplateParser(private val source: String, private val context: GenerationContext, private val captureSpans: Boolean = false,
+                              private val contentNames: Set<String> = emptySet()) {
     private data class Marker(val text: String, val offset: Int, val contentOffset: Int, val end: Int)
     private var cursor = 0
     private var nodes = 0
@@ -75,8 +76,18 @@ internal class TemplateParser(private val source: String, private val context: G
                         else -> {
                             val pipe = formatPosition(marker.text)
                             val value = if (pipe < 0) marker.text else marker.text.substring(0, pipe)
-                            val format = if (pipe < 0) null else format(marker.text.substring(pipe + 1), marker.offset)
-                            add(Node.Value(expression(value, marker.contentOffset, depth), format, marker.offset, marker.end))
+                            val tail = if (pipe < 0) null else marker.text.substring(pipe + 1).trim()
+                            val content = tail?.let { CONTENT.matchEntire(it) }
+                            if (content != null && content.groupValues[1] !in setOf("number", "date")) {
+                                if (formatPosition(tail) >= 0 || content.groupValues[1] !in contentNames) Safety.invalid(marker.offset)
+                                val arguments = ExpressionParser(content.groupValues[2], marker.contentOffset + pipe + 1, context).arguments()
+                                arguments.forEach { maxDepth = maxOf(maxDepth, depth + it.depth - 1) }
+                                if (maxDepth > Safety.depth(context)) Safety.limit()
+                                add(Node.Content(expression(value, marker.contentOffset, depth), content.groupValues[1], arguments, marker.offset, marker.end))
+                            } else {
+                                val format = tail?.let { format(it, marker.offset) }
+                                add(Node.Value(expression(value, marker.contentOffset, depth), format, marker.offset, marker.end))
+                            }
                         }
                     }
                 }
@@ -148,5 +159,6 @@ internal class TemplateParser(private val source: String, private val context: G
     private companion object {
         val EACH = Regex("(.+)\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*)")
         val FORMAT = Regex("(number|date)\\(\\s*\"([^\"\\\\]*)\"\\s*\\)")
+        val CONTENT = Regex("([A-Za-z_][A-Za-z0-9_]*)\\((.*)\\)", RegexOption.DOT_MATCHES_ALL)
     }
 }

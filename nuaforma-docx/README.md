@@ -46,6 +46,34 @@ Traversal includes body, headers, footers and supported legacy VML and modern Dr
 
 All supported syntax is validated before generation, including unselected branches. One template session shares local scopes and cumulative expression/output/repetition budgets across the document. Structural markers have the same 4096-character ceiling as inline markers. DOCX traversal additionally has conservative ceilings of 128 structure levels and 1,000,000 processing visits across validation and expansion. No consumer business schema or executable expression language is introduced.
 
+## Generator content pipes (unreleased source)
+
+Trusted generators/extensions may explicitly register `ContentPipe` implementations through the additive two-argument `DocxProvider(deploymentFonts, pipes)` constructor. Existing constructors retain their original JVM entry points and behavior. An empty registration list adds no syntax or output changes; no standard pipe is bundled yet (#59 adds images separately). Do not use this API against published alpha artifacts.
+
+```kotlin
+val companyLabel = object : ContentPipe {
+    override val definition = ContentPipeDefinition(
+        "companyLabel", "Insert a company label",
+        listOf(OptionDefinition("prefix", OptionType.STRING, "Literal prefix", defaultValue = "")),
+        listOf(ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.DOCX)),
+        "Null inserts nothing",
+    )
+    override fun apply(value: Any?, arguments: List<Any?>, context: ContentPipeContext): ContentResult {
+        context.checkActive()
+        if (value == null) return ContentResult.Empty
+        if (value !is String) throw IllegalArgumentException("A string is required")
+        return ContentResult.Text((arguments[0] as String) + value)
+    }
+}
+val provider = DocxProvider(DeploymentFonts.configured(), listOf(companyLabel))
+```
+
+The same constructor is available from Java as `new DocxProvider(DeploymentFonts.configured(), List.of(pipe))`. A provider extension discovered through the existing verified `DocumentProvider` ServiceLoader can compose this provider and expose `ContentPipeProvider` itself. Neither REST data nor templates can register callbacks. Registry metadata is captured at construction, duplicate names fail, and DOCX declarations are narrowed to the actual DOCX-to-DOCX pair. No new external dependency or global extension registry is required.
+
+Use `{company.name | companyLabel("Company: ")}` in ordinary inline text, including split runs, table cells, headers/footers and supported VML/DrawingML text boxes. Nested if/each scopes share the same registrations and budgets. Returned text is literal and inherits the opening marker's formatting; empty results remove only that marker. Content markers inside mixed runs containing field/drawing/break objects, field instructions/results, content controls, comments/footnotes/endnotes or requested text watermarks are not supported insertion locations and fail explicitly. Keep content markers in ordinary text spans; ordinary text in previously unprocessed note/comment parts retains its existing policy.
+
+All content chains and unknown registrations are rejected by the existing whole-document validation pass before transformation or output publication. The open `ContentResult` contract permits other generators to own additional structured variants, but this DOCX implementation accepts only its explicitly supported `Text`/`Empty` variants. Unknown results fail with sanitized diagnostics without reflection, stringification or fallback. Other invalid data/results also leave the output untouched because package serialization remains transactional. See the [language grammar and limits](../nuaforma-template/README.md#generator-content-pipes-unreleased-source).
+
 ## Requested watermarks
 
 Pass `GenerationOptions(watermark = TextWatermark("CONCEPT — {customer.name}", "#127F87", 0.3, -45.0))` in the generation requirements. Watermark text uses the same [template language](../nuaforma-template/README.md) and root `data` as document content: placeholders, conditions, repetitions, number/date formatting and escaped braces all work. For example, `{#if draft}CONCEPT — {customer.name}{#else}FINAL{/if}` resolves to `CONCEPT — Ada` for `draft = true` and `customer.name = "Ada"`. Formatters use the request's locale and time zone.

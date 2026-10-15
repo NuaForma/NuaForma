@@ -1,6 +1,11 @@
 package dev.nuaforma.docx.adapters.docx4j
 
 import dev.nuaforma.template.TemplateSession
+import dev.nuaforma.template.ContentTemplateSession
+import dev.nuaforma.contracts.ContentResult
+import dev.nuaforma.template.ContentTemplates
+import dev.nuaforma.contracts.DiagnosticCodes
+import dev.nuaforma.docx.internal.DocxFailure
 import dev.nuaforma.contracts.GenerationContext
 import jakarta.xml.bind.JAXBElement
 import org.docx4j.XmlUtils
@@ -19,8 +24,15 @@ internal object WordRuns {
         (XmlUtils.unwrap(raw) as R).content.joinToString("") { (XmlUtils.unwrap(it) as Text).value }
     }
 
-    fun mixed(run: R, session: TemplateSession, validateOnly: Boolean) {
+    fun detectionSource(content: List<Any>): String = content.mapNotNull { XmlUtils.unwrap(it) as? R }
+        .joinToString("") { run -> run.content.mapNotNull { XmlUtils.unwrap(it) as? Text }.joinToString("") { it.value } }
+
+    fun mixed(run: R, session: TemplateSession, validateOnly: Boolean, context: GenerationContext) {
         if (plain(run)) return
+        if (validateOnly && ContentTemplates.containsContentMarker(run.content.filterIsInstance<JAXBElement<*>>()
+                .filter { it.name.localPart != "t" && it.value is Text }.joinToString("") { (it.value as Text).value }, context)) {
+            DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "Content pipes cannot be inserted into field instructions")
+        }
         var index = 0
         while (index < run.content.size) {
             fun ordinary(raw: Any) = raw is JAXBElement<*> && raw.name.localPart == "t" && raw.value is Text
@@ -29,7 +41,10 @@ internal object WordRuns {
             while (index < run.content.size && ordinary(run.content[index])) index++
             val text = run.content.subList(start, index).joinToString("") { (XmlUtils.unwrap(it) as Text).value }
             if ('{' !in text && '}' !in text) continue
-            if (validateOnly) { session.validate(text); continue }
+            if (validateOnly) {
+                if (session is ContentTemplateSession) session.validateText(text) else session.validate(text)
+                continue
+            }
             val replacement = session.expand(text).joinToString("") { it.text }
             (XmlUtils.unwrap(run.content[start]) as Text).apply { value = replacement; space = "preserve" }
             run.content.subList(start + 1, index).clear()
@@ -37,7 +52,18 @@ internal object WordRuns {
         }
     }
 
-    fun apply(content: MutableList<Any>, session: TemplateSession, validateOnly: Boolean, context: GenerationContext) {
+    fun apply(content: MutableList<Any>, session: ContentTemplateSession, validateOnly: Boolean, context: GenerationContext) {
+        if (validateOnly) {
+            val instructions = content.joinToString("") { raw -> when (val node = XmlUtils.unwrap(raw)) {
+                is R -> node.content.filterIsInstance<JAXBElement<*>>().filter { it.name.localPart != "t" && it.value is Text }
+                    .joinToString("") { (it.value as Text).value }
+                is org.docx4j.wml.CTSimpleField -> node.instr ?: ""
+                else -> ""
+            } }
+            if (ContentTemplates.containsContentMarker(instructions, context)) {
+                DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "Content pipes cannot be inserted into field instructions")
+            }
+        }
         var index = 0
         while (index < content.size) {
             context.checkActive()
@@ -73,7 +99,7 @@ internal object WordRuns {
                 run.content.add(org.docx4j.wml.ObjectFactory().createRT(value))
                 replacements.add(run)
             }
-            for (fragment in session.expand(source)) {
+            for (fragment in session.expandContent(source)) {
                 context.checkActive()
                 if (fragment.literal && fragment.text.length == fragment.sourceEnd - fragment.sourceStart) {
                     var position = segmentIndex(fragment.sourceStart)
@@ -85,7 +111,13 @@ internal object WordRuns {
                     }
                 } else {
                     val anchor = segments[segmentIndex(fragment.sourceStart)]
-                    add(anchor, fragment.text)
+                    val text = when (val result = fragment.content) {
+                        null -> fragment.text
+                        is ContentResult.Text -> result.text
+                        ContentResult.Empty -> ""
+                        else -> DocxFailure.fail(DiagnosticCodes.INVALID_REQUEST, "Selected DOCX generator cannot insert this structured content result")
+                    }
+                    add(anchor, text)
                 }
             }
             content.subList(start, index).clear()

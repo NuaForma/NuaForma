@@ -10,6 +10,12 @@ For explicit composition, construct `DocxPdfProvider(LibreOfficeConfiguration(ab
 
 An absent launcher, mismatched renderer version or unavailable isolation leaves DOCX executable and reports PDF unavailable. Declared capabilities still include both formats. Availability and assessment probe readiness without consuming a template or accessing `data`; generation rechecks with the caller's deadline and cancellation. Assessment is not a reservation or a content-validity guarantee.
 
+## Generator content pipes (unreleased source)
+
+The additive `DocxPdfProvider(configuration, pipes)` constructor registers trusted generator-owned content implementations using the same contract as DOCX. Existing constructor JVM signatures remain unchanged. A pipe must declare unprofiled DOCX-to-DOCX support, plus explicit DOCX-to-PDF/profile support if it may run for PDF. A PDF request registers only the implementations applicable to its selected profile; a marker for an unsupported combination fails before output publication. Empty PDF profile sets cover all this provider's existing profiles, not arbitrary PDF variants. Unsupported provider/profile declarations fail at registration.
+
+Content is inserted into the transformed DOCX intermediate before the existing isolated conversion/validation path. There is no second PDF positioning engine, and DOCX output remains delegated unchanged. Use provider-owned `ContentPipeProvider` metadata for embedded inspection; REST capability integration follows separately in #60. No standard image content is bundled by #58; #59 must separately qualify image sizing, relationships, decoding limits and PDF/A transparency before advertising support. Published alpha images/libraries do not include these unreleased APIs.
+
 ## Output options
 
 DOCX options retain the [DOCX module's semantics](../nuaforma-docx/README.md). PDF accepts the following `output.options`; unknown fields, explicit nulls and unsupported combinations fail rather than silently downgrade.

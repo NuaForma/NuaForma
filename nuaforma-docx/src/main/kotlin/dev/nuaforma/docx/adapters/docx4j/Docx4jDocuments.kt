@@ -4,6 +4,7 @@ import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.contracts.GenerationException
 import dev.nuaforma.contracts.GenerationRequest
+import dev.nuaforma.contracts.ContentPipe
 import dev.nuaforma.docx.DocxDocument
 import dev.nuaforma.docx.internal.BoundedStreams
 import dev.nuaforma.docx.internal.DocxFailure
@@ -21,10 +22,10 @@ import javax.xml.stream.XMLInputFactory
 import javax.xml.stream.XMLStreamException
 
 internal object Docx4jDocuments {
-    fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext) {
+    fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext, pipes: List<ContentPipe> = emptyList()) {
         open(request.template, context) {
             WordFonts.apply(it, request, context)
-            val watermark = WordTemplates(request.data, request.requirements.options, context).apply(it)
+            val watermark = WordTemplates(request.data, request.requirements.options, context, pipes).apply(it)
             WordWatermarks(context).apply(it, watermark)
         }
             .use { it.writeTo(output) }

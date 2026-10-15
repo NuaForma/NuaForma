@@ -76,6 +76,12 @@ Both POST routes use the same JSON envelope:
 
 Requested watermarks have the same defaults, validation and restricted language as embedded generation: resolve once against `data`, share generation budgets, do not reevaluate inserted values, and omit a blank resolved result. Existing template layout/watermarks remain under the documented provider policies. PDF conversion leaves DOCX output unchanged; the scoped text-box limitation in #32 still applies.
 
+## Generator content pipes (unreleased source)
+
+The HTTP envelope does not register content pipes or carry executable code. An installed trusted provider may explicitly compose the new generator-owned content registry; its DOCX template uses the same `{value | registeredName(arguments)}` syntax, data scopes and safe failure rules as embedded generation. JSON values remain literal, including strings containing braces. Output profile selection remains in `output.options`, not in a separate content-pipe request object. Text watermarks reject content markers.
+
+There is no standard content pipe in this change and none in the published alpha images. The optional `ContentPipeProvider` contract is the metadata boundary for #60; the current `/api/v1/capabilities` and OpenAPI response fields remain unchanged until that separately scoped integration. See the [DOCX registration example](../nuaforma-docx/README.md#generator-content-pipes-unreleased-source), and preserve the existing extension trust, mount and gateway policies. REST callers cannot install implementations or choose arbitrary classes.
+
 ## Multipart and resources
 
 Generation requires exactly one `request` part (`application/json`) and one binary `template` file part. A DOCX template uses its document media type or `application/octet-stream`. Optional binary file parts named `resource.<id>` supply fonts/resources; IDs match `[A-Za-z0-9][A-Za-z0-9._-]{0,127}`. The suffix becomes the existing engine resource ID referenced by provider options, e.g. `resource.barcode` with a font declaration `{"family":"Libre Barcode 39","face":"regular","resource":"barcode"}`. No server path or URL resolution occurs. Parts may arrive in any order; duplicate/unknown names are rejected. Each request has private storage and resource factories; no global font installation occurs. Follow technical embedding permissions without proof-of-ownership/extra-consent requirements.

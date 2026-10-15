@@ -15,6 +15,44 @@ class DocxPdfProviderTest {
         GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(format, options))
 
     @Test
+    fun `content is resolved in DOCX before conversion and unqualified profile fails without publication`() {
+        val pipe = object : ContentPipe {
+            override val definition = ContentPipeDefinition("company", "Synthetic content", support = listOf(
+                ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.DOCX),
+                ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.PDF, setOf("standard"))))
+            override fun apply(value: Any?, arguments: List<Any?>, context: ContentPipeContext) = ContentResult.Text(value as String)
+        }
+        val parts = PdfFixture.parts().apply {
+            this["word/document.xml"] = getValue("word/document.xml").decodeToString().replace("{name}", "{name | company()}").toByteArray()
+        }
+        mockkConstructor(LibreOfficeProcesses::class)
+        try {
+            every { anyConstructed<LibreOfficeProcesses>().readiness() } returns CapabilityAssessment(AssessmentStatus.SUPPORTED)
+            every { anyConstructed<LibreOfficeProcesses>().verify(any()) } just Runs
+            every { anyConstructed<LibreOfficeProcesses>().fontFamilies(any(), any()) } returns setOf("DejaVu Sans")
+            every { anyConstructed<LibreOfficeProcesses>().validate(any(), any()) } just Runs
+            every { anyConstructed<LibreOfficeProcesses>().convert(any(), any()) } answers {
+                val files = firstArg<ConversionFiles>()
+                val document = PdfFixture.unzip(Files.readAllBytes(files.conversionCopy)).getValue("word/document.xml").decodeToString()
+                assertTrue(document.contains("Ada")); assertFalse(document.contains("company()"))
+                Files.write(files.pdf, StaticPdfFixture.bytes())
+            }
+            val provider = DocxPdfProvider(null, listOf(pipe))
+            val output = ByteArrayOutputStream()
+            provider.generate(GenerationRequest(PdfFixture.zip(parts).inputStream(),
+                requirements(DocumentFormat.PDF, mapOf("profile" to "standard")), mapOf("name" to "Ada")), output, GenerationContext())
+            assertTrue(output.size() > 0)
+            val rejected = ByteArrayOutputStream()
+            assertThrows(GenerationException::class.java) {
+                provider.generate(GenerationRequest(PdfFixture.zip(parts).inputStream(),
+                    requirements(DocumentFormat.PDF, mapOf("profile" to "pdfa-3b")), mapOf("name" to "Ada")), rejected, GenerationContext())
+            }
+            assertEquals(0, rejected.size())
+            verify(exactly = 1) { anyConstructed<LibreOfficeProcesses>().convert(any(), any()) }
+        } finally { unmockkConstructor(LibreOfficeProcesses::class) }
+    }
+
+    @Test
     fun `missing converter keeps DOCX output available and PDF unsupported requests distinct`() {
         val absent = java.nio.file.Path.of(System.getProperty("java.io.tmpdir")).resolve("nf-absent-${java.util.UUID.randomUUID()}").toAbsolutePath()
         val provider = DocxPdfProvider(LibreOfficeConfiguration(absent))

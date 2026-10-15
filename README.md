@@ -142,6 +142,8 @@ Source/documentation JARs and POMs are staged only to an ignored local repositor
 
 ## Roadmap and publication
 
+The source branch adds an unreleased generator-owned content-pipe SPI and DOCX insertion facade; no standard image pipe or capability endpoint integration is implied. See the [content-pipe guide](nuaforma-template/README.md#generator-content-pipes-unreleased-source). Published alpha libraries and containers remain unchanged.
+
 Signed libraries remain at `0.1.0-alpha.1` on Maven Central; the container release is `0.1.0-alpha.3` on GHCR without a `latest` tag. Matching native-component source/license materials are attached to the [container release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.3). Preparation workflows remain non-publishing; releases must pass their separate protected publication gates. Accepted alpha native-runtime security findings are tracked in [issue #51](https://github.com/NuaForma/NuaForma/issues/51).
 
 - [Maven Central release preparation](docs/maven-central-releases.md)
