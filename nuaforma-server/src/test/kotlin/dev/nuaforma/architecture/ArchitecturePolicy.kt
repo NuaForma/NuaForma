@@ -29,6 +29,7 @@ internal class ArchitecturePolicy {
         "kotlinx.coroutines" to "dev.nuaforma.server.adapters.ktor",
         "kotlinx.io" to "dev.nuaforma.server.adapters.ktor",
         "kotlinx.serialization" to "dev.nuaforma.server.adapters.json",
+        "org.slf4j" to "dev.nuaforma.server.adapters.logging",
     )
     private val visibility = mutableMapOf<String, Boolean>()
 

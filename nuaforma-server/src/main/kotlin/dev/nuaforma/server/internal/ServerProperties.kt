@@ -1,6 +1,7 @@
 package dev.nuaforma.server.internal
 
 import dev.nuaforma.contracts.GenerationLimits
+import dev.nuaforma.contracts.LoggingMode
 import dev.nuaforma.server.ServerConfiguration
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
@@ -10,6 +11,11 @@ import java.util.Properties
 
 /** Operator configuration only; never populated from HTTP input. */
 internal object ServerProperties {
+    fun mode(value: String?): LoggingMode = when (value) {
+        null, "production" -> LoggingMode.PRODUCTION
+        "development" -> LoggingMode.DEVELOPMENT
+        else -> throw IllegalArgumentException("Invalid NUAFORMA_MODE; expected production or development")
+    }
     fun read(properties: Properties): ServerConfiguration {
         fun text(name: String, default: String) = properties.getProperty("nuaforma.server.$name", default)
         fun number(name: String, default: Long, range: LongRange): Long {

@@ -30,6 +30,11 @@ class ArchitecturePolicyTest {
             "unassigned.vendor.ProbeUnknown" to "public class ProbeUnknown {}",
             "org.apache.pdfbox.ProbePdf" to "public class ProbePdf {}",
             "org.verapdf.ProbeArchive" to "public class ProbeArchive {}",
+            "org.slf4j.ProbeLogger" to "public class ProbeLogger {}",
+            "dev.nuaforma.server.adapters.logging.ProbeLogging" to "public class ProbeLogging { private org.slf4j.ProbeLogger logger; }",
+            "dev.nuaforma.server.ProbeLoggingDirect" to "public class ProbeLoggingDirect { private org.slf4j.ProbeLogger logger; }",
+            "dev.nuaforma.server.adapters.ktor.ProbeLoggingWrongAdapter" to "public class ProbeLoggingWrongAdapter { private org.slf4j.ProbeLogger logger; }",
+            "dev.nuaforma.server.ProbeLoggingLeak" to "public class ProbeLoggingLeak { public org.slf4j.ProbeLogger logger; }",
             "dev.nuaforma.docx.pdf.adapters.verapdf.ProbeArchiveAdapter" to "public class ProbeArchiveAdapter { private org.verapdf.ProbeArchive value; }",
             "dev.nuaforma.docx.pdf.ProbeArchiveDirect" to "public class ProbeArchiveDirect { private org.verapdf.ProbeArchive value; }",
             "dev.nuaforma.docx.pdf.adapters.pdfbox.ProbeArchiveWrongOwner" to "public class ProbeArchiveWrongOwner { private org.verapdf.ProbeArchive value; }",
@@ -115,6 +120,9 @@ class ArchitecturePolicyTest {
 
     @ParameterizedTest
     @CsvSource(
+        "adapters,dev.nuaforma.server.ProbeLoggingDirect",
+        "adapters,dev.nuaforma.server.adapters.ktor.ProbeLoggingWrongAdapter",
+        "api-leaks,dev.nuaforma.server.ProbeLoggingLeak",
         "adapters,dev.nuaforma.docx.ProbeImageIoDirect",
         "adapters,dev.nuaforma.docx.adapters.docx4j.ProbeImageIoWrongAdapter",
         "api-leaks,dev.nuaforma.docx.ProbeImageIoLeak",
@@ -172,6 +180,7 @@ class ArchitecturePolicyTest {
     @Test
     fun `legitimate adapters facade reuse own internals and public engine access are allowed`() {
         val permitted = setOf(
+            "dev.nuaforma.server.adapters.logging.ProbeLogging",
             "dev.nuaforma.docx.adapters.docx4j.ProbeCorrectAdapter", "dev.nuaforma.docx.ProbeCleanFacade",
             "dev.nuaforma.docx.pdf.adapters.pdfbox.ProbePdfAdapter",
             "dev.nuaforma.docx.pdf.adapters.verapdf.ProbeArchiveAdapter",

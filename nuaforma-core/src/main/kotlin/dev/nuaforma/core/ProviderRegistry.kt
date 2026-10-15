@@ -10,10 +10,15 @@ import java.util.ServiceConfigurationError
 class ProviderRegistry internal constructor(providers: List<RegisteredProvider>, diagnostics: List<Diagnostic>) {
     val providers: List<RegisteredProvider> = snapshot(providers)
     val diagnostics: List<Diagnostic> = snapshot(diagnostics)
+    private val readinessReports = java.util.concurrent.ConcurrentHashMap<String, Pair<String, Long>>()
 
     @JvmOverloads
     @Throws(GenerationException::class)
     fun select(requirements: GenerationRequirements, preferredProviderId: String? = null): RegisteredProvider {
+        return select(requirements, preferredProviderId, GenerationContext())
+    }
+
+    fun select(requirements: GenerationRequirements, preferredProviderId: String?, context: GenerationContext): RegisteredProvider {
         require(preferredProviderId == null || preferredProviderId.isNotBlank()) { "Provider preference must not be blank" }
         val candidates = providers.filter { preferredProviderId == null || it.metadata.id == preferredProviderId }
         if (preferredProviderId != null && candidates.isEmpty()) {
@@ -28,21 +33,25 @@ class ProviderRegistry internal constructor(providers: List<RegisteredProvider>,
                     rejected += failure("UNSUPPORTED_FORMAT_PAIR", "Provider reads ${candidate.capabilities.readFormats.map { it.id }.sorted()} and writes ${candidate.capabilities.writeFormats.map { it.id }.sorted()}", id)
                     continue
                 }
-                val availability = candidate.provider.availability()
+                val availability = availability(candidate, context)
                 availability.validateAgainst(candidate.capabilities)
                 if (!availability.supports(requirements.input.format, requirements.output.format)) {
                     rejected += availability.diagnostics
                     rejected += failure("PROVIDER_UNAVAILABLE", "Requested format pair is currently unavailable", id)
                     continue
                 }
-                val assessment = candidate.provider.assess(requirements)
+                val assessment = if (candidate.provider is ProviderReadiness) candidate.provider.assess(requirements, context) else candidate.provider.assess(requirements)
                 if (assessment.status == AssessmentStatus.SUPPORTED) matches += candidate
                 else rejected += assessment.diagnostics
             } catch (error: Exception) {
+                context.checkActive()
+                context.logging.failure("PROVIDER_ASSESSMENT_FAILED", error, mapOf("provider" to id))
                 rejected += failure("INVALID_PROVIDER", "Provider availability or assessment failed", id)
             } catch (error: LinkageError) {
+                context.logging.failure("PROVIDER_LINKAGE_FAILED", error, mapOf("provider" to id))
                 rejected += failure("INVALID_PROVIDER", "Provider linkage failed during assessment", id)
             } catch (error: ServiceConfigurationError) {
+                context.logging.failure("PROVIDER_SERVICE_FAILED", error, mapOf("provider" to id))
                 rejected += failure("INVALID_PROVIDER", "Provider service failed during assessment", id)
             }
         }
@@ -63,26 +72,51 @@ class ProviderRegistry internal constructor(providers: List<RegisteredProvider>,
         preferredProviderId: String? = null,
     ): GenerationResult {
         context.checkActive()
-        val selected = select(request.requirements, preferredProviderId)
+        val selected = select(request.requirements, preferredProviderId, context)
+        context.logging.operation("GENERATION_START", mapOf("provider" to selected.metadata.id))
         context.checkActive()
         val result = try {
             requireNotNull(selected.provider.generate(request, output, context))
         } catch (error: GenerationException) {
             throw error
         } catch (error: IOException) {
+            context.logging.failure("PROVIDER_IO_FAILED", error, mapOf("provider" to selected.metadata.id))
             throw error
         } catch (error: Exception) {
+            context.logging.failure("PROVIDER_GENERATION_FAILED", error, mapOf("provider" to selected.metadata.id))
             throw GenerationException(listOf(failure("INVALID_PROVIDER", "Provider generation failed", selected.metadata.id)))
         } catch (error: LinkageError) {
+            context.logging.failure("PROVIDER_LINKAGE_FAILED", error, mapOf("provider" to selected.metadata.id))
             throw GenerationException(listOf(failure("INVALID_PROVIDER", "Provider linkage failed during generation", selected.metadata.id)))
         } catch (error: ServiceConfigurationError) {
+            context.logging.failure("PROVIDER_SERVICE_FAILED", error, mapOf("provider" to selected.metadata.id))
             throw GenerationException(listOf(failure("INVALID_PROVIDER", "Provider service failed during generation", selected.metadata.id)))
         }
         context.checkActive()
         if (result.output.format != request.requirements.output.format) {
             throw GenerationException(listOf(failure("INVALID_PROVIDER_RESULT", "Provider returned a different output format", selected.metadata.id)))
         }
+        context.logging.operation("GENERATION_COMPLETED", mapOf("provider" to selected.metadata.id))
         return result
+    }
+
+    fun availability(provider: RegisteredProvider, context: GenerationContext): ProviderAvailability {
+        require(provider in providers) { "Provider is not registered" }
+        val available = if (provider.provider is ProviderReadiness) provider.provider.availability(context) else provider.provider.availability()
+        available.validateAgainst(provider.capabilities)
+        if (!context.logging.enabled) return available
+        val fingerprint = available.readFormats.map { it.id }.sorted().joinToString(",") + "/" +
+            available.writeFormats.map { it.id }.sorted().joinToString(",") + "/" + available.diagnostics.map { it.code.id }.sorted().joinToString(",")
+        val now = System.nanoTime()
+        var report = false
+        readinessReports.compute(provider.metadata.id) { _, previous ->
+            if (previous == null || previous.first != fingerprint || now - previous.second >= java.util.concurrent.TimeUnit.SECONDS.toNanos(30)) {
+                report = true
+                fingerprint to now
+            } else previous
+        }
+        if (report) ProviderLogs.availability(context.logging, provider.metadata.id, provider.capabilities, available)
+        return available
     }
 
     companion object {
@@ -90,6 +124,12 @@ class ProviderRegistry internal constructor(providers: List<RegisteredProvider>,
         fun registered(registrations: List<ProviderRegistration>): ProviderRegistry {
             require((registrations as List<*>).none { it == null }) { "Registrations must not be null" }
             return ProviderDiscovery(ContractVersion.CURRENT).load(registrations.toList())
+        }
+
+        @JvmStatic
+        fun registered(registrations: List<ProviderRegistration>, logging: GenerationLogging): ProviderRegistry {
+            require((registrations as List<*>).none { it == null }) { "Registrations must not be null" }
+            return ProviderDiscovery(ContractVersion.CURRENT, logging).load(registrations.toList())
         }
 
         @JvmStatic
@@ -101,6 +141,13 @@ class ProviderRegistry internal constructor(providers: List<RegisteredProvider>,
             require((registrations as List<*>).none { it == null }) { "Registrations must not be null" }
             val scanned = ClasspathProviders(classLoader).scan()
             return ProviderDiscovery(ContractVersion.CURRENT).load(scanned.registrations + registrations, scanned.diagnostics)
+        }
+
+        @JvmStatic
+        fun discover(classLoader: ClassLoader, registrations: List<ProviderRegistration>, logging: GenerationLogging): ProviderRegistry {
+            require((registrations as List<*>).none { it == null }) { "Registrations must not be null" }
+            val scanned = ClasspathProviders(classLoader, logging).scan()
+            return ProviderDiscovery(ContractVersion.CURRENT, logging).load(scanned.registrations + registrations, scanned.diagnostics)
         }
     }
 }

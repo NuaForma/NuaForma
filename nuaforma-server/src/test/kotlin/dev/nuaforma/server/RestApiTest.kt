@@ -29,6 +29,34 @@ class RestApiTest {
     private val envelope = """{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"name":"Ada","nested":{"a":[null,true,42]}},"options":{"watermark":{"text":"CONCEPT — {name}","color":"#A1B2C3","opacity":0.3,"rotation":-30}}}"""
 
     @Test
+    fun `development traces real DOCX and watermark evaluation without changing content or API errors`() = testApplication {
+        val events = java.util.Collections.synchronizedList(mutableListOf<GenerationLogEvent>())
+        val registry = ProviderRegistry.discover()
+        application { KtorServer(registry, ServerConfiguration(ServerConfiguration(temporaryDirectory = temporary), LoggingMode.DEVELOPMENT), events::add).installRoutes(this) }
+        val source = template("Hello {name} {password}")
+        val json = envelope.replace("\"name\":\"Ada\"", "\"name\":\"SYNTHETIC_NAME\",\"password\":\"PRIVATE_PASSWORD\"")
+        val response = client.post("/api/v1/documents") {
+            contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY")); setBody(multipart(json, source))
+        }
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        val output = entries(response.bodyAsBytes())
+        assertTrue(output.getValue("word/document.xml").contains("SYNTHETIC_NAME"))
+        assertTrue(output.getValue("word/document.xml").contains("PRIVATE_PASSWORD"))
+        val capturedEvents = synchronized(events) { events.toList() }
+        assertTrue(capturedEvents.any { it.development && it.text.contains("SYNTHETIC_NAME") })
+        assertFalse(capturedEvents.any { it.text.contains("PRIVATE_PASSWORD") })
+        val id = response.headers["X-Request-ID"]
+        assertNotNull(id); assertTrue(capturedEvents.all { it.requestId == id })
+        val invalid = client.post("/api/v1/documents") {
+            contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY")); setBody(multipart(json, template("{absent}")))
+        }
+        assertEquals(HttpStatusCode.UnprocessableEntity, invalid.status)
+        assertFalse(invalid.bodyAsText().contains("SYNTHETIC_NAME"))
+        assertTrue(invalid.bodyAsText().contains(requireNotNull(invalid.headers["X-Request-ID"])))
+        assertEmpty()
+    }
+
+    @Test
     fun `standard image insertion has identical HTTP and embedded semantics and cleanup`() = testApplication {
         val registry = ProviderRegistry.discover()
         application { KtorServer(registry, ServerConfiguration(temporaryDirectory = temporary)).installRoutes(this) }

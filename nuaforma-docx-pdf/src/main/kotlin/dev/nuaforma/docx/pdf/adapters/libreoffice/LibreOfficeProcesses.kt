@@ -25,13 +25,21 @@ internal class LibreOfficeProcesses(private val configuration: LibreOfficeConfig
 
     override fun verify(context: GenerationContext) {
         context.checkActive()
-        if (configuration == null || !Files.isExecutable(configuration.launcher)) throw GenerationException(unavailable().diagnostics)
+        if (configuration == null) {
+            context.logging.operation("PDF_RUNTIME_UNCONFIGURED", mapOf("reason" to "Configure the qualified isolated PDF launcher"))
+            throw GenerationException(unavailable().diagnostics)
+        }
+        if (!Files.isExecutable(configuration.launcher)) {
+            context.logging.operation("PDF_LAUNCHER_UNAVAILABLE", mapOf("reason" to "Check that the configured PDF launcher exists and is executable"))
+            throw GenerationException(unavailable().diagnostics)
+        }
         ConversionFiles.create(context).use { files ->
             configure(files)
             val response = files.directory.resolve("version.txt")
             withSlot(context) { BoundedProcess.run(command(files, "probe", context), context, response, operationDirectory = files.directory) }
             val lines = Files.readString(response).lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
             if (lines != listOf("LibreOffice 26.8.1.1 bf6ef2662401c7d6dce671ab4deb26ee0af3a7c1", "NuaForma PDF validator 1", "NuaForma PDF/A validator 1")) {
+                context.logging.operation("PDF_RUNTIME_VERSION_MISMATCH", mapOf("reason" to "Renderer or validator identity does not match the qualified runtime"))
                 throw GenerationException(unavailable().diagnostics)
             }
         }

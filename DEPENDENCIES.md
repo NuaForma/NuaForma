@@ -1,5 +1,9 @@
 # Dependency baseline
 
+## Correlated server logging — 2026-10-15
+
+Issue #76 adds approved Apache Log4j 2.26.1 core/SLF4J 2 binding as server-runtime-only dependencies, aligning its transitive API. Official [download/maintenance information](https://logging.apache.org/log4j/2.x/download.html), [security advisories/threat model](https://logging.apache.org/security.html), Maven Central POMs and artifact LICENSE/NOTICE material were reviewed. This stable release is Apache-2.0; do not substitute Log4j 1, prerelease Log4j 3 or Logback. SLF4J remains 2.0.20. Optional appenders/transports, Jackson parsers, disruptors and mail/JMS libraries are not added. Only a local console appender is configured, with raw third-party categories disabled. Review exact locked artifacts and notices/sources before distributing an image; this is not a publication authorization or vulnerability-free guarantee. Embedded libraries retain Java 17 and no backend dependency.
+
 ## Embedded/publication tooling — 2026-10-12
 
 Issue #15 uses Gradle's built-in `maven-publish` and optional in-memory `signing` plugins; no new production library or remote publishing plugin is introduced. Independent examples pin the stable Apache Maven Compiler 3.16.0, Dependency 3.11.0, Resources 3.5.0, JAR 3.5.1, Install 3.2.0 and Surefire 3.6.0 plugins, checked against primary Maven Central metadata/POMs. These Apache-2.0 build plugins and their build/test transitives remain tooling, not embedded-library or server dependencies. Maven 4/compiler beta releases were not selected. Java 17 and standalone Maven/Gradle execution are verified separately from version availability; consumer runtime JAR hashes must match the reviewed product graph.

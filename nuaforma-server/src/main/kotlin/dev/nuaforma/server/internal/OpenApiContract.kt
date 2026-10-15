@@ -60,7 +60,8 @@ internal object OpenApiContract {
             ), listOf("input", "output")) + mapOf("example" to example)),
             "Diagnostic" to obj(mapOf("code" to (string() + mapOf("pattern" to "^[A-Z][A-Z0-9_.-]{0,127}$")),
                 "severity" to (string() + mapOf("enum" to listOf("WARNING", "ERROR"))), "message" to (string() + mapOf("description" to "Safe message, not raw provider input, paths, stack traces or generated content.")))),
-            "ApiError" to obj(mapOf("diagnostics" to (array(ref("Diagnostic")) + mapOf("maxItems" to 64)))),
+            "ApiError" to obj(mapOf("requestId" to (string() + mapOf("format" to "uuid", "description" to "Server-generated identity, also returned in X-Request-ID")),
+                "diagnostics" to (array(ref("Diagnostic")) + mapOf("maxItems" to 64)))),
             "Assessment" to obj(mapOf("status" to (string() + mapOf("enum" to listOf("SUPPORTED"))), "providerId" to string())),
             "FormatSets" to obj(mapOf("readFormats" to array(ref("FormatIdentifier")), "writeFormats" to array(ref("FormatIdentifier")))),
             "OptionDefinition" to obj(mapOf("name" to string(), "type" to (string() + mapOf("enum" to listOf("STRING", "INTEGER", "NUMBER", "BOOLEAN", "OBJECT", "ARRAY"))),
@@ -108,9 +109,20 @@ internal object OpenApiContract {
             paths[path] = mapOf("get" to mapOf("operationId" to if (path == ApiRoutes.OPENAPI_JSON) "downloadOpenApiJson" else "downloadOpenApiYaml", "summary" to "Download this authoritative API contract", "responses" to (errors() + mapOf("200" to mapOf("description" to "Equivalent OpenAPI 3.1.1 document serialized as $media", "content" to content(schema, media),
                 "headers" to mapOf("Content-Disposition" to mapOf("schema" to string(), "description" to "OpenAPI attachment filename")))))))
         }
+        val correlatedPaths = paths.mapValues { (_, path) ->
+            @Suppress("UNCHECKED_CAST")
+            (path as Map<String, Map<String, Any>>).mapValues { (_, operation) ->
+                @Suppress("UNCHECKED_CAST")
+                operation + mapOf("responses" to (operation.getValue("responses") as Map<String, Map<String, Any>>).mapValues { (_, response) ->
+                    @Suppress("UNCHECKED_CAST")
+                    response + mapOf("headers" to ((response["headers"] as? Map<String, Any>).orEmpty() + mapOf("X-Request-ID" to mapOf(
+                        "schema" to (string() + mapOf("format" to "uuid")), "description" to "Server-generated request identity; incoming headers cannot replace it"))))
+                })
+            }
+        }
         return linkedMapOf("openapi" to "3.1.1", "info" to mapOf("title" to "NuaForma REST API", "version" to BuildInformation.version, "license" to mapOf("name" to "Apache License 2.0", "identifier" to "Apache-2.0"),
             "description" to "Development-stage API, not a stable release or public deployment. Loopback by default; no built-in authentication/TLS. Use an authenticated TLS gateway and deployment/connection/header quotas. No hidden network fetching or telemetry. Installed extensions are trusted executable application code."),
-            "servers" to listOf(mapOf("url" to "/", "description" to "Relative to the deployment; no host environment is reflected")), "security" to emptyList<Any>(), "paths" to paths, "components" to mapOf("schemas" to schemas),
+            "servers" to listOf(mapOf("url" to "/", "description" to "Relative to the deployment; no host environment is reflected")), "security" to emptyList<Any>(), "paths" to correlatedPaths, "components" to mapOf("schemas" to schemas),
             "x-default-limits" to mapOf("maximumConcurrentRequests" to defaults.maximumConcurrentRequests, "maximumRequestBytes" to defaults.maximumRequestBytes, "maximumJsonBytes" to defaults.maximumJsonBytes,
                 "maximumTemplateBytes" to defaults.generationLimits.maxTemplateBytes, "maximumResourceBytes" to defaults.maximumResourceBytes, "maximumResources" to defaults.maximumResources,
                 "maximumOutputBytes" to defaults.generationLimits.maxOutputBytes, "requestTimeoutSeconds" to defaults.requestTimeout.seconds, "generationTimeoutSeconds" to defaults.generationLimits.maxDuration.seconds,

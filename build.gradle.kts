@@ -217,6 +217,11 @@ tasks.register("verifyBuildStructure") {
             }
             val components = module.configurations.getByName("runtimeClasspath")
                 .incoming.resolutionResult.allComponents
+            if (module.name != "nuaforma-server") {
+                check(components.none { it.moduleVersion?.group == "org.apache.logging.log4j" }) {
+                    "Server logging implementation leaked into ${module.path} runtimeClasspath"
+                }
+            }
             val projectPaths = components.mapNotNull { (it.id as? ProjectComponentIdentifier)?.projectPath }.toSet()
             check(projectPaths == expected.getValue(module.path)) {
                 "Unexpected runtime module graph for ${module.path}: $projectPaths"
