@@ -7,6 +7,12 @@ on:
         description: New explicit release version with approved amd64 and arm64 archives
         required: true
         type: string
+      application:
+        description: Publish both applications or recover only the application whose tags remain absent
+        required: true
+        default: both
+        type: choice
+        options: [both, server, playground]
 
 permissions:
   contents: read
@@ -21,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        application: [server, playground]
+        application: ${{ fromJSON(inputs.application == 'server' && '["server"]' || inputs.application == 'playground' && '["playground"]' || '["server","playground"]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     environment: ghcr-release

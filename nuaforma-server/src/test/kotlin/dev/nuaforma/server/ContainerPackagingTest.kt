@@ -107,10 +107,20 @@ class ContainerPackagingTest {
         assertEquals(setOf("workflow_dispatch"), events.keys)
         val job = (workflow["jobs"] as Map<*, *>)["publish"] as Map<*, *>
         assertEquals("ghcr-release", job["environment"])
-        assertEquals(listOf("server", "playground"), ((job["strategy"] as Map<*, *>)["matrix"] as Map<*, *>)["application"])
+        val dispatch = events["workflow_dispatch"] as Map<*, *>
+        val inputs = dispatch["inputs"] as Map<*, *>
+        val application = inputs["application"] as Map<*, *>
+        assertEquals("choice", application["type"])
+        assertEquals(true, application["required"])
+        assertEquals("both", application["default"])
+        assertEquals(listOf("both", "server", "playground"), application["options"])
+        assertEquals("\${{ fromJSON(inputs.application == 'server' && '[\"server\"]' || inputs.application == 'playground' && '[\"playground\"]' || '[\"server\",\"playground\"]') }}",
+            ((job["strategy"] as Map<*, *>)["matrix"] as Map<*, *>)["application"])
         assertEquals("github.repository == 'NuaForma/NuaForma' && github.ref == 'refs/heads/main'", job["if"])
         val commands = (job["steps"] as List<*>).joinToString("\n") { (it as Map<*, *>)["run"].toString() }
         assertTrue(commands.indexOf("check_multiarch_archive.py") < commands.indexOf("docker login"))
+        assertTrue(commands.contains("validate_multiarch_release.py --application server"))
+        assertTrue(commands.indexOf("validate_multiarch_release.py") < commands.indexOf("docker login"))
         assertTrue(commands.contains("for arch in amd64 arm64"))
         assertTrue(commands.contains("check_multiarch_index.py"))
         assertTrue(commands.contains("--companion-review"))
