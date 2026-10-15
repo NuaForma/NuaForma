@@ -1,0 +1,24 @@
+meta {
+  name: Capabilities
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/capabilities
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+assert {
+  res.status: eq 200
+}
+
+docs {
+  Check available.writeFormats for PDF readiness, not only declared formats.
+  Save a successful document response as PDF or DOCX. Errors are JSON diagnostics.
+}

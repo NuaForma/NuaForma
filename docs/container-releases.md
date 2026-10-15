@@ -8,6 +8,16 @@ This preparation intentionally stops before publication. Redistributing a suppos
 
 The service includes [operator font and extension mounts](../deployment/pdf-runtime/MOUNTS.md), implemented under [issue #35](https://github.com/NuaForma/NuaForma/issues/35). Qualify these boundaries again on every final release candidate; completing #14/#35 or their preparation checks does not authorize publication or fulfill the candidate-specific license/source audit. Operator-provided files are not image build inputs and must not be uploaded as release assets.
 
+## Mandatory website synchronization
+
+Every release, including prereleases, library-only and container-only releases, must be followed by an explicitly verified update of `nuaforma.dev`. Keep container and Maven library versions distinct when only one changes. Preparing local files or changing the dynamic release banner alone does not complete this step.
+
+- Update the fallback release banner, release notes/links, applicable dependency snippets and repository README to match the published artifacts. Change only the versions actually released.
+- For container releases, update both AMD64/ARM64 Compose kits, Dockerfile examples, Helm image digest/chart metadata and their source/license links. Rebuild the downloadable deployment ZIPs and check them against their source files; retain the reviewed security settings.
+- Review the example template, JSON scenarios, Bruno/Postman collections and endpoint/capability descriptions against the release. Regenerate and render examples when their content or layout changes; never advertise planned features as available. Rebuild the client/test ZIPs and complete starter kit after updating their sources, and check the complete kit's deployment and collection folders against the individual downloads.
+- Pass the applicable site, JavaScript, Compose and document-example checks. Publish through the normal protected PR/Pages workflow only under the maintainer's deployment authorization, after the advertised artifacts are available.
+- Verify the public HTTPS page and applicable direct downloads, including archive checksums, current version/platform selection and absence of stale artifact references. Do not report the release workflow complete while this website follow-up remains outstanding; report a deployment blocker explicitly.
+
 ## Release gate
 
 For future releases, Linux/amd64 and Linux/arm64 are both required variants under one versioned OCI image index. The preparation matrix runs on native runners and retains separate per-architecture metadata. Both variants must pass the same fidelity/isolation/security and exact-source/license gates before publication; compilation under QEMU is not qualification. The historical alpha publisher and approval record stay immutable and amd64-only. See [the ARM64 candidate guide](../deployment/pdf-runtime/ARM64.md); native Apple Silicon/Podman validation remains a separate compatibility obligation.

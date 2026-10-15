@@ -1,0 +1,24 @@
+meta {
+  name: OpenAPI JSON
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/openapi.json
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+assert {
+  res.status: eq 200
+}
+
+docs {
+  Download the service OpenAPI JSON definition.
+  Save a successful document response as PDF or DOCX. Errors are JSON diagnostics.
+}

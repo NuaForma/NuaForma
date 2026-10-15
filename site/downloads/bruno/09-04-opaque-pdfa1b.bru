@@ -1,0 +1,29 @@
+meta {
+  name: Opaque draft watermark
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/documents
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  request: @file(assets/04-opaque-pdfa1b.json) @contentType(application/json)
+  template: @file(assets/nuaforma-example-template.docx) @contentType(application/vnd.openxmlformats-officedocument.wordprocessingml.document)
+}
+
+headers {
+  Accept: application/pdf
+}
+
+assert {
+  res.status: eq 200
+}
+
+docs {
+  The same template uses opaque JPEG images and an opaque text watermark. PDF/A-1b cannot accept transparency. Expected: PDF/A-1b with DRAFT NF-004 watermark at full opacity; no transparency flattening.
+  Save a successful document response as PDF or DOCX. Errors are JSON diagnostics.
+}
