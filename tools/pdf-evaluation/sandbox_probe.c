@@ -13,6 +13,8 @@
 #include <sys/prctl.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <sys/syscall.h>
 #include <sys/vfs.h>
 #include <sys/wait.h>
@@ -29,6 +31,36 @@ int main(int argc, char **argv) {
     int fd = open("/work/visible.txt", O_RDONLY);
     check(fd >= 0, "own-request-readable");
     close(fd);
+    struct statfs devices;
+    check(statfs("/dev", &devices) == 0 && devices.f_type == TMPFS_MAGIC,
+          "private-device-directory-is-tmpfs");
+    check(access("/dev/pts", F_OK) == -1 && errno == ENOENT &&
+          access("/dev/ptmx", F_OK) == -1 && errno == ENOENT &&
+          access("/dev/tty", F_OK) == -1 && errno == ENOENT,
+          "pseudo-terminals-not-exposed");
+    const char *device_names[] = {"/dev/null", "/dev/zero", "/dev/full", "/dev/random", "/dev/urandom"};
+    const unsigned int device_minors[] = {3, 5, 7, 8, 9};
+    int device_identity = 1;
+    for (size_t index = 0; index < sizeof device_names / sizeof device_names[0]; index++) {
+        struct stat device;
+        if (stat(device_names[index], &device) != 0 || !S_ISCHR(device.st_mode) ||
+            major(device.st_rdev) != 1 || minor(device.st_rdev) != device_minors[index])
+            device_identity = 0;
+    }
+    check(device_identity, "reviewed-standard-device-identities");
+    char device_byte = 1;
+    fd = open("/dev/null", O_RDWR);
+    check(fd >= 0 && write(fd, "x", 1) == 1 && read(fd, &device_byte, 1) == 0,
+          "null-device-available");
+    close(fd);
+    fd = open("/dev/zero", O_RDONLY);
+    check(fd >= 0 && read(fd, &device_byte, 1) == 1 && device_byte == 0,
+          "zero-device-available");
+    close(fd);
+    fd = open("/dev/urandom", O_RDONLY);
+    check(fd >= 0 && read(fd, &device_byte, 1) == 1, "entropy-device-available");
+    close(fd);
+    check(access("/dev/shm", W_OK) == 0, "private-shared-memory-directory-available");
     check(access("/app/secret.txt", F_OK) == -1 && errno == ENOENT, "application-not-mounted");
     check(access("/opt/nuaforma/application/LICENSE", F_OK) == -1 && errno == ENOENT, "shipped-service-not-mounted");
     check(access("/opt/nuaforma/extensions", F_OK) == -1 && errno == ENOENT, "extension-mount-not-exposed");

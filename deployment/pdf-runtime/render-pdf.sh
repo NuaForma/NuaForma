@@ -43,7 +43,9 @@ esac
 exec /usr/bin/prlimit --core=0 --as=1610612736 --fsize="$file_limit" --cpu="$cpu_seconds" -- \
     /usr/local/bin/bwrap --unshare-user --unshare-ipc --unshare-pid --unshare-net --unshare-uts \
     --die-with-parent --new-session --cap-drop ALL --clearenv \
-    --ro-bind /opt/nuaforma/renderer / --dev /dev --tmpfs /tmp \
+    --ro-bind /opt/nuaforma/renderer / --tmpfs /dev --dir /dev/shm \
+    --dev-bind /dev/null /dev/null --dev-bind /dev/zero /dev/zero --dev-bind /dev/full /dev/full \
+    --dev-bind /dev/random /dev/random --dev-bind /dev/urandom /dev/urandom --tmpfs /tmp \
     --ro-bind /opt/java/openjdk /validator/java --ro-bind /opt/nuaforma/pdf-validation /validator/lib \
     --ro-bind /opt/nuaforma/verapdf-validation /tmp/verapdf \
     --bind "$work" /work --chdir /work --seccomp 3 \
