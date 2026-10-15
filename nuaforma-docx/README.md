@@ -8,7 +8,7 @@ The registered `DocxProvider` reads DOCX and writes DOCX using the [restricted t
 
 The source provider supports registered [JSON value pipes](../nuaforma-template/README.md#extensible-value-pipes-unreleased-source) in ordinary placeholders, including split runs, nested structural repetitions/conditions, headers/footers, supported text boxes and requested text watermarks. The registry is captured once at provider construction, using the current thread context class loader (fallback: template library loader), never rediscovered on request threads or during PDF intermediary generation. Installed implementations must be thread-safe and cooperate with cancellation. Published alpha images/libraries remain unchanged.
 
-For explicit embedded composition, use `DocxProvider(deploymentFonts, contentPipes, valuePipes)` with `TemplatePipes.of(...)` or `TemplatePipes.discover(extensionLoader)`. Existing constructors and Kotlin default-argument JVM descriptors remain available. The template library is an API dependency because this additive constructor refers to its public registry. Optional `TemplatePipeProvider.templatePipes()` reports that exact immutable extension-definition snapshot; REST metadata integration remains #60. Reserve `image` and every generator content-pipe name against value-pipe collisions. A content-pipe marker cannot be mixed with value/formatter chains.
+For explicit embedded composition, use `DocxProvider(deploymentFonts, contentPipes, valuePipes)` with `TemplatePipes.of(...)` or `TemplatePipes.discover(extensionLoader)`. Existing constructors and Kotlin default-argument JVM descriptors remain available. The template library is an API dependency because this additive constructor refers to its public registry. Optional `TemplatePipeProvider.templatePipes()` reports that exact immutable extension-definition snapshot; Source REST metadata integration (#60) uses that snapshot. Reserve `image` and every generator content-pipe name against value-pipe collisions. A content-pipe marker cannot be mixed with value/formatter chains.
 
 Source validation checks names/chains before document mutation, including unselected branches. Value pipes retain the marker's insertion formatting and shared generation budgets; maps/lists are not stringified. Watermarks use the same captured registry and root data without granting callbacks implicit access to other fields, options or resources. Existing unsupported field/note/comment processing policies do not change.
 
@@ -116,7 +116,7 @@ new DocxProvider().generate(new GenerationRequest(templateStream,
     Map.of("company", Map.of("logo", base64Png))), outputStream, new GenerationContext());
 ```
 
-`ContentPipeProvider.contentPipes()` describes this provider's registered image formats, sizing arguments, defaults, contexts and combinations. REST capability listing remains a separate #60 change. PDF uses the same transformed DOCX before conversion; PDF/A-1b rejects alpha-bearing image sources rather than flattening them. These source features have not been published in alpha libraries or containers.
+`ContentPipeProvider.contentPipes()` describes this provider's registered image formats, sizing arguments, defaults, contexts and combinations. Source REST capability listing (#60) uses the same provider-owned metadata. PDF uses the same transformed DOCX before conversion; PDF/A-1b rejects alpha-bearing image sources rather than flattening them. These source features have not been published in alpha libraries or containers.
 
 ## Requested watermarks
 

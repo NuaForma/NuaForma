@@ -84,6 +84,13 @@ class MountedValuePipesTest {
         try {
             val registry = discoverAtStartup(loader)
             application { KtorServer(registry, ServerConfiguration(temporaryDirectory = requestFiles)).installRoutes(this) }
+            val catalog = com.fasterxml.jackson.databind.ObjectMapper().readTree(client.get("/api/v1/capabilities").bodyAsText())
+            for (registration in registry.providers) {
+                val exposed = catalog.path("providers").single { it.path("id").asText() == registration.metadata.id }
+                    .path("valuePipes").path("entries")
+                assertEquals((registration.provider as TemplatePipeProvider).templatePipes().map { it.name }, exposed.map { it.path("name").asText() })
+                assertTrue(exposed.all { it.path("chainable").asBoolean() && it.path("available").asBoolean() })
+            }
             val source = template("Before {name | mountedIdentity() | mountedLabel(&quot;!&quot;)} after")
             val json = """{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"name":"{literal}"},"options":{"watermark":{"text":"MARK {name | mountedLabel(\"!\")}"}}}"""
             val response = client.post("/api/v1/documents") {

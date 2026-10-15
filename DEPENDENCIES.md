@@ -1,5 +1,9 @@
 # Dependency baseline
 
+## Build-only SBOM tooling — 2026-10-15
+
+Issue #48 uses the approved official [CycloneDX Gradle plugin 3.5.1](https://github.com/CycloneDX/cyclonedx-gradle-plugin/tree/cyclonedx-gradle-plugin-3.5.1), Apache-2.0, with its documented CycloneDX 1.7 support and Java 17/25-compatible Gradle build boundary. Release-tag documentation, upstream license and its resolved build classpath were reviewed. Its core/JSON Schema validation transitives are build tooling only, not application, library or container-runtime dependencies. Generation explicitly selects production runtime configurations and removes build-environment metadata. The plugin is not a scanner or a replacement for runtime license/source/security qualification. See [SBOM scope and verification](docs/sbom.md).
+
 ## Correlated server logging — 2026-10-15
 
 Issue #76 adds approved Apache Log4j 2.26.1 core/SLF4J 2 binding as server-runtime-only dependencies, aligning its transitive API. Official [download/maintenance information](https://logging.apache.org/log4j/2.x/download.html), [security advisories/threat model](https://logging.apache.org/security.html), Maven Central POMs and artifact LICENSE/NOTICE material were reviewed. This stable release is Apache-2.0; do not substitute Log4j 1, prerelease Log4j 3 or Logback. SLF4J remains 2.0.20. Optional appenders/transports, Jackson parsers, disruptors and mail/JMS libraries are not added. Only a local console appender is configured, with raw third-party categories disabled. Review exact locked artifacts and notices/sources before distributing an image; this is not a publication authorization or vulnerability-free guarantee. Embedded libraries retain Java 17 and no backend dependency.

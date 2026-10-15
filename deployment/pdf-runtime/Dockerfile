@@ -84,12 +84,13 @@ USER 1000:1000
 ENTRYPOINT ["/opt/nuaforma/bin/render-pdf"]
 
 # Only the explicit Gradle installDist directory is accepted, never the checkout.
-FROM qualification AS service
+FROM qualification AS service-base
 COPY --from=server-java-runtime /opt/java/openjdk /opt/java/server/
 COPY --from=application / /opt/nuaforma/application/
 COPY start-server.sh /opt/nuaforma/bin/start-server
+COPY healthcheck.sh /opt/nuaforma/bin/healthcheck
 USER root
-RUN chmod 0555 /opt/nuaforma/bin/start-server \
+RUN chmod 0555 /opt/nuaforma/bin/start-server /opt/nuaforma/bin/healthcheck \
     && test -s /opt/java/server/legal/java.base/LICENSE \
     && test -s /opt/java/openjdk/legal/java.base/LICENSE \
     && find /opt/java/openjdk /opt/java/server -type f -exec sha256sum {} + | sort > /usr/share/nuaforma/java-sha256.txt
@@ -102,8 +103,49 @@ RUN mkdir -p /opt/nuaforma/custom-fonts /opt/nuaforma/extensions \
 USER 1000:1000
 EXPOSE 8080
 STOPSIGNAL SIGTERM
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 CMD ["/opt/nuaforma/bin/healthcheck"]
 LABEL org.opencontainers.image.source="https://github.com/NuaForma/NuaForma" \
       dev.nuaforma.jvm-layout="server25-validator17" \
       org.opencontainers.image.title="NuaForma" \
       org.opencontainers.image.description="DOCX and isolated PDF generation; bundled components retain their own licenses"
 ENTRYPOINT ["/opt/nuaforma/bin/start-server"]
+
+# Explicit development-only distribution. The production target never
+# references this context and contains no Playground code or browser assets.
+FROM service-base AS playground-base
+COPY --from=playgroundapplication /lib/nuaforma-playground-*.jar /opt/nuaforma/application/lib/
+COPY --from=playgroundapplication /third-party-materials/ /opt/nuaforma/application/third-party-materials/
+ENV NUAFORMA_APPLICATION=playground NUAFORMA_PLAYGROUND=true NUAFORMA_MODE=development
+USER root
+RUN sha256sum /opt/nuaforma/application/lib/*.jar > /usr/share/nuaforma/application-sha256.txt
+USER 1000:1000
+LABEL org.opencontainers.image.title="NuaForma Playground" \
+      org.opencontainers.image.description="Development Playground; may log document contents and field values; not for production"
+
+FROM bubblewrap-build AS service-inventory
+ARG TARGETARCH
+COPY generate-sbom.py /generate-sbom.py
+COPY --from=service-base /opt/nuaforma/application /inventory/application/
+COPY --from=service-base /opt/nuaforma/pdf-validation /inventory/pdf-validation/
+COPY --from=service-base /opt/nuaforma/verapdf-validation /inventory/verapdf-validation/
+COPY --from=service-base /usr/share/nuaforma/outer-packages.tsv /usr/share/nuaforma/renderer-packages.tsv /inventory/
+COPY --from=service-base /usr/local/bin/bwrap /inventory/bwrap
+COPY --from=service-base /usr/share/nuaforma/renderer-seccomp.bpf /inventory/renderer-seccomp.bpf
+COPY --from=service-base /opt/java/server/release /inventory/java-server-release
+COPY --from=service-base /opt/java/openjdk/release /inventory/java-validator-release
+COPY --from=service-base /var/lib/dpkg/status /inventory/outer-status
+COPY --from=service-base /opt/nuaforma/renderer/var/lib/dpkg/status /inventory/renderer-status
+RUN python3 /generate-sbom.py --root /inventory --architecture "$TARGETARCH" --application server --output /sbom.json
+
+FROM service-inventory AS playground-inventory
+ARG TARGETARCH
+COPY --from=playground-base /opt/nuaforma/application /inventory/application/
+RUN python3 /generate-sbom.py --root /inventory --architecture "$TARGETARCH" --application playground --output /sbom.json
+
+FROM service-base AS service
+COPY --from=service-inventory /sbom.json /usr/share/nuaforma/sbom.json
+ENV NUAFORMA_SBOM_PATH=/usr/share/nuaforma/sbom.json
+
+FROM playground-base AS playground
+COPY --from=playground-inventory /sbom.json /usr/share/nuaforma/sbom.json
+ENV NUAFORMA_SBOM_PATH=/usr/share/nuaforma/sbom.json

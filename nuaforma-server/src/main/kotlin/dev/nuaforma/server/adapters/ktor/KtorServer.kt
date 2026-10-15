@@ -6,6 +6,7 @@ import dev.nuaforma.server.ServerConfiguration
 import dev.nuaforma.server.adapters.logging.OperationalLogging
 import dev.nuaforma.server.adapters.json.KotlinxJsonCodec
 import dev.nuaforma.server.internal.*
+import dev.nuaforma.server.WebApplication
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
@@ -30,11 +31,16 @@ import java.util.UUID
 import io.ktor.util.AttributeKey
 
 internal class KtorServer(private val registry: ProviderRegistry, private val config: ServerConfiguration,
-                          private val logSink: GenerationLogSink = OperationalLogging) {
+                          private val logSink: GenerationLogSink = OperationalLogging,
+                          private val webApplication: WebApplication? = null,
+                          private val sbom: ShippedSbom = ShippedSbom.packaged()) {
     private val json: JsonCodec = KotlinxJsonCodec()
     private val slots = Semaphore(config.maximumConcurrentRequests)
     private val documentation = ApiDocumentation(json)
     private val loggingKey = AttributeKey<GenerationLogging>("nuaforma.request.logging")
+    private val health = ServiceHealth(registry, GenerationLogging(config.loggingMode, null, logSink))
+
+    init { require(webApplication == null || config.loggingMode == LoggingMode.DEVELOPMENT) }
 
     private fun logging(call: ApplicationCall): GenerationLogging = call.attributes[loggingKey]
     private suspend fun context(call: ApplicationCall): GenerationContext {
@@ -48,25 +54,30 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
             shutdownGracePeriod = 1000
             shutdownTimeout = 5000
         }) { installRoutes(this) }
-        val shutdown = Thread({ server.stop(1000, 5000) }, "nuaforma-shutdown")
+        val shutdown = Thread({ health.drain(); server.stop(1000, 5000) }, "nuaforma-shutdown")
         Runtime.getRuntime().addShutdownHook(shutdown)
         try { server.start(wait = true) }
         finally {
+            health.close()
             try { Runtime.getRuntime().removeShutdownHook(shutdown) }
             catch (_: IllegalStateException) { /* JVM shutdown is already in progress. */ }
         }
     }
 
     fun installRoutes(application: Application) = with(application) {
+        monitor.subscribe(ApplicationStarted) { health.start() }
+        monitor.subscribe(ApplicationStopping) { health.drain() }
+        monitor.subscribe(ApplicationStopped) { health.close() }
         intercept(ApplicationCallPipeline.Setup) {
             val identity = UUID.randomUUID().toString()
             val log = GenerationLogging(config.loggingMode, identity, logSink)
             call.attributes.put(loggingKey, log)
             call.response.headers.append("X-Request-ID", identity)
+            val healthRequest = call.request.path() == ApiRoutes.LIVE || call.request.path() == ApiRoutes.READY
             withContext(RequestLogging(log)) {
-                log.operation("REQUEST_STARTED")
+                if (!healthRequest) log.operation("REQUEST_STARTED")
                 try { proceed() }
-                finally { log.operation("REQUEST_FINISHED") }
+                finally { if (!healthRequest) log.operation("REQUEST_FINISHED") }
             }
         }
         install(StatusPages) {
@@ -81,6 +92,29 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
         }
         install(RequestBodyLimit) { bodyLimit { config.maximumRequestBytes } }
         routing {
+            if (webApplication != null) {
+                get("/") { call.respondRedirect("/playground/") }
+                get("/playground") { call.respondRedirect("/playground/") }
+                webApplication.assets.forEach { asset ->
+                    val bytes = asset.bytes
+                    get(asset.path) {
+                        call.response.headers.append(HttpHeaders.CacheControl, "no-store")
+                        call.response.headers.append("X-Content-Type-Options", "nosniff")
+                        call.response.headers.append("Referrer-Policy", "no-referrer")
+                        call.response.headers.append("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+                        call.respondBytes(bytes, ContentType.parse(asset.mediaType))
+                    }
+                }
+            }
+            get(ApiRoutes.LIVE) { healthResponse(call, health.live()) }
+            get(ApiRoutes.READY) { healthResponse(call, health.ready()) }
+            get(ApiRoutes.SBOM) { guarded(call) {
+                call.response.headers.append(HttpHeaders.CacheControl, "no-store")
+                call.response.headers.append(HttpHeaders.ContentDisposition, "attachment; filename=\"nuaforma-sbom.json\"")
+                call.response.headers.append("X-Content-Type-Options", "nosniff")
+                call.response.headers.append(HttpHeaders.ETag, sbom.etag)
+                call.respondBytes(sbom.bytes, ContentType.parse("application/vnd.cyclonedx+json"))
+            } }
             get(ApiRoutes.VERSION) { guarded(call) {
                 call.response.headers.append(HttpHeaders.CacheControl, "no-store")
                 call.response.headers.append("X-Content-Type-Options", "nosniff")
@@ -99,6 +133,13 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
             } }
             post(ApiRoutes.DOCUMENTS) { guarded(call) { generate(call) } }
         }
+    }
+
+    private suspend fun healthResponse(call: ApplicationCall, healthy: Boolean) {
+        call.response.headers.append(HttpHeaders.CacheControl, "no-store")
+        call.response.headers.append("X-Content-Type-Options", "nosniff")
+        call.respondText(json.encode(mapOf("status" to if (healthy) "UP" else "DOWN")), ContentType.Application.Json,
+            if (healthy) HttpStatusCode.OK else HttpStatusCode.ServiceUnavailable)
     }
 
     private suspend fun openApi(call: ApplicationCall, text: String, extension: String, type: ContentType) {
@@ -265,7 +306,8 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
                     "inputOptions" to declared.inputOptions.mapKeys { it.key.id }.mapValues { definitions(it.value) },
                     "outputOptions" to declared.outputOptions.mapKeys { it.key.id }.mapValues { definitions(it.value) },
                     "generalOptions" to definitions(declared.generalOptions), "diagnostics" to ApiErrors.diagnostics(available.diagnostics)) +
-                    mapOf("fonts" to fontCatalog(registered.provider, context))
+                    mapOf("fonts" to fontCatalog(registered.provider, context)) +
+                    PipeCatalog.describe(registered.provider, declared, available, context)
             })
     }
 

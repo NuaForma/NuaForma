@@ -35,6 +35,8 @@ The service has no built-in authentication or TLS. Keep it behind an authenticat
 
 ## Configuration and private storage
 
+Source targets include the [health probes](../../docs/health.md) and [static shipped-component SBOM endpoint](../../docs/sbom.md). The maintained source Helm chart is in `deployment/helm/nuaforma`; website alpha kits retain their matching release behavior. The optional `playground` target and Compose override are documented in the [separate module guide](../../nuaforma-playground/README.md). Production `service` contains no Playground code/assets. Both applications retain the same renderer/validator isolation and deployment limits.
+
 Operator environment variables, never request fields:
 
 | Variable | Default | Purpose |

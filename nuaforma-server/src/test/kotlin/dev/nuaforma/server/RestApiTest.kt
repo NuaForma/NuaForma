@@ -46,7 +46,10 @@ class RestApiTest {
         assertTrue(capturedEvents.any { it.development && it.text.contains("SYNTHETIC_NAME") })
         assertFalse(capturedEvents.any { it.text.contains("PRIVATE_PASSWORD") })
         val id = response.headers["X-Request-ID"]
-        assertNotNull(id); assertTrue(capturedEvents.all { it.requestId == id })
+        assertNotNull(id)
+        val requestEvents = capturedEvents.filter { it.requestId != null }
+        assertTrue(requestEvents.isNotEmpty()); assertTrue(requestEvents.all { it.requestId == id })
+        assertTrue(capturedEvents.filter { it.requestId == null }.all { it.code in setOf("PROVIDER_READINESS", "SERVICE_READINESS_CHANGED") })
         val invalid = client.post("/api/v1/documents") {
             contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY")); setBody(multipart(json, template("{absent}")))
         }

@@ -78,4 +78,5 @@ swagger-annotations-tests = { module = "io.swagger.core.v3:swagger-annotations",
 snakeyaml-tests = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml-tests" }
 
 [plugins]
+cyclonedx = { id = "org.cyclonedx.bom", version = "3.5.1" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

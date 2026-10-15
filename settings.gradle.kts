@@ -20,4 +20,5 @@ include(
     "nuaforma-docx",
     "nuaforma-docx-pdf",
     "nuaforma-server",
+    "nuaforma-playground",
 )

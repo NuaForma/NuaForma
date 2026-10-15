@@ -11,6 +11,13 @@ import java.util.Properties
 
 /** Operator configuration only; never populated from HTTP input. */
 internal object ServerProperties {
+    fun playground(value: String?, mode: LoggingMode, installed: Boolean): Boolean {
+        require(value == null || value in setOf("true", "false")) { "Invalid NUAFORMA_PLAYGROUND" }
+        val enabled = value == "true"
+        require(!enabled || mode == LoggingMode.DEVELOPMENT) { "Playground requires development mode" }
+        require(!enabled || installed) { "Playground module is not installed" }
+        return enabled
+    }
     fun mode(value: String?): LoggingMode = when (value) {
         null, "production" -> LoggingMode.PRODUCTION
         "development" -> LoggingMode.DEVELOPMENT

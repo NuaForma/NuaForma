@@ -74,6 +74,7 @@ class OpenApiTest {
         assertEquals(jsonTree, ObjectMapper(YAMLFactory()).readTree(yaml.bodyAsText()))
         val actualOperations = jsonTree.path("paths").properties().flatMap { (path, value) -> value.fieldNames().asSequence().map { path to it }.toList() }.toMap()
         assertEquals(ApiRoutes.operations, actualOperations)
+        assertTrue(actualOperations.keys.none { it == "/playground" || it.startsWith("/playground/") }, "Playground routes and assets are not public OpenAPI operations")
         assertEquals("/", jsonTree.path("servers").first().path("url").asText())
         assertEquals(mapper.readTree(ApiDocumentation().jsonText), jsonTree)
         val exported = temporary.resolve("export")

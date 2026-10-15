@@ -32,6 +32,7 @@ internal object OpenApiContract {
             "options" to mapOf("locale" to "nl-NL", "timeZone" to "Europe/Amsterdam",
                 "watermark" to mapOf("text" to "CONCEPT — {customer.name}", "color" to "#B0B0B0", "opacity" to 0.25, "rotation" to -45)))
         val schemas = linkedMapOf<String, Any>(
+            "Health" to obj(mapOf("status" to (string() + mapOf("enum" to listOf("UP", "DOWN"))))),
             "BuildVersion" to obj(mapOf(
                 "version" to (string() + mapOf("description" to "Application release/development version recorded during the build.")),
                 "contractVersion" to (string() + mapOf("description" to "Runtime contract major.minor, independent of the full release version.")),
@@ -70,7 +71,19 @@ internal object OpenApiContract {
                 "resource" to mapOf("anyOf" to listOf(string(), mapOf("type" to "null"))))),
             "FontCatalog" to obj(mapOf("status" to (string() + mapOf("enum" to listOf("AVAILABLE", "UNSUPPORTED", "UNAVAILABLE"))),
                 "entries" to (array(ref("AvailableFont")) + mapOf("maxItems" to 2048)))),
+            "PipeSupport" to obj(mapOf("input" to ref("FormatIdentifier"), "output" to ref("FormatIdentifier"),
+                "profiles" to (array(string()) + mapOf("description" to "Empty means all profiles qualified by this provider, not arbitrary PDF profiles.")))),
+            "ValuePipe" to obj(mapOf("name" to string(), "description" to string(), "chainable" to mapOf("type" to "boolean", "enum" to listOf(true)),
+                "arguments" to array(ref("OptionDefinition")), "nullBehavior" to string(), "available" to mapOf("type" to "boolean"))),
+            "ContentPipe" to obj(mapOf("name" to string(), "description" to string(), "chainable" to mapOf("type" to "boolean", "enum" to listOf(false)),
+                "arguments" to array(ref("OptionDefinition")), "nullBehavior" to string(), "contexts" to array(string()), "contentTypes" to array(string()),
+                "declaredSupport" to array(ref("PipeSupport")), "availableSupport" to array(ref("PipeSupport")))),
+            "ValuePipeCatalog" to obj(mapOf("status" to (string() + mapOf("enum" to listOf("AVAILABLE", "UNSUPPORTED", "UNAVAILABLE"))),
+                "entries" to (array(ref("ValuePipe")) + mapOf("maxItems" to 128)), "diagnostics" to array(ref("Diagnostic")))),
+            "ContentPipeCatalog" to obj(mapOf("status" to (string() + mapOf("enum" to listOf("AVAILABLE", "UNSUPPORTED", "UNAVAILABLE"))),
+                "entries" to (array(ref("ContentPipe")) + mapOf("maxItems" to 128)), "diagnostics" to array(ref("Diagnostic")))),
             "Provider" to obj(mapOf("id" to string(), "releaseVersion" to string(), "requiredContract" to string(), "fonts" to ref("FontCatalog"),
+                "valuePipes" to ref("ValuePipeCatalog"), "contentPipes" to ref("ContentPipeCatalog"),
                 "declared" to ref("FormatSets"), "available" to ref("FormatSets"),
                 "inputOptions" to mapOf("type" to "object", "additionalProperties" to array(ref("OptionDefinition"))),
                 "outputOptions" to mapOf("type" to "object", "additionalProperties" to array(ref("OptionDefinition"))),
@@ -90,6 +103,16 @@ internal object OpenApiContract {
             "additionalProperties" to false,
             "description" to "Exactly one request (application/json) and template file part, plus optional resource.<id> file parts in any order. Duplicates/unknown names fail. Resource suffixes are the logical font/resource IDs in provider options, never paths/URLs. For DOCX, template media type must be its document type or application/octet-stream. Some OpenAPI clients do not support patternProperties multipart fields; add named resource file parts explicitly.")
         val paths = linkedMapOf<String, Any>(
+            ApiRoutes.SBOM to mapOf("get" to mapOf("operationId" to "downloadSbom", "summary" to "Download the static shipped-component CycloneDX 1.7 inventory",
+                "description" to "Build-generated snapshot, not a runtime scan, vulnerability assessment or license audit. Standalone scope is JVM production dependencies; container scope includes bundled native/JVM/OS components. Operator extensions, private fonts and request data are excluded. Read metadata properties for scope and source identity.",
+                "responses" to (errors() + mapOf("200" to mapOf("description" to "Build-validated CycloneDX 1.7 JSON attachment", "content" to content(jsonObject(), "application/vnd.cyclonedx+json"),
+                    "headers" to mapOf("Content-Disposition" to mapOf("schema" to string()), "ETag" to mapOf("schema" to string()), "Cache-Control" to mapOf("schema" to string()))))))),
+            ApiRoutes.LIVE to mapOf("get" to mapOf("operationId" to "getLiveness", "summary" to "Check HTTP application liveness",
+                "description" to "Independent of converters and generation slots; no document or provider processing. No internal details in any mode.",
+                "responses" to mapOf("200" to response("Application is live", ref("Health")), "503" to response("Application is not live", ref("Health"))))),
+            ApiRoutes.READY to mapOf("get" to mapOf("operationId" to "getReadiness", "summary" to "Check cached service readiness",
+                "description" to "Initialization complete, accepting work and at least one executable pair. Background observations every 30 seconds expire after 60 seconds; no probe runs in this request. Not a template or PDF-specific guarantee.",
+                "responses" to mapOf("200" to response("Service accepts generation work", ref("Health")), "503" to response("Starting, draining, stale or no usable providers", ref("Health"))))),
             ApiRoutes.VERSION to mapOf("get" to mapOf("operationId" to "getVersion", "summary" to "Identify the running application build",
                 "description" to "Packaged build metadata and runtime contract version. Does not query provider readiness, fonts or converters; uses normal HTTP admission/deadline limits.",
                 "responses" to (errors() + mapOf("200" to (response("Build identity; not a readiness or release-approval signal", ref("BuildVersion")) + mapOf("headers" to mapOf(

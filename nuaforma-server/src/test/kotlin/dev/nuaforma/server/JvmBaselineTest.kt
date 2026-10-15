@@ -26,7 +26,7 @@ class JvmBaselineTest {
                         DataInputStream(Files.newInputStream(path)).use { input ->
                             assertEquals(0xcafebabe.toInt(), input.readInt(), path.toString())
                             assertEquals(0, input.readUnsignedShort(), "Preview classes are not supported: $path")
-                            assertEquals(if (module == "nuaforma-server") 69 else 61, input.readUnsignedShort(), path.toString())
+                            assertEquals(if (module in setOf("nuaforma-server", "nuaforma-playground")) 69 else 61, input.readUnsignedShort(), path.toString())
                         }
                         classes++
                     }

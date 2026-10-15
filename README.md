@@ -74,7 +74,7 @@ Conditions require booleans, not implicit truthiness. Null checks such as `(cust
 
 ### Embed in a Java or Kotlin application
 
-The repository contains five independently publishable libraries and one optional server module:
+The repository contains five independently publishable libraries, an optional server and a separate development Playground application:
 
 | Module | Responsibility |
 | --- | --- |
@@ -84,6 +84,7 @@ The repository contains five independently publishable libraries and one optiona
 | [nuaforma-docx](nuaforma-docx/README.md) | DOCX generation, font handling and watermarks |
 | [nuaforma-docx-pdf](nuaforma-docx-pdf/README.md) | DOCX output plus optional isolated PDF conversion/validation |
 | [nuaforma-server](nuaforma-server/README.md) | Thin REST transport over the same engine |
+| [nuaforma-playground](nuaforma-playground/README.md) | Separate development-only request builder, absent from the production server/image |
 
 Use core plus DOCX for Word-only applications; add the DOCX/PDF module and its qualified external runtime for PDF. Core depends on contracts, not concrete providers. Both built-in providers can write DOCX, so select a provider explicitly when both are installed. Custom providers can introduce their own format identifiers through ServiceLoader or explicit registration.
 
@@ -94,6 +95,10 @@ DOCX-only applications need neither the server, Docker nor LibreOffice. PDF's is
 For a local JVM service, follow the [server launch guide](nuaforma-server/README.md#run-locally). For the combined service/LibreOffice container, follow the [Docker Compose build and start guide](deployment/pdf-runtime/SERVICE.md#build-and-start). The container includes the approved renderer isolation; no separate worker container or Microsoft Office installation is required.
 
 The service exposes `/api/v1/documents`, `/api/v1/assess`, `/api/v1/capabilities`, `/api/v1/version`, `/openapi.json` and `/openapi.yaml`. The version endpoint returns packaged build version/source identity and the runtime contract version without checking converters; source archives report a null commit. The [mount guide](deployment/pdf-runtime/MOUNTS.md) describes custom fonts, trusted extensions and restart-based reload. The container is published as `ghcr.io/nuaforma/nuaforma:0.1.0-alpha.3`, with native Linux AMD64 and ARM64 variants and no `latest` alias. Download the complete [AMD64](https://nuaforma.dev/downloads/docker-kit.zip) or [ARM64](https://nuaforma.dev/downloads/docker-arm64-kit.zip) deployment kit, including the required seccomp profile.
+
+### Source endpoints and Playground
+
+Source builds additionally provide lightweight [liveness/readiness probes](docs/health.md), a static [CycloneDX SBOM download](docs/sbom.md) at `/api/v1/sbom` and a separately packaged [development Playground](nuaforma-playground/README.md). The Playground uses live capabilities/OpenAPI to prepare/export requests, select/upload fonts and generate documents through the same API. It requires explicit development mode, warns about sensitive logging and is not bundled with the production image. Published alpha artifacts and their deployment downloads remain unchanged; these source additions do not publish new binaries.
 
 ## PDF choices and important limits
 
@@ -144,7 +149,7 @@ Source/documentation JARs and POMs are staged only to an ignored local repositor
 
 ## Roadmap and publication
 
-The source branch adds unreleased, chainable JSON value pipes installed through ServiceLoader, a separate generator-owned content-pipe SPI and a bounded Base64 PNG/JPEG `image` pipe for DOCX and PDF. See the [value-pipe guide](nuaforma-template/README.md#extensible-value-pipes-unreleased-source), [independent extension example](examples/value-pipes/README.md), [image guide](nuaforma-docx/README.md#image-content-pipe-unreleased-source) and [content-pipe grammar](nuaforma-template/README.md#generator-content-pipes-unreleased-source). Capability endpoint integration remains planned in #60. Published alpha libraries and containers remain unchanged; these source features are not in the deployment kits yet.
+The source branch adds unreleased, chainable JSON value pipes installed through ServiceLoader, a separate generator-owned content-pipe SPI and a bounded Base64 PNG/JPEG `image` pipe for DOCX and PDF. See the [value-pipe guide](nuaforma-template/README.md#extensible-value-pipes-unreleased-source), [independent extension example](examples/value-pipes/README.md), [image guide](nuaforma-docx/README.md#image-content-pipe-unreleased-source) and [content-pipe grammar](nuaforma-template/README.md#generator-content-pipes-unreleased-source). Source builds expose both provider-owned pipe catalogs through capabilities (#60). Published alpha libraries and containers remain unchanged; these source features are not in the deployment kits yet.
 
 Signed libraries remain at `0.1.0-alpha.1` on Maven Central; the container release is `0.1.0-alpha.3` on GHCR without a `latest` tag. Matching native-component source/license materials are attached to the [container release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.3). Preparation workflows remain non-publishing; releases must pass their separate protected publication gates. Accepted alpha native-runtime security findings are tracked in [issue #51](https://github.com/NuaForma/NuaForma/issues/51).
 

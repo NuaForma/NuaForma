@@ -1,0 +1,34 @@
+image:
+  repository: nuaforma
+  tag: local
+  digest: ""
+seccomp:
+  localhostProfile: nuaforma/seccomp.json
+fonts:
+  existingClaim: ""
+extensions:
+  existingClaim: ""
+resources:
+  requests:
+    cpu: "500m"
+    memory: 1Gi
+  limits:
+    cpu: "2"
+    memory: 2Gi
+
+nodeSelector:
+  kubernetes.io/os: linux
+  kubernetes.io/arch: amd64
+probes:
+  startup:
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 30
+  liveness:
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3

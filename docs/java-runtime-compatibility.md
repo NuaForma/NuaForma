@@ -6,6 +6,7 @@ Issue [#71](https://github.com/NuaForma/NuaForma/issues/71) splits the source bu
 | --- | --- | --- |
 | contracts, core, template, DOCX, DOCX/PDF libraries | Java 17 | Java 17 minimum |
 | Standalone REST server | Java 25 | Java 25 |
+| Separate development Playground application | Java 25 | Java 25; not a production server dependency |
 | Sandboxed PDFBox and veraPDF validators | Java 17 | Pinned Temurin 17.0.20.1+1 |
 | LibreOffice | Native executable | Unchanged native AMD64/ARM64 runtime |
 

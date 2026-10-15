@@ -1,0 +1,11 @@
+services:
+  nuaforma:
+    image: ${NUAFORMA_PLAYGROUND_IMAGE:-nuaforma-playground:local}
+    build:
+      target: playground
+      additional_contexts:
+        playgroundapplication: ../../nuaforma-playground/build/install/nuaforma-playground
+    environment:
+      NUAFORMA_APPLICATION: playground
+      NUAFORMA_PLAYGROUND: "true"
+      NUAFORMA_MODE: development

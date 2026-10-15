@@ -21,7 +21,7 @@ val docxRuntimeUpgrades = listOf(libs.commons.codec, libs.commons.collections, l
     libs.checker.qual, libs.error.prone.annotations, libs.slf4j.jcl, libs.slf4j.api).map { it.get() }
 
 subprojects {
-    val jvmVersion = if (name == "nuaforma-server") 25 else 17
+    val jvmVersion = if (name in setOf("nuaforma-server", "nuaforma-playground")) 25 else 17
     group = rootProject.group
     version = rootProject.version
 
@@ -140,7 +140,7 @@ subprojects {
     }
 }
 
-val libraryModules = subprojects.filter { it.name != "nuaforma-server" }
+val libraryModules = subprojects.filter { it.name !in setOf("nuaforma-server", "nuaforma-playground") }
 tasks.register("writeLibraryRuntimeInventory") {
     group = "verification"
     val output = layout.buildDirectory.file("library-runtime-files.json")
@@ -206,7 +206,8 @@ tasks.register("verifyBuildStructure") {
             ":nuaforma-template" to setOf(":nuaforma-template", ":nuaforma-contracts"),
             ":nuaforma-docx" to setOf(":nuaforma-docx", ":nuaforma-contracts", ":nuaforma-template"),
             ":nuaforma-docx-pdf" to setOf(":nuaforma-docx-pdf", ":nuaforma-docx", ":nuaforma-contracts", ":nuaforma-template"),
-            ":nuaforma-server" to subprojects.map { it.path }.toSet(),
+            ":nuaforma-server" to subprojects.filter { it.name != "nuaforma-playground" }.map { it.path }.toSet(),
+            ":nuaforma-playground" to subprojects.map { it.path }.toSet(),
         )
         subprojects.forEach { module ->
             val requiredPublicationDependencies = if (module.path == ":nuaforma-docx") docxRuntimeUpgrades + annotations.get() else listOf(annotations.get())
@@ -217,7 +218,7 @@ tasks.register("verifyBuildStructure") {
             }
             val components = module.configurations.getByName("runtimeClasspath")
                 .incoming.resolutionResult.allComponents
-            if (module.name != "nuaforma-server") {
+            if (module.name !in setOf("nuaforma-server", "nuaforma-playground")) {
                 check(components.none { it.moduleVersion?.group == "org.apache.logging.log4j" }) {
                     "Server logging implementation leaked into ${module.path} runtimeClasspath"
                 }
@@ -236,7 +237,7 @@ tasks.register("verifyBuildStructure") {
             check(components.none { it.moduleVersion?.name in setOf("ktor-server-test-host-jvm", "ktor-test-dispatcher-jvm", "kotlinx-coroutines-test-jvm", "kotlinx-coroutines-debug") }) {
                 "HTTP test tooling leaked into ${module.path} runtimeClasspath"
             }
-            if (module.path !in setOf(":nuaforma-docx-pdf", ":nuaforma-server")) {
+            if (module.path !in setOf(":nuaforma-docx-pdf", ":nuaforma-server", ":nuaforma-playground")) {
                 check(components.none { it.moduleVersion?.group == "org.apache.pdfbox" && it.moduleVersion?.name == "pdfbox" }) {
                     "PDF output validation leaked into ${module.path} runtimeClasspath"
                 }

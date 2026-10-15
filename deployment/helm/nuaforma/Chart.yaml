@@ -1,0 +1,6 @@
+apiVersion: v2
+name: nuaforma
+description: Unreleased-source NuaForma deployment with explicit lifecycle probes
+type: application
+version: 0.1.0-alpha.1
+appVersion: "0.1.0-alpha.1"

@@ -38,4 +38,11 @@ internal object OperationalLogging : GenerationLogSink {
             "* DO NOT USE WITH PRODUCTION DATA.                         *\n" +
             "************************************************************")
     }
+    fun playgroundWarning() {
+        logger.warn("************************************************************\n" +
+            "* NUA FORMA DEVELOPMENT PLAYGROUND — NOT FOR PRODUCTION     *\n" +
+            "* Document content and field values may appear in logs.    *\n" +
+            "* Operators must control access and log retention.         *\n" +
+            "************************************************************")
+    }
 }
