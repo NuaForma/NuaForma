@@ -1,6 +1,6 @@
 # ARM64 Docker and Podman deployment
 
-This kit selects the native Linux/arm64 image for `0.1.0-alpha.2`, for Apple Silicon and other ARM64 hosts. The AMD64 kit uses the same versioned image index. Keep the included Compose file and reviewed seccomp profile together. This kit does not rebuild the renderer. The optional Dockerfile is a minimal example for your own derived image; preserve component notices/source obligations if you redistribute derived images.
+This kit selects the native Linux/arm64 image for `0.1.0-alpha.3`, for Apple Silicon and other ARM64 hosts. The AMD64 kit uses the same versioned image index. Keep the included Compose file and reviewed seccomp profile together. This kit does not rebuild the renderer. The optional Dockerfile is a minimal example for your own derived image; preserve component notices/source obligations if you redistribute derived images.
 
 ```sh
 mkdir -p custom-fonts extensions
@@ -46,4 +46,4 @@ AppArmor configuration belongs on the Linux host, not merely on the macOS client
 
 ## Source and licenses
 
-The runtime includes LibreOffice, Bubblewrap, veraPDF, Java and OS components under their original licenses. It is not wholly Apache-2.0. Matching source/notices are provided with [the alpha release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.2). The copied seccomp profile retains its upstream attribution in `NOTICE` and Apache-2.0 text in `LICENSE`.
+The runtime includes LibreOffice, Bubblewrap, veraPDF, Java and OS components under their original licenses. It is not wholly Apache-2.0. Matching source/notices are provided with [the alpha release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.3). The copied seccomp profile retains its upstream attribution in `NOTICE` and Apache-2.0 text in `LICENSE`.

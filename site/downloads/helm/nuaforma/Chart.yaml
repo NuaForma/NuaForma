@@ -2,5 +2,5 @@ apiVersion: v2
 name: nuaforma
 description: Evaluation deployment example for the NuaForma Linux amd64 runtime
 type: application
-version: 0.1.0-alpha.2
-appVersion: "0.1.0-alpha.2"
+version: 0.1.0-alpha.3
+appVersion: "0.1.0-alpha.3"
