@@ -21,10 +21,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--docker", default="docker")
     parser.add_argument("--image", default="ghcr.io/nuaforma/nuaforma:0.1.0-alpha.3")
-    parser.add_argument("--kit-directory", type=pathlib.Path, default=ROOT / 'site/downloads')
+    parser.add_argument("--website-directory", type=pathlib.Path, required=True, help="Explicit NuaForma website checkout; no implicit sibling lookup")
+    parser.add_argument("--kit-directory", type=pathlib.Path, help="Optional staged downloads override")
     parser.add_argument("--poppler", required=True)
     parser.add_argument("--output", type=pathlib.Path, required=True)
     args = parser.parse_args()
+    args.kit_directory = args.kit_directory or (args.website_directory / 'site/downloads')
     args.seccomp = ROOT / "deployment/pdf-runtime/seccomp.json"
     args.output.mkdir(parents=True, exist_ok=False)
     runtime = qualification.Runtime(args)

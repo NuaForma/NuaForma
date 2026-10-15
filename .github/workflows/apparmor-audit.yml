@@ -2,7 +2,7 @@ name: Diagnose inherited AppArmor mount denial
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths: ['.github/workflows/apparmor-audit.yml', 'deployment/pdf-runtime/nuaforma.apparmor', 'tools/container/collect_mount_audit.py']
   workflow_dispatch:
 

@@ -15,3 +15,4 @@ Use a closing reference only when the issue's full acceptance criteria are satis
 - [ ] Public contract, architecture, security and document-fidelity impact has been reviewed where applicable.
 - [ ] Documentation impact is recorded: relevant guides, examples, API/deployment documentation and architecture are updated, or no change is needed with an explanation. Source/release claims reflect implemented and verified behavior.
 - [ ] Playground impact is recorded: update controls, capability/schema interpretation, exports, warnings and tests, or explain why no change is needed.
+- [ ] Website/release impact is assessed: link matching NuaForma/website develop work when needed; release handoff still requires its promoted, verified live downloads. Feature PRs target develop, not main.

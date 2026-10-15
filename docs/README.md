@@ -25,6 +25,7 @@ Choose a guide for the task you want to complete. Module guides are the technica
 ## Develop, extend and contribute
 
 - [Build and test](development.md).
+- [Branches, releases and the separate website](branch-workflow.md).
 - [Create/install extensions](extensions.md) and the [independent value-pipe example](../examples/value-pipes/README.md).
 - [Contribution guidelines](../CONTRIBUTING.md).
 - [Architecture decisions](../ARCHITECTURE.md), [provider contracts](../nuaforma-contracts/README.md) and [provider discovery/core](../nuaforma-core/README.md).
