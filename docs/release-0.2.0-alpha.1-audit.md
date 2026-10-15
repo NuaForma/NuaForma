@@ -1,0 +1,27 @@
+# 0.2.0-alpha.1 distribution review
+
+This evaluation prerelease retains separate Java-17-compatible libraries and native AMD64/ARM64 production and Playground images. The Playground is a development application with sensitive diagnostic logging, not the production image. No `latest` alias is permitted.
+
+## Evidence and source provision
+
+The [protected signing review](https://github.com/NuaForma/NuaForma/actions/runs/38775210535) verified all twenty POM/main/source/documentation artifacts with the approved OpenPGP identity. Independently compiled Java 17/Kotlin consumers passed. Release preparation and native checks passed in [PR #83](https://github.com/NuaForma/NuaForma/pull/83).
+
+The [four native candidate reviews](https://github.com/NuaForma/NuaForma/actions/runs/38776306886) bind production/Playground and AMD64/ARM64 inventories to source `2408b623cdb239f29d7e0a9c92504dc929b1b864`. All application JAR hashes match the retained, upstream-verified material; all Debian source/version pairs are covered by the exact retained descriptors, original archives and distribution patches. Both Java 17 and Java 25 runtime file inventories are bound separately for each architecture. Matching OpenJDK sources, upstream build scripts, original notices and the pinned container recipe are retained. A later metadata-only source tag does not imply that the candidate image configuration digest remains unchanged; the pre-transfer gate checks the newly built inventories again.
+
+Original application materials include the added Apache-2.0 Log4j components, original docx4j/Xalan attribution, MBassador MIT text and ANTLR 2's original source distribution. The four source archives also retain LibreOffice's matching source/external build inputs and font notices, both JVM sources/build materials and veraPDF's matching sources/profiles with MPL-2.0 and CC-BY-4.0 attribution. Bubblewrap's exact source and LGPL texts remain inside the images. No private fonts, operator extensions, documents or credentials are distribution inputs. The combined image is not wholly Apache-2.0.
+
+The [versioned release](https://github.com/NuaForma/NuaForma/releases/tag/v0.2.0-alpha.1) must expose the four matching source archives and `SHA256SUMS.sources` anonymously before any binary transfer. `release-materials/0.2.0-alpha.1.json` and its Playground companion bind the exact inventory hashes to these sources. Final archive/configuration hashes and anonymously checked source access belong in the separately reviewed `release-approvals` records before registry or Central publication. This review does not substitute for those automated gates or claim that an upload has already occurred.
+
+## Explicit evaluation-alpha risk acceptance
+
+On 2026-10-15 the maintainer explicitly accepted the remaining native-runtime risk for **0.2.0-alpha.1**, after being informed that the previous 0.1 acceptance did not carry forward, that current FreeType/Expat findings remain open and that updating the stable base alone does not necessarily fix them. This is fresh acceptance for this candidate, not a fix or a production-safety claim. Follow-up remains open in [issue #51](https://github.com/NuaForma/NuaForma/issues/51).
+
+The refreshed coordinate review queried 178 Debian/Maven coordinates and returned 189 distinct Debian advisory IDs across 36 source-package matches, eighteen more than the earlier review. These are not 189 demonstrated exploitable NuaForma vulnerabilities. The query returned no Maven-coordinate findings; it does not cover every embedded component, unknown issue or reachable code path. Some source-package matches concern absent services, but applicability of every remaining native path has not been disproved.
+
+The pinned renderer contains FreeType `2.13.3+dfsg-1+deb13u1` and Expat `2.8.3-1~deb13u1`. Current Debian primary evidence includes [CVE-2026-95512](https://security-tracker.debian.org/tracker/CVE-2026-95512), [CVE-2026-76957](https://security-tracker.debian.org/tracker/CVE-2026-76957), [CVE-2026-77214](https://security-tracker.debian.org/tracker/CVE-2026-77214) and [CVE-2026-93990](https://security-tracker.debian.org/tracker/CVE-2026-93990). Private namespaces, denied renderer networking and resource limits mitigate risk; they do not repair these libraries or prove non-exploitability. Distribution remains for evaluation, without built-in authentication/TLS; remote operators need their own authenticated TLS gateway and appropriate quotas/host policy.
+
+## Qualification scope
+
+Both architectures and both applications passed the native release preparation, including isolated runtime, actual service behavior, shipped inventories and Playground activation/warnings. Earlier independently checked layout/barcode/font evidence remains scoped to its recorded fixtures and supported template profile. The maintainer explicitly requested no additional local document generation, renders or container qualification during this publication. The new Base64-image sample kit has structural checks; no new manual visual qualification is claimed. The accepted text-box placement limitation in issue #32 remains unchanged.
+
+Website/download synchronization follows artifact availability. Publish matching production and Playground deployment instructions, native platform kits, current endpoint descriptions and the seven-scenario collections; bind the approved Helm digest and verify the live downloads. No completed site publication is asserted by this audit.
