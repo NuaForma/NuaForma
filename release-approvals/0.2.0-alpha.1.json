@@ -1,0 +1,148 @@
+{
+  "version": "0.2.0-alpha.1",
+  "application": "server",
+  "sourceCommit": "1d01ef28d92f355ffc9de7abd97274ac6193a57e",
+  "reviewer": "mrhoeve",
+  "latest": false,
+  "platforms": {
+    "amd64": {
+      "nativeQualificationArchitecture": "amd64",
+      "containerArchiveSha256": "40d80bd15fdcfb2e6dae6b88d0b0a852ceefd8a529b241ddc0bc3f89bd25e79c",
+      "containerConfigSha256": "55e4789a453ccd201883c3c255e28563090b03fc154170243c2049644428fded",
+      "approved": {
+        "containerAudit": true,
+        "sourceAccess": true,
+        "fidelityQualification": true,
+        "securityReview": true
+      },
+      "sourceMaterials": [
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-debian-0.2.0-alpha.1.tar",
+          "sha256": "b8cf080795e5ff50925c5bb11ce2840ac48060649b669dba8136153d32eeb27b",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-libreoffice-0.2.0-alpha.1.tar",
+          "sha256": "80bf39753e2f4534801a4b14038f923d44ac30f48bfadb425d1b1269e0e01451",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-java-0.2.0-alpha.1.tar",
+          "sha256": "5076d81dc1c8a7da0062bea9f3ede89fd86cbeaffd80f86159642412d3f81c44",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-jvm-0.2.0-alpha.1.tar",
+          "sha256": "a694baafe02a36b5496f8fbdc7d5b41aa53abbda6db59b048ca245384e78280a",
+          "verifiedAnonymousAccess": true
+        }
+      ],
+      "evidence": {
+        "nativeArchiveRun": "https://github.com/NuaForma/NuaForma/actions/runs/38781833884",
+        "metadata": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-metadata-amd64.tar.gz",
+        "metadataSha256": "e5353ab0088aa139bd8f0d61c92eaa8222698cc504c4f7e953d044d40470f5a6",
+        "componentSourceReview": "release-materials/0.2.0-alpha.1.json",
+        "distributionReview": "docs/release-0.2.0-alpha.1-audit.md",
+        "sourceAccess": "All four corresponding-source archives anonymously downloaded and SHA-256 verified locally; repeated by each successful native pre-transfer gate before binary upload.",
+        "checks": [
+          "exact signed source/version/application labels",
+          "both exact JVM/package and foreign-JAR inventories",
+          "native platform and renderer syscall filter",
+          "enforcing plain and compatibility sandbox probes",
+          "actual endpoint/OpenAPI/health/SBOM behavior and official CycloneDX schema validation",
+          "actual service PDF profiles, cancellation, private cleanup, missing converter and shipped entry point"
+        ],
+        "securityDisposition": "Fresh native-runtime advisory risk explicitly accepted by the maintainer for this evaluation alpha on 2026-10-15; not remediated. See distribution review and open issue #51.",
+        "fidelityScope": "Existing qualified renderer/font/layout/barcode evidence remains scoped to its fixtures. Both final native images passed their configured runtime checks; no additional local rendering or document qualification was performed at the maintainer's request. The new image example has structural checks only. Issue #32 remains accepted.",
+        "isolationEvidence": {
+          "plainSha256": "e217ea30b36a1170e01172e3d8321f05d7c20de34f014e8581f7631a47ab228a",
+          "compatibilitySha256": "306c8ee498f7a6264b26019df4c6a6f1e5f644590e9ba88dd47aff402712c2a7"
+        }
+      }
+    },
+    "arm64": {
+      "nativeQualificationArchitecture": "arm64",
+      "containerArchiveSha256": "29313889e479d4cdf79f5dd4e2a522d4dbced598b5f07b797158e7b4c3a7346a",
+      "containerConfigSha256": "1f8d50d5972e8c9c6030f115267b6bd6d5b6dfffadec8b1846e288ffd5a07ef0",
+      "approved": {
+        "containerAudit": true,
+        "sourceAccess": true,
+        "fidelityQualification": true,
+        "securityReview": true
+      },
+      "sourceMaterials": [
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-debian-0.2.0-alpha.1.tar",
+          "sha256": "b8cf080795e5ff50925c5bb11ce2840ac48060649b669dba8136153d32eeb27b",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-libreoffice-0.2.0-alpha.1.tar",
+          "sha256": "80bf39753e2f4534801a4b14038f923d44ac30f48bfadb425d1b1269e0e01451",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-java-0.2.0-alpha.1.tar",
+          "sha256": "5076d81dc1c8a7da0062bea9f3ede89fd86cbeaffd80f86159642412d3f81c44",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-jvm-0.2.0-alpha.1.tar",
+          "sha256": "a694baafe02a36b5496f8fbdc7d5b41aa53abbda6db59b048ca245384e78280a",
+          "verifiedAnonymousAccess": true
+        }
+      ],
+      "evidence": {
+        "nativeArchiveRun": "https://github.com/NuaForma/NuaForma/actions/runs/38781833884",
+        "metadata": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-metadata-arm64.tar.gz",
+        "metadataSha256": "88937df52713975ef87c124dc10b32b398efe837816c6ec2970a301bb502cd2e",
+        "componentSourceReview": "release-materials/0.2.0-alpha.1.json",
+        "distributionReview": "docs/release-0.2.0-alpha.1-audit.md",
+        "sourceAccess": "All four corresponding-source archives anonymously downloaded and SHA-256 verified locally; repeated by each successful native pre-transfer gate before binary upload.",
+        "checks": [
+          "exact signed source/version/application labels",
+          "both exact JVM/package and foreign-JAR inventories",
+          "native platform and renderer syscall filter",
+          "enforcing plain and compatibility sandbox probes",
+          "actual endpoint/OpenAPI/health/SBOM behavior and official CycloneDX schema validation",
+          "actual service PDF profiles, cancellation, private cleanup, missing converter and shipped entry point"
+        ],
+        "securityDisposition": "Fresh native-runtime advisory risk explicitly accepted by the maintainer for this evaluation alpha on 2026-10-15; not remediated. See distribution review and open issue #51.",
+        "fidelityScope": "Existing qualified renderer/font/layout/barcode evidence remains scoped to its fixtures. Both final native images passed their configured runtime checks; no additional local rendering or document qualification was performed at the maintainer's request. The new image example has structural checks only. Issue #32 remains accepted.",
+        "isolationEvidence": {
+          "plainSha256": "e217ea30b36a1170e01172e3d8321f05d7c20de34f014e8581f7631a47ab228a",
+          "compatibilitySha256": "306c8ee498f7a6264b26019df4c6a6f1e5f644590e9ba88dd47aff402712c2a7"
+        }
+      }
+    }
+  },
+  "approved": {
+    "libraryAudit": true
+  },
+  "libraryHashes": {
+    "nuaforma-contracts-0.2.0-alpha.1.pom": "1f7b4d835a3f2a6d4de2bcb3af98bfc431619b765fa3a21910068ceeb099c910",
+    "nuaforma-contracts-0.2.0-alpha.1.jar": "6b2c84d67baa1bba12db8a837298345f09c74448522512919b9f554f1d5b0cd2",
+    "nuaforma-contracts-0.2.0-alpha.1-sources.jar": "d0bf71a437a35b2ccaf0c11743f624349b18140dd7dafb42d7f2971d49446aa2",
+    "nuaforma-contracts-0.2.0-alpha.1-javadoc.jar": "83ddef63b8ba62a975a6696adea93093e736c9042d834cb270ea3c06c3dffad1",
+    "nuaforma-core-0.2.0-alpha.1.pom": "0cfe8780c2f881f7b431b28b0eeec36cfa8b10a27b31012c31ef002428c482b9",
+    "nuaforma-core-0.2.0-alpha.1.jar": "b00927eb210d8b4fac4036a59a129fdbd2c77ee69028ea70f25efb48620135ba",
+    "nuaforma-core-0.2.0-alpha.1-sources.jar": "31afd6d482bdb8fe8a7a2a669821e94a5fcee1f1869343ae481f48ae3d7dc360",
+    "nuaforma-core-0.2.0-alpha.1-javadoc.jar": "9832042be961da19373a2233660f2af40284187976fcf6fc28c7b7d037cac90b",
+    "nuaforma-template-0.2.0-alpha.1.pom": "3cfe59e01614f65fdd5ac493435fa709e729d58ddfa5eb7252e419bca37c9523",
+    "nuaforma-template-0.2.0-alpha.1.jar": "cb82b9af88afbe190c7c7ecdfb7e3ae1b8e5af75db6e37f9d76d85ca967096d8",
+    "nuaforma-template-0.2.0-alpha.1-sources.jar": "e34c2520a0d34fcce97548a6ba2aa6b7c91ac8124f1ea017a8f203b43c06084d",
+    "nuaforma-template-0.2.0-alpha.1-javadoc.jar": "7213aa9cdfde040dd19502843978f5e8d67aedb44ca36ca9e6ea2a2c46f55d56",
+    "nuaforma-docx-0.2.0-alpha.1.pom": "4913928a1114a2de881def051132d32bff12baff58bc5531f69635337dfccdcf",
+    "nuaforma-docx-0.2.0-alpha.1.jar": "735221c161780e7a11b26b6a03ad15b4fd97e1c1aede3240380a02d554242426",
+    "nuaforma-docx-0.2.0-alpha.1-sources.jar": "a8ee9de4d5167c85d9a6d2d6dea0185545d9c36b82e3f0750dc069cb0700f562",
+    "nuaforma-docx-0.2.0-alpha.1-javadoc.jar": "24b7265114afd0c291372bdf5ee47c0ec762591b1e87147d0bd5e30e8e60bdb5",
+    "nuaforma-docx-pdf-0.2.0-alpha.1.pom": "6e0fb785252a0e938f3b704878822cd80b06f5c4644097bc0afdf9596329a1b5",
+    "nuaforma-docx-pdf-0.2.0-alpha.1.jar": "fcc1b337816fe5976eb17c2b0803c49b6c9eb7b05f7a9a09897d48a36fe01ad6",
+    "nuaforma-docx-pdf-0.2.0-alpha.1-sources.jar": "2e5e5b4d8f4491f4e9c5d3da688b02e090434117c2761ec6681ab7ef65577b2d",
+    "nuaforma-docx-pdf-0.2.0-alpha.1-javadoc.jar": "3146cbe1cd1584616d65856d597089aa7f66c3f51551a49c216f93d3638e746d"
+  },
+  "libraryEvidence": {
+    "signingRun": "https://github.com/NuaForma/NuaForma/actions/runs/38775210535",
+    "scope": "All twenty POM/main/source/documentation artifacts and independent Java 17/Kotlin consumers; upload must independently match the reviewed artifact hashes from the signed tag."
+  }
+}
