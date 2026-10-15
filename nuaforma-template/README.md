@@ -132,6 +132,26 @@ Nested repeats count every visited element, including repetitions with empty bod
 
 `validate(source)` and `validateExpression(expression)` check syntax without accessing missing data or consuming output. Format adapters use them to validate unselected structural branches. This facade adds no document-library dependency and leaves the compiled text API unchanged.
 
+## Generator content pipes (unreleased source)
+
+Content pipes insert document content; they are not the planned chainable JSON value pipes (#56). A selected generator explicitly registers its implementations. No standard content pipe is installed by this change; the image pipe is tracked separately in #59. Published alpha images/libraries do not yet include this API.
+
+The grammar is `{expression | registeredName(argumentExpression, ...)}`. Parentheses are required even with no arguments. Values and arguments use the existing expression grammar, including paths, local aliases, string functions and explicit `??` fallbacks. Arguments are positional, with at most 16; required arguments precede optional arguments. The generator declares types, defaults and allowed values. Omitted optional arguments use their declared default; optional null arguments pass through, while required arguments reject null. Allowed-value constraints apply to non-null arguments using structural JSON equality, with numeric values compared independently of their JVM number type or decimal scale. Numbers from template expressions use the existing `BigDecimal` model. Missing values fail before callback execution; an explicit null input value reaches the implementation, which declares its null behavior. Inserted content remains literal.
+
+```text
+{company.name | companyLabel("Legal name: ")}
+{company.optionalName ?? null | companyLabel()}
+{#each groups as group}{#if group.active}{group.name | companyLabel()}{/if}{/each}
+```
+
+There must be exactly one pipe in a content marker. Preceding/following pipes, mixed formatter/content chains and unknown registrations fail during validation, including inside unselected branches. Existing `number("pattern")` and `date("pattern")` formatting is unchanged. Plain `Templates.compile`, `TemplateSession.expand` and requested text watermarks reject content markers rather than stringifying or dropping them.
+
+Format integrations use the additive `ContentTemplates.open(data, pipes, options, context)` facade. Call `validate` on all source locations before document mutation, then use `expandContent` to obtain UTF-16 source spans and structured `ContentResult` values. `branch`/`repeat` retain the same registrations, scoped bindings and cumulative budgets. `validateText` and inherited `expand` explicitly select text-only semantics. Standard results are immutable `ContentResult.Text` and `ContentResult.Empty`; text inherits the opening marker's formatting. The interface is open for trusted generator-owned structured variants: the template transports them without reflection or `toString()`, while the owning generator must explicitly recognize and bound its variants. These are not arbitrary JSON values or host/document-library object wrappers. Built-in DOCX rejects unknown result types before output publication; no implicit fallback exists.
+
+Only the evaluated value, positional arguments and explicit locale/time-zone/cooperative cancellation context reach an implementation. Structured inputs are deeply immutable copies. Registration collisions fail deterministically; no classpath-order selection or template-driven class loading occurs. At most 128 registrations, 16 arguments and 4,096 content executions per session are allowed, additionally limited by the caller's repetition budget. Input copies, expressions, Unicode text and inserted output share the existing operation/output/deadline limits. Extension failures are sanitized, without input values or original causes. These are trusted in-process extensions: a blocking or allocating callback cannot be safely preempted; implementations must check cancellation and bound their own work.
+
+See the [DOCX registration example](../nuaforma-docx/README.md#generator-content-pipes-unreleased-source) and [public contracts](../nuaforma-contracts/README.md#optional-generator-content-pipes-unreleased-source). Capability endpoint exposure is a separate follow-up (#60), not implied by this metadata API.
+
 ## Executable specification
 
 ```sh

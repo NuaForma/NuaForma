@@ -4,6 +4,8 @@ import dev.nuaforma.contracts.*
 import dev.nuaforma.docx.internal.DocxFailure
 import dev.nuaforma.docx.internal.WatermarkPolicy
 import dev.nuaforma.template.TemplateSession
+import dev.nuaforma.template.ContentTemplates
+import dev.nuaforma.template.ContentTemplateSession
 import org.docx4j.TraversalUtil
 import org.docx4j.XmlUtils
 import org.docx4j.openpackaging.packages.WordprocessingMLPackage
@@ -11,23 +13,25 @@ import org.docx4j.openpackaging.parts.WordprocessingML.HeaderPart
 import org.docx4j.openpackaging.parts.WordprocessingML.FooterPart
 import org.docx4j.wml.*
 
-internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, private val context: GenerationContext) {
-    private val root = TemplateSession.open(data, options, context)
+internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, private val context: GenerationContext, pipes: List<ContentPipe>) {
+    private val root = ContentTemplates.open(data, pipes, options, context)
     private val watermark = options.watermark
     private val identities = WordIdentities(context)
     private var visits = 0L
 
     fun apply(document: WordprocessingMLPackage): TextWatermark? {
-        watermark?.let { root.validate(it.text) }
+        watermark?.let { root.validateText(it.text) }
         val roots = listOf(document.mainDocumentPart.jaxbElement.body) + document.parts.parts.values.mapNotNull {
             when (it) { is HeaderPart -> it.jaxbElement; is FooterPart -> it.jaxbElement; else -> null }
         }
-        (roots + document.parts.parts.values.mapNotNull { when (it) {
+        val unsupported = document.parts.parts.values.mapNotNull { when (it) {
             is org.docx4j.openpackaging.parts.WordprocessingML.FootnotesPart -> it.jaxbElement
             is org.docx4j.openpackaging.parts.WordprocessingML.EndnotesPart -> it.jaxbElement
             is org.docx4j.openpackaging.parts.WordprocessingML.CommentsPart -> it.jaxbElement
             else -> null
-        } }).forEach { identities.collect(it) }
+        } }
+        (roots + unsupported).forEach { identities.collect(it) }
+        unsupported.forEach { rejectUnsupportedContent(it, 1) }
         roots.forEach { process(it, root, true, 1) }
         roots.forEach { process(it, root, false, 1) }
         return watermark?.let { requested ->
@@ -43,24 +47,41 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         }
     }
 
-    private fun process(raw: Any, session: TemplateSession, validateOnly: Boolean, depth: Int) {
+    private fun rejectUnsupportedContent(raw: Any, depth: Int) {
+        context.checkActive()
+        if (++visits > 1_000_000 || depth > 128) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "DOCX structure exceeds processing limits")
+        val node = XmlUtils.unwrap(raw)
+        val content = children(node)
+        if (node is P || node is P.Hyperlink) {
+            val text = WordRuns.detectionSource(content)
+            if (ContentTemplates.containsContentMarker(text, context)) invalid("Content pipes are unsupported in comments, footnotes or endnotes")
+        }
+        content.forEach { rejectUnsupportedContent(it, depth + 1) }
+    }
+
+    private fun process(raw: Any, session: ContentTemplateSession, validateOnly: Boolean, depth: Int, inlineHandled: Boolean = false) {
         context.checkActive()
         if (++visits > 1_000_000 || depth > 128) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "DOCX structure exceeds processing limits")
         val node = XmlUtils.unwrap(raw)
         val children = children(node)
+        if (validateOnly && node is R && WordRuns.plain(node) && !inlineHandled &&
+            ContentTemplates.containsContentMarker(WordRuns.source(listOf(node)), context)) {
+            invalid("Content pipes require ordinary paragraph or hyperlink text, not field results or content controls")
+        }
         if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context)
-        if (node is R) WordRuns.mixed(node, session, validateOnly)
+        if (node is R) WordRuns.mixed(node, session, validateOnly, context)
         if (node is Body || node is Hdr || node is Ftr || node is Tc || node is Tbl || node is CTTxbxContent ||
             node is org.docx4j.vml.CTTextbox || modernTextBox(node)) blocks(children, session, validateOnly, depth)
-        else children.toList().forEach { process(it, session, validateOnly, depth + 1) }
+        else children.toList().forEach { process(it, session, validateOnly, depth + 1,
+            (node is P || node is P.Hyperlink) && XmlUtils.unwrap(it) is R) }
         if (!validateOnly && node is Tc && (children.isEmpty() || XmlUtils.unwrap(children.last()) !is P)) children.add(P())
         if (!validateOnly && node is Tbl && children.none { XmlUtils.unwrap(it) is Tr }) invalid("Conditions or repeats removed every table row; wrap the whole table instead")
     }
 
-    private fun blocks(content: MutableList<Any>, session: TemplateSession, validateOnly: Boolean, depth: Int) {
+    private fun blocks(content: MutableList<Any>, session: ContentTemplateSession, validateOnly: Boolean, depth: Int) {
         val plan = parse(content, session, depth)
         if (validateOnly) {
-            fun validate(nodes: List<Block>, scope: TemplateSession, dynamic: Boolean, repeated: Boolean) { nodes.forEach { when (it) {
+            fun validate(nodes: List<Block>, scope: ContentTemplateSession, dynamic: Boolean, repeated: Boolean) { nodes.forEach { when (it) {
                 is Item -> { if (dynamic) identities.boundary(it.value, repeated); process(it.value, scope, true, depth + 1) }
                 is Condition -> { scope.validateExpression(it.expression); val child = scope.branch(); validate(it.yes, child, true, repeated); validate(it.no, child, true, repeated) }
                 is Repeat -> { scope.validateExpression(it.expression); validate(it.body, scope.branch(), true, true) }
@@ -68,7 +89,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
             validate(plan, session, false, false)
             return
         }
-        fun emit(nodes: List<Block>, scope: TemplateSession, clone: Boolean): List<Any> {
+        fun emit(nodes: List<Block>, scope: ContentTemplateSession, clone: Boolean): List<Any> {
             val output = mutableListOf<Any>()
             nodes.forEach { block -> when (block) {
                 is Item -> {

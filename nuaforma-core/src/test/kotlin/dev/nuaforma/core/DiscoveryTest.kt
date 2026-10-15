@@ -20,6 +20,58 @@ class DiscoveryTest {
         GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(output, options))
 
     @Test
+    fun `independent Java generator owns optional content contract without document or template dependencies`() {
+        val fixtures = PackagedProviders(directory)
+        val jar = fixtures.jar("Content", sourceTransform = { source -> source
+            .replace("implements DocumentProvider", "implements DocumentProvider, ContentPipeProvider, ContentPipe")
+            .replace("    public ProviderCapabilities capabilities()", """
+                public ContentPipeDefinition getDefinition() {
+                    return new ContentPipeDefinition("company", "Independent content",
+                        List.of(), List.of(new ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.DOCX)), "Null inserts nothing");
+                }
+                public List<ContentPipeDefinition> contentPipes() { return List.of(getDefinition()); }
+                public static final class CustomResult implements ContentResult {
+                    private final String text;
+                    public CustomResult(String text) { this.text = text; }
+                    public String getText() { return text; }
+                    public String toString() { throw new AssertionError("Custom content must not be stringified"); }
+                }
+                public ContentResult apply(Object value, List<? extends Object> arguments, ContentPipeContext context) throws GenerationException {
+                    context.checkActive();
+                    if (value instanceof String text && text.startsWith("custom:")) return new CustomResult(text);
+                    return value == null ? ContentResult.Empty.INSTANCE : new ContentResult.Text("company:" + (String) value);
+                }
+                public ProviderCapabilities capabilities()
+            """.trimIndent())
+            .replace("output.write(request.getData().getOrDefault(\"reference\", \"fixture\").toString().getBytes(StandardCharsets.UTF_8));", """
+                ContentResult result = apply(request.getData().get("reference"), List.of(), new ContentPipeContext(
+                    request.getRequirements().getOptions().getLocale(), request.getRequirements().getOptions().getTimeZone(), context));
+                if (result instanceof ContentResult.Text text) output.write(text.getText().getBytes(StandardCharsets.UTF_8));
+                else if (result instanceof CustomResult custom) output.write(custom.getText().getBytes(StandardCharsets.UTF_8));
+            """.trimIndent()) })
+        fixtures.loader(jar).use { loader ->
+            val registry = ProviderRegistry.discover(loader)
+            assertTrue(registry.diagnostics.isEmpty())
+            val provider = registry.providers.single().provider
+            assertEquals("company", (provider as ContentPipeProvider).contentPipes().single().name)
+            assertFalse(provider.contentPipes().single().chainable)
+            val result = (provider as ContentPipe).apply("{literal}", emptyList(), ContentPipeContext(
+                java.util.Locale.ROOT, java.time.ZoneId.of("UTC"), GenerationContext()))
+            assertEquals("company:{literal}", (result as ContentResult.Text).text)
+            val output = ByteArrayOutputStream()
+            registry.generate(GenerationRequest(ByteArray(0).inputStream(), requirements(), mapOf("reference" to "{literal}")), output, GenerationContext())
+            assertEquals("company:{literal}", output.toString(Charsets.UTF_8))
+            val custom = provider.apply("custom:{literal}", emptyList(), ContentPipeContext(
+                java.util.Locale.ROOT, java.time.ZoneId.of("UTC"), GenerationContext()))
+            assertFalse(custom is ContentResult.Text)
+            assertNotSame(ContentResult.Empty, custom)
+            val customOutput = ByteArrayOutputStream()
+            registry.generate(GenerationRequest(ByteArray(0).inputStream(), requirements(), mapOf("reference" to "custom:{literal}")), customOutput, GenerationContext())
+            assertEquals("custom:{literal}", customOutput.toString(Charsets.UTF_8))
+        }
+    }
+
+    @Test
     fun `independent Java provider is discovered through standard service registration`() {
         val fixtures = PackagedProviders(directory)
         fixtures.loader(fixtures.jar("Happy")).use { loader ->
