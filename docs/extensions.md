@@ -10,7 +10,7 @@ Extensions let an application supply private behavior without changing NuaForma 
 | Value pipe | A JSON-compatible transformation with arguments and chaining | Pipe ServiceLoader metadata, or an explicit template registry |
 | Content pipe | Structured content inserted by its owning generator | Explicit generator registration, not a global content-pipe ServiceLoader |
 
-Value/content pipes are implemented in current source but absent from the published `0.1.0-alpha.1` libraries and `0.1.0-alpha.3` container. Use locally staged source artifacts until a matching release is available; see [version status](README.md#source-versus-published-versions). Provider extensions remain governed by their declared contract version and actual runtime dependencies.
+Value/content pipes are available in `0.2.0-alpha.1`, with minimum contract `0.2`; see [version status](README.md#source-versus-published-versions). Historical `0.1` artifacts do not contain these APIs. Provider extensions remain governed by their declared contract version and actual runtime dependencies.
 
 ## Implement a provider
 
@@ -23,7 +23,7 @@ META-INF/services/dev.nuaforma.contracts.DocumentProvider
 META-INF/nuaforma/providers/<binary-implementation-class-name>.properties
 ```
 
-The [contracts reference](../nuaforma-contracts/README.md#static-provider-metadata-and-versioning) specifies the descriptor fields; the [core guide](../nuaforma-core/README.md#metadata-before-provider-loading) describes origin validation before initialization. Contract compatibility uses same-major/minimum-minor matching, not exact minor matching. Candidate contract `0.2` accepts legacy providers requiring `0.1`. Providers using the new APIs must require `0.2`; built-in DOCX/PDF providers now do so, allowing an older runtime to reject them before loading. Release version `0.2.0-alpha.1` is separate from required contract `0.2`.
+The [contracts reference](../nuaforma-contracts/README.md#static-provider-metadata-and-versioning) specifies the descriptor fields; the [core guide](../nuaforma-core/README.md#metadata-before-provider-loading) describes origin validation before initialization. Contract compatibility uses same-major/minimum-minor matching, not exact minor matching. Contract `0.2` accepts legacy providers requiring `0.1`. Providers using the new APIs must require `0.2`; built-in DOCX/PDF providers now do so, allowing an older runtime to reject them before loading. Release version `0.2.0-alpha.1` is separate from required contract `0.2`.
 
 The [independent Java provider example](../examples/embedded/README.md#third-party-providers) compiles against contracts only and demonstrates a company-owned format, SPI and explicit registration. Follow the complete contracts for streams, resource limits, concurrency, cancellation, diagnostics and option rejection; the example is not a universal renderer.
 
@@ -52,7 +52,7 @@ Expose metadata through the optional provider facets so capabilities and the [Pl
 
 ## Package, install and verify
 
-For broad embedded use, compile against Java 17 and matching contracts. The source Java 25 server can also load server-only Java 25 extensions, but those are not Java-17-compatible libraries. Existing alpha.3 containers run Java 17. Keep non-conflicting dependencies explicit; do not bundle duplicate NuaForma/Kotlin/application classes or rely on manifest `Class-Path` downloads.
+For broad embedded use, compile against Java 17 and matching contracts. The `0.2.0-alpha.1` Java 25 server can also load server-only Java 25 extensions, but those are not Java-17-compatible libraries. Historical `0.1` containers run Java 17. Keep non-conflicting dependencies explicit; do not bundle duplicate NuaForma/Kotlin/application classes or rely on manifest `Class-Path` downloads.
 
 Embedded applications put JARs on their trusted classpath or configure an explicit loader/registry. Keep a custom loader alive as long as its registrations are used. The source server snapshots read-only operator JARs from `/opt/nuaforma/extensions` at startup; restart after changes. See the [mount guide](../deployment/pdf-runtime/MOUNTS.md) for budgets, conflict checks and deployment paths. REST uploads are document/font resources, never executable extension installation.
 

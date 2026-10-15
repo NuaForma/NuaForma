@@ -40,5 +40,12 @@
     "profile": "PDF/A-2b \u00b7 no watermark",
     "description": "An empty project list expands to no projects. A data string containing a placeholder is not evaluated a second time.",
     "expected": "No repeated project content; the literal text {customer.name} remains in the message."
+  },
+  {
+    "file": "07-base64-image-pdfa3b.json",
+    "title": "Base64 image from data",
+    "profile": "PDF/A-3b \u00b7 image content pipe",
+    "description": "A real Base64 PNG in data.image is inserted by image(60, 25, true).",
+    "expected": "A teal IMAGE FROM JSON illustration, 60 mm wide and 20 mm high, preserving its 3:1 ratio. Other scenarios supply null and add no image."
   }
 ]

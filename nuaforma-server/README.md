@@ -1,8 +1,8 @@
 # REST service
 
-Unreleased source adds safe correlated operational logging and explicit `NUAFORMA_MODE=development` diagnostics; see the [configuration, privacy and forwarding guide](../docs/logging.md). Every application-level response has a generated `X-Request-ID`; safe errors also return the matching `requestId`. Neither incoming headers nor request/template options enable development mode. Published alpha images are unchanged.
+Version `0.2.0-alpha.1` adds safe correlated operational logging and explicit `NUAFORMA_MODE=development` diagnostics; see the [configuration, privacy and forwarding guide](../docs/logging.md). Every application-level response has a generated `X-Request-ID`; safe errors also return the matching `requestId`. Neither incoming headers nor request/template options enable development mode. Historical `0.1` images are unchanged.
 
-The unreleased source providers use the same [value pipes](../nuaforma-template/README.md#extensible-value-pipes-unreleased-source) in embedded and REST document/watermark generation. Operator-installed JARs use the existing [read-only extension mount and startup snapshot](../deployment/pdf-runtime/MOUNTS.md); request data cannot register code or configure class loaders. Provider construction captures the startup registry, so later request threads do not rediscover extensions. Source capabilities/OpenAPI include the provider-owned pipe catalogs described below (#60). This does not add value pipes to the published alpha image.
+The `0.2.0-alpha.1` providers use the same [value pipes](../nuaforma-template/README.md#extensible-value-pipes-unreleased-source) in embedded and REST document/watermark generation. Operator-installed JARs use the existing [read-only extension mount and startup snapshot](../deployment/pdf-runtime/MOUNTS.md); request data cannot register code or configure class loaders. Provider construction captures the startup registry, so later request threads do not rediscover extensions. Source capabilities/OpenAPI include the provider-owned pipe catalogs described below (#60). These pipes require `0.2.0-alpha.1` or newer; historical `0.1` images remain unchanged.
 
 Development-stage Java 25 service using Ktor CIO and the same public Java-17-compatible engine/provider contracts as embedded generation. No second template evaluator, storage backend or implicit resource fetching is introduced. Equivalent OpenAPI JSON/YAML downloads, the [native AMD64/ARM64 on-premise container](../deployment/pdf-runtime/SERVICE.md), operator mounts and per-provider font catalogs are implemented. Install JDK 17 and JDK 25 for the source build; Gradle selects the appropriate module toolchains. Published containers through `0.1.0-alpha.3` remain on Java 17 until a separately approved release; see [runtime compatibility](../docs/java-runtime-compatibility.md). No public service or image is deployed by the build.
 
@@ -41,7 +41,7 @@ Each provider in `/api/v1/capabilities` includes `fonts: {status, entries}`. Sta
 
 ## Build version
 
-`GET /api/v1/version` returns the packaged version, for example `{"version":"0.2.0-alpha.1","contractVersion":"0.2","commit":"<full-source-commit>"}` for the current candidate, with JSON, `Cache-Control: no-store` and `nosniff`. Gradle records the application version and Git HEAD during the build and packages them in the server JAR; changing either invalidates generation. The contract version comes from the running contracts module. When Git identity is unavailable (for example, building an extracted source archive), `commit` is null. No timestamp, host paths, credentials or deployment environment is exposed. A commit identifies the checkout base, not proof that local sources were clean or a release was approved. OpenAPI `info.version` uses the same generated application version. This endpoint uses normal HTTP admission/deadline limits but never checks fonts, provider availability or conversion readiness.
+`GET /api/v1/version` returns the packaged version, for example `{"version":"0.2.0-alpha.1","contractVersion":"0.2","commit":"<full-source-commit>"}` for this release, with JSON, `Cache-Control: no-store` and `nosniff`. Gradle records the application version and Git HEAD during the build and packages them in the server JAR; changing either invalidates generation. The contract version comes from the running contracts module. When Git identity is unavailable (for example, building an extracted source archive), `commit` is null. No timestamp, host paths, credentials or deployment environment is exposed. A commit identifies the checkout base, not proof that local sources were clean or a release was approved. OpenAPI `info.version` uses the same generated application version. This endpoint uses normal HTTP admission/deadline limits but never checks fonts, provider availability or conversion readiness.
 
 ## OpenAPI downloads and export
 
@@ -59,7 +59,9 @@ Resource file parts use `resource.<id>` and the OpenAPI 3.1 multipart schema's `
 
 Swagger Parser 2.1.48 is test-only. Tests parse the two real HTTP downloads independently, compare their complete JSON trees, check local references, exercise documented endpoints and compare representative schema-valid/invalid envelopes with the actual decoder. The behavioral schema assertions cover the explicitly used keyword subset and fail on newly unsupported keywords; they are not advertised as a general-purpose JSON Schema validator. Tests include multipart resource-name validation and deliberate contract drift. Jackson parser transitives are test-aligned to patched 2.22.3; neither Swagger/Jackson/SnakeYAML nor their vendor models enter production artifacts. YAML emission uses a small JSON-compatible YAML 1.2 subset with every string/key quoted and no tags/anchors; parsing is performed only by independent test tooling.
 
-## Pipe capabilities (unreleased source)
+<a id="pipe-capabilities-unreleased-source"></a>
+
+## Pipe capabilities
 
 Each provider in `GET /api/v1/capabilities` now includes separate `valuePipes` and `contentPipes` catalogs, derived from its actual `TemplatePipeProvider`/`ContentPipeProvider` registration snapshots. Each catalog has `status` (`AVAILABLE`, `UNSUPPORTED` or `UNAVAILABLE`), sorted `entries` and safe `diagnostics`. An available empty registry differs from a provider without the optional facet. Invalid or colliding metadata fails closed for that provider's pipe catalogs without leaking exception text.
 
@@ -67,7 +69,7 @@ Value entries expose name, description, positional argument definitions/defaults
 
 Content entries expose the same descriptive fields with `chainable: false`, insertion `contexts`, accepted source `contentTypes`, `declaredSupport` and `availableSupport`. Each support entry contains input/output format IDs and profiles. Empty profiles mean the profiles qualified by that generator, not every possible PDF variant. Runtime availability narrows combinations but is not a reservation or validation of template content/options. For example, the PDF provider can declare image insertion into DOCX/PDF while advertising only DOCX as currently usable when the converter is absent. Explicit PDF/A-1b transparency restrictions still apply. Always assess the complete requested options and choose the enclosing provider explicitly when matches are ambiguous.
 
-The existing capability fields remain intact. Listing pipes does not scan plugins, invoke callbacks, decode images or generate documents. Embedded callers query the same optional contract facets; no transport types or new mandatory provider methods are introduced. These additions are source-only and not present in existing published alpha artifacts. The planned Playground uses these catalogs directly rather than maintaining a separate pipe inventory.
+The existing capability fields remain intact. Listing pipes does not scan plugins, invoke callbacks, decode images or generate documents. Embedded callers query the same optional contract facets; no transport types or new mandatory provider methods are introduced. These additions are available from `0.2.0-alpha.1`. The separate Playground uses these catalogs directly rather than maintaining a separate pipe inventory.
 
 ## Request envelope
 
@@ -95,11 +97,13 @@ Both POST routes use the same JSON envelope:
 
 Requested watermarks have the same defaults, validation and restricted language as embedded generation: resolve once against `data`, share generation budgets, do not reevaluate inserted values, and omit a blank resolved result. Existing template layout/watermarks remain under the documented provider policies. PDF conversion leaves DOCX output unchanged; the scoped text-box limitation in #32 still applies.
 
-## Generator content pipes (unreleased source)
+<a id="generator-content-pipes-unreleased-source"></a>
+
+## Generator content pipes
 
 The HTTP envelope does not register content pipes or carry executable code. An installed trusted provider may explicitly compose the new generator-owned content registry; its DOCX template uses the same `{value | registeredName(arguments)}` syntax, data scopes and safe failure rules as embedded generation. JSON values remain literal, including strings containing braces. Output profile selection remains in `output.options`, not in a separate content-pipe request object. Text watermarks reject content markers.
 
-Source builds include the [bounded standard image pipe](../nuaforma-docx/README.md#image-content-pipe-unreleased-source); published alpha images do not. Use `{company.logo | image(40, 20)}` in ordinary template text and submit the same Base64 data in the existing JSON envelope, for example:
+Version `0.2.0-alpha.1` includes the [bounded standard image pipe](../nuaforma-docx/README.md#image-content-pipe-unreleased-source); historical `0.1` images do not. Use `{company.logo | image(40, 20)}` in ordinary template text and submit the same Base64 data in the existing JSON envelope, for example:
 
 ```json
 {"input":{"format":"docx"},"output":{"format":"pdf","options":{"profile":"pdfa-3b"}},"data":{"company":{"logo":"<strict padded Base64 PNG or JPEG bytes>"}}}

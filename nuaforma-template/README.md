@@ -38,7 +38,7 @@ You {#if active}have {#if count >= 2}multiple orders{#else}one order{/if}{#else}
 
 With `active = true` and `count = 2`, this produces `You have multiple orders.` without introducing a newline. To remove a block's line break, include that line break inside the condition. Unclosed or mismatched markers and unsupported directives fail at compilation, even in a branch that would not be selected. Unescaped unmatched braces are invalid template syntax.
 
-Inserted data is always literal: a value containing `{secret}` or `{#if true}` is never parsed again. It does not need template-brace escaping. String literals inside markers are double-quoted, with JSON escapes, and may contain braces. Built-in formatters and installed value pipes can form the explicit chains described below in unreleased source. Only the built-in string functions below are callable as expressions; arbitrary application methods and user-defined functions are not supported.
+Inserted data is always literal: a value containing `{secret}` or `{#if true}` is never parsed again. It does not need template-brace escaping. String literals inside markers are double-quoted, with JSON escapes, and may contain braces. Built-in formatters and installed value pipes can form the explicit chains described below from `0.2.0-alpha.1`. Only the built-in string functions below are callable as expressions; arbitrary application methods and user-defined functions are not supported.
 
 ## Paths and scopes
 
@@ -132,9 +132,11 @@ Nested repeats count every visited element, including repetitions with empty bod
 
 `validate(source)` and `validateExpression(expression)` check syntax without accessing missing data or consuming output. Format adapters use them to validate unselected structural branches. This facade adds no document-library dependency and leaves the compiled text API unchanged.
 
-## Extensible value pipes (unreleased source)
+<a id="extensible-value-pipes-unreleased-source"></a>
 
-Value pipes transform JSON-compatible values and preserve intermediate types. They are not available in the published alpha libraries or containers. A trusted application installs `TemplatePipe` implementations; templates only select registered names. No dependency download, hot reload or scripting engine is involved.
+## Extensible value pipes
+
+Value pipes transform JSON-compatible values and preserve intermediate types. They are available from `0.2.0-alpha.1`, not historical `0.1` artifacts. A trusted application installs `TemplatePipe` implementations; templates only select registered names. No dependency download, hot reload or scripting engine is involved.
 
 ```text
 {customer | select("account") | select("total") | number("0.00")}
@@ -202,9 +204,11 @@ Installed extensions have full application-process permissions. They must bound 
 
 See the independent [Java-17 Kotlin extension and consumer](../examples/value-pipes/README.md), [DOCX registration](../nuaforma-docx/README.md#value-pipes-unreleased-source) and [operator mount guide](../deployment/pdf-runtime/MOUNTS.md). Source REST capabilities expose these provider-owned catalogs through #60.
 
-## Generator content pipes (unreleased source)
+<a id="generator-content-pipes-unreleased-source"></a>
 
-Content pipes insert document content; they are separate from chainable JSON value pipes. A selected generator explicitly registers its implementations. The template module supplies no image decoder; the DOCX generator registers the [bounded standard image pipe](../nuaforma-docx/README.md#image-content-pipe-unreleased-source) for DOCX and PDF source generation. Published alpha images/libraries do not yet include these APIs.
+## Generator content pipes
+
+Content pipes insert document content; they are separate from chainable JSON value pipes. A selected generator explicitly registers its implementations. The template module supplies no image decoder; the DOCX generator registers the [bounded standard image pipe](../nuaforma-docx/README.md#image-content-pipe-unreleased-source) for DOCX and PDF source generation. These APIs are available from `0.2.0-alpha.1`.
 
 The grammar is `{expression | registeredName(argumentExpression, ...)}`. Parentheses are required even with no arguments. Values and arguments use the existing expression grammar, including paths, local aliases, string functions and explicit `??` fallbacks. Arguments are positional, with at most 16; required arguments precede optional arguments. The generator declares types, defaults and allowed values. Omitted optional arguments use their declared default; optional null arguments pass through, while required arguments reject null. Allowed-value constraints apply to non-null arguments using structural JSON equality, with numeric values compared independently of their JVM number type or decimal scale. Numbers from template expressions use the existing `BigDecimal` model. Missing values fail before callback execution; an explicit null input value reaches the implementation, which declares its null behavior. Inserted content remains literal.
 

@@ -1,6 +1,6 @@
 services:
   nuaforma:
-    image: ghcr.io/nuaforma/nuaforma:0.1.0-alpha.3
+    image: ghcr.io/nuaforma/nuaforma:0.2.0-alpha.1
     platform: linux/arm64
     init: true
     user: "1000:1000"

@@ -2,7 +2,11 @@
 
 A separate, development-only Java 25 application over the same REST server and engine. Production `nuaforma-server` artifacts and the `service` image do not depend on this module or contain its browser assets. The five embedded libraries retain Java 17 support. There is no separate generation implementation and no browser framework/CDN dependency.
 
-## Local container preview
+## Run the development container
+
+Use `ghcr.io/nuaforma/nuaforma-playground:0.2.0-alpha.1` with the complete [AMD64](https://nuaforma.dev/downloads/docker-playground-kit.zip) or [ARM64](https://nuaforma.dev/downloads/docker-playground-arm64-kit.zip) deployment kit. Extract all files, retain the reviewed security settings and run `docker compose up -d`; then open `http://localhost:8080/playground/`. Do not start production and Playground on the same host port. Development logging may include document content and field values: use synthetic data and supply your own access controls. There is no `latest` prerelease tag.
+
+## Build a local container preview
 
 Build the server/validator distributions and matching license materials as described in the [service guide](../deployment/pdf-runtime/SERVICE.md), then prepare this application:
 

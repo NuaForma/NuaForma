@@ -48,7 +48,8 @@
     "delivery": {
       "filename": "summary.pdf"
     },
-    "message": "Literal markers stay literal: {customer.name}"
+    "message": "Literal markers stay literal: {customer.name}",
+    "image": null
   },
   "options": {
     "locale": "en-GB",

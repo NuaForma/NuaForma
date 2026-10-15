@@ -10,7 +10,7 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [PDF output](../nuaforma-docx-pdf/README.md): standard/PDF-A profiles, font requirements, isolation and fidelity limits.
 - [REST API](../nuaforma-server/README.md): multipart requests/resources, capabilities, assessment, errors and downloadable OpenAPI JSON/YAML.
 - [Embedded Java/Kotlin examples](../examples/embedded/README.md): consume library artifacts without running a server.
-- [Development Playground](../nuaforma-playground/README.md): prepare/export requests, select/upload fonts and generate documents through the same API; available in source builds, not existing alpha images.
+- [Development Playground](../nuaforma-playground/README.md): prepare/export requests, select/upload fonts and generate documents through the same API; distributed as a separate development-only container.
 
 ## Deploy and operate
 
@@ -36,11 +36,12 @@ As of the documentation review on 2026-10-15:
 
 | Distribution | Available version and scope |
 | --- | --- |
-| Maven Central libraries | `0.1.0-alpha.1`; [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.1) |
-| GHCR service image | `0.1.0-alpha.3`, native Linux AMD64/ARM64, Java 17; [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.3) |
-| Current source | Adds Java 25 server runtime, extensible value/content pipes and the image pipe, correlated development logging, pipe catalogs, health endpoints, SBOM and the separate Playground application |
+| Maven Central libraries | `0.2.0-alpha.1`, Java 17; [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.2.0-alpha.1) |
+| GHCR production image | `ghcr.io/nuaforma/nuaforma:0.2.0-alpha.1`, native Linux AMD64/ARM64, Java 25 service and Java 17 validators |
+| GHCR development Playground | `ghcr.io/nuaforma/nuaforma-playground:0.2.0-alpha.1`, native Linux AMD64/ARM64; sensitive development logging enabled by default |
+| Current feature baseline | Extensible value/content pipes and Base64 image insertion, correlated logging, pipe catalogs, health endpoints, CycloneDX SBOM and the separate Playground |
 
-The current source has passed Java 17/25 builds and native AMD64/ARM64 container checks in [PR #81](https://github.com/NuaForma/NuaForma/pull/81). These checks do not publish artifacts, establish arbitrary-platform compatibility or replace the next candidate's source/license/security audit. Source changes do not alter immutable alpha libraries/images. The next candidate is `0.2.0-alpha.1` with contract `0.2`; it is not published by changing source metadata. Use the exclusive local staging repository to test candidate APIs. Contract `0.2` accepts existing `0.1` providers; implementations using the new contracts require at least `0.2` and are rejected by older runtimes before initialization.
+Version `0.2.0-alpha.1` uses contract `0.2` and the [candidate-specific distribution review](release-0.2.0-alpha.1-audit.md). Contract `0.2` accepts existing `0.1` providers; implementations using the new contracts require at least `0.2` and are rejected by older runtimes before initialization. Earlier `0.1` library/image tags remain immutable and do not gain these features. Native qualification covers the recorded runtime and fixtures, not arbitrary host platforms. Source builds do not publish artifacts automatically.
 
 Published alphas are for evaluation and retain documented native-runtime security findings tracked in [issue #51](https://github.com/NuaForma/NuaForma/issues/51). Review their release notes and deployment boundaries; earlier risk acceptance is not approval of a different release candidate.
 
@@ -48,7 +49,7 @@ XLSX, ODT and ODS, external template retrieval, signable PDF fields and a LibreO
 
 ## Maintainer release guides
 
-- [0.2.0-alpha.1 candidate preparation](release-0.2.0-alpha.1.md), including contract `0.2` and pending distribution gates.
+- [0.2.0-alpha.1 preparation record](release-0.2.0-alpha.1.md) and [distribution review](release-0.2.0-alpha.1-audit.md), including contract `0.2` and the scoped evaluation-alpha security disposition.
 - [Maven Central signing, upload and publication](maven-central-releases.md).
 - [Container qualification and publication](container-releases.md), including mandatory website/download synchronization.
 - [Bundled runtime licensing/source provision](libreoffice-licensing.md).

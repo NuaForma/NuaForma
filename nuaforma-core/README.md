@@ -4,7 +4,7 @@ Development API for discovering, validating and selecting document providers, us
 
 ## Discovery and generation
 
-For unreleased source logging, additive `discover(classLoader, registrations, logging)`, `registered(registrations, logging)` and `select(requirements, preferredProviderId, context)` overloads carry explicit NuaForma-owned diagnostics/correlation. `availability(registeredProvider, context)` uses an optional `ProviderReadiness` facet or falls back to original provider methods. Identical readiness snapshots are rate-limited per provider, not cached as proof of readiness. See the [logging guide](../docs/logging.md); no backend/global logger is forced on embedded applications.
+For logging from `0.2.0-alpha.1`, additive `discover(classLoader, registrations, logging)`, `registered(registrations, logging)` and `select(requirements, preferredProviderId, context)` overloads carry explicit NuaForma-owned diagnostics/correlation. `availability(registeredProvider, context)` uses an optional `ProviderReadiness` facet or falls back to original provider methods. Identical readiness snapshots are rate-limited per provider, not cached as proof of readiness. See the [logging guide](../docs/logging.md); no backend/global logger is forced on embedded applications.
 
 ```kotlin
 val registry = ProviderRegistry.discover()
@@ -21,7 +21,9 @@ Supply a class loader explicitly when managing your own plugin classpath. `disco
 
 The caller owns and closes the template/output streams. Failed generation may leave partial bytes; use your own bounded staging destination when atomic publication is required. Unexpected provider exceptions become sanitized structured diagnostics, while provider `GenerationException` and I/O failures retain their declared types. Trusted providers remain responsible for sanitized diagnostic content. Fatal JVM errors are not swallowed.
 
-## Embedded pipe metadata (unreleased source)
+<a id="embedded-pipe-metadata-unreleased-source"></a>
+
+## Embedded pipe metadata
 
 The optional contracts `TemplatePipeProvider.templatePipes()` and `ContentPipeProvider.contentPipes()` expose a provider's captured execution registry. Obtain current format availability through `registry.availability(registration, context)` and intersect content support with its usable pairs; profile declarations still require full request assessment. No facet means unsupported enumeration, while an empty list means an available empty registry. A provider preference remains necessary when multiple generators match; never merge their registries or select by classpath order. The server's additive pipe catalogs (#60) serialize these same definitions and distinguish declared/usable support without changing core selection or public provider methods.
 

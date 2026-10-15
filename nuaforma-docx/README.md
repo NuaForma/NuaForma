@@ -4,9 +4,11 @@ Development-stage DOCX generation and round-trip processing for Kotlin and Java 
 
 The registered `DocxProvider` reads DOCX and writes DOCX using the [restricted template language](../nuaforma-template/README.md), with optional supplied-font validation/embedding and requested text watermarks. PDF conversion and REST endpoints belong to the separate optional PDF/server modules. Unsupported explicit options and undeclared resources fail rather than being ignored. `DocxDocuments.open` remains a round-trip facade: it does not evaluate placeholders, process supplied fonts or add watermarks.
 
-## Value pipes (unreleased source)
+<a id="value-pipes-unreleased-source"></a>
 
-The source provider supports registered [JSON value pipes](../nuaforma-template/README.md#extensible-value-pipes-unreleased-source) in ordinary placeholders, including split runs, nested structural repetitions/conditions, headers/footers, supported text boxes and requested text watermarks. The registry is captured once at provider construction, using the current thread context class loader (fallback: template library loader), never rediscovered on request threads or during PDF intermediary generation. Installed implementations must be thread-safe and cooperate with cancellation. Published alpha images/libraries remain unchanged.
+## Value pipes
+
+The source provider supports registered [JSON value pipes](../nuaforma-template/README.md#extensible-value-pipes-unreleased-source) in ordinary placeholders, including split runs, nested structural repetitions/conditions, headers/footers, supported text boxes and requested text watermarks. The registry is captured once at provider construction, using the current thread context class loader (fallback: template library loader), never rediscovered on request threads or during PDF intermediary generation. Installed implementations must be thread-safe and cooperate with cancellation. Historical `0.1` images/libraries remain unchanged.
 
 For explicit embedded composition, use `DocxProvider(deploymentFonts, contentPipes, valuePipes)` with `TemplatePipes.of(...)` or `TemplatePipes.discover(extensionLoader)`. Existing constructors and Kotlin default-argument JVM descriptors remain available. The template library is an API dependency because this additive constructor refers to its public registry. Optional `TemplatePipeProvider.templatePipes()` reports that exact immutable extension-definition snapshot; Source REST metadata integration (#60) uses that snapshot. Reserve `image` and every generator content-pipe name against value-pipe collisions. A content-pipe marker cannot be mixed with value/formatter chains.
 
@@ -54,9 +56,11 @@ Traversal includes body, headers, footers and supported legacy VML and modern Dr
 
 All supported syntax is validated before generation, including unselected branches. One template session shares local scopes and cumulative expression/output/repetition budgets across the document. Structural markers have the same 4096-character ceiling as inline markers. DOCX traversal additionally has conservative ceilings of 128 structure levels and 1,000,000 processing visits across validation and expansion. No consumer business schema or executable expression language is introduced.
 
-## Generator content pipes (unreleased source)
+<a id="generator-content-pipes-unreleased-source"></a>
 
-Trusted generators/extensions may explicitly register `ContentPipe` implementations through the additive two-argument `DocxProvider(deploymentFonts, pipes)` constructor. Existing constructor JVM entry points and ordinary template behavior remain unchanged. The built-in `image` pipe is always registered; an empty custom list adds no other pipes. Up to 127 custom pipes fit alongside it within the 128-registration ceiling. Do not use this API against published alpha artifacts.
+## Generator content pipes
+
+Trusted generators/extensions may explicitly register `ContentPipe` implementations through the additive two-argument `DocxProvider(deploymentFonts, pipes)` constructor. Existing constructor JVM entry points and ordinary template behavior remain unchanged. The built-in `image` pipe is always registered; an empty custom list adds no other pipes. Up to 127 custom pipes fit alongside it within the 128-registration ceiling. Use these APIs with `0.2.0-alpha.1` or matching newer artifacts, not historical `0.1` artifacts.
 
 ```kotlin
 val companyLabel = object : ContentPipe {
@@ -82,7 +86,9 @@ Use `{company.name | companyLabel("Company: ")}` in ordinary inline text, includ
 
 All content chains and unknown registrations are rejected by the existing whole-document validation pass before transformation or output publication. The open `ContentResult` contract permits other generators to own additional structured variants; this DOCX implementation accepts standard `Text`/`Empty` and its bounded image result. Unknown results fail with sanitized diagnostics without reflection, stringification or fallback. Other invalid data/results also leave the output untouched because package serialization remains transactional. See the [language grammar and limits](../nuaforma-template/README.md#generator-content-pipes-unreleased-source).
 
-### Image content pipe (unreleased source)
+<a id="image-content-pipe-unreleased-source"></a>
+
+### Image content pipe
 
 The built-in `image` content pipe accepts a **strict padded RFC 4648 Base64 string containing one static PNG or JPEG**. It never fetches a URL or opens a supplied path. Data URIs, whitespace, URL-safe Base64, empty strings, SVG/GIF/animated PNG, corrupt/truncated images and PNG compressed text/color-profile chunks are rejected. Explicit null inserts nothing; missing paths still fail unless an explicit fallback is supplied.
 
@@ -116,7 +122,7 @@ new DocxProvider().generate(new GenerationRequest(templateStream,
     Map.of("company", Map.of("logo", base64Png))), outputStream, new GenerationContext());
 ```
 
-`ContentPipeProvider.contentPipes()` describes this provider's registered image formats, sizing arguments, defaults, contexts and combinations. Source REST capability listing (#60) uses the same provider-owned metadata. PDF uses the same transformed DOCX before conversion; PDF/A-1b rejects alpha-bearing image sources rather than flattening them. These source features have not been published in alpha libraries or containers.
+`ContentPipeProvider.contentPipes()` describes this provider's registered image formats, sizing arguments, defaults, contexts and combinations. Source REST capability listing (#60) uses the same provider-owned metadata. PDF uses the same transformed DOCX before conversion; PDF/A-1b rejects alpha-bearing image sources rather than flattening them. These features are available from `0.2.0-alpha.1`; historical `0.1` artifacts do not include them.
 
 ## Requested watermarks
 

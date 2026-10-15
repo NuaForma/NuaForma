@@ -16,7 +16,7 @@ NuaForma is an open-source document-generation engine. Combine a Word template, 
 
 Visit [nuaforma.dev](https://nuaforma.dev) for deployment examples and downloadable test kits, or browse the [documentation](docs/README.md).
 
-> **Evaluation alpha:** published libraries are `0.1.0-alpha.1`; the container is `ghcr.io/nuaforma/nuaforma:0.1.0-alpha.3`, available for native AMD64 and ARM64. APIs are not stable. This branch also contains implemented, unreleased features; see [source versus published versions](docs/README.md#source-versus-published-versions). There is no `latest` prerelease tag or hosted generation service.
+> **Evaluation alpha:** libraries and containers use `0.2.0-alpha.1`, with contract `0.2`. Production and separate development Playground images support native AMD64 and ARM64. APIs are not stable; see [version status](docs/README.md#source-versus-published-versions). There is no `latest` prerelease tag or hosted generation service.
 
 ## Why NuaForma?
 
@@ -37,9 +37,11 @@ Download the complete [AMD64](https://nuaforma.dev/downloads/docker-kit.zip) or 
 
 Use the site's Word/JSON test kit and Bruno/Postman collections to try generation against your own instance. The [REST guide](nuaforma-server/README.md) describes multipart uploads, options and responses.
 
+For the separate [development Playground](nuaforma-playground/README.md), use its [AMD64](https://nuaforma.dev/downloads/docker-playground-kit.zip) or [ARM64](https://nuaforma.dev/downloads/docker-playground-arm64-kit.zip) kit. It enables development logging and may log document content and field values: use synthetic data and your own access controls. The production image does not include the UI.
+
 ### Embed the engine
 
-Use `dev.nuaforma:nuaforma-core` plus `dev.nuaforma:nuaforma-docx` for Word generation; add `nuaforma-docx-pdf` and the qualified external runtime for PDF. Published coordinates use `0.1.0-alpha.1`. DOCX-only applications do not need Docker, LibreOffice or the server. Start with the [Java/Maven and Kotlin/Gradle examples](examples/embedded/README.md).
+Use `dev.nuaforma:nuaforma-core` plus `dev.nuaforma:nuaforma-docx` for Word generation; add `nuaforma-docx-pdf` and the qualified external runtime for PDF. Published coordinates use `0.2.0-alpha.1`. DOCX-only applications do not need Docker, LibreOffice or the server. Start with the [Java/Maven and Kotlin/Gradle examples](examples/embedded/README.md).
 
 ### Write a template
 

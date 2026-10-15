@@ -1,17 +1,17 @@
 # NuaForma — Postman collection
 
-For the NuaForma 0.1.0-alpha.3 service. Start your own installation first; this kit does not start a service or contact the website.
+For the NuaForma 0.2.0-alpha.1 service. Start your own installation first; this kit does not start a service or contact the website.
 
-See the [documentation index](https://github.com/NuaForma/NuaForma/blob/main/docs/README.md) for template/API/PDF guides. Current repository source also documents newer APIs; this collection keeps its 11 alpha.3-compatible requests. Health/SBOM routes, extensible pipes and the separate Playground need a matching newer/source build, not an unchanged alpha.3 image.
+See the [documentation index](https://github.com/NuaForma/NuaForma/blob/main/docs/README.md) for template/API/PDF guides. Use the matching service version for the image content pipe. Health/SBOM routes and the separate Playground are documented in the service guides; these collections focus on document generation.
 
 1. Extract the entire ZIP. In Postman desktop, choose **Import** and select `NuaForma.postman_collection.json`.
 2. In **Settings > General > Working directory**, choose the extracted folder containing this JSON and `assets/`. Leave **Read files outside working directory** off. File paths are relative to that working directory, not to the imported JSON.
 3. Set collection variable `baseUrl` if your service is not at `http://localhost:8080`. If a client version asks to reselect a file, select the matching file under `assets/` in its existing form-data row.
 4. Send **Version**, then **Capabilities**. For generated documents use **Send and Download**, or save the response to a file. Prefer the desktop client for local files; this kit does not require uploading files to a Postman team.
 
-The collection contains 11 requests: version, capabilities, one JSON assessment, OpenAPI JSON/YAML, and all six document scenarios. An HTTP-success test does not establish renderer readiness or visual/PDF-A conformance. Check the PDF provider's `available.writeFormats`; declared formats alone are not sufficient. Assessment does not validate the Word template.
+The collection contains 12 requests: version, capabilities, one JSON assessment, OpenAPI JSON/YAML, and all 7 document scenarios. An HTTP-success test does not establish renderer readiness or visual/PDF-A conformance. Check the PDF provider's `available.writeFormats`; declared formats alone are not sufficient. Assessment does not validate the Word template.
 
-Multipart generation uses file parts named `request` (`application/json`) and `template` (the Word MIME type). Do not add a top-level Content-Type: the client generates the multipart boundary. All six JSON files and the same Word template are included under `assets/`; edit a JSON file to experiment. Tests assert successful responses but do not save documents automatically. Errors contain JSON diagnostics; do not rename an error response to PDF. PDF scenarios 01–04/06 produce PDFs; 05 produces DOCX.
+Multipart generation uses file parts named `request` (`application/json`) and `template` (the Word MIME type). Do not add a top-level Content-Type: the client generates the multipart boundary. All 7 JSON files and the same Word template are included under `assets/`; edit a JSON file to experiment. Tests assert successful responses but do not save documents automatically. Errors contain JSON diagnostics; do not rename an error response to PDF. Scenario 05 produces DOCX; the other document scenarios produce PDFs.
 
 With optional Newman installed: `newman run NuaForma.postman_collection.json --working-dir . --env-var baseUrl=http://localhost:8080 --timeout-request 180000`.
 
