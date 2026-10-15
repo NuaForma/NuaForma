@@ -8,7 +8,7 @@ description = "NuaForma DOCX facade and docx4j adapter"
 
 dependencies {
     api(project(":nuaforma-contracts"))
-    implementation(project(":nuaforma-template"))
+    api(project(":nuaforma-template"))
     implementation(libs.docx4j.core)
     runtimeOnly(libs.docx4j.jaxb)
     // Direct runtime publication preserves reviewed transitive upgrades for Maven consumers too.

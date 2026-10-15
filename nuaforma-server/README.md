@@ -1,5 +1,7 @@
 # REST service
 
+The unreleased source providers use the same [value pipes](../nuaforma-template/README.md#extensible-value-pipes-unreleased-source) in embedded and REST document/watermark generation. Operator-installed JARs use the existing [read-only extension mount and startup snapshot](../deployment/pdf-runtime/MOUNTS.md); request data cannot register code or configure class loaders. Provider construction captures the startup registry, so later request threads do not rediscover extensions. Capability/OpenAPI schemas are unchanged; publishing pipe metadata through capabilities is #60. This does not add value pipes to the published alpha image.
+
 Development-stage Java 25 service using Ktor CIO and the same public Java-17-compatible engine/provider contracts as embedded generation. No second template evaluator, storage backend or implicit resource fetching is introduced. Equivalent OpenAPI JSON/YAML downloads, the [native AMD64/ARM64 on-premise container](../deployment/pdf-runtime/SERVICE.md), operator mounts and per-provider font catalogs are implemented. Install JDK 17 and JDK 25 for the source build; Gradle selects the appropriate module toolchains. Published containers through `0.1.0-alpha.3` remain on Java 17 until a separately approved release; see [runtime compatibility](../docs/java-runtime-compatibility.md). No public service or image is deployed by the build.
 
 ## Run locally

@@ -7,6 +7,7 @@ import dev.nuaforma.template.CompiledTemplate
 import dev.nuaforma.template.TemplateFragment
 import dev.nuaforma.template.ContentTemplateFragment
 import dev.nuaforma.contracts.ContentResult
+import dev.nuaforma.template.TemplatePipes
 import java.math.BigDecimal
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
@@ -52,7 +53,7 @@ internal class Format(val kind: String, val pattern: String) {
     }
 }
 
-internal class Program(private val nodes: List<Node>, private val depth: Int) : CompiledTemplate {
+internal class Program(private val nodes: List<Node>, private val depth: Int, private val pipes: TemplatePipes) : CompiledTemplate {
     fun validateDepth(state: Evaluation, scopeDepth: Int) { state.checkDepth(scopeDepth + depth - 1) }
     fun expand(state: Evaluation, scope: Map<String, Any?>, scopeDepth: Int): List<TemplateFragment> {
         validateDepth(state, scopeDepth)
@@ -65,7 +66,7 @@ internal class Program(private val nodes: List<Node>, private val depth: Int) : 
     override fun render(data: Map<String, *>, options: GenerationOptions, context: GenerationContext): String {
         context.checkActive()
         if (depth > Safety.depth(context)) Safety.limit()
-        val state = Evaluation(Safety.snapshot(data, context), options, context)
+        val state = Evaluation(Safety.snapshot(data, context), options, context, valuePipes = pipes)
         state.render(nodes, emptyMap())
         context.checkActive()
         return state.result()
@@ -73,8 +74,18 @@ internal class Program(private val nodes: List<Node>, private val depth: Int) : 
 }
 
 internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOptions, private val context: GenerationContext,
-                          private val content: ContentRegistry = ContentRegistry(emptyList())) {
+                          private val content: ContentRegistry = ContentRegistry(emptyList()), val valuePipes: TemplatePipes = TemplatePipes.of(emptyList())) {
     val contentNames: Set<String> get() = content.names
+    private val values = ValueRegistry(valuePipes)
+    private val copies = PipeValues(context, ::step)
+    private var pipeCalls = 0L
+    init {
+        if (contentNames.any { it in values.names }) Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Value and content pipe names must not collide")
+    }
+    fun pipe(name: String, value: Any?, arguments: List<Any?>): Any? {
+        if (++pipeCalls > minOf(context.limits.maxRepetitions, 4096L)) Safety.limit()
+        return values.apply(name, value, arguments, this, options, context, copies)
+    }
     private var operations = 0
     private var repetitions = 0L
     private var bytes = 0L

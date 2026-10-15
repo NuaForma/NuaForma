@@ -38,7 +38,7 @@ You {#if active}have {#if count >= 2}multiple orders{#else}one order{/if}{#else}
 
 With `active = true` and `count = 2`, this produces `You have multiple orders.` without introducing a newline. To remove a block's line break, include that line break inside the condition. Unclosed or mismatched markers and unsupported directives fail at compilation, even in a branch that would not be selected. Unescaped unmatched braces are invalid template syntax.
 
-Inserted data is always literal: a value containing `{secret}` or `{#if true}` is never parsed again. It does not need template-brace escaping. String literals inside markers are double-quoted, with JSON escapes, and may contain braces. One formatter may follow a value expression. Only the built-in string functions below are callable; arbitrary pipelines, application methods and user-defined functions are not supported.
+Inserted data is always literal: a value containing `{secret}` or `{#if true}` is never parsed again. It does not need template-brace escaping. String literals inside markers are double-quoted, with JSON escapes, and may contain braces. Built-in formatters and installed value pipes can form the explicit chains described below in unreleased source. Only the built-in string functions below are callable as expressions; arbitrary application methods and user-defined functions are not supported.
 
 ## Paths and scopes
 
@@ -118,7 +118,7 @@ Null formatting yields empty text; missing formatting fails unless the expressio
 
 ## Safety and processing budgets
 
-No language operation can invoke application methods, constructors, reflection, class loading, arbitrary functions, filesystem/network access or runtime code evaluation. Data must contain maps with string keys, lists, strings, finite supported numeric values, booleans and null—not beans or other application objects. Mutable input is copied without modification; callers must not mutate it concurrently during the snapshot. Passing an application-supplied map or list implementation is trusted host code, not a sandbox for malicious Java objects.
+No template can select arbitrary application methods, constructors, reflection, classes, filesystem/network operations or runtime code evaluation. A registered value pipe is an explicitly installed, trusted callback, not sandboxed template code. Data must contain maps with string keys, lists, strings, finite supported numeric values, booleans and null—not beans or other application objects. Mutable input is copied without modification; callers must not mutate it concurrently during the snapshot. Passing an application-supplied map or list implementation is trusted host code, not a sandbox for malicious Java objects.
 
 Existing `GenerationLimits` govern template UTF-8 bytes at compilation, output/expanded UTF-8 bytes, expression/block depth, total repeated elements, cancellation and deadlines. Additional conservative implementation ceilings are 128 levels even if a caller requests more, 4096 characters and 1024 tokens per expression marker, 100,000 template nodes, 1,000,000 evaluation operations, 64 nested data levels and 100,000 data values. String values and object keys cumulatively consume the expanded byte budget. Numbers have at most 1000 digits of precision and a scale between -1000 and 1000; numeric literal text is bounded to 256 characters. Invalid Unicode is rejected.
 
@@ -132,9 +132,79 @@ Nested repeats count every visited element, including repetitions with empty bod
 
 `validate(source)` and `validateExpression(expression)` check syntax without accessing missing data or consuming output. Format adapters use them to validate unselected structural branches. This facade adds no document-library dependency and leaves the compiled text API unchanged.
 
+## Extensible value pipes (unreleased source)
+
+Value pipes transform JSON-compatible values and preserve intermediate types. They are not available in the published alpha libraries or containers. A trusted application installs `TemplatePipe` implementations; templates only select registered names. No dependency download, hot reload or scripting engine is involved.
+
+```text
+{customer | select("account") | select("total") | number("0.00")}
+{missing ?? null | defaultLabel("Not provided")}
+{#each orders as order}{order | select("reference") | label("Order: ")}{/each}
+```
+
+The grammar is `{expression | name(argumentExpression, ...) | next(...)}` with required parentheses, at most 32 stages and at most 16 positional arguments per custom pipe. Arguments use the existing expression grammar, including aliases, string functions and explicit fallbacks; `||` and `|` inside quoted strings are not separators. Pipe chains are placeholder suffixes, not new functions: pipes are not accepted inside `if`/`each` expressions, parenthesized expression operands or pipe arguments. Missing values/arguments fail before invocation; explicit null is passed through. `OptionDefinition` declarations constrain argument types, defaults and allowed values; required arguments reject null, optional null is passed through. Numeric allowed values compare by decimal value, including integer arguments expressed as `BigDecimal`.
+
+Values, arguments and results may be null, strings, booleans, finite supported numbers, lists and string-key maps containing those values recursively. Custom numeric results are normalized to the existing decimal model. Inputs and results are detached, deeply immutable snapshots; returning the original input is safe. The final result alone is inserted: null is empty, scalars use existing rules, and a map/list must be explicitly converted by another pipe. An arbitrary JVM object is rejected without stringification. Returned template markers remain literal. Existing `number`/`date` pattern grammar, null behavior, locale/time-zone and rounding rules remain unchanged; they can precede/follow value pipes. Formatters produce strings, not implicit numbers/dates for later stages.
+
+### Implementation and registration
+
+Implementations compile against Java-17-compatible `nuaforma-contracts` only and must be thread-safe:
+
+```kotlin
+class SelectPipe : TemplatePipe {
+    override val definition = TemplatePipeDefinition("select", "Select an object member",
+        listOf(OptionDefinition("key", OptionType.STRING, "Member name", required = true)))
+    override fun apply(value: Any?, arguments: List<Any?>, context: TemplatePipeContext): Any? {
+        context.checkActive()
+        if (value == null) return null
+        require(value is Map<*, *>)
+        return value[arguments.single()]
+    }
+}
+```
+
+Java implements the same `getDefinition()` and `apply(Object, List<?>, TemplatePipeContext)` methods; use `new TemplatePipeDefinition("select", "Select an object member", List.of(new OptionDefinition("key", OptionType.STRING, "Member name", true)))`. Only the evaluated input/arguments, explicit locale/time zone and `checkActive()` are supplied; no implicit root data, request, resources, authentication or arbitrary option object is present.
+
+In the same extension JAR, add `META-INF/services/dev.nuaforma.contracts.TemplatePipe` with one binary implementation class per line, and `META-INF/nuaforma/pipes/example.SelectPipe.properties`:
+
+```properties
+pipe.name=select
+pipe.class=example.SelectPipe
+pipe.version=0.1.0-SNAPSHOT
+contract.major=0
+contract.minor=1
+```
+
+The class must be a public, concrete no-argument ServiceLoader implementation. Before initialization, discovery validates all declarations, UTF-8 service files, exact descriptor keys, class identity/origin and same-major/minimum-minor compatibility. Only local JARs/class directories are supported, not network resources or JPMS module-layer services. Class, descriptor and service entry must originate from the same artifact. Duplicate names/classes, reserved `number`/`date`, unsupported contracts, missing/mismatched metadata and later definition-name mismatches fail with sanitized `INVALID_REQUEST`; no classpath-order fallback exists. Content/value name collisions also fail when combined by a generator, even if never referenced by a template. `image` is reserved by the built-in DOCX generator, not by unrelated text engines.
+
+`TemplatePipes.discover(loader)` explicitly selects an application class loader; close a caller-owned URLClassLoader only after its registry/providers are no longer in use. `TemplatePipes.of(listOf(SelectPipe()))` supplies explicitly registered instances without classpath descriptors or any discovery. Both return immutable snapshots with sorted extension `definitions()` for future capability integration. No global cache or request-level class loading is introduced.
+
+```kotlin
+val pipes = TemplatePipes.of(listOf(SelectPipe()))
+val template = Templates.compile("{customer | select(\"name\")}", pipes)
+val result = template.render(mapOf("customer" to mapOf("name" to "Ada")))
+val session = TemplateSession.open(data, pipes, options, context)
+```
+
+```java
+TemplatePipes pipes = TemplatePipes.discover(extensionLoader);
+CompiledTemplate template = Templates.compile("{customer | select(\"name\")}", pipes);
+String result = template.render(Map.of("customer", Map.of("name", "Ada")));
+```
+
+The original `Templates.compile(source, context)` and session-opening overloads discover once at compile/open time using the current thread context class loader, falling back to the template library loader. A compiled program retains its registry but not the compilation context, data or loader separately. Rendering never rediscovers implementations. `ContentTemplates.open(data, contentPipes, valuePipes, options, context)` shares an explicit registry with structural scopes and text-only watermark processing. A content pipe must still be the only pipe in its marker: neither preceding nor following value/formatter stages are permitted.
+
+### Limits and trust boundary
+
+A generation and all its structural/watermark scopes share existing operations, depth, repetition, byte and deadline policies, plus at most 4,096 custom value-pipe invocations (also capped by `maxRepetitions`), 100,000 cumulatively copied values and `maxExpandedBytes` cumulatively copied string/key bytes across inputs, arguments/defaults and intermediate results. Copies check cancellation, reject cycles, invalid Unicode and unsupported/non-finite numbers, and have at most 64 levels or the lower configured expression-depth limit. The registry permits at most 128 custom registrations. Callback failures and malformed results are sanitized without input values or original causes; cancellation/resource-boundary codes remain structured. Unknown names and malformed chain syntax fail during validation even in unselected branches; implementation-specific type constraints are enforced on executed values.
+
+Installed extensions have full application-process permissions. They must bound their own allocations/work, avoid retaining request state and cooperate with `checkActive()`. NuaForma checks before/after invocation, but cannot safely force-stop a blocking/allocating arbitrary JVM callback. These limits do not turn extensions or hostile host collection implementations into a sandbox. Templates/REST cannot install code, select a class loader or obtain a callback not in the captured registry.
+
+See the independent [Java-17 Kotlin extension and consumer](../examples/value-pipes/README.md), [DOCX registration](../nuaforma-docx/README.md#value-pipes-unreleased-source) and [operator mount guide](../deployment/pdf-runtime/MOUNTS.md). REST capability fields are unchanged; exposing this metadata is #60.
+
 ## Generator content pipes (unreleased source)
 
-Content pipes insert document content; they are not the planned chainable JSON value pipes (#56). A selected generator explicitly registers its implementations. The template module supplies no image decoder; the DOCX generator registers the [bounded standard image pipe](../nuaforma-docx/README.md#image-content-pipe-unreleased-source) for DOCX and PDF source generation. Published alpha images/libraries do not yet include these APIs.
+Content pipes insert document content; they are separate from chainable JSON value pipes. A selected generator explicitly registers its implementations. The template module supplies no image decoder; the DOCX generator registers the [bounded standard image pipe](../nuaforma-docx/README.md#image-content-pipe-unreleased-source) for DOCX and PDF source generation. Published alpha images/libraries do not yet include these APIs.
 
 The grammar is `{expression | registeredName(argumentExpression, ...)}`. Parentheses are required even with no arguments. Values and arguments use the existing expression grammar, including paths, local aliases, string functions and explicit `??` fallbacks. Arguments are positional, with at most 16; required arguments precede optional arguments. The generator declares types, defaults and allowed values. Omitted optional arguments use their declared default; optional null arguments pass through, while required arguments reject null. Allowed-value constraints apply to non-null arguments using structural JSON equality, with numeric values compared independently of their JVM number type or decimal scale. Numbers from template expressions use the existing `BigDecimal` model. Missing values fail before callback execution; an explicit null input value reaches the implementation, which declares its null behavior. Inserted content remains literal.
 
@@ -165,3 +235,5 @@ See the [DOCX registration example](../nuaforma-docx/README.md#generator-content
 `StringFunctionsTest` makes the documented null/string examples executable and covers strict types/arity, empty searches, Unicode, literal matching, overlapping-search reference comparisons, nested/shared budgets, cancellation/deadlines and concurrent compiled-template reuse. DOCX integration additionally checks split-run functions, both text-box forms, structural conditions/table rows and package equivalence to literal-value templates. REST integration checks actual DOCX output and dynamic watermarks against embedded generation. No public API or dependency is added.
 
 For visual regression, the DOCX tests produce `nuaforma-docx/build/string-functions-reference/{generated,expected}.docx` and `nuaforma-docx/build/watermark-reference/{string-functions,dynamic}.docx`. After tests finish, `tools/pdf-evaluation/verify_string_functions.py` uses the already qualified isolated renderer image and compares every rendered page with its literal-equivalent output. Supply `--docker`, `--image`, `--poppler` (the directory containing `pdftoppm.exe`) and a fresh `--output` directory. This optional workstation QA helper reuses the PDF research launcher's prerequisites; it is not an engine API or an image publication step. Visually inspect the generated PNGs as well as the pixel comparison.
+
+`ValuePipesTest` covers typed/nested chains, positional argument constraints, null/missing policy, literal results, immutable copies, invalid results/cycles, shared budgets, cancellation, concurrency and formatter compatibility. `ValuePipeDiscoveryTest` independently compiles Java-17 contracts-only JARs and checks metadata/origin/compatibility before initialization, deterministic collisions and safe failure. `MountedValuePipesTest` exercises the actual server operator snapshot, restart/cleanup, concurrent providers and multipart/embedded watermark parity. `DocxValuePipesTest` compares native package semantics (normalizing only random watermark IDs), split runs, tables, both text boxes and structural scopes, and emits `nuaforma-docx/build/value-pipes-reference/{generated,expected}.docx` for independent raster comparison. The separately packaged Kotlin extension/consumer under `examples/value-pipes` is an additional Java-17 build check, not a test-only compiler dependency in the engine.

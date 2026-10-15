@@ -7,6 +7,7 @@ import dev.nuaforma.template.TemplateSession
 import dev.nuaforma.template.ContentTemplateSession
 import dev.nuaforma.template.ContentTemplateFragment
 import dev.nuaforma.contracts.ContentPipe
+import dev.nuaforma.template.TemplatePipes
 
 internal class Session private constructor(
     private val state: Evaluation, private val scope: Map<String, Any?>, private val context: GenerationContext, private val depth: Int,
@@ -39,16 +40,16 @@ internal class Session private constructor(
 
     private fun expression(source: String): Expression = ExpressionParser(source, 0, context).parse().also { state.checkDepth(depth + it.depth - 1) }
     private fun program(source: String, content: Boolean = true): Program =
-        TemplateParser(source, context, captureSpans = true, contentNames = if (content) state.contentNames else emptySet()).compile() as Program
+        TemplateParser(source, context, captureSpans = true, contentNames = if (content) state.contentNames else emptySet(), valuePipes = state.valuePipes).compile() as Program
 
     companion object {
-        fun open(data: Map<String, *>, options: GenerationOptions, context: GenerationContext): TemplateSession {
+        fun open(data: Map<String, *>, options: GenerationOptions, context: GenerationContext, pipes: TemplatePipes): TemplateSession {
             context.checkActive()
-            return Session(Evaluation(Safety.snapshot(data, context), options, context), emptyMap(), context, 1)
+            return Session(Evaluation(Safety.snapshot(data, context), options, context, valuePipes = pipes), emptyMap(), context, 1)
         }
-        fun openContent(data: Map<String, *>, pipes: List<ContentPipe>, options: GenerationOptions, context: GenerationContext): ContentTemplateSession {
+        fun openContent(data: Map<String, *>, pipes: List<ContentPipe>, options: GenerationOptions, context: GenerationContext, valuePipes: TemplatePipes): ContentTemplateSession {
             context.checkActive()
-            return Session(Evaluation(Safety.snapshot(data, context), options, context, ContentRegistry(pipes)), emptyMap(), context, 1)
+            return Session(Evaluation(Safety.snapshot(data, context), options, context, ContentRegistry(pipes), valuePipes), emptyMap(), context, 1)
         }
     }
 }
