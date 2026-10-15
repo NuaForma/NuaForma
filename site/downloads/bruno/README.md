@@ -1,17 +1,17 @@
 # NuaForma — Bruno collection
 
-For the NuaForma 0.1.0-alpha.3 service. Start your own installation first; this kit does not start a service or contact the website.
+For the NuaForma 0.2.0-alpha.1 service. Start your own installation first; this kit does not start a service or contact the website.
 
-See the [documentation index](https://github.com/NuaForma/NuaForma/blob/main/docs/README.md) for template/API/PDF guides. Current repository source also documents newer APIs; this collection keeps its 11 alpha.3-compatible requests. Health/SBOM routes, extensible pipes and the separate Playground need a matching newer/source build, not an unchanged alpha.3 image.
+See the [documentation index](https://github.com/NuaForma/NuaForma/blob/main/docs/README.md) for template/API/PDF guides. Use the matching service version for the image content pipe. Health/SBOM routes and the separate Playground are documented in the service guides; these collections focus on document generation.
 
 1. Extract the entire ZIP into a local folder. In Bruno, choose **Open Collection** and select the folder containing `bruno.json` (not just an individual `.bru` file).
 2. Open the collection variables and set `baseUrl` if your service is not at `http://localhost:8080`. No environment selection is required.
 3. Files are relative to the collection root. Keep `assets/` beside `bruno.json`; no filesystem scripts or Node sandbox permissions are needed.
 4. Send **Version**, then **Capabilities**. Use the download/save response action to save generated PDF or DOCX bytes.
 
-The collection contains 11 requests: version, capabilities, one JSON assessment, OpenAPI JSON/YAML, and all six document scenarios. An HTTP-success test does not establish renderer readiness or visual/PDF-A conformance. Check the PDF provider's `available.writeFormats`; declared formats alone are not sufficient. Assessment does not validate the Word template.
+The collection contains 12 requests: version, capabilities, one JSON assessment, OpenAPI JSON/YAML, and all 7 document scenarios. An HTTP-success test does not establish renderer readiness or visual/PDF-A conformance. Check the PDF provider's `available.writeFormats`; declared formats alone are not sufficient. Assessment does not validate the Word template.
 
-Multipart generation uses file parts named `request` (`application/json`) and `template` (the Word MIME type). Do not add a top-level Content-Type: the client generates the multipart boundary. All six JSON files and the same Word template are included under `assets/`; edit a JSON file to experiment. Tests assert successful responses but do not save documents automatically. Errors contain JSON diagnostics; do not rename an error response to PDF. PDF scenarios 01–04/06 produce PDFs; 05 produces DOCX.
+Multipart generation uses file parts named `request` (`application/json`) and `template` (the Word MIME type). Do not add a top-level Content-Type: the client generates the multipart boundary. All 7 JSON files and the same Word template are included under `assets/`; edit a JSON file to experiment. Tests assert successful responses but do not save documents automatically. Errors contain JSON diagnostics; do not rename an error response to PDF. Scenario 05 produces DOCX; the other document scenarios produce PDFs.
 
 From the extracted collection root, with the optional Bruno CLI installed: `bru run --env-var baseUrl=http://localhost:8080`.
 

@@ -1,16 +1,18 @@
 # NuaForma provider contracts
 
-Development API for Kotlin and Java 17, in `dev.nuaforma.contracts`. The `0.2.0-alpha.1` candidate uses contract **0.2**; published alpha.1 artifacts retain **0.1**. Runtime `0.2` accepts providers requiring `0.1` or `0.2`; implementations using new interfaces require `0.2` so older runtimes reject them before initialization. Artifact release versions and contract minima are separate. This module contains value types, provider contracts, descriptor parsing and validation helpers. Discovery and selection live in [core](../nuaforma-core/README.md). Expression evaluation, DOCX/PDF processing and HTTP serialization belong to implementation modules, not contracts.
+Development API for Kotlin and Java 17, in `dev.nuaforma.contracts`. Release `0.2.0-alpha.1` uses contract **0.2**; historical `0.1` artifacts retain contract **0.1**. Runtime `0.2` accepts providers requiring `0.1` or `0.2`; implementations using new interfaces require `0.2` so older runtimes reject them before initialization. Artifact release versions and contract minima are separate. This module contains value types, provider contracts, descriptor parsing and validation helpers. Discovery and selection live in [core](../nuaforma-core/README.md). Expression evaluation, DOCX/PDF processing and HTTP serialization belong to implementation modules, not contracts.
 
-## Optional value pipes (unreleased source)
+<a id="optional-value-pipes-unreleased-source"></a>
 
-The additive logging contracts (`GenerationLogging`, `GenerationLogSink`, bounded immutable `GenerationLogEvent`, mode/level enums) carry explicit embedded diagnostics/correlation without MDC, SLF4J or a server dependency. Original `GenerationContext` constructors/default JVM descriptors remain unchanged; additive constructors accept logging. Optional `ProviderReadiness` adds contextual availability/assessment without requiring changes to old providers. See the [logging guide](../docs/logging.md) for safe event handling, limits and source-only examples.
+## Optional value pipes
+
+The additive logging contracts (`GenerationLogging`, `GenerationLogSink`, bounded immutable `GenerationLogEvent`, mode/level enums) carry explicit embedded diagnostics/correlation without MDC, SLF4J or a server dependency. Original `GenerationContext` constructors/default JVM descriptors remain unchanged; additive constructors accept logging. Optional `ProviderReadiness` adds contextual availability/assessment without requiring changes to old providers. See the [logging guide](../docs/logging.md) for safe event handling, limits and embedded examples.
 
 `TemplatePipe` is the format-independent, Java-17-compatible `Any? → Any?` value SPI. It accepts an evaluated value, positional arguments and `TemplatePipeContext` (explicit locale/time zone and cooperative `checkActive()`). `TemplatePipeDefinition` holds a bounded name/description, immutable `OptionDefinition` arguments and declared null behavior. Supported values/results are recursively JSON-compatible, not arbitrary JVM objects or `ContentResult`. A final map/list needs explicit conversion before insertion. Implementations must be thread-safe and bound their own work; installed code is trusted host code, not sandboxed by the expression language.
 
 `TemplatePipeMetadata` describes one ServiceLoader class before initialization: `pipe.name`, `pipe.class`, `pipe.version`, `contract.major`, `contract.minor` in `META-INF/nuaforma/pipes/<binary-class-name>.properties`. Compatibility uses the existing same-major/minimum-minor policy; unknown/duplicate keys, invalid releases and unsupported contract requirements fail. Explicit application registration needs no descriptor. Discovery/evaluation belongs to `nuaforma-template`, not contracts or core.
 
-Optional `TemplatePipeProvider.templatePipes()` reports immutable extension definitions from a generator's actual registry snapshot without adding a required `DocumentProvider` method. This excludes fixed built-in `number`/`date` formatter definitions; names remain reserved. Source capabilities expose this metadata through #60. Existing interfaces and constructors retain their JVM descriptors. See the [language/registration guide](../nuaforma-template/README.md#extensible-value-pipes-unreleased-source) and [independent extension example](../examples/value-pipes/README.md). Published alpha artifacts remain unchanged.
+Optional `TemplatePipeProvider.templatePipes()` reports immutable extension definitions from a generator's actual registry snapshot without adding a required `DocumentProvider` method. This excludes fixed built-in `number`/`date` formatter definitions; names remain reserved. Source capabilities expose this metadata through #60. Existing interfaces and constructors retain their JVM descriptors. See the [language/registration guide](../nuaforma-template/README.md#extensible-value-pipes-unreleased-source) and [independent extension example](../examples/value-pipes/README.md). Historical `0.1` artifacts remain unchanged.
 
 ## Optional font catalog
 
@@ -18,7 +20,9 @@ Providers may implement `FontCatalogProvider.fontCatalog(GenerationContext)` wit
 
 Honor cancellation/deadlines, return at most 2048 entries and fail if enumeration is unavailable. An absent facet means enumeration is unsupported, not that no fonts exist. The font facet was introduced with the `0.1` baseline; the current additive APIs use `0.2` and retain the compatibility/versioning policy.
 
-## Optional generator content pipes (unreleased source)
+<a id="optional-generator-content-pipes-unreleased-source"></a>
+
+## Optional generator content pipes
 
 `ContentPipeProvider` is an optional provider facet; it adds no mandatory `DocumentProvider` method and changes no existing constructor or interface signature. It exposes immutable `ContentPipeDefinition` metadata owned by that generator: stable name/description, positional `OptionDefinition` arguments, supported input/output/profile combinations, explicit null behavior and inline insertion context. `chainable` is always false. Empty profile sets mean every profile supported by that generator for the declared pair, not arbitrary formats/profiles outside its own capabilities. Declaration does not establish runtime converter readiness.
 

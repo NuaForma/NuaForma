@@ -7,7 +7,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 DOWNLOADS = ROOT / "site/downloads"
 
 def package(downloads=DOWNLOADS):
-    for name in ("docker", "docker-arm64", "helm"):
+    names = ["docker", "docker-arm64", "helm"]
+    names.extend(name for name in ("docker-playground", "docker-playground-arm64") if (downloads / name).is_dir())
+    for name in names:
         folder = downloads / name
         for source, target in (("seccomp.json", "seccomp.json"), ("NOTICE", "NOTICE"), ("licenses/APACHE-2.0.txt", "LICENSE"), ("nuaforma.apparmor", "nuaforma.apparmor")):
             shutil.copyfile(ROOT / "deployment/pdf-runtime" / source, folder / target)

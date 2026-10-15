@@ -54,7 +54,7 @@ def prepare(destination, version):
     # Client metadata is generated from the seven actual scenarios, not text substitutions.
     clients.build(version=version)
     examples = downloads / 'EXAMPLES.md'
-    examples.write_text(examples.read_text() + '\n## Base64 image scenario\n\n`07-base64-image-pdfa3b.json` supplies an opaque PNG in `data.image`. The template uses `{image | image(60, 25, true)}`: maximum width/height are millimetres and `true` preserves the aspect ratio. Null inserts no content; malformed images fail. No image file upload or network URL is needed. This 3:1 image produces a 60 by 20 mm drawing.\n', encoding='utf-8')
+    examples.write_text(examples.read_text(encoding='utf-8') + '\n## Base64 image scenario\n\n`07-base64-image-pdfa3b.json` supplies an opaque PNG in `data.image`. The template uses `{image | image(60, 25, true)}`: maximum width/height are millimetres and `true` preserves the aspect ratio. Null inserts no content; malformed images fail. No image file upload or network URL is needed. This 3:1 image produces a 60 by 20 mm drawing.\n', encoding='utf-8')
     # Do not silently reuse the alpha.3 Helm image digest for a new release.
     values = downloads / 'helm/nuaforma/values.yaml'
     text = values.read_text()

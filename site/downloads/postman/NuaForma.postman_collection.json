@@ -2,7 +2,7 @@
   "info": {
     "name": "NuaForma examples",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Local evaluation collection. Set baseUrl, use the extracted postman folder as your working directory, then check capabilities before generating. Includes six complete scenarios and local assets. No credentials or automatic file-saving scripts."
+    "description": "Local evaluation collection. Set baseUrl, use the extracted postman folder as your working directory, then check capabilities before generating. Includes 7 complete scenarios and local assets. No credentials or automatic file-saving scripts."
   },
   "auth": {
     "type": "noauth"
@@ -85,7 +85,7 @@
         "description": "Preflight readiness/options only; this does not upload or validate the template.",
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"input\": {\n    \"format\": \"docx\"\n  },\n  \"output\": {\n    \"format\": \"pdf\",\n    \"options\": {\n      \"profile\": \"pdfa-3b\"\n    }\n  },\n  \"filename\": \"example\",\n  \"data\": {\n    \"reference\": \"NF-001\",\n    \"issuedOn\": \"2026-10-13\",\n    \"status\": \" APPROVED \",\n    \"customer\": {\n      \"name\": \" Ada Lovelace \",\n      \"company\": \"Example Studio\",\n      \"email\": \"ada@example.invalid\",\n      \"phone\": null,\n      \"nickname\": null,\n      \"address\": {\n        \"city\": \"Utrecht\",\n        \"country\": \"Netherlands\"\n      }\n    },\n    \"description\": \"Regular project delivery\",\n    \"currency\": \"EUR\",\n    \"total\": 875.5,\n    \"lines\": [\n      {\n        \"description\": \"Template design\",\n        \"quantity\": 1,\n        \"unitPrice\": 500,\n        \"amount\": 500,\n        \"optional\": false\n      },\n      {\n        \"description\": \"Document delivery\",\n        \"quantity\": 3,\n        \"unitPrice\": 125.1667,\n        \"amount\": 375.5,\n        \"optional\": true\n      }\n    ],\n    \"showProjects\": true,\n    \"projects\": [\n      {\n        \"name\": \"Customer onboarding\",\n        \"active\": true,\n        \"team\": \"Delivery\",\n        \"owner\": {\n          \"name\": \"Sam\"\n        },\n        \"tasks\": [\n          {\n            \"code\": \"NF-T01\",\n            \"name\": \"Prepare template\",\n            \"done\": true,\n            \"blocked\": false,\n            \"hasNotes\": true,\n            \"notes\": [\n              \"Design review complete\",\n              \"Images and tables retained\"\n            ]\n          },\n          {\n            \"code\": \"EXT-02\",\n            \"name\": \"Confirm delivery\",\n            \"done\": false,\n            \"blocked\": true,\n            \"hasNotes\": false,\n            \"notes\": null\n          }\n        ]\n      },\n      {\n        \"name\": \"Future rollout\",\n        \"active\": false,\n        \"team\": \"Operations\",\n        \"owner\": {\n          \"name\": null\n        },\n        \"tasks\": []\n      }\n    ],\n    \"delivery\": {\n      \"filename\": \"summary.pdf\"\n    },\n    \"message\": \"Ready for the next review.\"\n  },\n  \"options\": {\n    \"locale\": \"en-GB\",\n    \"timeZone\": \"Europe/Amsterdam\"\n  }\n}",
+          "raw": "{\n  \"input\": {\n    \"format\": \"docx\"\n  },\n  \"output\": {\n    \"format\": \"pdf\",\n    \"options\": {\n      \"profile\": \"pdfa-3b\"\n    }\n  },\n  \"filename\": \"example\",\n  \"data\": {\n    \"reference\": \"NF-001\",\n    \"issuedOn\": \"2026-10-13\",\n    \"status\": \" APPROVED \",\n    \"customer\": {\n      \"name\": \" Ada Lovelace \",\n      \"company\": \"Example Studio\",\n      \"email\": \"ada@example.invalid\",\n      \"phone\": null,\n      \"nickname\": null,\n      \"address\": {\n        \"city\": \"Utrecht\",\n        \"country\": \"Netherlands\"\n      }\n    },\n    \"description\": \"Regular project delivery\",\n    \"currency\": \"EUR\",\n    \"total\": 875.5,\n    \"lines\": [\n      {\n        \"description\": \"Template design\",\n        \"quantity\": 1,\n        \"unitPrice\": 500,\n        \"amount\": 500,\n        \"optional\": false\n      },\n      {\n        \"description\": \"Document delivery\",\n        \"quantity\": 3,\n        \"unitPrice\": 125.1667,\n        \"amount\": 375.5,\n        \"optional\": true\n      }\n    ],\n    \"showProjects\": true,\n    \"projects\": [\n      {\n        \"name\": \"Customer onboarding\",\n        \"active\": true,\n        \"team\": \"Delivery\",\n        \"owner\": {\n          \"name\": \"Sam\"\n        },\n        \"tasks\": [\n          {\n            \"code\": \"NF-T01\",\n            \"name\": \"Prepare template\",\n            \"done\": true,\n            \"blocked\": false,\n            \"hasNotes\": true,\n            \"notes\": [\n              \"Design review complete\",\n              \"Images and tables retained\"\n            ]\n          },\n          {\n            \"code\": \"EXT-02\",\n            \"name\": \"Confirm delivery\",\n            \"done\": false,\n            \"blocked\": true,\n            \"hasNotes\": false,\n            \"notes\": null\n          }\n        ]\n      },\n      {\n        \"name\": \"Future rollout\",\n        \"active\": false,\n        \"team\": \"Operations\",\n        \"owner\": {\n          \"name\": null\n        },\n        \"tasks\": []\n      }\n    ],\n    \"delivery\": {\n      \"filename\": \"summary.pdf\"\n    },\n    \"message\": \"Ready for the next review.\",\n    \"image\": null\n  },\n  \"options\": {\n    \"locale\": \"en-GB\",\n    \"timeZone\": \"Europe/Amsterdam\"\n  }\n}",
           "options": {
             "raw": {
               "language": "json"
@@ -392,6 +392,49 @@
               "key": "request",
               "type": "file",
               "src": "assets/06-empty-projects-pdfa2b.json",
+              "contentType": "application/json"
+            },
+            {
+              "key": "template",
+              "type": "file",
+              "src": "assets/nuaforma-example-template.docx",
+              "contentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Expected content type\", function () { pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/pdf\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 - Base64 image from data",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/pdf"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/documents",
+        "description": "A real Base64 PNG in data.image is inserted by image(60, 25, true). Expected: A teal IMAGE FROM JSON illustration, 60 mm wide and 20 mm high, preserving its 3:1 ratio. Other scenarios supply null and add no image.",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "request",
+              "type": "file",
+              "src": "assets/07-base64-image-pdfa3b.json",
               "contentType": "application/json"
             },
             {

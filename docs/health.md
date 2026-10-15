@@ -1,4 +1,6 @@
-# Service health (source implementation)
+# Service health
+
+Available in the `0.2.0-alpha.1` production and separate Playground containers. Historical `0.1` images remain unchanged.
 
 `GET /health/live` returns `200 {"status":"UP"}` while the HTTP application is live, independently of converters and generation slots. `GET /health/ready` returns the same success body only after initialization with at least one executable provider pair; otherwise it returns `503 {"status":"DOWN"}`. Both include `X-Request-ID`, `Cache-Control: no-store` and `nosniff`, without diagnostic/provider/configuration details in either mode. They are health states, not the ordinary API error-body schema.
 

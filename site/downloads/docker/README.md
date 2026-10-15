@@ -1,6 +1,6 @@
 # Docker evaluation deployment
 
-This kit selects the Linux/amd64 image for `0.1.0-alpha.3`. Use the separate ARM64 kit for Apple Silicon or other ARM64 hosts; both use the same versioned image index. Keep the included Compose file and reviewed seccomp profile together. This kit does not rebuild the renderer. The optional Dockerfile is a minimal example for your own derived image; preserve component notices/source obligations if you redistribute derived images.
+This kit selects the Linux/amd64 image for `0.2.0-alpha.1`. Use the separate ARM64 kit for Apple Silicon or other ARM64 hosts; both use the same versioned image index. Keep the included Compose file and reviewed seccomp profile together. This kit does not rebuild the renderer. The optional Dockerfile is a minimal example for your own derived image; preserve component notices/source obligations if you redistribute derived images.
 
 ```sh
 mkdir -p custom-fonts extensions
@@ -12,13 +12,13 @@ The service is available on loopback port 8080. Stop with `docker compose down`.
 
 ## Documentation
 
-For the complete guide set, see the [documentation index](https://github.com/NuaForma/NuaForma/blob/main/docs/README.md). The [extension guide](https://github.com/NuaForma/NuaForma/blob/main/docs/extensions.md) also describes newer source-only APIs; this kit's alpha.3 image runs Java 17 and does not include value/content pipes, health/SBOM endpoints or the separate Playground. Keep its version-matched settings when following source documentation.
+For the complete guide set, see the [documentation index](https://github.com/NuaForma/NuaForma/blob/main/docs/README.md). Version 0.2.0-alpha.1 includes value/content pipes, image insertion, health and SBOM endpoints, and correlated logging. The service uses Java 25; embedded libraries retain Java 17 compatibility. The separate Playground image is development-only and is not included in this production image.
 
 ## Fonts
 
 Place standalone TTF/OTF files in `custom-fonts`. UID/GID 1000 needs read/traverse access. Compose mounts this directory read-only at `/opt/nuaforma/custom-fonts`; never mount it into the renderer root. Capabilities lists families/faces and logical resource IDs. Restart after changes because fonts are snapshotted at startup. WOFF/TTC, symlinks and conflicting family/face files are rejected. Availability does not waive embedding flags or your responsibility for font usage rights.
 
-`extensions` is an optional read-only mount at `/opt/nuaforma/extensions`. Only install operator-trusted Java 17 provider JARs; installed code has full application-process permissions, not a template sandbox.
+`extensions` is an optional read-only mount at `/opt/nuaforma/extensions`. Only install operator-trusted extension JARs compatible with the Java 25 service; installed code has full application-process permissions, not a template sandbox.
 
 Keep non-root/read-only execution, init, dropped capabilities, no-new-privileges, the reviewed profile and limits. Do not use privileged or unconfined execution to work around unavailable PDF. The Linux container host must support unprivileged user namespaces. Check the PDF provider's available formats in capabilities.
 
@@ -50,4 +50,4 @@ AppArmor configuration belongs on the Linux host, not merely on the macOS client
 
 ## Source and licenses
 
-The runtime includes LibreOffice, Bubblewrap, veraPDF, Java and OS components under their original licenses. It is not wholly Apache-2.0. Matching source/notices are provided with [the alpha release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.3). The copied seccomp profile retains its upstream attribution in `NOTICE` and Apache-2.0 text in `LICENSE`.
+The runtime includes LibreOffice, Bubblewrap, veraPDF, Java and OS components under their original licenses. It is not wholly Apache-2.0. Matching source/notices are provided with [the alpha release](https://github.com/NuaForma/NuaForma/releases/tag/v0.2.0-alpha.1). The copied seccomp profile retains its upstream attribution in `NOTICE` and Apache-2.0 text in `LICENSE`.

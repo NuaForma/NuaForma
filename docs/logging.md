@@ -1,6 +1,6 @@
 # Operational logging and development diagnostics
 
-This is an unreleased source capability from issue #76. Published alpha images and libraries remain unchanged.
+Available in `0.2.0-alpha.1`, from issue #76. Historical `0.1` images and libraries remain unchanged.
 
 ## Server and container configuration
 

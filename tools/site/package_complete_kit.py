@@ -4,7 +4,9 @@ from build_client_collections import OUT, archive_files
 
 def package():
     files = {"START-HERE.md": OUT / "START-HERE.md"}
-    for prefix, folder in (("Deploy/AMD64", "docker"), ("Deploy/ARM64", "docker-arm64"), ("Deploy/Helm", "helm"), ("Collections/Bruno", "bruno"), ("Collections/Postman", "postman")):
+    folders = [("Deploy/AMD64", "docker"), ("Deploy/ARM64", "docker-arm64"), ("Deploy/Helm", "helm"), ("Collections/Bruno", "bruno"), ("Collections/Postman", "postman")]
+    folders.extend((prefix, folder) for prefix, folder in (("Deploy/Playground/AMD64", "docker-playground"), ("Deploy/Playground/ARM64", "docker-playground-arm64")) if (OUT / folder).is_dir())
+    for prefix, folder in folders:
         for path in sorted((OUT / folder).rglob("*")):
             if path.is_file():
                 assert not path.is_symlink()

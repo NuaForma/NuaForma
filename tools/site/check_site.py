@@ -17,6 +17,7 @@ arguments = parser.parse_args()
 SITE = arguments.site_directory.resolve()
 assert arguments.allow_preparation or not (SITE / 'RELEASE-PREPARATION.txt').exists(), 'Candidate site has outstanding publication requirements'
 assert arguments.allow_preparation or 'REQUIRED_APPROVED_RELEASE_DIGEST' not in (SITE / 'downloads/helm/nuaforma/values.yaml').read_text(), 'Helm must pin the approved release digest'
+assert arguments.allow_preparation or 'REQUIRED_APPROVED_PLAYGROUND_DIGEST' not in (SITE / 'downloads/helm/README.md').read_text(encoding='utf-8'), 'Playground instructions must pin the approved release digest'
 source = (SITE / "index.html").read_text(encoding="utf-8")
 
 
@@ -85,7 +86,21 @@ assert 'href="downloads/docker-kit.zip" download="docker-kit.zip" data-download-
 assert 'id="docker-kit-status"' in source
 assert 'id="docker-kit-download"' in source
 assert "curl --fail --location https://nuaforma.dev/downloads/docker-kit.zip --output docker-kit.zip" in source
-for name in ("docker", "docker-arm64", "helm"):
+deployment_names = ["docker", "docker-arm64", "helm"]
+playground_names = [name for name in ("docker-playground", "docker-playground-arm64") if (SITE / "downloads" / name).is_dir()]
+assert len(playground_names) in (0, 2), 'Playground requires both native deployment kits'
+deployment_names.extend(playground_names)
+for name in playground_names:
+    assert f'href="downloads/{name}-kit.zip"' in source
+    content = (SITE / 'downloads' / name / 'compose.yaml').read_text()
+    production_name = 'docker-arm64' if name.endswith('-arm64') else 'docker'
+    production = (SITE / 'downloads' / production_name / 'compose.yaml').read_text()
+    expected_compose = production.replace('ghcr.io/nuaforma/nuaforma:', 'ghcr.io/nuaforma/nuaforma-playground:').replace('      NUAFORMA_PORT: "8080"', '      NUAFORMA_PORT: "8080"\n      NUAFORMA_MODE: "development"\n      NUAFORMA_PLAYGROUND: "true"')
+    assert content == expected_compose, 'Playground must retain production isolation and change only image/development activation'
+    expected_dockerfile = (SITE / 'downloads' / production_name / 'Dockerfile').read_text().replace('ghcr.io/nuaforma/nuaforma:', 'ghcr.io/nuaforma/nuaforma-playground:')
+    assert (SITE / 'downloads' / name / 'Dockerfile').read_text() == expected_dockerfile
+    assert 'DEVELOPMENT ONLY' in (SITE / 'downloads' / name / 'README.md').read_text(encoding='utf-8')
+for name in deployment_names:
     folder = SITE / "downloads" / name
     assert (folder / "seccomp.json").read_bytes() == (ROOT / "deployment/pdf-runtime/seccomp.json").read_bytes()
     assert (folder / "nuaforma.apparmor").read_bytes() == (ROOT / "deployment/pdf-runtime/nuaforma.apparmor").read_bytes()
@@ -154,7 +169,9 @@ for item in collection["item"]:
             assert (SITE / "downloads/postman" / part["src"]).is_file()
         assert request["body"]["formdata"][0]["contentType"] == "application/json"
 expected = {"START-HERE.md": SITE / "downloads/START-HERE.md"}
-for prefix, folder in (("Deploy/AMD64", "docker"), ("Deploy/ARM64", "docker-arm64"), ("Deploy/Helm", "helm"), ("Collections/Bruno", "bruno"), ("Collections/Postman", "postman")):
+complete_folders = [("Deploy/AMD64", "docker"), ("Deploy/ARM64", "docker-arm64"), ("Deploy/Helm", "helm"), ("Collections/Bruno", "bruno"), ("Collections/Postman", "postman")]
+complete_folders.extend((prefix, folder) for prefix, folder in (("Deploy/Playground/AMD64", "docker-playground"), ("Deploy/Playground/ARM64", "docker-playground-arm64")) if folder in playground_names)
+for prefix, folder in complete_folders:
     parent = SITE / "downloads" / folder
     expected.update({prefix + "/" + p.relative_to(parent).as_posix(): p for p in parent.rglob("*") if p.is_file()})
 for file in ["EXAMPLES.md", "scenarios.json", "nuaforma-example-template.docx", *[s["file"] for s in index]]:

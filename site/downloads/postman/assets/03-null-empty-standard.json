@@ -68,7 +68,8 @@
     "delivery": {
       "filename": "SUMMARY.PDF"
     },
-    "message": null
+    "message": null,
+    "image": null
   },
   "options": {
     "locale": "en-GB",
