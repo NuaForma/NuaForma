@@ -2,7 +2,7 @@ name: Native container candidates
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths: ['deployment/pdf-runtime/**', 'tools/container/**', 'tools/pdf-evaluation/**', 'nuaforma-*/**', 'gradle/**', '*.gradle.kts', '.github/workflows/native-container.yml', '.github/workflows/container-release.yml']
   workflow_dispatch:
 

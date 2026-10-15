@@ -2,6 +2,8 @@
 
 This guide is for building NuaForma itself. Using a published container or embedding published libraries does not require a source build. For private extensions, start with the [extension guide](extensions.md); to contribute a change upstream, read [CONTRIBUTING.md](../CONTRIBUTING.md).
 
+Use develop as the default working branch; feature PRs target develop and release promotions target main. The public website and packaging/static checks are maintained independently in [NuaForma/website](https://github.com/NuaForma/website). Follow the [workflow guide](branch-workflow.md) for coordination and explicit cross-checkout document qualification; no sibling website path is assumed by the product build.
+
 ## Requirements
 
 - JDK 17 for the five embedded libraries and JDK 25 for the server/Playground. Gradle can run on either; both compilation/test toolchains must be installed.

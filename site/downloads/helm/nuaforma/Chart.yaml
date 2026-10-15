@@ -1,6 +1,0 @@
-apiVersion: v2
-name: nuaforma
-description: NuaForma evaluation deployment with explicit lifecycle probes
-type: application
-version: 0.2.0-alpha.1
-appVersion: "0.2.0-alpha.1"

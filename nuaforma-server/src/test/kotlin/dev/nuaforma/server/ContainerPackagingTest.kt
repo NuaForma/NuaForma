@@ -191,14 +191,33 @@ class ContainerPackagingTest {
         }
     }
 
-    @Test fun `website tooling checks do not implicitly publish unchanged site content`() {
-        val jobs = yaml(".github/workflows/pages.yml")["jobs"] as Map<*, *>
-        val check = jobs["check"] as Map<*, *>
-        assertEquals(mapOf("deploy" to "\${{ steps.site-change.outputs.deploy }}"), check["outputs"])
-        val commands = (check["steps"] as List<*>).joinToString("\n") { (it as Map<*, *>)["run"].toString() }
-        assertTrue(commands.contains("git diff --quiet HEAD^ HEAD -- site/"))
-        assertTrue(commands.contains("test \"\$EVENT_NAME\" = workflow_dispatch"))
-        assertTrue((jobs["deploy"] as Map<*, *>)["if"].toString().contains("needs.check.outputs.deploy == 'true'"))
+    @Test fun `website ownership is separate without removing real product qualification`() {
+        assertFalse(Files.exists(root.resolve(".github/workflows/pages.yml")))
+        assertFalse(Files.exists(root.resolve("site/index.html")))
+        assertFalse(Files.exists(root.resolve("tools/site/check_site.py")))
+        listOf("verify_example_kit.py", "verify_client_collections.py").forEach {
+            val source = Files.readString(root.resolve("tools/site-qualification/$it"))
+            assertTrue(source.contains("--website-directory"))
+            assertTrue(source.contains("required=True"))
+            assertTrue(source.contains("tools/container"))
+        }
+    }
+
+    @Test fun `normal checks cover develop while release promotion targets main only`() {
+        listOf("build.yml", "native-container.yml", "apparmor-audit.yml").forEach {
+            val workflow = yaml(".github/workflows/$it")
+            val events = (workflow["on"] ?: workflow[true]) as Map<*, *>
+            assertEquals(listOf("main", "develop"), (events["pull_request"] as Map<*, *>)["branches"])
+        }
+        val workflow = yaml(".github/workflows/release-promotion.yml")
+        val events = (workflow["on"] ?: workflow[true]) as Map<*, *>
+        assertEquals(listOf("main"), (events["pull_request"] as Map<*, *>)["branches"])
+        assertEquals(mapOf("contents" to "read"), workflow["permissions"])
+        val job = (workflow["jobs"] as Map<*, *>)["check"] as Map<*, *>
+        assertEquals("Release promotion", job["name"])
+        val commands = (job["steps"] as List<*>).joinToString("\n") { (it as Map<*, *>)["run"].toString() }
+        assertTrue(commands.contains("tools/release/check_promotion.py"))
+        assertFalse(commands.contains("publish"))
     }
 
     @Test fun `native archive transfer requires protected review and matching sources first`() {
