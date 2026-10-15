@@ -35,7 +35,7 @@ class ExtensionClasspathTest {
 
     @Test fun `incompatible metadata is rejected before initialization`() {
         val directory = mount()
-        Files.copy(MountedProviderFixture.build(root.resolve("fixture"), minor = 2), directory.resolve("provider.jar"))
+        Files.copy(MountedProviderFixture.build(root.resolve("fixture"), minor = dev.nuaforma.contracts.ContractVersion.CURRENT.minor + 1), directory.resolve("provider.jar"))
         System.clearProperty("nuaforma.mount.initialized")
         try {
             ExtensionClasspath.open(directory, parent).use { loader ->

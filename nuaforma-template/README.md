@@ -172,7 +172,7 @@ pipe.name=select
 pipe.class=example.SelectPipe
 pipe.version=0.1.0-SNAPSHOT
 contract.major=0
-contract.minor=1
+contract.minor=2
 ```
 
 The class must be a public, concrete no-argument ServiceLoader implementation. Before initialization, discovery validates all declarations, UTF-8 service files, exact descriptor keys, class identity/origin and same-major/minimum-minor compatibility. Only local JARs/class directories are supported, not network resources or JPMS module-layer services. Class, descriptor and service entry must originate from the same artifact. Duplicate names/classes, reserved `number`/`date`, unsupported contracts, missing/mismatched metadata and later definition-name mismatches fail with sanitized `INVALID_REQUEST`; no classpath-order fallback exists. Content/value name collisions also fail when combined by a generator, even if never referenced by a template. `image` is reserved by the built-in DOCX generator, not by unrelated text engines.

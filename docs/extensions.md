@@ -23,7 +23,7 @@ META-INF/services/dev.nuaforma.contracts.DocumentProvider
 META-INF/nuaforma/providers/<binary-implementation-class-name>.properties
 ```
 
-The [contracts reference](../nuaforma-contracts/README.md#static-provider-metadata-and-versioning) specifies the descriptor fields; the [core guide](../nuaforma-core/README.md#metadata-before-provider-loading) describes origin validation before initialization. Contract compatibility uses same-major/minimum-minor matching, not exact minor matching. Release version and required contract version are separate identities.
+The [contracts reference](../nuaforma-contracts/README.md#static-provider-metadata-and-versioning) specifies the descriptor fields; the [core guide](../nuaforma-core/README.md#metadata-before-provider-loading) describes origin validation before initialization. Contract compatibility uses same-major/minimum-minor matching, not exact minor matching. Candidate contract `0.2` accepts legacy providers requiring `0.1`. Providers using the new APIs must require `0.2`; built-in DOCX/PDF providers now do so, allowing an older runtime to reject them before loading. Release version `0.2.0-alpha.1` is separate from required contract `0.2`.
 
 The [independent Java provider example](../examples/embedded/README.md#third-party-providers) compiles against contracts only and demonstrates a company-owned format, SPI and explicit registration. Follow the complete contracts for streams, resource limits, concurrency, cancellation, diagnostics and option rejection; the example is not a universal renderer.
 
@@ -38,7 +38,7 @@ META-INF/services/dev.nuaforma.contracts.TemplatePipe
 META-INF/nuaforma/pipes/<binary-implementation-class-name>.properties
 ```
 
-Use the [implementation/registration reference](../nuaforma-template/README.md#implementation-and-registration) and runnable [independent Kotlin extension](../examples/value-pipes/README.md). Declare arguments, defaults, null behavior and a compatible contract version. Discovery rejects duplicates, reserved names, invalid descriptors and origin conflicts rather than choosing the first classpath entry. Explicit application composition can supply `TemplatePipes.of(...)` instead.
+Use the [implementation/registration reference](../nuaforma-template/README.md#implementation-and-registration) and runnable [independent Kotlin extension](../examples/value-pipes/README.md). Declare arguments, defaults, null behavior and minimum contract `0.2` for this new SPI. Discovery rejects duplicates, reserved names, invalid descriptors and origin conflicts rather than choosing the first classpath entry. Explicit application composition can supply `TemplatePipes.of(...)` instead.
 
 Custom markers use parentheses, for example `{customer | select("address") | select("city")}` with the example's installed `select` pipe. They may chain but are not arbitrary callable functions, `if` conditions or `each` expressions. Existing built-in `number`/`date` formatting keeps its documented syntax.
 

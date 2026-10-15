@@ -86,7 +86,7 @@ class DiscoveryTest {
     }
 
     @ParameterizedTest
-    @CsvSource("1.9,1.2,true", "1.1,1.2,false", "2.0,1.2,false", "1.10,1.9,true", "1.2.7,1.2,true")
+    @CsvSource("0.2,0.1,true", "0.2,0.2,true", "0.1,0.2,false", "0.2,0.3,false", "1.9,1.2,true", "1.1,1.2,false", "2.0,1.2,false", "1.10,1.9,true", "1.2.7,1.2,true")
     fun `metadata compatibility is checked before factory initialization`(available: String, required: String, accepted: Boolean) {
         val fixtures = PackagedProviders(directory)
         val name = "Version" + available.replace('.', '_')

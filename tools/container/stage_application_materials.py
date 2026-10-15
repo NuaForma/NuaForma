@@ -8,7 +8,7 @@ import shutil
 
 
 def stage(collection, provenance, application, version):
-    assert re.fullmatch(r"0\.1\.0-alpha\.1", version)
+    assert re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?", version)
     record = json.loads((collection / "inventory.json").read_text())
     assert not record["errors"]
     original = json.loads((provenance / "inventory.json").read_text())

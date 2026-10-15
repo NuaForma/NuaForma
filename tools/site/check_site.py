@@ -1,5 +1,7 @@
 """Check public static links, request examples, archive parity and reviewed profiles."""
 import html
+import argparse
+import base64
 import json
 import pathlib
 import re
@@ -8,7 +10,13 @@ import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-SITE = ROOT / "site"
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--site-directory', type=pathlib.Path, default=ROOT / 'site')
+parser.add_argument('--allow-preparation', action='store_true', help='Validate draft structure, not readiness for publication')
+arguments = parser.parse_args()
+SITE = arguments.site_directory.resolve()
+assert arguments.allow_preparation or not (SITE / 'RELEASE-PREPARATION.txt').exists(), 'Candidate site has outstanding publication requirements'
+assert arguments.allow_preparation or 'REQUIRED_APPROVED_RELEASE_DIGEST' not in (SITE / 'downloads/helm/nuaforma/values.yaml').read_text(), 'Helm must pin the approved release digest'
 source = (SITE / "index.html").read_text(encoding="utf-8")
 
 
@@ -51,7 +59,14 @@ for reference in re.findall(r'(?:href|src)="([^"]+)"', source):
         continue
     assert (SITE / reference).is_file(), reference
 index = json.loads((SITE / "downloads/scenarios.json").read_text())
-assert len(index) == 6
+assert len(index) in (6, 7)
+if len(index) == 7:
+    assert index[-1]['file'] == '07-base64-image-pdfa3b.json'
+    image_request = json.loads((SITE / 'downloads' / index[-1]['file']).read_text())
+    picture = base64.b64decode(image_request['data']['image'], validate=True)
+    assert picture.startswith(b'\x89PNG\r\n\x1a\n') and len(picture) < 1024 * 1024
+    assert image_request['output']['options']['profile'] == 'pdfa-3b'
+    assert all(json.loads((SITE / 'downloads' / item['file']).read_text())['data']['image'] is None for item in index[:-1])
 for scenario in index:
     request = json.loads((SITE / "downloads" / scenario["file"]).read_text())
     assert request["input"]["format"] == "docx"
@@ -88,6 +103,8 @@ with zipfile.ZipFile(SITE / "downloads/nuaforma-example-template.docx") as archi
     assert len([n for n in archive.namelist() if n.startswith("word/media/")]) == 2
     assert b"asciiTheme" not in archive.read("word/styles.xml")
     assert b"{#each" in archive.read("word/document.xml")
+    if len(index) == 7:
+        assert b'{image | image(60, 25, true)}' in archive.read('word/document.xml')
     namespace = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
     document = ET.fromstring(archive.read("word/document.xml"))
     table = document.find(".//w:tbl", namespace)
@@ -113,8 +130,8 @@ for client in ("bruno", "postman"):
         assert (folder / "assets" / file).read_bytes() == (SITE / "downloads" / file).read_bytes()
 collection = json.loads((SITE / "downloads/postman/NuaForma.postman_collection.json").read_text(encoding="utf-8"))
 assert collection["variable"] == [{"key": "baseUrl", "value": "http://localhost:8080", "type": "string"}]
-assert len(collection["item"]) == 11
-assert len(list((SITE / "downloads/bruno").glob("[0-9][0-9]-*.bru"))) == 11
+assert len(collection["item"]) == 5 + len(index)
+assert len(list((SITE / "downloads/bruno").glob("[0-9][0-9]-*.bru"))) == 5 + len(index)
 generation_requests = [item["request"] for item in collection["item"] if item["request"]["url"].endswith("/documents")]
 assert {r["body"]["formdata"][0]["src"] for r in generation_requests} == {"assets/" + s["file"] for s in index}
 assessment = next(item["request"] for item in collection["item"] if item["request"]["url"].endswith("/assess"))
@@ -148,4 +165,4 @@ with zipfile.ZipFile(SITE / "downloads/nuaforma-complete-kit.zip") as archive:
         assert archive.read(member) == file.read_bytes()
         assert ".." not in pathlib.PurePosixPath(member).parts and not member.startswith("/")
 print("Client collection assets, multipart settings and complete-kit parity: PASS")
-print("Static links, six scenarios, Compose parity, archives and profiles: PASS")
+print(f"Static links, {len(index)} scenarios, Compose parity, archives and profiles: PASS")

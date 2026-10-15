@@ -14,6 +14,6 @@ class FontCatalogTest {
         assertThrows(IllegalArgumentException::class.java) { AvailableFont("Example", "regular", FontOrigin.MOUNTED, "../font") }
         assertThrows(IllegalArgumentException::class.java) { FontCatalog(List(2049) { AvailableFont("Font-$it", "regular", FontOrigin.BUNDLED) }) }
         assertThrows(IllegalArgumentException::class.java) { FontCatalog(listOf(snapshot.fonts.single(), snapshot.fonts.single())) }
-        assertEquals(ContractVersion(0, 1), ContractVersion.CURRENT)
+        assertEquals(ContractVersion(0, 2), ContractVersion.CURRENT)
     }
 }

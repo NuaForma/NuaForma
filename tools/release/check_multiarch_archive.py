@@ -5,14 +5,16 @@ import json
 import pathlib
 import subprocess
 import tarfile
-from validate_multiarch_release import PLATFORMS, check
+from validate_multiarch_release import APPLICATIONS, PLATFORMS, check
 
 
 def validate_archive(path, review, architecture):
     version = review["version"]
     check(review, version, review["sourceCommit"])
     platform = review["platforms"][architecture]
-    if path.name != f"nuaforma-container-{version}-{architecture}.tar.gz" or not 0 < path.stat().st_size <= 2 * 1024 * 1024 * 1024:
+    application = review.get("application", "server")
+    image_name = APPLICATIONS[application]
+    if path.name != f"{image_name}-container-{version}-{architecture}.tar.gz" or not 0 < path.stat().st_size <= 2 * 1024 * 1024 * 1024:
         raise ValueError("Unexpected platform archive")
     digest = hashlib.sha256()
     with path.open("rb") as source:
@@ -37,6 +39,12 @@ def validate_archive(path, review, architecture):
     if config["config"].get("User") != "1000:1000":
         raise ValueError("Non-root runtime required")
     labels = config["config"].get("Labels", {})
+    if "application" in review and labels.get("dev.nuaforma.application") != application:
+        raise ValueError("Image application differs from review")
+    environment = dict(value.split("=", 1) for value in config["config"].get("Env", []) if "=" in value)
+    if application == "playground" and any(environment.get(key) != value for key, value in {
+        "NUAFORMA_APPLICATION": "playground", "NUAFORMA_PLAYGROUND": "true", "NUAFORMA_MODE": "development"}.items()):
+        raise ValueError("Playground startup defaults do not match the reviewed application")
     if labels.get("org.opencontainers.image.version") != version or labels.get("org.opencontainers.image.revision") != review["sourceCommit"]:
         raise ValueError("Image source/version differs from review")
     return config
@@ -48,11 +56,14 @@ def main():
     parser.add_argument("--architecture", choices=PLATFORMS, required=True)
     parser.add_argument("--archive", type=pathlib.Path, required=True)
     parser.add_argument("--check-loaded", action="store_true")
+    parser.add_argument("--application", choices=APPLICATIONS, default="server")
     args = parser.parse_args()
     review = json.loads(args.review.read_text())
+    if review.get("application", "server") != args.application:
+        raise ValueError("Review belongs to a different application")
     config = validate_archive(args.archive, review, args.architecture)
     if args.check_loaded:
-        tag = f'nuaforma:{review["version"]}-{args.architecture}-archive'
+        tag = f'{APPLICATIONS[args.application]}:{review["version"]}-{args.architecture}-archive'
         image = json.loads(subprocess.check_output(["docker", "image", "inspect", tag], text=True, timeout=30))[0]
         if image["Id"] != "sha256:" + review["platforms"][args.architecture]["containerConfigSha256"]:
             raise ValueError("Loaded configuration identity differs from approved archive")

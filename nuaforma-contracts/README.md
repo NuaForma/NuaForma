@@ -1,6 +1,6 @@
 # NuaForma provider contracts
 
-Development API for Kotlin and Java 17, in `dev.nuaforma.contracts`. The contract baseline remains **0.1** by maintainer decision; the published alpha is not a stable release, and source-only additions are identified below. This module contains value types, provider contracts, descriptor parsing and validation helpers. Discovery and selection live in [core](../nuaforma-core/README.md). Expression evaluation, DOCX/PDF processing and HTTP serialization belong to implementation modules, not contracts.
+Development API for Kotlin and Java 17, in `dev.nuaforma.contracts`. The `0.2.0-alpha.1` candidate uses contract **0.2**; published alpha.1 artifacts retain **0.1**. Runtime `0.2` accepts providers requiring `0.1` or `0.2`; implementations using new interfaces require `0.2` so older runtimes reject them before initialization. Artifact release versions and contract minima are separate. This module contains value types, provider contracts, descriptor parsing and validation helpers. Discovery and selection live in [core](../nuaforma-core/README.md). Expression evaluation, DOCX/PDF processing and HTTP serialization belong to implementation modules, not contracts.
 
 ## Optional value pipes (unreleased source)
 
@@ -16,7 +16,7 @@ Optional `TemplatePipeProvider.templatePipes()` reports immutable extension defi
 
 Providers may implement `FontCatalogProvider.fontCatalog(GenerationContext)` without changing `DocumentProvider`. `FontCatalog` is a bounded immutable deployment-only snapshot of `AvailableFont` entries: `family`, `face`, `origin` (`BUNDLED`/`MOUNTED`) and optional logical `resource` ID. No paths, font bytes, request uploads or template-private fonts belong in it. Faces are provider metadata, not a closed global enum; initial providers report regular/bold/italic/boldItalic, with variable faces also reported by the renderer. Availability does not establish embedding permissions, glyph coverage or successful generation for every template.
 
-Honor cancellation/deadlines, return at most 2048 entries and fail if enumeration is unavailable. An absent facet means enumeration is unsupported, not that no fonts exist. The facet uses the `0.1` contract baseline; source additions and released contracts follow the agreed compatibility/versioning policy.
+Honor cancellation/deadlines, return at most 2048 entries and fail if enumeration is unavailable. An absent facet means enumeration is unsupported, not that no fonts exist. The font facet was introduced with the `0.1` baseline; the current additive APIs use `0.2` and retain the compatibility/versioning policy.
 
 ## Optional generator content pipes (unreleased source)
 
@@ -26,7 +26,7 @@ Honor cancellation/deadlines, return at most 2048 entries and fail if enumeratio
 
 `ContentPipeDefinition.contentTypes` is an additive immutable set of accepted source media types, empty for implementations that declare none. The image registration declares `image/png` and `image/jpeg`; this is descriptive metadata, never MIME-based trust/dispatch or a universal content model. The existing constructors, including Kotlin default-argument descriptors, remain intact; the explicit six-argument constructor adds source media declarations without changing previous callers.
 
-The new contracts retain Java 17, the `0.1` contract baseline and existing source/JVM compatibility. Independent generators can implement them using contracts only; generators need not use NuaForma's template language or DOCX provider. The [template facade](../nuaforma-template/README.md#generator-content-pipes-unreleased-source) handles source evaluation and spans; the generator inserts the result in its own model. This is distinct from the chainable JSON-compatible value-pipe SPI (#56). Source capabilities integration (#60) reuses the optional metadata facets without adding mandatory provider methods. Published alpha artifacts do not yet include these contracts.
+The new contracts retain Java 17, the `0.2` contract baseline and existing source/JVM compatibility. Independent generators can implement them using contracts only; generators need not use NuaForma's template language or DOCX provider. The [template facade](../nuaforma-template/README.md#generator-content-pipes-unreleased-source) handles source evaluation and spans; the generator inserts the result in its own model. This is distinct from the chainable JSON-compatible value-pipe SPI (#56). Source capabilities integration (#60) reuses the optional metadata facets without adding mandatory provider methods. Published alpha artifacts do not yet include these contracts.
 
 ## Requests and supplied data
 
@@ -105,7 +105,7 @@ provider.id=example-docx
 provider.class=example.DocxProvider
 provider.version=0.1.0
 contract.major=0
-contract.minor=1
+contract.minor=2
 ```
 
 `ProviderMetadata.resourcePath(className)` determines the descriptor path. `ProviderMetadata.read(stream)` parses Java properties without loading or initializing any provider class and leaves the caller's stream open. Descriptors are limited to 8192 bytes and exactly the five fields above; duplicate, missing, unknown and malformed fields fail. Provider release versions use SemVer, independently of the required contract version.

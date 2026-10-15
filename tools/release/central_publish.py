@@ -10,12 +10,16 @@ import urllib.request
 import uuid
 
 from central_portal import BASE, open_request
+from prepare_central_bundle import release_version
 from verify_libraries import MODULES
 
 
 def publish(identity, review, token, opener=open_request):
     assert str(uuid.UUID(identity)) == identity
-    assert review["version"] == "0.1.0-alpha.1"
+    version = release_version(review["version"])
+    expected_names = {module + "-" + version + suffix for module in MODULES
+                      for suffix in (".pom", ".jar", "-sources.jar", "-javadoc.jar")}
+    assert set(review["libraryHashes"]) == expected_names, "Require every reviewed library artifact"
     headers = {"Authorization": "Bearer " + token}
     try:
         request = urllib.request.Request(BASE + "status?id=" + identity, data=b"", headers=headers, method="POST")
@@ -24,10 +28,10 @@ def publish(identity, review, token, opener=open_request):
             assert len(data) <= 1024 * 1024
             status = json.loads(data)
         assert status["deploymentId"] == identity and status["deploymentState"] == "VALIDATED", "Deployment is not awaiting publication"
-        assert set(status["purls"]) == {"pkg:maven/dev.nuaforma/" + module + "@0.1.0-alpha.1" for module in MODULES}
+        assert set(status["purls"]) == {"pkg:maven/dev.nuaforma/" + module + "@" + version for module in MODULES}
         for name, expected in review["libraryHashes"].items():
-            module = next(module for module in MODULES if name.startswith(module + "-0.1.0-alpha.1." ) or name.startswith(module + "-0.1.0-alpha.1-"))
-            relative = "dev/nuaforma/" + module + "/0.1.0-alpha.1/" + name
+            module = next(module for module in MODULES if name.startswith(module + "-" + version + ".") or name.startswith(module + "-" + version + "-"))
+            relative = "dev/nuaforma/" + module + "/" + version + "/" + name
             request = urllib.request.Request(BASE + "deployment/" + identity + "/download/" + relative, headers=headers)
             with opener(request, timeout=60) as response:
                 data = response.read(128 * 1024 * 1024 + 1)

@@ -26,7 +26,6 @@ def open_request(request, timeout):
 
 def upload(bundle, version, expected_sha256, token, opener=open_request):
     release_version(version)
-    assert version == "0.1.0-alpha.1", "Only the reviewed first alpha is enabled"
     assert 0 < bundle.stat().st_size <= 512 * 1024 * 1024
     data = bundle.read_bytes()
     assert hashlib.sha256(data).hexdigest() == expected_sha256, "Bundle identity changed"

@@ -7,6 +7,7 @@ import pathlib
 import subprocess
 import sys
 import zipfile
+import xml.etree.ElementTree as ET
 from pypdf import PdfReader
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -19,7 +20,8 @@ spec.loader.exec_module(qualification)
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--docker", default="docker")
-    parser.add_argument("--image", default="ghcr.io/nuaforma/nuaforma:0.1.0-alpha.1")
+    parser.add_argument("--image", default="ghcr.io/nuaforma/nuaforma:0.1.0-alpha.3")
+    parser.add_argument("--kit-directory", type=pathlib.Path, default=ROOT / 'site/downloads')
     parser.add_argument("--poppler", required=True)
     parser.add_argument("--output", type=pathlib.Path, required=True)
     args = parser.parse_args()
@@ -28,14 +30,14 @@ def main():
     runtime = qualification.Runtime(args)
     try:
         base = runtime.connect()
-        template = (ROOT / "site/downloads/nuaforma-example-template.docx").read_bytes()
-        trial = json.loads((ROOT / "site/downloads/01-final-pdfa3b.json").read_text())
+        template = (args.kit_directory / 'nuaforma-example-template.docx').read_bytes()
+        trial = json.loads((args.kit_directory / '01-final-pdfa3b.json').read_text())
         trial.update(providerId="nuaforma-docx", output={"format": "docx"})
         boundary, body = qualification.multipart(trial, template)
         status, _, result = qualification.http(base, "/api/v1/documents", body, "multipart/form-data; boundary=" + boundary)
         assert status == 200, ("DOCX preflight", status, result.decode(errors="replace"))
         print("DOCX preflight PASS", flush=True)
-        for file in sorted((ROOT / "site/downloads").glob("[0-9][0-9]-*.json")):
+        for file in sorted(args.kit_directory.glob("[0-9][0-9]-*.json")):
             envelope = json.loads(file.read_text())
             boundary, body = qualification.multipart(envelope, template)
             status, _, output = qualification.http(base, "/api/v1/documents", body, "multipart/form-data; boundary=" + boundary)
@@ -43,6 +45,17 @@ def main():
             extension = envelope["output"]["format"]
             target = args.output / (file.stem + "." + extension)
             target.write_bytes(output)
+            if envelope['data'].get('image'):
+                word_request = dict(envelope, providerId='nuaforma-docx', output={'format': 'docx'})
+                boundary, body = qualification.multipart(word_request, template)
+                word_status, _, word_document = qualification.http(base, '/api/v1/documents', body, 'multipart/form-data; boundary=' + boundary)
+                assert word_status == 200
+                (args.output / (file.stem + '.docx')).write_bytes(word_document)
+                with zipfile.ZipFile(io.BytesIO(word_document)) as package:
+                    assert len([n for n in package.namelist() if n.startswith('word/media/')]) == 3
+                    document = ET.fromstring(package.read('word/document.xml'))
+                    extents = document.findall('.//{http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing}extent')
+                    assert any((item.get('cx'), item.get('cy')) == ('2160000', '720000') for item in extents), 'Expected 60 by 20 mm drawing'
             if envelope.get("options", {}).get("watermark"):
                 watermark_document = output
                 if extension != "docx":
@@ -79,6 +92,7 @@ def main():
                 "04": ["Template design"],
                 "05": ["Editable document delivery requested"],
                 "06": ["Literal markers stay literal: {customer.name}"],
+                "07": ["Supplied illustration", "60 by 25 millimetres"],
             }[file.name[:2]]
             for value in required:
                 assert "".join(value.split()) in compact, (file.name, value)

@@ -6,7 +6,7 @@ on:
       version:
         description: Explicit container version (does not publish Maven artifacts)
         required: true
-        default: '0.1.0-alpha.2'
+        default: '0.2.0-alpha.1'
         type: string
 
 # Preparation never authenticates to a registry or uploads executable images.
@@ -20,19 +20,34 @@ concurrency:
 jobs:
   qualify:
     if: github.ref == 'refs/heads/main'
-    name: Qualify release candidate (Java 25 server, ${{ matrix.architecture }})
+    name: Qualify release candidate (${{ matrix.application }}, ${{ matrix.architecture }})
     strategy:
       fail-fast: false
       matrix:
         include:
           - architecture: amd64
             runner: ubuntu-24.04
+            application: server
+            target: service
           - architecture: arm64
             runner: ubuntu-24.04-arm
+            application: server
+            target: service
+          - architecture: amd64
+            runner: ubuntu-24.04
+            application: playground
+            target: playground
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+            application: playground
+            target: playground
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     env:
       CONTAINER_VERSION: ${{ inputs.version }}
+      APPLICATION: ${{ matrix.application }}
+      IMAGE_NAME: ${{ matrix.application == 'playground' && 'nuaforma-playground' || 'nuaforma' }}
+      REVIEW_SUFFIX: ${{ matrix.application == 'playground' && '-playground' || '' }}
     steps:
       - name: Check out sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -53,40 +68,48 @@ jobs:
           echo '7a9ce74cff467ca1bf60a4fcd9f05185acceda4d0f382434d393e17864262c5d  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check --strict
           test -x gradlew
       - name: Build and test release inputs
-        run: ./gradlew --no-daemon "-PcontainerVersion=$CONTAINER_VERSION" build :nuaforma-server:installDist :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation :nuaforma-server:generateOpenApi generatePomFileForMavenJavaPublication --warning-mode=fail
+        run: ./gradlew --no-daemon "-PcontainerVersion=$CONTAINER_VERSION" build :nuaforma-server:installDist :nuaforma-playground:installDist :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation :nuaforma-server:generateOpenApi generatePomFileForMavenJavaPublication --warning-mode=fail
       - name: Build local service image
         run: |
           python3 tools/container/prepare_verapdf_materials.py nuaforma-docx-pdf/build/verapdf-validation
           python3 tools/container/prepare_application_materials.py
+          python3 tools/container/prepare_application_materials.py --application nuaforma-playground/build/install/nuaforma-playground
           docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile \
             --build-context pdfvalidation=nuaforma-docx-pdf/build/pdf-validation \
             --build-context verapdfvalidation=nuaforma-docx-pdf/build/verapdf-validation \
             --build-context application=nuaforma-server/build/install/nuaforma-server \
+            --build-context playgroundapplication=nuaforma-playground/build/install/nuaforma-playground \
             --build-arg "NUAFORMA_CONTAINER_VERSION=$CONTAINER_VERSION" \
+            --label "dev.nuaforma.application=$APPLICATION" \
             --label "org.opencontainers.image.version=$CONTAINER_VERSION" \
             --label "org.opencontainers.image.revision=$GITHUB_SHA" \
-            --target service --tag nuaforma:release-candidate deployment/pdf-runtime
+            --target ${{ matrix.target }} --tag "$IMAGE_NAME:release-candidate" deployment/pdf-runtime
       - name: Qualify shipped HTTP entry point and shutdown
         run: |
           sudo apparmor_parser --add --skip-cache deployment/pdf-runtime/nuaforma.apparmor
           sudo grep -F 'nuaforma-runtime (enforce)' /sys/kernel/security/apparmor/profiles
           docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile --build-context qualificationfixtures=tools/pdf-evaluation --target sandbox-probe-build --tag nuaforma:native-probe deployment/pdf-runtime
           python3 tools/container/test_native_platform.py
-          python3 tools/container/verify_native_platform.py --image nuaforma:release-candidate --architecture ${{ matrix.architecture }}
-          python3 tools/container/check_renderer_filter.py --image nuaforma:release-candidate --architecture ${{ matrix.architecture }} --output build/container-release/renderer-seccomp.bpf
-          python3 tools/container/qualify_sandbox.py --image nuaforma:release-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --output build/container-release/isolation
-          python3 tools/container/qualify_sandbox.py --image nuaforma:release-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --exec-hint --output build/container-release/compatibility-isolation
-          python3 tools/container/qualify_service.py --image nuaforma:release-candidate --apparmor nuaforma-runtime --expected-version "$CONTAINER_VERSION" --output build/container-release/qualification
+          python3 tools/container/verify_native_platform.py --image "$IMAGE_NAME:release-candidate" --architecture ${{ matrix.architecture }}
+          python3 tools/container/check_renderer_filter.py --image "$IMAGE_NAME:release-candidate" --architecture ${{ matrix.architecture }} --output build/container-release/renderer-seccomp.bpf
+          python3 tools/container/qualify_sandbox.py --image "$IMAGE_NAME:release-candidate" --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --output build/container-release/isolation
+          python3 tools/container/qualify_sandbox.py --image "$IMAGE_NAME:release-candidate" --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --exec-hint --output build/container-release/compatibility-isolation
+          if test "$APPLICATION" = server; then
+            python3 tools/container/qualify_service.py --image "$IMAGE_NAME:release-candidate" --apparmor nuaforma-runtime --expected-version "$CONTAINER_VERSION" --output build/container-release/qualification
+          fi
+          python3 tools/container/qualify_endpoints.py --image "$IMAGE_NAME:release-candidate" --architecture ${{ matrix.architecture }} --application "$APPLICATION" --expected-version "$CONTAINER_VERSION" --apparmor nuaforma-runtime --output build/container-release/endpoints
+          ./gradlew :nuaforma-server:validateSbomFile -PsbomFile=build/container-release/endpoints/sbom.json --warning-mode=fail
       - name: Export exact inventory for distribution review
         run: |
-          python3 tools/container/collect_inventory.py --image nuaforma:release-candidate --destination build/container-release/inventory
+          python3 tools/container/collect_inventory.py --image "$IMAGE_NAME:release-candidate" --destination build/container-release/inventory
           printf '%s\n' "$GITHUB_SHA" > build/container-release/inventory/source-commit.txt
       - name: Retain review metadata only
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: container-release-review-${{ github.sha }}-${{ matrix.architecture }}
+          name: container-release-review-${{ github.sha }}-${{ matrix.application }}-${{ matrix.architecture }}
           path: |
             build/container-release/inventory/
+            build/container-release/endpoints/sbom.json
             build/container-release/qualification/qualification.json
             build/container-release/isolation/isolation.txt
             build/container-release/compatibility-isolation/isolation.txt

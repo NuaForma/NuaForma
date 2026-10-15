@@ -62,8 +62,12 @@ class ContainerPackagingTest {
         val strategy = job["strategy"] as Map<*, *>
         assertEquals(false, strategy["fail-fast"])
         val matrix = strategy["matrix"] as Map<*, *>
-        assertEquals(listOf(mapOf("architecture" to "amd64", "runner" to "ubuntu-24.04"),
-            mapOf("architecture" to "arm64", "runner" to "ubuntu-24.04-arm")), matrix["include"])
+        val expectedMatrix = listOf("server" to "service", "playground" to "playground").flatMap { (application, target) ->
+            listOf("amd64" to "ubuntu-24.04", "arm64" to "ubuntu-24.04-arm").map { (architecture, runner) ->
+                mapOf("application" to application, "target" to target, "architecture" to architecture, "runner" to runner)
+            }
+        }
+        assertEquals(expectedMatrix, matrix["include"])
         val steps = job["steps"] as List<*>
         steps.map { it as Map<*, *> }.filter { "uses" in it }.forEach {
             assertTrue(Regex("[^@]+@[a-f0-9]{40}").matches(it["uses"] as String))
@@ -71,11 +75,12 @@ class ContainerPackagingTest {
         val uploads = steps.map { it as Map<*, *> }.filter { (it["uses"] as? String)?.startsWith("actions/upload-artifact@") == true }
         assertEquals(1, uploads.size)
         val paths = ((uploads.single()["with"] as Map<*, *>)["path"] as String).trim().lines()
-        assertEquals(listOf("build/container-release/inventory/", "build/container-release/qualification/qualification.json",
+        assertEquals(listOf("build/container-release/inventory/", "build/container-release/endpoints/sbom.json", "build/container-release/qualification/qualification.json",
             "build/container-release/isolation/isolation.txt", "build/container-release/compatibility-isolation/isolation.txt"), paths)
         assertFalse(steps.any { (it as Map<*, *>)["run"].toString().contains("docker push") })
         assertFalse(steps.any { (it as Map<*, *>)["run"].toString().contains("docker login") })
         assertTrue(steps.any { (it as Map<*, *>)["run"].toString().contains("verify_native_platform.py") })
+        assertTrue((uploads.single()["with"] as Map<*, *>)["name"].toString().contains("matrix.application"))
     }
 
     @Test fun `native candidates exercise both platforms without publishing`() {
@@ -102,11 +107,13 @@ class ContainerPackagingTest {
         assertEquals(setOf("workflow_dispatch"), events.keys)
         val job = (workflow["jobs"] as Map<*, *>)["publish"] as Map<*, *>
         assertEquals("ghcr-release", job["environment"])
+        assertEquals(listOf("server", "playground"), ((job["strategy"] as Map<*, *>)["matrix"] as Map<*, *>)["application"])
         assertEquals("github.repository == 'NuaForma/NuaForma' && github.ref == 'refs/heads/main'", job["if"])
         val commands = (job["steps"] as List<*>).joinToString("\n") { (it as Map<*, *>)["run"].toString() }
         assertTrue(commands.indexOf("check_multiarch_archive.py") < commands.indexOf("docker login"))
         assertTrue(commands.contains("for arch in amd64 arm64"))
         assertTrue(commands.contains("check_multiarch_index.py"))
+        assertTrue(commands.contains("--companion-review"))
         assertFalse(commands.contains("docker build"))
         assertTrue(commands.contains("case \"\$RELEASE_VERSION\" in *-*) exit 0 ;; esac"))
     }
@@ -151,6 +158,37 @@ class ContainerPackagingTest {
         assertTrue(dockerfile.contains("eclipse-temurin:17-jre-noble@sha256:"))
         assertTrue(dockerfile.contains("eclipse-temurin:25-jre-noble@sha256:"))
         assertTrue(dockerfile.contains("COPY --from=server-java-runtime /opt/java/openjdk /opt/java/server/"))
+    }
+
+    @Test fun `new Central workflows require explicit versions and review before publication secrets`() {
+        for ((file, jobName) in listOf("central-release-upload.yml" to "upload", "central-release-publish.yml" to "publish")) {
+            val workflow = yaml(".github/workflows/$file")
+            val events = (workflow["on"] ?: workflow[true]) as Map<*, *>
+            assertEquals(setOf("workflow_dispatch"), events.keys)
+            val inputs = (events["workflow_dispatch"] as Map<*, *>)["inputs"] as Map<*, *>
+            assertEquals(true, (inputs["version"] as Map<*, *>)["required"])
+            assertEquals(mapOf("contents" to "read"), workflow["permissions"])
+            val job = (workflow["jobs"] as Map<*, *>)[jobName] as Map<*, *>
+            assertEquals("maven-central", job["environment"])
+            assertEquals("github.repository == 'NuaForma/NuaForma' && github.ref == 'refs/heads/main'", job["if"])
+            val steps = (job["steps"] as List<*>).map { it as Map<*, *> }
+            val review = steps.indexOfFirst { it["run"].toString().contains("validate_library_release.py") }
+            val secrets = steps.indexOfFirst { (it["env"] as? Map<*, *>)?.values?.any { value -> value.toString().contains("secrets.") } == true }
+            assertTrue(review >= 0 && secrets > review)
+            val commands = steps.joinToString("\n") { it["run"].toString() }
+            assertTrue(commands.contains("--companion-review"))
+            assertFalse(commands.contains("AUTOMATIC"))
+        }
+    }
+
+    @Test fun `website tooling checks do not implicitly publish unchanged site content`() {
+        val jobs = yaml(".github/workflows/pages.yml")["jobs"] as Map<*, *>
+        val check = jobs["check"] as Map<*, *>
+        assertEquals(mapOf("deploy" to "\${{ steps.site-change.outputs.deploy }}"), check["outputs"])
+        val commands = (check["steps"] as List<*>).joinToString("\n") { (it as Map<*, *>)["run"].toString() }
+        assertTrue(commands.contains("git diff --quiet HEAD^ HEAD -- site/"))
+        assertTrue(commands.contains("test \"\$EVENT_NAME\" = workflow_dispatch"))
+        assertTrue((jobs["deploy"] as Map<*, *>)["if"].toString().contains("needs.check.outputs.deploy == 'true'"))
     }
 
     @Test fun `native archive transfer requires protected review and matching sources first`() {

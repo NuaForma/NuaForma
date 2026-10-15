@@ -52,10 +52,11 @@ class PortalTest(unittest.TestCase):
     def test_final_publish_requires_validated_exact_coordinates_and_artifact_bytes(self):
         identity = "12345678-1234-1234-1234-123456789abc"
         content = b"synthetic staged artifact"
-        name = "nuaforma-core-0.1.0-alpha.1.jar"
-        review = dict(version="0.1.0-alpha.1", libraryHashes={name: hashlib.sha256(content).hexdigest()})
+        version = "0.2.0-alpha.1"
+        review = dict(version=version, libraryHashes={module + "-" + version + suffix: hashlib.sha256(content).hexdigest()
+            for module in MODULES for suffix in (".pom", ".jar", "-sources.jar", "-javadoc.jar")})
         state = dict(deploymentId=identity, deploymentState="VALIDATED",
-                     purls=["pkg:maven/dev.nuaforma/" + module + "@0.1.0-alpha.1" for module in MODULES])
+                     purls=["pkg:maven/dev.nuaforma/" + module + "@" + version for module in MODULES])
         requests = []
         def opener(request, timeout):
             requests.append(request)
@@ -66,11 +67,22 @@ class PortalTest(unittest.TestCase):
         result = publish(identity, review, "synthetic-token", opener)
         self.assertTrue(result["publishRequested"])
         self.assertFalse(result["published"])
-        self.assertEqual(3, len(requests))
+        self.assertEqual(22, len(requests))
         requests.clear()
         state["deploymentState"] = "VALIDATING"
         with self.assertRaises(AssertionError): publish(identity, review, "synthetic-token", opener)
         self.assertEqual(1, len(requests))
+        state["deploymentState"] = "VALIDATED"
+        requests.clear()
+        changed = dict(review, libraryHashes=dict(review["libraryHashes"]))
+        changed["libraryHashes"][next(iter(changed["libraryHashes"]))] = "0" * 64
+        with self.assertRaises(AssertionError): publish(identity, changed, "synthetic-token", opener)
+        self.assertEqual(2, len(requests))
+        self.assertTrue(requests[-1].full_url.find("/download/") >= 0)
+        requests.clear()
+        changed["libraryHashes"].pop(next(iter(changed["libraryHashes"])))
+        with self.assertRaises(AssertionError): publish(identity, changed, "synthetic-token", opener)
+        self.assertEqual([], requests)
 
     def test_explicit_upload_uses_user_managed_mode_and_records_identity_without_publishing(self):
         with tempfile.TemporaryDirectory() as directory:

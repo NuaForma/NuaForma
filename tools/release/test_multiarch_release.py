@@ -24,6 +24,14 @@ def reviewed():
 
 
 class MultiarchReleaseTest(unittest.TestCase):
+    def test_application_identity_is_not_interchangeable(self):
+        record = reviewed()
+        record["application"] = "unknown"
+        with self.assertRaises(ValueError):
+            check(record, record["version"], record["sourceCommit"])
+        record["application"] = "playground"
+        check(record, record["version"], record["sourceCommit"])
+
     def test_complete_record(self):
         record = reviewed()
         check(record, record["version"], record["sourceCommit"])
@@ -60,6 +68,47 @@ class MultiarchReleaseTest(unittest.TestCase):
                 platform["containerConfigSha256"] = "e" * 64
                 with self.assertRaises(ValueError):
                     validate_archive(path, record, architecture)
+
+    def test_playground_archive_requires_its_own_identity_and_defaults(self):
+        for architecture in ("amd64", "arm64"):
+            record = reviewed()
+            record["application"] = "playground"
+            config = {"os": "linux", "architecture": architecture,
+                      "config": {"User": "1000:1000", "Labels": {
+                          "dev.nuaforma.application": "playground",
+                          "org.opencontainers.image.version": record["version"],
+                          "org.opencontainers.image.revision": record["sourceCommit"]},
+                          "Env": ["NUAFORMA_APPLICATION=playground", "NUAFORMA_PLAYGROUND=true", "NUAFORMA_MODE=development"]}}
+            with tempfile.TemporaryDirectory() as directory:
+                path = pathlib.Path(directory) / f'nuaforma-playground-container-{record["version"]}-{architecture}.tar.gz'
+
+                def write(candidate):
+                    data = json.dumps(candidate).encode()
+                    with tarfile.open(path, "w:gz") as archive:
+                        member = tarfile.TarInfo("config.json")
+                        member.size = len(data)
+                        archive.addfile(member, io.BytesIO(data))
+                    record["platforms"][architecture].update(
+                        containerConfigSha256=hashlib.sha256(data).hexdigest(),
+                        containerArchiveSha256=hashlib.sha256(path.read_bytes()).hexdigest())
+
+                write(config)
+                self.assertEqual(config, validate_archive(path, record, architecture))
+                candidate = copy.deepcopy(config)
+                candidate["config"]["Env"] = []
+                write(candidate)
+                with self.assertRaises(ValueError):
+                    validate_archive(path, record, architecture)
+                candidate = copy.deepcopy(config)
+                candidate["config"]["Labels"]["dev.nuaforma.application"] = "server"
+                write(candidate)
+                with self.assertRaises(ValueError):
+                    validate_archive(path, record, architecture)
+                write(config)
+                renamed = path.with_name(path.name.replace("nuaforma-playground-", "nuaforma-"))
+                path.rename(renamed)
+                with self.assertRaises(ValueError):
+                    validate_archive(renamed, record, architecture)
 
     def test_index_requires_complete_platform_set(self):
         index = {"schemaVersion": 2, "manifests": [{"platform": {"os": "linux", "architecture": arch}, "digest": "sha256:" + value * 64} for arch, value in (("amd64", "1"), ("arm64", "2"))]}

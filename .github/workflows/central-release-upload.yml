@@ -1,0 +1,82 @@
+name: Upload reviewed release to Central
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Explicit reviewed release version
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: central-release-publication
+  cancel-in-progress: false
+
+jobs:
+  upload:
+    if: github.repository == 'NuaForma/NuaForma' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: maven-central
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - name: Check out approved release policy
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify environment and complete release gate before loading secrets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/release/check_environment.py
+          python3 tools/release/validate_library_release.py --version "$RELEASE_VERSION" --review "release-approvals/$RELEASE_VERSION.json" --companion-review "release-approvals/$RELEASE_VERSION-playground.json"
+          cp "release-approvals/$RELEASE_VERSION.json" "$RUNNER_TEMP/release-review.json"
+          git checkout --detach "v$RELEASE_VERSION"
+      - name: Set up Java 25 server toolchain
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Set up Java 17
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Validate Gradle Wrapper
+        run: |
+          echo '7a9ce74cff467ca1bf60a4fcd9f05185acceda4d0f382434d393e17864262c5d  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check --strict
+          test -x gradlew
+      - name: Verify exact unsigned release libraries and consumers
+        run: ./gradlew --no-daemon build verifyEmbeddedConsumers --warning-mode=fail
+      - name: Obtain approved public verification key
+        run: |
+          mkdir -p build/central-release
+          curl --fail --silent --show-error --proto '=https' --max-time 30 \
+            'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x74317C6CE9C61B80A2A1C0B40F736E8D598CB08B' --output build/central-release/public.asc
+      - name: Sign the exact candidate
+        env:
+          MAVEN_SIGNING_KEY: ${{ secrets.MAVEN_SIGNING_KEY }}
+          MAVEN_SIGNING_PASSWORD: ${{ secrets.MAVEN_SIGNING_PASSWORD }}
+        run: ./gradlew --no-daemon stageLibraries -PsignArtifacts=true --no-build-cache --no-configuration-cache --warning-mode=fail
+      - name: Verify and assemble local bundle
+        run: |
+          python3 tools/release/prepare_central_bundle.py --repository build/library-repository --version "$RELEASE_VERSION" \
+            --fingerprint 74317C6CE9C61B80A2A1C0B40F736E8D598CB08B --public-key build/central-release/public.asc --output build/central-release/central.zip
+          python3 tools/release/check_bundle_review.py --bundle-record build/central-release/central.zip.json --review "$RUNNER_TEMP/release-review.json"
+      - name: Upload once for Portal validation without automatic publishing
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+        run: python3 tools/release/central_portal.py --confirm-upload --bundle build/central-release/central.zip --record build/central-release/central.zip.json --output build/central-release/deployment.json
+      - name: Retain deployment identity and checksums only
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: central-release-deployment-${{ github.run_id }}
+          path: build/central-release/deployment.json
+          if-no-files-found: error
+          retention-days: 14

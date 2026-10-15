@@ -26,7 +26,7 @@ def archive_files(target, files):
             archive.writestr(info, path.read_bytes())
 
 
-def build():
+def build(version="0.1.0-alpha.3"):
     scenarios = json.loads((OUT / "scenarios.json").read_text(encoding="utf-8"))
     requests = [
         ("Version", "GET", "/api/v1/version", None, "application/json", "Packaged version; not a readiness check."),
@@ -68,7 +68,7 @@ def build():
             'pm.test("Expected content type", function () { pm.expect(pm.response.headers.get("Content-Type")).to.include(' + json.dumps(media) + '); });',
         ]}}]})
     write_json(postman / "NuaForma.postman_collection.json", {
-        "info": {"name": "NuaForma examples", "schema": SCHEMA, "description": "Local evaluation collection. Set baseUrl, use the extracted postman folder as your working directory, then check capabilities before generating. Includes six complete scenarios and local assets. No credentials or automatic file-saving scripts."},
+        "info": {"name": "NuaForma examples", "schema": SCHEMA, "description": f"Local evaluation collection. Set baseUrl, use the extracted postman folder as your working directory, then check capabilities before generating. Includes {len(scenarios)} complete scenarios and local assets. No credentials or automatic file-saving scripts."},
         "auth": {"type": "noauth"}, "variable": [{"key": "baseUrl", "value": "http://localhost:8080", "type": "string"}], "item": items,
     })
     assets = [OUT / "nuaforma-example-template.docx", *[OUT / s["file"] for s in scenarios]]
@@ -76,11 +76,11 @@ def build():
         (folder / "assets").mkdir(parents=True, exist_ok=True)
         for asset in assets:
             (folder / "assets" / asset.name).write_bytes(asset.read_bytes())
-        write(folder / "README.md", client_readme(folder.name))
+        write(folder / "README.md", client_readme(folder.name, version, len(scenarios)))
         archive_files(OUT / (folder.name + "-kit.zip"), {p.relative_to(folder).as_posix(): p for p in folder.rglob("*") if p.is_file()})
 
 
-def client_readme(client):
+def client_readme(client, version="0.1.0-alpha.3", scenario_count=6):
     steps = (
         "1. Extract the entire ZIP into a local folder. In Bruno, choose **Open Collection** and select the folder containing `bruno.json` (not just an individual `.bru` file).\n"
         "2. Open the collection variables and set `baseUrl` if your service is not at `http://localhost:8080`. No environment selection is required.\n"
@@ -97,16 +97,21 @@ def client_readme(client):
         if client == "bruno" else
         "With optional Newman installed: `newman run NuaForma.postman_collection.json --working-dir . --env-var baseUrl=http://localhost:8080 --timeout-request 180000`.\n"
     )
+    compatibility = (
+        "Current repository source also documents newer APIs; this collection keeps its 11 alpha.3-compatible requests. Health/SBOM routes, extensible pipes and the separate Playground need a matching newer/source build, not an unchanged alpha.3 image."
+        if version == "0.1.0-alpha.3" else
+        "Use the matching service version for the image content pipe. Health/SBOM routes and the separate Playground are documented in the service guides; these collections focus on document generation."
+    )
     return f"""# NuaForma — {client.title()} collection
 
-For the NuaForma 0.1.0-alpha.3 service. Start your own installation first; this kit does not start a service or contact the website.
+For the NuaForma {version} service. Start your own installation first; this kit does not start a service or contact the website.
 
-See the [documentation index](https://github.com/NuaForma/NuaForma/blob/main/docs/README.md) for template/API/PDF guides. Current repository source also documents newer APIs; this collection keeps its 11 alpha.3-compatible requests. Health/SBOM routes, extensible pipes and the separate Playground need a matching newer/source build, not an unchanged alpha.3 image.
+See the [documentation index](https://github.com/NuaForma/NuaForma/blob/main/docs/README.md) for template/API/PDF guides. {compatibility}
 
 {steps}
-The collection contains 11 requests: version, capabilities, one JSON assessment, OpenAPI JSON/YAML, and all six document scenarios. An HTTP-success test does not establish renderer readiness or visual/PDF-A conformance. Check the PDF provider's `available.writeFormats`; declared formats alone are not sufficient. Assessment does not validate the Word template.
+The collection contains {5 + scenario_count} requests: version, capabilities, one JSON assessment, OpenAPI JSON/YAML, and all {scenario_count} document scenarios. An HTTP-success test does not establish renderer readiness or visual/PDF-A conformance. Check the PDF provider's `available.writeFormats`; declared formats alone are not sufficient. Assessment does not validate the Word template.
 
-Multipart generation uses file parts named `request` (`application/json`) and `template` (the Word MIME type). Do not add a top-level Content-Type: the client generates the multipart boundary. All six JSON files and the same Word template are included under `assets/`; edit a JSON file to experiment. Tests assert successful responses but do not save documents automatically. Errors contain JSON diagnostics; do not rename an error response to PDF. PDF scenarios 01–04/06 produce PDFs; 05 produces DOCX.
+Multipart generation uses file parts named `request` (`application/json`) and `template` (the Word MIME type). Do not add a top-level Content-Type: the client generates the multipart boundary. All {scenario_count} JSON files and the same Word template are included under `assets/`; edit a JSON file to experiment. Tests assert successful responses but do not save documents automatically. Errors contain JSON diagnostics; do not rename an error response to PDF. Scenario 05 produces DOCX; the other document scenarios produce PDFs.
 
 {cli}
 CLI runs exercise every example and can take several minutes. They do not automatically retain generated documents. Keep request timeouts at least 180 seconds when testing PDF locally. No TLS verification is disabled. Use an authenticated TLS gateway for remote access and configure your own authorization when needed; the distributed service has no built-in authentication/TLS.

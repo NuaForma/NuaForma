@@ -16,7 +16,7 @@ class MetadataTest {
     """.trimIndent()
 
     @ParameterizedTest
-    @CsvSource("1.2.0,1.2,true", "1.2.7,1.2,true", "1.9,1.2,true", "1.1,1.2,false", "2.0,1.2,false", "1.2,1.3,false", "1.10,1.9,true")
+    @CsvSource("0.2,0.1,true", "0.2,0.2,true", "0.1,0.2,false", "0.2.9,0.2,true", "0.2,0.3,false", "1.2.0,1.2,true", "1.2.7,1.2,true", "1.9,1.2,true", "1.1,1.2,false", "2.0,1.2,false", "1.2,1.3,false", "1.10,1.9,true")
     fun `compatibility is same major and minimum numeric minor ignoring patch`(available: String, required: String, accepted: Boolean) {
         assertEquals(accepted, ContractVersion.parse(available).accepts(ContractVersion.parse(required)))
     }
