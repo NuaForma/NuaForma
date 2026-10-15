@@ -52,6 +52,9 @@ jobs:
       - name: Build and test all modules
         run: ./gradlew --no-daemon build generatePomFileForMavenJavaPublication --warning-mode=fail
 
+      - name: Check dependency-free Playground request composition
+        run: node --test nuaforma-playground/src/test/javascript/builder.test.cjs
+
       - name: Verify independent Java 17 library consumers
         if: matrix.java == '17'
         run: ./gradlew --no-daemon verifyEmbeddedConsumers --warning-mode=fail

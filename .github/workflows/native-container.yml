@@ -42,9 +42,10 @@ jobs:
         run: |
           echo '7a9ce74cff467ca1bf60a4fcd9f05185acceda4d0f382434d393e17864262c5d  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check --strict
           test -x gradlew
-          ./gradlew --no-daemon build :nuaforma-server:installDist :nuaforma-server:prepareMountedProviderQualification :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation --warning-mode=fail
+          ./gradlew --no-daemon build :nuaforma-server:installDist :nuaforma-playground:installDist :nuaforma-server:prepareMountedProviderQualification :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation --warning-mode=fail
           python3 tools/container/prepare_verapdf_materials.py nuaforma-docx-pdf/build/verapdf-validation
           python3 tools/container/prepare_application_materials.py
+          python3 tools/container/prepare_application_materials.py --application nuaforma-playground/build/install/nuaforma-playground
       - name: Build native candidate without publishing
         run: |
           docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile \
@@ -52,6 +53,12 @@ jobs:
             --build-context verapdfvalidation=nuaforma-docx-pdf/build/verapdf-validation \
             --build-context application=nuaforma-server/build/install/nuaforma-server \
             --target service --tag nuaforma:native-candidate deployment/pdf-runtime
+          docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile \
+            --build-context pdfvalidation=nuaforma-docx-pdf/build/pdf-validation \
+            --build-context verapdfvalidation=nuaforma-docx-pdf/build/verapdf-validation \
+            --build-context application=nuaforma-server/build/install/nuaforma-server \
+            --build-context playgroundapplication=nuaforma-playground/build/install/nuaforma-playground \
+            --target playground --tag nuaforma-playground:native-candidate deployment/pdf-runtime
       - name: Check native platform, compiled filter and real service
         run: |
           sudo apparmor_parser --add --skip-cache deployment/pdf-runtime/nuaforma.apparmor
@@ -63,7 +70,9 @@ jobs:
           python3 tools/container/qualify_sandbox.py --image nuaforma:native-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --exec-hint --output build/native-container/compatibility-isolation
           python3 tools/container/qualify_service.py --image nuaforma:native-candidate --apparmor nuaforma-runtime --output build/native-container/qualification
           python3 tools/container/qualify_endpoints.py --image nuaforma:native-candidate --architecture ${{ matrix.architecture }} --application server --apparmor nuaforma-runtime --output build/native-container/endpoints
+          python3 tools/container/qualify_endpoints.py --image nuaforma-playground:native-candidate --architecture ${{ matrix.architecture }} --application playground --apparmor nuaforma-runtime --output build/native-container/playground
           ./gradlew :nuaforma-server:validateSbomFile -PsbomFile=build/native-container/endpoints/sbom.json --warning-mode=fail
+          ./gradlew :nuaforma-server:validateSbomFile -PsbomFile=build/native-container/playground/sbom.json --warning-mode=fail
       - name: Qualify fonts and trusted extension boundaries with existing native tools
         run: |
           mkdir -p build/native-container/fonts build/native-container/extensions

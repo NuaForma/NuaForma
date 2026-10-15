@@ -8,6 +8,11 @@ fi
 heap=${NUAFORMA_HEAP_MB:-512}
 case "$heap" in ''|*[!0-9]*) exit 64 ;; esac
 if [ "$heap" -lt 128 ] || [ "$heap" -gt 16384 ]; then exit 64; fi
+case "${NUAFORMA_APPLICATION:-server}" in
+    server) application_main=dev.nuaforma.server.Main ;;
+    playground) application_main=dev.nuaforma.playground.Main ;;
+    *) printf '%s\n' 'Unsupported NuaForma application.' >&2; exit 64 ;;
+esac
 exec /opt/java/server/bin/java "-Xmx${heap}m" -Djava.awt.headless=true \
     "-Djava.io.tmpdir=${NUAFORMA_TEMP_DIRECTORY:-/tmp}" \
     "-Dnuaforma.server.host=${NUAFORMA_HOST:-0.0.0.0}" \
@@ -15,4 +20,4 @@ exec /opt/java/server/bin/java "-Xmx${heap}m" -Djava.awt.headless=true \
     "-Dnuaforma.pdf.launcher=${NUAFORMA_PDF_LAUNCHER:-/opt/nuaforma/bin/render-pdf}" \
     "-Dnuaforma.fonts.directory=${NUAFORMA_FONT_DIRECTORY:-/opt/nuaforma/custom-fonts}" \
     "-Dnuaforma.extensions.directory=${NUAFORMA_EXTENSION_DIRECTORY:-/opt/nuaforma/extensions}" \
-    -cp '/opt/nuaforma/application/lib/*' dev.nuaforma.server.Main
+    -cp '/opt/nuaforma/application/lib/*' "$application_main"

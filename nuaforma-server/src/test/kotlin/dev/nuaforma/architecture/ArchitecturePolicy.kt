@@ -16,6 +16,7 @@ internal class ArchitecturePolicy {
         Component("nuaforma-docx-pdf", "dev.nuaforma.docx.pdf", setOf("nuaforma-contracts", "nuaforma-docx", "nuaforma-template")),
         Component("nuaforma-docx", "dev.nuaforma.docx", setOf("nuaforma-contracts", "nuaforma-template")),
         Component("nuaforma-server", "dev.nuaforma.server", setOf("nuaforma-contracts", "nuaforma-core")),
+        Component("nuaforma-playground", "dev.nuaforma.playground", setOf("nuaforma-server")),
     )
 
     // External types belong exclusively to their integration, never public facades.

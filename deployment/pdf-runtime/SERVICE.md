@@ -33,9 +33,9 @@ Compose binds the host port to loopback, runs UID/GID 1000, includes Docker's ch
 
 The service has no built-in authentication or TLS. Keep it behind an authenticated TLS gateway for remote callers, with connection/header quotas. A successful HTTP response from capabilities proves HTTP availability, not PDF readiness: check the PDF provider's usable write formats and readiness diagnostics, or assess the intended request. DOCX remains usable when the converter is absent or isolation cannot start.
 
-Source builds include the [static SBOM endpoint](../../docs/sbom.md), [health probes](../../docs/health.md) and maintained source chart under `deployment/helm/nuaforma`. Published alpha kits remain unchanged.
-
 ## Configuration and private storage
+
+Source targets include the [health probes](../../docs/health.md) and [static shipped-component SBOM endpoint](../../docs/sbom.md). The maintained source Helm chart is in `deployment/helm/nuaforma`; website alpha kits retain their matching release behavior. The optional `playground` target and Compose override are documented in the [separate module guide](../../nuaforma-playground/README.md). Production `service` contains no Playground code/assets. Both applications retain the same renderer/validator isolation and deployment limits.
 
 Operator environment variables, never request fields:
 

@@ -6,6 +6,7 @@ import dev.nuaforma.server.ServerConfiguration
 import dev.nuaforma.server.adapters.logging.OperationalLogging
 import dev.nuaforma.server.adapters.json.KotlinxJsonCodec
 import dev.nuaforma.server.internal.*
+import dev.nuaforma.server.WebApplication
 import io.ktor.http.*
 import io.ktor.http.content.*
 import io.ktor.server.application.*
@@ -31,6 +32,7 @@ import io.ktor.util.AttributeKey
 
 internal class KtorServer(private val registry: ProviderRegistry, private val config: ServerConfiguration,
                           private val logSink: GenerationLogSink = OperationalLogging,
+                          private val webApplication: WebApplication? = null,
                           private val sbom: ShippedSbom = ShippedSbom.packaged()) {
     private val json: JsonCodec = KotlinxJsonCodec()
     private val slots = Semaphore(config.maximumConcurrentRequests)
@@ -38,6 +40,7 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
     private val loggingKey = AttributeKey<GenerationLogging>("nuaforma.request.logging")
     private val health = ServiceHealth(registry, GenerationLogging(config.loggingMode, null, logSink))
 
+    init { require(webApplication == null || config.loggingMode == LoggingMode.DEVELOPMENT) }
 
     private fun logging(call: ApplicationCall): GenerationLogging = call.attributes[loggingKey]
     private suspend fun context(call: ApplicationCall): GenerationContext {
@@ -89,6 +92,20 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
         }
         install(RequestBodyLimit) { bodyLimit { config.maximumRequestBytes } }
         routing {
+            if (webApplication != null) {
+                get("/") { call.respondRedirect("/playground/") }
+                get("/playground") { call.respondRedirect("/playground/") }
+                webApplication.assets.forEach { asset ->
+                    val bytes = asset.bytes
+                    get(asset.path) {
+                        call.response.headers.append(HttpHeaders.CacheControl, "no-store")
+                        call.response.headers.append("X-Content-Type-Options", "nosniff")
+                        call.response.headers.append("Referrer-Policy", "no-referrer")
+                        call.response.headers.append("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+                        call.respondBytes(bytes, ContentType.parse(asset.mediaType))
+                    }
+                }
+            }
             get(ApiRoutes.LIVE) { healthResponse(call, health.live()) }
             get(ApiRoutes.READY) { healthResponse(call, health.ready()) }
             get(ApiRoutes.SBOM) { guarded(call) {

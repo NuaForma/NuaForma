@@ -74,7 +74,7 @@ Conditions require booleans, not implicit truthiness. Null checks such as `(cust
 
 ### Embed in a Java or Kotlin application
 
-The repository contains five independently publishable libraries and one optional server module:
+The repository contains five independently publishable libraries, an optional server and a separate development Playground application:
 
 | Module | Responsibility |
 | --- | --- |
@@ -84,6 +84,7 @@ The repository contains five independently publishable libraries and one optiona
 | [nuaforma-docx](nuaforma-docx/README.md) | DOCX generation, font handling and watermarks |
 | [nuaforma-docx-pdf](nuaforma-docx-pdf/README.md) | DOCX output plus optional isolated PDF conversion/validation |
 | [nuaforma-server](nuaforma-server/README.md) | Thin REST transport over the same engine |
+| [nuaforma-playground](nuaforma-playground/README.md) | Separate development-only request builder, absent from the production server/image |
 
 Use core plus DOCX for Word-only applications; add the DOCX/PDF module and its qualified external runtime for PDF. Core depends on contracts, not concrete providers. Both built-in providers can write DOCX, so select a provider explicitly when both are installed. Custom providers can introduce their own format identifiers through ServiceLoader or explicit registration.
 
@@ -95,9 +96,9 @@ For a local JVM service, follow the [server launch guide](nuaforma-server/README
 
 The service exposes `/api/v1/documents`, `/api/v1/assess`, `/api/v1/capabilities`, `/api/v1/version`, `/openapi.json` and `/openapi.yaml`. The version endpoint returns packaged build version/source identity and the runtime contract version without checking converters; source archives report a null commit. The [mount guide](deployment/pdf-runtime/MOUNTS.md) describes custom fonts, trusted extensions and restart-based reload. The container is published as `ghcr.io/nuaforma/nuaforma:0.1.0-alpha.3`, with native Linux AMD64 and ARM64 variants and no `latest` alias. Download the complete [AMD64](https://nuaforma.dev/downloads/docker-kit.zip) or [ARM64](https://nuaforma.dev/downloads/docker-arm64-kit.zip) deployment kit, including the required seccomp profile.
 
-### Shipped-component inventory
+### Source endpoints and Playground
 
-Source builds expose a static [CycloneDX 1.7 SBOM](docs/sbom.md) at `/api/v1/sbom`, with explicit JVM/container scope and no runtime scans or private-resource inventory. Published alpha images remain unchanged.
+Source builds additionally provide lightweight [liveness/readiness probes](docs/health.md), a static [CycloneDX SBOM download](docs/sbom.md) at `/api/v1/sbom` and a separately packaged [development Playground](nuaforma-playground/README.md). The Playground uses live capabilities/OpenAPI to prepare/export requests, select/upload fonts and generate documents through the same API. It requires explicit development mode, warns about sensitive logging and is not bundled with the production image. Published alpha artifacts and their deployment downloads remain unchanged; these source additions do not publish new binaries.
 
 ## PDF choices and important limits
 

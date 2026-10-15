@@ -70,6 +70,7 @@ val sbomDirectory = layout.buildDirectory.dir("generated/sbom")
 val sbomScript = rootProject.file("tools/sbom/normalize_runtime.py")
 val sbomModuleName = project.name
 val sbomRuntimeManifest = layout.buildDirectory.file("sbom-runtime-files.json")
+val playgroundSbomFile = rootProject.file("nuaforma-playground/build/generated/sbom/META-INF/nuaforma/playground-sbom.json")
 val externalSbomFile = providers.gradleProperty("sbomFile").map { rootProject.file(it) }
 val generateSbom = tasks.register<Exec>("generateSbom") {
     dependsOn("cyclonedxDirectBom", runtimeInventory)
@@ -102,9 +103,10 @@ tasks.register("validateSbomFile") {
 }
 val verifyShippedSboms = tasks.register("verifyShippedSboms") {
     group = "verification"
-    dependsOn(generateSbom)
+    dependsOn(generateSbom, ":nuaforma-playground:processResources")
     doLast {
-        listOf(sbomDirectory.get().file("META-INF/nuaforma/sbom.json").asFile).forEach { file ->
+        listOf(sbomDirectory.get().file("META-INF/nuaforma/sbom.json").asFile,
+            playgroundSbomFile).forEach { file ->
             check(org.cyclonedx.parsers.JsonParser().validate(file, Version.VERSION_17).isEmpty()) { "Invalid shipped SBOM" }
         }
         val invalid = "{\"bomFormat\":\"CycloneDX\",\"specVersion\":\"1.7\",\"version\":\"invalid\"}"
@@ -168,6 +170,7 @@ dependencies {
     }
     // Already present through MockK at test runtime; compile the Kotlin visibility checks explicitly.
     testImplementation(libs.kotlin.reflect)
+    testRuntimeOnly(project(":nuaforma-playground"))
     implementation(project(":nuaforma-core"))
     runtimeOnly(project(":nuaforma-docx"))
     runtimeOnly(project(":nuaforma-docx-pdf"))

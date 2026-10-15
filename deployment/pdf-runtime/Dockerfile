@@ -110,6 +110,18 @@ LABEL org.opencontainers.image.source="https://github.com/NuaForma/NuaForma" \
       org.opencontainers.image.description="DOCX and isolated PDF generation; bundled components retain their own licenses"
 ENTRYPOINT ["/opt/nuaforma/bin/start-server"]
 
+# Explicit development-only distribution. The production target never
+# references this context and contains no Playground code or browser assets.
+FROM service-base AS playground-base
+COPY --from=playgroundapplication /lib/nuaforma-playground-*.jar /opt/nuaforma/application/lib/
+COPY --from=playgroundapplication /third-party-materials/ /opt/nuaforma/application/third-party-materials/
+ENV NUAFORMA_APPLICATION=playground NUAFORMA_PLAYGROUND=true NUAFORMA_MODE=development
+USER root
+RUN sha256sum /opt/nuaforma/application/lib/*.jar > /usr/share/nuaforma/application-sha256.txt
+USER 1000:1000
+LABEL org.opencontainers.image.title="NuaForma Playground" \
+      org.opencontainers.image.description="Development Playground; may log document contents and field values; not for production"
+
 FROM bubblewrap-build AS service-inventory
 ARG TARGETARCH
 COPY generate-sbom.py /generate-sbom.py
@@ -125,6 +137,15 @@ COPY --from=service-base /var/lib/dpkg/status /inventory/outer-status
 COPY --from=service-base /opt/nuaforma/renderer/var/lib/dpkg/status /inventory/renderer-status
 RUN python3 /generate-sbom.py --root /inventory --architecture "$TARGETARCH" --application server --output /sbom.json
 
+FROM service-inventory AS playground-inventory
+ARG TARGETARCH
+COPY --from=playground-base /opt/nuaforma/application /inventory/application/
+RUN python3 /generate-sbom.py --root /inventory --architecture "$TARGETARCH" --application playground --output /sbom.json
+
 FROM service-base AS service
 COPY --from=service-inventory /sbom.json /usr/share/nuaforma/sbom.json
+ENV NUAFORMA_SBOM_PATH=/usr/share/nuaforma/sbom.json
+
+FROM playground-base AS playground
+COPY --from=playground-inventory /sbom.json /usr/share/nuaforma/sbom.json
 ENV NUAFORMA_SBOM_PATH=/usr/share/nuaforma/sbom.json

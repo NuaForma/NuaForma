@@ -118,7 +118,10 @@ class ContainerPackagingTest {
         assertTrue(context.contains("!start-server.sh"))
         val launcher = Files.readString(root.resolve("deployment/pdf-runtime/start-server.sh"))
         assertTrue(launcher.contains("exec /opt/java/server/bin/java"))
-        assertTrue(launcher.contains("-cp '/opt/nuaforma/application/lib/*' dev.nuaforma.server.Main"))
+        assertTrue(launcher.contains("-cp '/opt/nuaforma/application/lib/*' \"\$application_main\""))
+        assertTrue(launcher.contains("server) application_main=dev.nuaforma.server.Main"))
+        assertTrue(launcher.contains("playground) application_main=dev.nuaforma.playground.Main"))
+        assertTrue(launcher.contains("Unsupported NuaForma application."))
         assertFalse(launcher.contains("eval "))
         assertFalse(launcher.contains("\r"))
     }
