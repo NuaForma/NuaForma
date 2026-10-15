@@ -21,13 +21,13 @@
   <main id="main">
     <section class="hero wrap">
       <div class="hero-copy">
-        <a class="release-banner" id="release-link" href="https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.2"><span class="status-dot" aria-hidden="true"></span><span>Latest release</span><strong id="release-version">0.1.0-alpha.2</strong><span aria-hidden="true">↗</span></a>
+        <a class="release-banner" id="release-link" href="https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.3"><span class="status-dot" aria-hidden="true"></span><span>Latest release</span><strong id="release-version">0.1.0-alpha.3</strong><span aria-hidden="true">↗</span></a>
         <p class="eyebrow">OPEN SOURCE DOCUMENT GENERATION</p>
         <h1>Documents from<br>your <em>templates.</em></h1>
         <p class="lead">Bring a Word template and your data. Create documents that keep your layout, with the content your readers need.</p>
         <div class="actions"><a class="button primary" href="#everyone">Explore NuaForma <span aria-hidden="true">↓</span></a><a class="button secondary" href="#developers">Start building <span aria-hidden="true">↗</span></a></div>
         <p class="hero-note">Java 17 · Apache 2.0 · Run it on your infrastructure</p>
-        <p class="release-note" id="release-source">Container 0.1.0-alpha.2 · Maven libraries 0.1.0-alpha.1. Evaluation alpha; APIs are not yet stable.</p>
+        <p class="release-note" id="release-source">Container 0.1.0-alpha.3 · Maven libraries 0.1.0-alpha.1. Evaluation alpha; APIs are not yet stable.</p>
       </div>
       <div class="document-scene" aria-label="Illustration of a template filled with structured data">
         <div class="data-note"><span class="code-label">YOUR DATA</span><pre><code>{
@@ -62,13 +62,13 @@
       <details class="deploy" id="deploy"><summary><span>How to deploy</span><span class="summary-hint">Compose · Dockerfile · Helm <span aria-hidden="true">+</span></span></summary>
         <div class="deploy-content"><p>Choose the native Linux/amd64 or Linux/arm64 container. Keep it private behind an authenticated TLS gateway for remote access. Preserve non-root execution, a read-only filesystem, bounded temporary storage and the reviewed seccomp profile.</p>
           <div class="tabs" role="tablist" aria-label="Deployment method"><button id="tab-compose" role="tab" aria-selected="true" aria-controls="panel-compose" tabindex="0">Docker Compose</button><button id="tab-docker" role="tab" aria-selected="false" aria-controls="panel-docker" tabindex="-1">Dockerfile</button><button id="tab-helm" role="tab" aria-selected="false" aria-controls="panel-helm" tabindex="-1">Helm chart</button></div>
-          <section id="panel-docker" role="tabpanel" aria-labelledby="tab-docker" hidden><h3>Docker on your infrastructure</h3><p>The example Dockerfile uses the published runtime unchanged. Fonts are mounted at startup, not baked into the image.</p><div class="code-window"><div class="code-window-bar"><span>Dockerfile</span><button class="copy" data-copy="docker-code" type="button">Copy</button></div><pre><code id="docker-code">FROM ghcr.io/nuaforma/nuaforma:0.1.0-alpha.2
+          <section id="panel-docker" role="tabpanel" aria-labelledby="tab-docker" hidden><h3>Docker on your infrastructure</h3><p>The example Dockerfile uses the published runtime unchanged. Fonts are mounted at startup, not baked into the image.</p><div class="code-window"><div class="code-window-bar"><span>Dockerfile</span><button class="copy" data-copy="docker-code" type="button">Copy</button></div><pre><code id="docker-code">FROM ghcr.io/nuaforma/nuaforma:0.1.0-alpha.3
 # Keep the image entrypoint and non-root user.
 # Supply your fonts through a read-only runtime mount.</code></pre></div><p>Download the deployment kit, create <code>custom-fonts</code> and <code>extensions</code> directories, then run:</p><div class="code-window"><div class="code-window-bar"><span>Terminal</span><button class="copy" data-copy="docker-run" type="button">Copy</button></div><pre><code id="docker-run">docker compose up -d
 curl --fail http://127.0.0.1:8080/api/v1/capabilities</code></pre></div><p>The included Compose file applies the reviewed isolation settings and mounts <code>./custom-fonts:/opt/nuaforma/custom-fonts:ro</code>. Add standalone TTF/OTF faces you have rights to use, then restart. Inspect the font catalog in capabilities; names alone do not guarantee glyph coverage or embedding permission.</p><a class="button secondary" href="downloads/docker-kit.zip" download>Download Docker deployment kit ↓</a></section>
           <section id="panel-compose" role="tabpanel" aria-labelledby="tab-compose"><h3>Run with Docker Compose</h3><p>Choose AMD64 for Intel/AMD hosts or ARM64 for Apple Silicon and other ARM64 hosts. Both kits select the same container version. No custom image build is required. Download the complete Docker deployment kit: the Compose file requires the included <code>seccomp.json</code>. Keep that reviewed profile alongside <code>compose.yaml</code>; do not replace it with privileged or unconfined execution.</p><div class="code-window"><div class="code-window-bar"><span>compose.yaml</span><button class="copy" data-copy="compose-code" type="button">Copy</button></div><pre><code id="compose-code">services:
   nuaforma:
-    image: ghcr.io/nuaforma/nuaforma:0.1.0-alpha.2
+    image: ghcr.io/nuaforma/nuaforma:0.1.0-alpha.3
     platform: linux/amd64
     init: true
     user: "1000:1000"
@@ -93,7 +93,7 @@ curl --fail http://127.0.0.1:8080/api/v1/capabilities</code></pre></div><p>The i
       - ${NUAFORMA_EXTENSIONS_DIR:-./extensions}:/opt/nuaforma/extensions:ro
     stop_grace_period: 15s</code></pre></div><details class="instructions"><summary>ARM64 · Apple Silicon</summary><div><p>The ARM64 kit includes its own Compose file, the same reviewed seccomp profile, font/extension mounts and optional enforcing AppArmor files.</p><div class="code-window"><div class="code-window-bar"><span>compose.yaml · ARM64</span><button class="copy" data-copy="compose-arm64-code" type="button">Copy</button></div><pre><code id="compose-arm64-code">services:
   nuaforma:
-    image: ghcr.io/nuaforma/nuaforma:0.1.0-alpha.2
+    image: ghcr.io/nuaforma/nuaforma:0.1.0-alpha.3
     platform: linux/arm64
     init: true
     user: "1000:1000"
@@ -145,7 +145,7 @@ kubectl port-forward service/nuaforma 8080:8080</code></pre></div><p>An existing
       <article><span class="method post">POST</span><code>/api/v1/documents</code><p>Send multipart request, template and optional resource files. Receive a document attachment or structured diagnostics.</p></article>
       <article><span class="method">GET</span><code>/openapi.json · /openapi.yaml</code><p>Download equivalent OpenAPI definitions from your own service for documentation and client tooling.</p></article>
     </div><p class="plain-note">Typical error statuses: 400 malformed transport, 422 invalid or unsupported content/options, 408 deadline exceeded, 503 provider unavailable. Consult the <a href="https://github.com/NuaForma/NuaForma/tree/main/nuaforma-server">REST guide</a> for the full contract and limits.</p></div></section>
-    <section class="closing wrap"><p class="eyebrow">BUILT IN THE OPEN</p><h2>Try a template.<br>Bring your use case.</h2><p>Use NuaForma internally or embed it in your application. Feedback and small, non-confidential examples help shape what comes next.</p><a class="button primary" href="https://github.com/NuaForma/NuaForma">Explore the repository ↗</a><p class="alpha-warning">Evaluation alpha. Native-runtime security findings remain under review for 0.2.0. See <a href="https://github.com/NuaForma/NuaForma/issues/51">issue #51</a> and the <a href="https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.2">release notes</a>. No authentication or TLS is built into the service.</p></section>
+    <section class="closing wrap"><p class="eyebrow">BUILT IN THE OPEN</p><h2>Try a template.<br>Bring your use case.</h2><p>Use NuaForma internally or embed it in your application. Feedback and small, non-confidential examples help shape what comes next.</p><a class="button primary" href="https://github.com/NuaForma/NuaForma">Explore the repository ↗</a><p class="alpha-warning">Evaluation alpha. Native-runtime security findings remain under review for 0.2.0. See <a href="https://github.com/NuaForma/NuaForma/issues/51">issue #51</a> and the <a href="https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.3">release notes</a>. No authentication or TLS is built into the service.</p></section>
   </main>
   <footer class="wrap"><span>© NuaForma contributors</span><a href="https://github.com/NuaForma/NuaForma/blob/main/LICENSE">Apache 2.0</a><a href="https://github.com/NuaForma/NuaForma/blob/main/THIRD_PARTY.md">Third-party licenses</a><span>No cookies or analytics.</span></footer>
   <div class="sr-only" id="copy-status" role="status" aria-live="polite"></div>

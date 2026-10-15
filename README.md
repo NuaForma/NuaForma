@@ -93,7 +93,7 @@ DOCX-only applications need neither the server, Docker nor LibreOffice. PDF's is
 
 For a local JVM service, follow the [server launch guide](nuaforma-server/README.md#run-locally). For the combined service/LibreOffice container, follow the [Docker Compose build and start guide](deployment/pdf-runtime/SERVICE.md#build-and-start). The container includes the approved renderer isolation; no separate worker container or Microsoft Office installation is required.
 
-The service exposes `/api/v1/documents`, `/api/v1/assess`, `/api/v1/capabilities`, `/api/v1/version`, `/openapi.json` and `/openapi.yaml`. The version endpoint returns packaged build version/source identity and the runtime contract version without checking converters; source archives report a null commit. The [mount guide](deployment/pdf-runtime/MOUNTS.md) describes custom fonts, trusted extensions and restart-based reload. There is no published image to pull yet.
+The service exposes `/api/v1/documents`, `/api/v1/assess`, `/api/v1/capabilities`, `/api/v1/version`, `/openapi.json` and `/openapi.yaml`. The version endpoint returns packaged build version/source identity and the runtime contract version without checking converters; source archives report a null commit. The [mount guide](deployment/pdf-runtime/MOUNTS.md) describes custom fonts, trusted extensions and restart-based reload. The container is published as `ghcr.io/nuaforma/nuaforma:0.1.0-alpha.3`, with native Linux AMD64 and ARM64 variants and no `latest` alias. Download the complete [AMD64](https://nuaforma.dev/downloads/docker-kit.zip) or [ARM64](https://nuaforma.dev/downloads/docker-arm64-kit.zip) deployment kit, including the required seccomp profile.
 
 ## PDF choices and important limits
 
@@ -140,13 +140,13 @@ Source/documentation JARs and POMs are staged only to an ignored local repositor
 
 ## Roadmap and publication
 
-The first evaluation release is `0.1.0-alpha.1`. Signed libraries are published on Maven Central; the public container is available on GHCR without a `latest` tag. Matching native-component source/license materials are attached to the [GitHub release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.1). Preparation workflows remain non-publishing; future releases must pass their separate protected publication gates. Accepted alpha native-runtime security findings are tracked in [issue #51](https://github.com/NuaForma/NuaForma/issues/51).
+Signed libraries remain at `0.1.0-alpha.1` on Maven Central; the container release is `0.1.0-alpha.3` on GHCR without a `latest` tag. Matching native-component source/license materials are attached to the [container release](https://github.com/NuaForma/NuaForma/releases/tag/v0.1.0-alpha.3). Preparation workflows remain non-publishing; releases must pass their separate protected publication gates. Accepted alpha native-runtime security findings are tracked in [issue #51](https://github.com/NuaForma/NuaForma/issues/51).
 
 - [Maven Central release preparation](docs/maven-central-releases.md)
 - [GHCR container release gates](docs/container-releases.md)
 - [Scoped roadmap issues](https://github.com/NuaForma/NuaForma/issues?q=is%3Aissue%20label%3Aroadmap) and [milestones](https://github.com/NuaForma/NuaForma/milestones)
 
-XLSX, ODT and ODS providers, stored-template identifiers and database adapters are future extensions, not current capabilities. ODT is a text-document format; ODS is a spreadsheet format. No attachment milestone is planned. GitHub Pages hosting for `nuaforma.dev` is separate future work, not a container registry or deployed service.
+XLSX, ODT and ODS providers, stored-template identifiers and database adapters are future extensions, not current capabilities. ODT is a text-document format; ODS is a spreadsheet format. No attachment milestone is planned. [nuaforma.dev](https://nuaforma.dev/) provides documentation and downloadable deployment/test kits through GitHub Pages; it is not a container registry or a hosted generation service.
 
 ## Contributing
 
