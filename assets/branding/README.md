@@ -6,7 +6,7 @@ a light background and white on a dark charcoal background.
 
 - `nuaforma-light.png`: standalone light-background asset.
 - `nuaforma-dark.png`: standalone dark-background asset.
-- `nuaforma-dark-transparent.png`: transparent dark-mode derivative with a white wordmark, used by the README and website; the original dark-background asset remains unchanged. Prepared with the built-in image generation tool by removing the charcoal background while retaining the teal/navy symbol and white wordmark. The complete preparation prompt is recorded in `site/assets/README.md`.
+- `nuaforma-dark-transparent.png`: transparent dark-mode derivative with a white wordmark, used by the README and website; the original dark-background asset remains unchanged. Prepared with the built-in image generation tool by removing the charcoal background while retaining the teal/navy symbol and white wordmark. The complete preparation prompt is recorded in the [website asset guide](https://github.com/NuaForma/website/blob/main/site/assets/README.md).
 - `nuaforma-icon.png`: square N-only icon on a light background, intended for
   the GitHub organization avatar and other small-format uses.
 - `nuaforma-icon-transparent.png`: transparent N-only avatar derivative, centered with generous margins for small and circular displays; the original icon remains unchanged.
