@@ -18,6 +18,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--docker", default="docker")
     parser.add_argument("--image", required=True)
+    parser.add_argument("--website-directory", type=pathlib.Path, required=True, help="Explicit NuaForma website checkout; no implicit sibling lookup")
     parser.add_argument("--node", required=True)
     parser.add_argument("--bruno", type=pathlib.Path, required=True, help="Official Bruno CLI bin/bru.js")
     parser.add_argument("--newman", type=pathlib.Path, required=True, help="Official Newman bin/newman.js")
@@ -26,7 +27,7 @@ def main():
     args.output = args.output.resolve()
     args.output.mkdir(parents=True, exist_ok=False)
     args.seccomp = ROOT / "deployment/pdf-runtime/seccomp.json"
-    with zipfile.ZipFile(ROOT / "site/downloads/nuaforma-complete-kit.zip") as archive:
+    with zipfile.ZipFile(args.website_directory / "site/downloads/nuaforma-complete-kit.zip") as archive:
         assert all(not pathlib.PurePosixPath(name).is_absolute() and ".." not in pathlib.PurePosixPath(name).parts for name in archive.namelist())
         archive.extractall(args.output / "extracted")
     runtime = qualification.Runtime(args)
