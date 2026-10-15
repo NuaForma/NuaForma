@@ -18,8 +18,8 @@ Implement only the requested milestone within the scope defined in [ARCHITECTURE
 
 - Read the repository status, this file, [ARCHITECTURE.md](ARCHITECTURE.md), README.md and applicable nested instructions before making changes. Follow the agreed architecture; do not duplicate its design rules here.
 - Preserve existing local changes, including untracked and ignored files. Never reset, overwrite or clean unrelated work.
-- Java 17 is the minimum supported runtime and compatibility baseline, to keep NuaForma usable in a broad range of consumer applications. Ask before raising this baseline.
-- Compile Java and Kotlin code for Java 17 and use dependencies that support this baseline. Do not introduce newer JDK API requirements merely because the local build runs on a newer JDK. Verify compatibility by running tests on Java 17.
+- Java 17 remains the minimum runtime/API/bytecode baseline for all five embeddable libraries. Java 25 is the approved target runtime for the standalone server and distributed container; see the JVM baseline decision in ARCHITECTURE.md. Ask before changing either boundary.
+- Compile library Java and Kotlin code against Java 17 APIs/bytecode and retain Java-17-compatible dependencies. Use the explicit Java 25 toolchain for standalone server compilation/tests. Verify embedded use and independent consumers on Java 17, plus integration on the Java 25 server. The separate PDF validator JVMs remain pinned to Java 17; see docs/java-runtime-compatibility.md. Previously published images remain unchanged.
 - Describe setup and build requirements independently of a particular operating system, shell, workstation path or virtualization environment. Machine-specific execution instructions belong exclusively in `AGENTS.local.md`.
 - Use Gradle with Kotlin DSL (`build.gradle.kts` and `settings.gradle.kts`) as the production build system. Keep the build straightforward; do not introduce custom build logic without a concrete need.
 - Check in the Gradle Wrapper with a pinned Gradle version when the build is created, and use it for builds and tests. Do not rely on a workstation-specific global Gradle installation.
@@ -48,7 +48,7 @@ Use the checked-in Gradle Wrapper from the repository root. The commands below u
 
 The dependency versions live in `gradle/libs.versions.toml`; resolved module dependencies are locked in each subproject's `gradle.lockfile`. Update locks deliberately using `--write-locks` with the affected verification commands and review the resulting changes. Do not regenerate locks as a routine build step.
 
-Gradle with Kotlin DSL is the selected build system. Compile and test using a Java 17 toolchain. Use the checked-in Gradle Wrapper appropriate to the supported environment; workstation-specific execution instructions remain in `AGENTS.local.md`.
+Gradle with Kotlin DSL is the selected build system. Install JDK 17 and JDK 25: library compilation/tests use 17, server compilation/tests use 25, and Gradle may run on either. `JDK17` and `JDK25` can supply installations not found automatically. Use the checked-in Gradle Wrapper appropriate to the supported environment; workstation-specific execution instructions remain in `AGENTS.local.md`.
 
 - Run the affected tests while developing and the complete build before declaring an implementation complete.
 - Run integration tests for changes to rendering, fonts, Docker, format conversion or the REST workflow; unit tests alone do not verify these boundaries.

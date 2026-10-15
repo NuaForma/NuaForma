@@ -21,6 +21,7 @@ val docxRuntimeUpgrades = listOf(libs.commons.codec, libs.commons.collections, l
     libs.checker.qual, libs.error.prone.annotations, libs.slf4j.jcl, libs.slf4j.api).map { it.get() }
 
 subprojects {
+    val jvmVersion = if (name == "nuaforma-server") 25 else 17
     group = rootProject.group
     version = rootProject.version
 
@@ -30,16 +31,17 @@ subprojects {
 
     pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
         extensions.configure<KotlinJvmProjectExtension> {
-            jvmToolchain(17)
+            jvmToolchain(jvmVersion)
             compilerOptions {
-                jvmTarget.set(JvmTarget.JVM_17)
+                jvmTarget.set(JvmTarget.fromTarget(jvmVersion.toString()))
+                freeCompilerArgs.add("-Xjdk-release=$jvmVersion")
             }
         }
         extensions.configure<JavaPluginExtension> {
-            toolchain.languageVersion.set(JavaLanguageVersion.of(17))
+            toolchain.languageVersion.set(JavaLanguageVersion.of(jvmVersion))
         }
         tasks.withType<JavaCompile>().configureEach {
-            options.release.set(17)
+            options.release.set(jvmVersion)
         }
         dependencies {
             add("implementation", platform(kotlinBom))
@@ -54,6 +56,9 @@ subprojects {
             }
         }
         tasks.withType<Test>().configureEach {
+            javaLauncher.set(project.extensions.getByType<JavaToolchainService>().launcherFor {
+                languageVersion.set(JavaLanguageVersion.of(jvmVersion))
+            })
             useJUnitPlatform()
             testLogging {
                 events("failed", "skipped")

@@ -11,7 +11,7 @@ import javax.tools.ToolProvider
 
 /** Independent Java compilation against contracts and Kotlin only, not server/core APIs. */
 internal object MountedProviderFixture {
-    fun build(root: Path, minor: Int = 1, missingDependency: Boolean = false, className: String = "MountedProvider"): Path {
+    fun build(root: Path, minor: Int = 1, missingDependency: Boolean = false, className: String = "MountedProvider", javaRelease: Int = 17): Path {
         Files.createDirectories(root)
         val source = root.resolve("$className.java")
         Files.writeString(source, """
@@ -36,7 +36,7 @@ internal object MountedProviderFixture {
         val classpath = listOf(DocumentProvider::class.java, Unit::class.java).joinToString(File.pathSeparator) {
             Path.of(it.protectionDomain.codeSource.location.toURI()).toString()
         }
-        check(ToolProvider.getSystemJavaCompiler().run(null, null, null, "--release", "17", "-cp", classpath, "-d", classes.toString(), source.toString()) == 0)
+        check(ToolProvider.getSystemJavaCompiler().run(null, null, null, "--release", javaRelease.toString(), "-cp", classpath, "-d", classes.toString(), source.toString()) == 0)
         val jar = root.resolve("mounted-provider.jar")
         JarOutputStream(Files.newOutputStream(jar)).use { output ->
             fun entry(name: String, bytes: ByteArray) { output.putNextEntry(JarEntry(name)); output.write(bytes); output.closeEntry() }

@@ -14,6 +14,16 @@ class ContainerPackagingTest {
         Yaml(SafeConstructor(LoaderOptions())).load(it)
     }
 
+    @Test fun `build matrix preserves the required Java 17 check and covers both build runtimes`() {
+        val workflow = yaml(".github/workflows/build.yml")
+        val job = (workflow["jobs"] as Map<*, *>)["build"] as Map<*, *>
+        assertEquals("Build (Java \${{ matrix.java }})", job["name"])
+        val matrix = ((job["strategy"] as Map<*, *>)["matrix"] as Map<*, *>)["include"] as List<*>
+        assertEquals(setOf("17", "25"), matrix.map { (it as Map<*, *>)["java"] }.toSet())
+        val steps = (job["steps"] as List<*>).map { it as Map<*, *> }
+        assertTrue(steps.any { it["if"] == "matrix.java == '17'" && it["run"].toString().contains("verifyEmbeddedConsumers") })
+    }
+
     @Test fun `compose preserves the required isolation and explicit contexts`() {
         val document = yaml("deployment/pdf-runtime/compose.yaml")
         val service = (document["services"] as Map<*, *>)["nuaforma"] as Map<*, *>
@@ -78,7 +88,7 @@ class ContainerPackagingTest {
         val steps = (job["steps"] as List<*>).map { it as Map<*, *> }
         assertFalse(steps.any { (it["uses"] as? String)?.startsWith("actions/upload-artifact@") == true })
         val commands = steps.joinToString("\n") { it["run"].toString() }
-        listOf("verify_native_platform.py", "check_renderer_filter.py", "qualify_sandbox.py", "qualify_service.py").forEach {
+        listOf("verify_native_platform.py", "check_renderer_filter.py", "qualify_sandbox.py", "qualify_service.py", "qualify_java_runtime.py").forEach {
             assertTrue(commands.contains(it), it)
         }
         listOf("docker push", "docker login", "--privileged", "seccomp=unconfined").forEach {
@@ -107,7 +117,7 @@ class ContainerPackagingTest {
         assertFalse(context.contains("!**"))
         assertTrue(context.contains("!start-server.sh"))
         val launcher = Files.readString(root.resolve("deployment/pdf-runtime/start-server.sh"))
-        assertTrue(launcher.contains("exec /opt/java/openjdk/bin/java"))
+        assertTrue(launcher.contains("exec /opt/java/server/bin/java"))
         assertTrue(launcher.contains("-cp '/opt/nuaforma/application/lib/*' dev.nuaforma.server.Main"))
         assertFalse(launcher.contains("eval "))
         assertFalse(launcher.contains("\r"))
@@ -132,6 +142,12 @@ class ContainerPackagingTest {
         assertEquals(4, Regex("/validator/java/bin/java -XX:\\+UseSerialGC -Xmx256m ").findAll(launcher).count())
         assertTrue(launcher.contains("--as=1610612736"))
         assertFalse(launcher.contains("-Xlog:off"))
+        assertTrue(launcher.contains("--ro-bind /opt/java/openjdk /validator/java"))
+        assertFalse(launcher.contains("/opt/java/server"))
+        val dockerfile = Files.readString(root.resolve("deployment/pdf-runtime/Dockerfile"))
+        assertTrue(dockerfile.contains("eclipse-temurin:17-jre-noble@sha256:"))
+        assertTrue(dockerfile.contains("eclipse-temurin:25-jre-noble@sha256:"))
+        assertTrue(dockerfile.contains("COPY --from=server-java-runtime /opt/java/openjdk /opt/java/server/"))
     }
 
     @Test fun `native archive transfer requires protected review and matching sources first`() {

@@ -1,16 +1,16 @@
 # Native ARM64 candidate
 
-Issue [#63](https://github.com/NuaForma/NuaForma/issues/63) adds a native Linux/arm64 build alongside Linux/amd64. This is candidate support, not a qualified Apple Silicon/Podman release. The published `0.1.0-alpha.1` tag is still amd64-only and must not be overwritten. Website downloads still target that historical alpha.
+Issue [#63](https://github.com/NuaForma/NuaForma/issues/63) added native Linux/arm64 builds alongside Linux/amd64. Published `0.1.0-alpha.3` includes both architectures on Java 17; the older amd64-only `0.1.0-alpha.1` stays immutable. The source Java 25 server migration requires fresh qualification on each native architecture and does not modify those published tags or the website's alpha.3 deployment downloads. Native hosted qualification alone is not evidence of a newly changed runtime on Apple Silicon/Podman.
 
 ## Why emulation is insufficient
 
 QEMU user-mode translation cannot execute the namespace-bearing `clone()` needed by Bubblewrap. A native ARM64 VM supporting user namespaces does not make an emulated amd64 sandbox work. Loosening seccomp, granting host capabilities or using setuid/unconfined execution is not an accepted workaround. A native ARM64 image needs native LibreOffice, Java and Bubblewrap and an AArch64-aware internal BPF filter.
 
-The pinned Debian and Temurin indexes retain the previously qualified amd64 child digests and add the corresponding arm64 children. Both Java runtimes are 17.0.20.1+1. LibreOffice remains 26.8.1.1; the official ARM64 archive is pinned to SHA-256 `1b069c20dd237f6decad3ea02cb02f39fdf458b03d09c2a9facb7b9b71e6a27a`. The amd64 archive checksum is unchanged. Building under emulation is allowed for compilation checks only, never native runtime qualification.
+The Debian and Java 17 validator indexes retain their previously qualified AMD64/ARM64 children. The source service target adds a separately pinned Temurin 25.0.4.1+1 server runtime on both architectures; validator Java remains 17.0.20.1+1. See [the exact runtime inputs and compatibility boundary](../../docs/java-runtime-compatibility.md). LibreOffice remains 26.8.1.1; the official ARM64 archive is pinned to SHA-256 `1b069c20dd237f6decad3ea02cb02f39fdf458b03d09c2a9facb7b9b71e6a27a`. The amd64 archive checksum is unchanged. Building under emulation is allowed for compilation checks only, never native runtime qualification.
 
 ## Local candidate build
 
-Stage Java 17 application/validator inputs first:
+Install JDK 17 and JDK 25, then stage Java-17-compatible library/validator and Java 25 server inputs first:
 
 ```sh
 ./gradlew build :nuaforma-server:installDist :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation

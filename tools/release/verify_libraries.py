@@ -97,11 +97,42 @@ def verify(repository, version):
     return records
 
 
+def verify_java17_classes(file):
+    """Inspect the effective Java 17 class view, not optional newer multi-release implementations."""
+    with zipfile.ZipFile(file) as archive:
+        names = set(archive.namelist())
+        manifest = archive.read("META-INF/MANIFEST.MF").decode("utf-8") if "META-INF/MANIFEST.MF" in names else ""
+        multi = re.search(r"^Multi-Release:\s*true\s*$", manifest, re.MULTILINE | re.IGNORECASE) is not None
+        selected = {}
+        for name in names:
+            if not name.endswith(".class"):
+                continue
+            if name.startswith("META-INF/versions/"):
+                match = re.fullmatch(r"META-INF/versions/(\d+)/(.+\.class)", name)
+                if not multi or match is None or not 9 <= int(match[1]) <= 17:
+                    continue
+                version, key = int(match[1]), match[2]
+            else:
+                version, key = 0, name
+            if key not in selected or selected[key][0] < version:
+                selected[key] = (version, name)
+        for _, name in selected.values():
+            data = archive.read(name)
+            assert len(data) >= 8 and data[:4] == b"\xca\xfe\xba\xbe", (file.name, name)
+            minor, major = struct.unpack(">HH", data[4:8])
+            assert major <= 61 and minor != 65535, ("Java 17 runtime dependency violation", file.name, name, major, minor)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("repository", type=pathlib.Path)
     parser.add_argument("--version", required=True)
     args = parser.parse_args()
+    inventory = pathlib.Path(__file__).resolve().parents[2] / "build/library-runtime-files.json"
+    runtime = json.loads(inventory.read_text(encoding="utf-8"))
+    assert set(runtime) == set(MODULES), "All five library runtime graphs must be checked"
+    for file in sorted({path for paths in runtime.values() for path in paths}):
+        verify_java17_classes(pathlib.Path(file))
     records = verify(args.repository, args.version)
     print(json.dumps(records, indent=2))
 

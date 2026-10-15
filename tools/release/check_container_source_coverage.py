@@ -7,6 +7,12 @@ import urllib.request
 
 
 def verify_inventory(root, platform):
+    java = root / "java-sha256.txt"
+    image = root / "image.json"
+    split_runtime = image.is_file() and json.loads(image.read_text()).get("Labels", {}).get("dev.nuaforma.jvm-layout") == "server25-validator17"
+    if split_runtime or java.exists() or "javaRuntimeFilesSha256" in platform:
+        if not java.is_file() or hashlib.sha256(java.read_bytes()).hexdigest() != platform.get("javaRuntimeFilesSha256"):
+            raise ValueError("Both Java runtime files must match the exact source/license review")
     if set(platform["packages"]) != {"outer-packages.tsv", "renderer-packages.tsv"}:
         raise ValueError("Both package scopes must be reviewed")
     for name, expected in platform["packages"].items():
@@ -33,6 +39,9 @@ def main():
     record = json.loads(args.review.read_text())
     if record["version"] != args.version or set(record["platforms"]) != {"amd64", "arm64"}:
         raise ValueError("Source review must cover this version and both architectures")
+    if args.version not in ("0.1.0-alpha.1", "0.1.0-alpha.2", "0.1.0-alpha.3"):
+        if not (args.inventory / "java-sha256.txt").is_file() or "javaRuntimeFilesSha256" not in record["platforms"][args.architecture]:
+            raise ValueError("New releases require exact review of both JVM installations")
     verify_inventory(args.inventory, record["platforms"][args.architecture])
     if len(record["sourceMaterials"]) != 4:
         raise ValueError("Require all four reviewed source archives")

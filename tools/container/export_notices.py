@@ -33,6 +33,9 @@ def main():
         "verapdf-licenses": "/opt/nuaforma/verapdf-validation/licenses",
         "bubblewrap-source.tar.xz": "/usr/share/nuaforma/sources/bubblewrap-0.13.0.tar.xz",
     }
+    if details_layout := image["Config"].get("Labels", {}).get("dev.nuaforma.jvm-layout"):
+        assert details_layout == "server25-validator17", "Unreviewed JVM layout"
+        sources.update({"server-java-legal": "/opt/java/server/legal", "server-java-release": "/opt/java/server/release"})
     try:
         for target, source in sources.items():
             with (args.output / (target + ".tar")).open("xb") as destination:

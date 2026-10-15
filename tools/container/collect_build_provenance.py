@@ -19,9 +19,17 @@ def main():
             release = archive.extractfile(next(member for member in archive if member.isfile())).read().decode()
         assert 'BUILD_SOURCE="git:e6ba7dec3d07654074559310376a3ae89da5f4ac"' in release
         assert 'SOURCE=".:git:79597447bd94"' in release
+        server_release = args.notices / "server-java-release.tar"
+        if server_release.is_file():
+            with tarfile.open(server_release) as archive:
+                release = archive.extractfile(next(member for member in archive if member.isfile())).read().decode()
+            assert 'BUILD_SOURCE="git:e6ba7dec3d07654074559310376a3ae89da5f4ac"' in release
+            assert 'SOURCE=".:git:520406d87195"' in release
+            assert 'JAVA_RUNTIME_VERSION="25.0.4.1+1-LTS"' in release
     args.output.mkdir(parents=True, exist_ok=False)
     urls = {
         "temurin-build-e6ba7dec3d07654074559310376a3ae89da5f4ac.tar.gz": "https://api.github.com/repos/adoptium/temurin-build/tarball/e6ba7dec3d07654074559310376a3ae89da5f4ac",
+        "temurin-build-containers-511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07.tar.gz": "https://api.github.com/repos/adoptium/containers/tarball/511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07",
         "docx4j-17.3.2-LICENSE": "https://raw.githubusercontent.com/plutext/docx4j/VERSION_17_3_2/legals/LICENSE",
         "docx4j-17.3.2-NOTICE": "https://raw.githubusercontent.com/plutext/docx4j/VERSION_17_3_2/legals/NOTICE",
         "antlr-2.7.7.tar.gz": "https://www.antlr2.org/download/antlr-2.7.7.tar.gz",

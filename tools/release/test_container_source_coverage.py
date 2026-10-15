@@ -1,4 +1,5 @@
 import hashlib
+import json
 import pathlib
 import tempfile
 import unittest
@@ -6,6 +7,28 @@ from check_container_source_coverage import verify_inventory
 
 
 class SourceCoverageTest(unittest.TestCase):
+    def test_split_jvm_layout_cannot_reuse_historical_source_review(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            (root / "image.json").write_text(json.dumps({"Labels": {"dev.nuaforma.jvm-layout": "server25-validator17"}}))
+            record = dict(packages={}, foreignJars={})
+            with self.assertRaisesRegex(ValueError, "Both Java runtime"):
+                verify_inventory(root, record)
+            data = b"synthetic-validator17-and-server25-runtime-checksums"
+            (root / "java-sha256.txt").write_bytes(data)
+            with self.assertRaisesRegex(ValueError, "Both Java runtime"):
+                verify_inventory(root, record)
+            record["javaRuntimeFilesSha256"] = hashlib.sha256(data).hexdigest()
+            for name in ("outer-packages.tsv", "renderer-packages.tsv"):
+                (root / name).write_bytes(b"synthetic")
+                record["packages"][name] = hashlib.sha256(b"synthetic").hexdigest()
+            for name in ("application-sha256.txt", "validator-sha256.txt", "verapdf-sha256.txt"):
+                (root / name).write_text("")
+            verify_inventory(root, record)
+            (root / "java-sha256.txt").write_bytes(data + b"changed")
+            with self.assertRaisesRegex(ValueError, "Both Java runtime"):
+                verify_inventory(root, record)
+
     def test_changed_packages_and_foreign_jars_cannot_reuse_a_source_review(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = pathlib.Path(temporary)

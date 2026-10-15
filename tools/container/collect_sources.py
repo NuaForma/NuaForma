@@ -97,15 +97,19 @@ def collect_upstream(destination):
         records.append(record)
         signature = read_url(base + name + ".asc")
         path.with_name(name + ".asc").write_bytes(signature)
-    base = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20.1%2B1/"
-    name = "OpenJDK17U-jdk-sources_17.0.20.1_1.tar.gz"
-    expected = read_url(base + name + ".sha256.txt").decode("ascii").split()[0]
-    path = destination / "temurin" / name
-    record = download(base + name, path, "sha256", expected)
-    record["path"] = path.relative_to(destination).as_posix()
-    records.append(record)
-    for suffix in (".sig", ".json"):
-        path.with_name(name + suffix).write_bytes(read_url(base + name + suffix))
+    for major, version in ((17, "17.0.20.1"), (25, "25.0.4.1")):
+        base = f"https://github.com/adoptium/temurin{major}-binaries/releases/download/jdk-{version}%2B1/"
+        name = f"OpenJDK{major}U-jdk-sources_{version}_1.tar.gz"
+        expected = read_url(base + name + ".sha256.txt").decode("ascii").split()[0]
+        pinned = {17: "21e2a065d244ab048e737f21af5d1fc74daaeb6707de36477ead8db1dca71214",
+                  25: "cb9e50d2eb3de72ffd28466d7c511b4039b4bc4bd8f0d276d1e4cf81e30fdf09"}
+        assert expected == pinned[major], "Temurin source changed; explicit input review required"
+        path = destination / "temurin" / name
+        record = download(base + name, path, "sha256", expected)
+        record["path"] = path.relative_to(destination).as_posix()
+        records.append(record)
+        for suffix in (".sig", ".json"):
+            path.with_name(name + suffix).write_bytes(read_url(base + name + suffix))
     return records
 
 

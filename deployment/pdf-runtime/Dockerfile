@@ -54,6 +54,9 @@ RUN apt-get install -y --no-install-recommends libxinerama1 libx11-6 libx11-xcb1
 # Both architectures use the same Java 17.0.20.1+1 release.
 FROM eclipse-temurin:17-jre-noble@sha256:900322f4cc1b9da9d730ae4bb56d8a1dabbaa9cfa32809fc8b542b600370a045 AS java-runtime
 
+# Server Java 25 is separate from the deliberately unchanged bounded validators.
+FROM eclipse-temurin:25-jre-noble@sha256:d9a39a23634650173f1e2bbc176227af9728587ecf0f4b62d53e9355cd7a19ab AS server-java-runtime
+
 FROM sandbox-check AS qualification
 ARG NUAFORMA_CONTAINER_VERSION=0.1.0-alpha.1
 COPY --from=libreoffice / /opt/nuaforma/renderer/
@@ -82,11 +85,15 @@ ENTRYPOINT ["/opt/nuaforma/bin/render-pdf"]
 
 # Only the explicit Gradle installDist directory is accepted, never the checkout.
 FROM qualification AS service
+COPY --from=server-java-runtime /opt/java/openjdk /opt/java/server/
 COPY --from=application / /opt/nuaforma/application/
 COPY start-server.sh /opt/nuaforma/bin/start-server
 USER root
 RUN chmod 0555 /opt/nuaforma/bin/start-server \
-    && mkdir -p /opt/nuaforma/custom-fonts /opt/nuaforma/extensions \
+    && test -s /opt/java/server/legal/java.base/LICENSE \
+    && test -s /opt/java/openjdk/legal/java.base/LICENSE \
+    && find /opt/java/openjdk /opt/java/server -type f -exec sha256sum {} + | sort > /usr/share/nuaforma/java-sha256.txt
+RUN mkdir -p /opt/nuaforma/custom-fonts /opt/nuaforma/extensions \
     && chmod 0555 /opt/nuaforma/custom-fonts /opt/nuaforma/extensions \
     && test -s /opt/nuaforma/application/LICENSE \
     && test -s /opt/nuaforma/application/THIRD_PARTY.md \
@@ -96,6 +103,7 @@ USER 1000:1000
 EXPOSE 8080
 STOPSIGNAL SIGTERM
 LABEL org.opencontainers.image.source="https://github.com/NuaForma/NuaForma" \
+      dev.nuaforma.jvm-layout="server25-validator17" \
       org.opencontainers.image.title="NuaForma" \
       org.opencontainers.image.description="DOCX and isolated PDF generation; bundled components retain their own licenses"
 ENTRYPOINT ["/opt/nuaforma/bin/start-server"]

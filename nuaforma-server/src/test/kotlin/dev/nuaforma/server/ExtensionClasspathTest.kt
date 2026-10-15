@@ -13,6 +13,7 @@ import java.util.jar.Attributes
 import java.util.jar.Manifest
 import java.util.jar.JarEntry
 import java.util.jar.JarOutputStream
+import java.util.jar.JarFile
 
 class ExtensionClasspathTest {
     @TempDir lateinit var root: Path
@@ -110,6 +111,52 @@ class ExtensionClasspathTest {
         }
         JarOutputStream(Files.newOutputStream(directory.resolve("multi.jar")), manifest).use {
             it.putNextEntry(JarEntry("META-INF/versions/17/dev/nuaforma/contracts/DocumentProvider.class"))
+            it.write(byteArrayOf(0)); it.closeEntry()
+        }
+        assertEquals("EXTENSION_CLASS_CONFLICT", assertThrows(IllegalArgumentException::class.java) { ExtensionClasspath.open(directory, parent) }.message)
+    }
+
+    @Test fun `Java 25 providers run on the server without changing embedded contracts`() {
+        val directory = mount()
+        Files.copy(MountedProviderFixture.build(root.resolve("fixture"), javaRelease = 25), directory.resolve("provider.jar"))
+        ExtensionClasspath.open(directory, parent).use { loader ->
+            assertTrue(ProviderRegistry.discover(loader).providers.any { it.metadata.id == "mounted-example" })
+        }
+    }
+
+    @Test fun `newer and preview class versions fail before provider initialization`() {
+        val directory = mount()
+        val original = MountedProviderFixture.build(root.resolve("fixture"))
+        System.clearProperty("nuaforma.mount.initialized")
+        try {
+            for ((minor, major) in listOf(0 to 70, 65535 to 69)) {
+                JarFile(original.toFile()).use { source ->
+                    JarOutputStream(Files.newOutputStream(directory.resolve("future.jar"))).use { output ->
+                        for (entry in source.entries()) {
+                            val bytes = source.getInputStream(entry).use { it.readAllBytes() }
+                            if (entry.name.endsWith(".class")) {
+                                bytes[4] = (minor shr 8).toByte(); bytes[5] = minor.toByte()
+                                bytes[6] = (major shr 8).toByte(); bytes[7] = major.toByte()
+                            }
+                            output.putNextEntry(JarEntry(entry.name)); output.write(bytes); output.closeEntry()
+                        }
+                    }
+                }
+                assertEquals("UNSUPPORTED_EXTENSION_CLASS_VERSION",
+                    assertThrows(IllegalArgumentException::class.java) { ExtensionClasspath.open(directory, parent) }.message)
+                assertNull(System.getProperty("nuaforma.mount.initialized"))
+            }
+        } finally { System.clearProperty("nuaforma.mount.initialized") }
+    }
+
+    @Test fun `Java 25 multi release class conflicts cannot hide behind Java 17 entries`() {
+        val directory = mount()
+        val manifest = Manifest().apply {
+            mainAttributes[Attributes.Name.MANIFEST_VERSION] = "1.0"
+            mainAttributes[Attributes.Name.MULTI_RELEASE] = "true"
+        }
+        JarOutputStream(Files.newOutputStream(directory.resolve("multi.jar")), manifest).use {
+            it.putNextEntry(JarEntry("META-INF/versions/25/dev/nuaforma/contracts/DocumentProvider.class"))
             it.write(byteArrayOf(0)); it.closeEntry()
         }
         assertEquals("EXTENSION_CLASS_CONFLICT", assertThrows(IllegalArgumentException::class.java) { ExtensionClasspath.open(directory, parent) }.message)

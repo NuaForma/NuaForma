@@ -15,7 +15,15 @@ concurrency:
 
 jobs:
   build:
-    name: Build (Java 17)
+    name: Build (Java ${{ matrix.java }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - java: '17'
+            other-java: '25'
+          - java: '25'
+            other-java: '17'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -24,11 +32,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up Java 17
+      - name: Install the other compilation toolchain
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: ${{ matrix.other-java }}
+
+      - name: Set up build Java ${{ matrix.java }}
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
 
       - name: Validate Gradle Wrapper
         run: |
@@ -37,3 +51,7 @@ jobs:
 
       - name: Build and test all modules
         run: ./gradlew --no-daemon build generatePomFileForMavenJavaPublication --warning-mode=fail
+
+      - name: Verify independent Java 17 library consumers
+        if: matrix.java == '17'
+        run: ./gradlew --no-daemon verifyEmbeddedConsumers --warning-mode=fail
