@@ -1,0 +1,119 @@
+{
+  "version": "0.2.0-alpha.1",
+  "application": "playground",
+  "sourceCommit": "1d01ef28d92f355ffc9de7abd97274ac6193a57e",
+  "reviewer": "mrhoeve",
+  "latest": false,
+  "platforms": {
+    "amd64": {
+      "nativeQualificationArchitecture": "amd64",
+      "containerArchiveSha256": "f1349f20d98318ca884eb38d0ac11bebbd77f1b4ed65d95c1c335538eda04790",
+      "containerConfigSha256": "bfcd1b38908b0a4c0aa34d1e9a6e9ecef11e0f996705ae595fac2f37b1f08d92",
+      "approved": {
+        "containerAudit": true,
+        "sourceAccess": true,
+        "fidelityQualification": true,
+        "securityReview": true
+      },
+      "sourceMaterials": [
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-debian-0.2.0-alpha.1.tar",
+          "sha256": "b8cf080795e5ff50925c5bb11ce2840ac48060649b669dba8136153d32eeb27b",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-libreoffice-0.2.0-alpha.1.tar",
+          "sha256": "80bf39753e2f4534801a4b14038f923d44ac30f48bfadb425d1b1269e0e01451",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-java-0.2.0-alpha.1.tar",
+          "sha256": "5076d81dc1c8a7da0062bea9f3ede89fd86cbeaffd80f86159642412d3f81c44",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-jvm-0.2.0-alpha.1.tar",
+          "sha256": "a694baafe02a36b5496f8fbdc7d5b41aa53abbda6db59b048ca245384e78280a",
+          "verifiedAnonymousAccess": true
+        }
+      ],
+      "evidence": {
+        "nativeArchiveRun": "https://github.com/NuaForma/NuaForma/actions/runs/38781833884",
+        "metadata": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-playground-metadata-amd64.tar.gz",
+        "metadataSha256": "2eb518c78630adca9969bdd3d974f47e623f064f8cc34a5e6e7e094c2c70a511",
+        "componentSourceReview": "release-materials/0.2.0-alpha.1-playground.json",
+        "distributionReview": "docs/release-0.2.0-alpha.1-audit.md",
+        "sourceAccess": "All four corresponding-source archives anonymously downloaded and SHA-256 verified locally; repeated by each successful native pre-transfer gate before binary upload.",
+        "checks": [
+          "exact signed source/version/application labels",
+          "both exact JVM/package and foreign-JAR inventories",
+          "native platform and renderer syscall filter",
+          "enforcing plain and compatibility sandbox probes",
+          "actual endpoint/OpenAPI/health/SBOM behavior and official CycloneDX schema validation",
+          "separate Playground activation, development defaults and warnings; no GUI in production"
+        ],
+        "securityDisposition": "Fresh native-runtime advisory risk explicitly accepted by the maintainer for this evaluation alpha on 2026-10-15; not remediated. See distribution review and open issue #51.",
+        "fidelityScope": "Existing qualified renderer/font/layout/barcode evidence remains scoped to its fixtures. Both final native images passed their configured runtime checks; no additional local rendering or document qualification was performed at the maintainer's request. The new image example has structural checks only. Issue #32 remains accepted.",
+        "isolationEvidence": {
+          "plainSha256": "e217ea30b36a1170e01172e3d8321f05d7c20de34f014e8581f7631a47ab228a",
+          "compatibilitySha256": "306c8ee498f7a6264b26019df4c6a6f1e5f644590e9ba88dd47aff402712c2a7"
+        }
+      }
+    },
+    "arm64": {
+      "nativeQualificationArchitecture": "arm64",
+      "containerArchiveSha256": "3d1692f1fb4b0ea3020dbbb2934aa58a0e6481653f170f9a4ecb11997717ef9f",
+      "containerConfigSha256": "a8e5adbf72b81c52cd88f66bfda237a86ef7601e981a45c89692012c4afeedf0",
+      "approved": {
+        "containerAudit": true,
+        "sourceAccess": true,
+        "fidelityQualification": true,
+        "securityReview": true
+      },
+      "sourceMaterials": [
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-debian-0.2.0-alpha.1.tar",
+          "sha256": "b8cf080795e5ff50925c5bb11ce2840ac48060649b669dba8136153d32eeb27b",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-libreoffice-0.2.0-alpha.1.tar",
+          "sha256": "80bf39753e2f4534801a4b14038f923d44ac30f48bfadb425d1b1269e0e01451",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-java-0.2.0-alpha.1.tar",
+          "sha256": "5076d81dc1c8a7da0062bea9f3ede89fd86cbeaffd80f86159642412d3f81c44",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-sources-jvm-0.2.0-alpha.1.tar",
+          "sha256": "a694baafe02a36b5496f8fbdc7d5b41aa53abbda6db59b048ca245384e78280a",
+          "verifiedAnonymousAccess": true
+        }
+      ],
+      "evidence": {
+        "nativeArchiveRun": "https://github.com/NuaForma/NuaForma/actions/runs/38781833884",
+        "metadata": "https://github.com/NuaForma/NuaForma/releases/download/v0.2.0-alpha.1/nuaforma-playground-metadata-arm64.tar.gz",
+        "metadataSha256": "4c67abf66f55742f7f6c18408e15194c4497b606304a757171ca48f2ceae93cf",
+        "componentSourceReview": "release-materials/0.2.0-alpha.1-playground.json",
+        "distributionReview": "docs/release-0.2.0-alpha.1-audit.md",
+        "sourceAccess": "All four corresponding-source archives anonymously downloaded and SHA-256 verified locally; repeated by each successful native pre-transfer gate before binary upload.",
+        "checks": [
+          "exact signed source/version/application labels",
+          "both exact JVM/package and foreign-JAR inventories",
+          "native platform and renderer syscall filter",
+          "enforcing plain and compatibility sandbox probes",
+          "actual endpoint/OpenAPI/health/SBOM behavior and official CycloneDX schema validation",
+          "separate Playground activation, development defaults and warnings; no GUI in production"
+        ],
+        "securityDisposition": "Fresh native-runtime advisory risk explicitly accepted by the maintainer for this evaluation alpha on 2026-10-15; not remediated. See distribution review and open issue #51.",
+        "fidelityScope": "Existing qualified renderer/font/layout/barcode evidence remains scoped to its fixtures. Both final native images passed their configured runtime checks; no additional local rendering or document qualification was performed at the maintainer's request. The new image example has structural checks only. Issue #32 remains accepted.",
+        "isolationEvidence": {
+          "plainSha256": "e217ea30b36a1170e01172e3d8321f05d7c20de34f014e8581f7631a47ab228a",
+          "compatibilitySha256": "306c8ee498f7a6264b26019df4c6a6f1e5f644590e9ba88dd47aff402712c2a7"
+        }
+      }
+    }
+  }
+}
