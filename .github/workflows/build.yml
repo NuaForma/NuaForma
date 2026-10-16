@@ -2,6 +2,7 @@ name: Build
 
 on:
   push:
+    branches: [main, develop]
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
@@ -31,6 +32,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0
+
+      - name: Determine Sonar analysis eligibility
+        if: matrix.java == '25'
+        id: sonar
+        run: python3 tools/quality/sonar_event.py
 
       - name: Install the other compilation toolchain
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -50,7 +57,15 @@ jobs:
           test -x gradlew
 
       - name: Build and test all modules
-        run: ./gradlew --no-daemon build generatePomFileForMavenJavaPublication --warning-mode=fail
+        env:
+          COVERAGE: ${{ matrix.java == '25' && 'true' || 'false' }}
+        run: |
+          if [ "$COVERAGE" = true ]; then
+            ./gradlew --no-daemon build generatePomFileForMavenJavaPublication coverageReport -Pcoverage=true --warning-mode=fail
+            python3 tools/quality/check_coverage.py
+          else
+            ./gradlew --no-daemon build generatePomFileForMavenJavaPublication --warning-mode=fail
+          fi
 
       - name: Check dependency-free Playground request composition
         run: node --test nuaforma-playground/src/test/javascript/builder.test.cjs
@@ -58,3 +73,18 @@ jobs:
       - name: Verify independent Java 17 library consumers
         if: matrix.java == '17'
         run: ./gradlew --no-daemon verifyEmbeddedConsumers --warning-mode=fail
+
+      - name: Verify dependency rejection behavior
+        if: matrix.java == '17'
+        run: python3 tools/quality/probe_dependency_verification.py
+
+      - name: Analyze with SonarQube Cloud
+        if: matrix.java == '25' && steps.sonar.outputs.analyze == 'true'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo 'SONAR_TOKEN is required for trusted Sonar analysis. See docs/code-quality.md.' >&2
+            exit 1
+          fi
+          ./gradlew --no-daemon sonar -Pcoverage=true -x test -x coverageReport --warning-mode=fail

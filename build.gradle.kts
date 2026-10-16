@@ -3,10 +3,31 @@ import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import org.gradle.api.tasks.bundling.AbstractArchiveTask
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
+import org.gradle.testing.jacoco.plugins.JacocoPluginExtension
+import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
+import org.gradle.testing.jacoco.tasks.JacocoReport
 
 plugins {
     base
+    jacoco
+    alias(libs.plugins.sonarqube)
     alias(libs.plugins.kotlin.jvm) apply false
+}
+
+val coverageEnabled = providers.gradleProperty("coverage").map {
+    require(it in setOf("true", "false")) { "coverage must be true or false" }
+    it == "true"
+}.orElse(false)
+val jacocoVersion = libs.versions.jacoco.get()
+jacoco { toolVersion = jacocoVersion }
+dependencyLocking { lockAllConfigurations() }
+sonar {
+    properties {
+        property("sonar.projectKey", "NuaForma_NuaForma")
+        property("sonar.organization", "nuaforma")
+        property("sonar.host.url", "https://sonarcloud.io")
+        property("sonar.sourceEncoding", "UTF-8")
+    }
 }
 
 val kotlinBom = libs.kotlin.bom
@@ -30,6 +51,13 @@ subprojects {
     }
 
     pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
+        apply(plugin = "jacoco")
+        extensions.configure<JacocoPluginExtension> { toolVersion = jacocoVersion }
+        extensions.configure<org.sonarqube.gradle.SonarExtension> {
+            properties {
+                property("sonar.coverage.jacoco.xmlReportPaths", rootProject.layout.buildDirectory.file("reports/jacoco/coverageReport/coverageReport.xml").get().asFile.absolutePath)
+            }
+        }
         extensions.configure<KotlinJvmProjectExtension> {
             jvmToolchain(jvmVersion)
             compilerOptions {
@@ -56,6 +84,11 @@ subprojects {
             }
         }
         tasks.withType<Test>().configureEach {
+            inputs.property("coverageEnabled", coverageEnabled)
+            extensions.configure<JacocoTaskExtension> {
+                isEnabled = coverageEnabled.get()
+                includes = listOf("dev.nuaforma.*")
+            }
             javaLauncher.set(project.extensions.getByType<JavaToolchainService>().launcherFor {
                 languageVersion.set(JavaLanguageVersion.of(jvmVersion))
             })
@@ -140,6 +173,63 @@ subprojects {
     }
 }
 
+val modulesWithJvmTests = provider {
+    subprojects.filter {
+        !it.extensions.getByType<SourceSetContainer>()["test"].allSource.matching {
+            include("**/*.kt", "**/*.java")
+        }.isEmpty
+    }
+}
+val verifyCoverageInputs = tasks.register("verifyCoverageInputs") {
+    dependsOn(subprojects.map { "${it.path}:test" })
+    doLast {
+        check(coverageEnabled.get()) { "Use -Pcoverage=true to record test execution before reporting coverage" }
+        modulesWithJvmTests.get().forEach {
+            check(it.layout.buildDirectory.file("jacoco/test.exec").get().asFile.isFile) {
+                "Missing JVM coverage data for ${it.name}"
+            }
+        }
+    }
+}
+val coverageReport = tasks.register<JacocoReport>("coverageReport") {
+    group = "verification"
+    description = "Merges JVM tests against all seven production modules; requires -Pcoverage=true."
+    dependsOn(verifyCoverageInputs)
+    executionData.from(modulesWithJvmTests.map { modules -> modules.map { it.layout.buildDirectory.file("jacoco/test.exec") } })
+    classDirectories.from(provider {
+        subprojects.map { it.extensions.getByType<SourceSetContainer>()["main"].output.classesDirs }
+    })
+    sourceDirectories.from(provider {
+        subprojects.flatMap {
+            listOf(
+                it.extensions.getByType<SourceSetContainer>()["main"].allJava.sourceDirectories,
+                it.extensions.getByType<KotlinJvmProjectExtension>().sourceSets["main"].kotlin.sourceDirectories,
+            )
+        }
+    })
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+}
+tasks.named("sonar") { dependsOn(coverageReport) }
+
+val sonarProperties = tasks.named<org.sonarqube.gradle.SonarTask>("sonar").flatMap { it.properties }
+tasks.register("verifySonarConfiguration") {
+    group = "verification"
+    description = "Checks Sonar project identity and per-module report mapping without contacting Sonar."
+    doLast {
+        val properties = sonarProperties.get()
+        check(properties["sonar.projectKey"] == "NuaForma_NuaForma")
+        check(properties["sonar.organization"] == "nuaforma")
+        val reportPaths = properties.filterKeys { it.endsWith(".sonar.coverage.jacoco.xmlReportPaths") }
+        check(reportPaths.size == subprojects.size) { "Every module must import the aggregate coverage report" }
+        check(reportPaths.values.toSet() == setOf(layout.buildDirectory.file("reports/jacoco/coverageReport/coverageReport.xml").get().asFile.absolutePath))
+        logger.lifecycle("Sonar identity and seven-module coverage mapping verified without upload")
+    }
+}
+
 val libraryModules = subprojects.filter { it.name !in setOf("nuaforma-server", "nuaforma-playground") }
 tasks.register("writeLibraryRuntimeInventory") {
     group = "verification"
@@ -178,6 +268,17 @@ tasks.register<Exec>("verifyContainerTooling") {
     commandLine("python3", "-m", "unittest", "discover", "-s", "tools/container", "-p", "test_*.py")
 }
 
+tasks.register<Exec>("verifyQualityTooling") {
+    group = "verification"
+    commandLine("python3", "-m", "unittest", "discover", "-s", "tools/quality", "-p", "test_*.py")
+}
+
+tasks.register<Exec>("verifyDependencyVerification") {
+    group = "verification"
+    description = "Checks exact, independently reviewed Gradle dependency checksums."
+    commandLine("python3", "tools/quality/dependency_verification.py")
+}
+
 tasks.register<Exec>("verifyEmbeddedConsumers") {
     group = "verification"
     dependsOn("stageLibraries")
@@ -194,6 +295,9 @@ tasks.named("check") {
     dependsOn("verifyLibraryPublication")
     dependsOn("verifyReleaseTooling")
     dependsOn("verifyContainerTooling")
+    dependsOn("verifyQualityTooling")
+    dependsOn("verifyDependencyVerification")
+    dependsOn("verifySonarConfiguration")
 }
 
 tasks.register("verifyBuildStructure") {
@@ -224,6 +328,9 @@ tasks.register("verifyBuildStructure") {
                 }
             }
             val projectPaths = components.mapNotNull { (it.id as? ProjectComponentIdentifier)?.projectPath }.toSet()
+            check(components.none {
+                it.moduleVersion?.group?.let { group -> group == "org.jacoco" || group.startsWith("org.sonarsource") } == true
+            }) { "Code-quality build tools leaked into ${module.path} runtimeClasspath" }
             check(projectPaths == expected.getValue(module.path)) {
                 "Unexpected runtime module graph for ${module.path}: $projectPaths"
             }
