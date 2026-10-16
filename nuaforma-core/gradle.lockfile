@@ -16,6 +16,7 @@ io.mockk:mockk:1.14.11=testCompileClasspath,testRuntimeClasspath
 net.bytebuddy:byte-buddy-agent:1.18.14=testCompileClasspath,testRuntimeClasspath
 net.bytebuddy:byte-buddy:1.18.14=testCompileClasspath,testRuntimeClasspath
 org.apiguardian:apiguardian-api:1.1.2=testCompileClasspath
+org.jacoco:org.jacoco.agent:0.8.15=jacocoAgent
 org.jetbrains.kotlin:kotlin-bom:2.4.21=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.jetbrains.kotlin:kotlin-build-tools-api:2.4.21=kotlinBuildToolsApiClasspath
 org.jetbrains.kotlin:kotlin-build-tools-compat:2.4.21=kotlinBuildToolsApiClasspath

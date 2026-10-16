@@ -25,6 +25,7 @@ Choose a guide for the task you want to complete. Module guides are the technica
 ## Develop, extend and contribute
 
 - [Build and test](development.md).
+- [Code quality and coverage](code-quality.md): SonarQube Cloud, JVM coverage and safe CI setup.
 - [Branches, releases and the separate website](branch-workflow.md).
 - [Create/install extensions](extensions.md) and the [independent value-pipe example](../examples/value-pipes/README.md).
 - [Contribution guidelines](../CONTRIBUTING.md).

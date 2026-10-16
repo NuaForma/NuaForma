@@ -94,4 +94,4 @@ org.jvnet.jaxb:jaxb-plugins-runtime:4.0.16=runtimeClasspath
 org.plutext:jaxb-svg11:11.4.0=runtimeClasspath
 org.slf4j:jcl-over-slf4j:2.0.20=runtimeClasspath
 org.slf4j:slf4j-api:2.0.20=runtimeClasspath
-empty=kotlinScriptDefExtensions
+empty=kotlinScriptDefExtensions,testKotlinScriptDefExtensions

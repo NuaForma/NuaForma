@@ -9,6 +9,7 @@
 # NuaForma
 
 [![Maven Central](https://img.shields.io/maven-central/v/dev.nuaforma/nuaforma-core?strategy=highestVersion&label=Maven%20Central&color=008b90)](https://central.sonatype.com/artifact/dev.nuaforma/nuaforma-core)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=NuaForma_NuaForma&metric=alert_status&branch=develop)](https://sonarcloud.io/dashboard?id=NuaForma_NuaForma&branch=develop)
 
 **Turn templates and structured data into documents.**
 
