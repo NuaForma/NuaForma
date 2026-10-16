@@ -47,6 +47,7 @@ Operator environment variables, never request fields:
 | `NUAFORMA_HEAP_MB` | `512` | JVM maximum heap, 128–16384 MiB; still bounded by container memory |
 | `NUAFORMA_TEMP_DIRECTORY` | `/tmp` | Absolute existing writable private-storage root |
 | `NUAFORMA_PDF_LAUNCHER` | `/opt/nuaforma/bin/render-pdf` | Trusted isolated launcher; a missing path disables PDF only |
+| `NUAFORMA_PDF_PARALLELISM` | `1` | Source builds: 1–8 simultaneous PDF runtime processes per provider instance; invalid/empty values fail entry-point startup. Not a per-request option; published 0.2.0-alpha.1 does not implement this setting |
 | `NUAFORMA_FONT_DIRECTORY` | `/opt/nuaforma/custom-fonts` | Absolute operator font mount target; startup snapshot, not a request option |
 | `NUAFORMA_EXTENSION_DIRECTORY` | `/opt/nuaforma/extensions` | Absolute operator JAR mount target; startup snapshot of trusted executable code |
 
@@ -69,6 +70,10 @@ All launch arguments remain fixed; shell command strings from requests are never
 | `generationMillis` | 120000 | 1–3600000 |
 
 Invalid values fail startup, without repeating the supplied value. HTTP concurrency and the PDF provider's default single conversion slot are distinct limits; queued conversion still counts toward the deadline. Increased heap/limits need a correspondingly reviewed memory/tmpfs/process budget: maximum limits are not recommended deployment sizes. The JVM heap is not the total container memory; conversion and validation need headroom.
+
+Source changes for [#91](https://github.com/NuaForma/NuaForma/issues/91) allow an operator to set, for example, `NUAFORMA_PDF_PARALLELISM=2` while keeping HTTP concurrency independently bounded. The same entry point/configuration applies to the separate Playground. Do not add this setting to JSON requests or treat the upper bound as a recommended worker count. Start at one, measure CPU/memory/PID/tmpfs usage and queue/response latency, and review aggregate budgets before increasing parallelism. No host limit, sandbox permission, output validation or PDF/A check is relaxed automatically.
+
+Successful runtime probes are deduplicated for at most 30 seconds per provider instance and invalidated by launcher identity changes; cold/expired verification waits within the caller's deadline. Occupied process slots are not a missing backend. These are source improvements, not a claim that published alpha images contain the fix or that the VPS has already been retested. Request-private font checks and all document validators remain per generation. No Playground UI control is added because this is trusted startup configuration, not an end-user generation option.
 
 All HTTP spools, conversion files, profiles and font caches are private per request beneath the configured temporary root. Keep this storage ephemeral and quota-limited. No document persistence volume is needed. If changing the root, create/mount an appropriately sized tmpfs accessible to UID/GID 1000 and keep `java.io.tmpdir` and HTTP/conversion storage aligned. Normal completion, error and cancellation clean request files; forced termination relies on tmpfs destruction, not a cleanup guarantee. Never mount a shared customer-document directory as writable temp storage.
 

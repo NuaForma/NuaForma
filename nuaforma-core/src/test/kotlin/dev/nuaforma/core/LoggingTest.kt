@@ -7,6 +7,36 @@ import java.io.OutputStream
 import java.util.concurrent.atomic.AtomicBoolean
 
 class LoggingTest {
+    @Test
+    fun `provider availability and assessment keep resource and cancellation diagnostics`() {
+        for (availabilityPhase in listOf(true, false)) {
+            for (code in listOf(DiagnosticCodes.CANCELLED, DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED)) {
+                val boundary = GenerationException(listOf(Diagnostic(code, "Synthetic provider boundary")))
+                val provider = BoundaryProvider(availabilityPhase, boundary)
+                val registry = ProviderRegistry.registered(listOf(registration(provider)))
+                provider.armed = true
+                assertSame(boundary, assertThrows(GenerationException::class.java) {
+                    registry.select(requirements, "synthetic", GenerationContext())
+                })
+            }
+        }
+    }
+
+    private class BoundaryProvider(
+        private val availabilityPhase: Boolean,
+        private val boundary: GenerationException,
+    ) : Provider(), ProviderReadiness {
+        var armed = false
+        override fun availability(context: GenerationContext): ProviderAvailability {
+            if (armed && availabilityPhase) throw boundary
+            return super.availability()
+        }
+        override fun assess(requirements: GenerationRequirements, context: GenerationContext): CapabilityAssessment {
+            if (armed && !availabilityPhase) throw boundary
+            return super.assess(requirements)
+        }
+    }
+
     private val requirements = GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.DOCX))
     private open class Provider : DocumentProvider {
         override fun capabilities() = ProviderCapabilities(setOf(DocumentFormat.DOCX), setOf(DocumentFormat.DOCX, DocumentFormat.PDF))
