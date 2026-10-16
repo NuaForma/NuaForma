@@ -41,6 +41,8 @@ class SonarEventTest(unittest.TestCase):
 
     def test_workflow_secret_boundary(self):
         workflow = (check_coverage.ROOT / ".github/workflows/build.yml").read_text()
+        self.assertIn("  push:\n    branches: [main, develop]\n", workflow)
+        self.assertIn("  pull_request:\n    branches: [main, develop]\n", workflow)
         self.assertEqual(workflow.count("secrets.SONAR_TOKEN"), 1)
         scan = workflow.split("- name: Analyze with SonarQube Cloud\n", 1)[1]
         self.assertIn("if: matrix.java == '25' && steps.sonar.outputs.analyze == 'true'", scan)

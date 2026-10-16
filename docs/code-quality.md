@@ -18,6 +18,8 @@ JaCoCo measures JVM execution in those Gradle test processes, not browser JavaSc
 
 ## GitHub Actions
 
+Pull requests targeting `develop`/`main` run the Java 17/25 matrix. Push builds are restricted to those two integration/release branches, so feature updates do not run the same matrix twice via both push and PR events. Merged changes still receive a branch build and branch analysis; manual dispatch remains available. The separate native AMD64/ARM64 checks and branch protections are unchanged.
+
 The existing Build workflow keeps its Java 17/25 matrix. Only the Java 25 build records and verifies the aggregate report; analysis runs after successful checks. The scanner step explicitly excludes test execution and report regeneration (`-x test -x coverageReport`), consuming the report verified in the preceding build rather than rerunning tests with the token present. Checkout retains full Git history without persisted credentials. Sonar receives public project source and analysis metadata; never run it on customer templates, private extensions or production data.
 
 The scanner runs for pushes/manual runs on `develop` or `main`, and for opened/reopened/updated PRs targeting those branches when both repositories are `NuaForma/NuaForma`. Fork and Dependabot PRs still build/test but skip authenticated analysis. The workflow never uses `pull_request_target` or privileged artifact handoffs. `SONAR_TOKEN` is provided only to the scanner step, not to compilation/tests; eligible analysis fails clearly if it is absent. Same-repository code and workflow changes remain trusted maintainer input and can execute during Gradle scanning; review them accordingly.
