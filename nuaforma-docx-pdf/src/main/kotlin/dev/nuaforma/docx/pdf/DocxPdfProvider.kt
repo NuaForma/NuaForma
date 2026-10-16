@@ -9,7 +9,6 @@ import dev.nuaforma.docx.pdf.adapters.ooxml.PdfFonts
 import dev.nuaforma.docx.pdf.internal.*
 import java.io.OutputStream
 import java.nio.file.Files
-import java.nio.file.Path
 import dev.nuaforma.template.TemplatePipes
 
 /** DOCX processing is delegated unchanged; only PDF uses an isolated conversion copy. */
@@ -48,9 +47,7 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
                 listOf(ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.DOCX),
                     ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.PDF, PdfProfile.entries.map { it.id }.toSet())), image.nullBehavior, image.contentTypes)
         }) + pipes.map { it.definition })
-    private val converter: PdfConverter = LibreOfficeProcesses(configuration ?: System.getProperty("nuaforma.pdf.launcher")?.let {
-        LibreOfficeConfiguration(Path.of(it))
-    })
+    private val converter: PdfConverter = LibreOfficeProcesses(configuration ?: PdfRuntimeConfiguration.read(System.getProperties()))
 
     override fun fontCatalog(context: GenerationContext): FontCatalog {
         context.checkActive()
@@ -85,11 +82,10 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
 
     override fun availability(context: GenerationContext): ProviderAvailability {
         context.checkActive()
-        val probeContext = GenerationContext(context.limits, context.cancellation,
-            minOf(context.deadline, java.time.Instant.now().plusSeconds(10)), java.time.Clock.systemUTC(), context.logging)
-        val status = try { converter.verify(probeContext); CapabilityAssessment(AssessmentStatus.SUPPORTED) }
+        val status = try { converter.verify(context); CapabilityAssessment(AssessmentStatus.SUPPORTED) }
             catch (error: GenerationException) {
                 context.checkActive()
+                if (error.diagnostics.any { it.code == DiagnosticCodes.CANCELLED || it.code == DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED }) throw error
                 context.logging.operation("PDF_BACKEND_UNAVAILABLE", mapOf("reason" to "Check the configured qualified renderer, validators and kernel namespace/isolation support"))
                 CapabilityAssessment(AssessmentStatus.UNAVAILABLE, listOf(Diagnostic(DiagnosticCodes.PROVIDER_UNAVAILABLE,
                     "Configure the qualified isolated LibreOffice runtime; DOCX output remains available")))

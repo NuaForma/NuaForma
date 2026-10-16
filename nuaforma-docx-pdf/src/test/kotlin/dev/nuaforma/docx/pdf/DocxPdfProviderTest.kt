@@ -11,6 +11,20 @@ import java.io.ByteArrayOutputStream
 import java.nio.file.Files
 
 class DocxPdfProviderTest {
+    @Test
+    fun `availability retains caller context and resource failures instead of converting them to unavailable`() {
+        mockkConstructor(LibreOfficeProcesses::class)
+        try {
+            val context = GenerationContext()
+            every { anyConstructed<LibreOfficeProcesses>().verify(any()) } answers {
+                assertSame(context, firstArg<GenerationContext>())
+                throw GenerationException(listOf(Diagnostic(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "Synthetic deadline")))
+            }
+            val error = assertThrows(GenerationException::class.java) { DocxPdfProvider().availability(context) }
+            assertEquals(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, error.diagnostics.single().code)
+        } finally { unmockkConstructor(LibreOfficeProcesses::class) }
+    }
+
     private fun requirements(format: DocumentFormat, options: Map<String, Any?> = emptyMap()) =
         GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(format, options))
 
