@@ -10,7 +10,7 @@ Use a closing reference only when the issue's full acceptance criteria are satis
 
 ## Verification
 
-- [ ] The required Build (Java 17) check passes.
+- [ ] The required Build (Java 17) and Build (Java 25) checks pass.
 - [ ] Relevant regression and integration tests are included, or their absence is explained.
 - [ ] Public contract, architecture, security and document-fidelity impact has been reviewed where applicable.
 - [ ] Documentation impact is recorded: relevant guides, examples, API/deployment documentation and architecture are updated, or no change is needed with an explanation. Source/release claims reflect implemented and verified behavior.

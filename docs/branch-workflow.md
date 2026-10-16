@@ -2,7 +2,7 @@
 
 ## Product repository
 
-`NuaForma/NuaForma` remains one Gradle product repository. Develop is the default working/integration branch. Start issue-linked feature branches there and open their PRs against develop. Both develop and main require verified signed commits, PRs, resolved conversations and `Build (Java 17)`. Run relevant Java 25, native-platform, architecture and behavioral checks too; a required minimum check is not permission to ignore a failing applicable check.
+`NuaForma/NuaForma` remains one Gradle product repository. Develop is the default working/integration branch. Start issue-linked feature branches there and open their PRs against develop. Both develop and main require verified signed commits, PRs, resolved conversations, `Build (Java 17)` and `Build (Java 25)`. Run relevant native-platform, architecture and behavioral checks too; required build checks are not permission to ignore a failing applicable check.
 
 Main is the reviewed release baseline. Prepare the release/version decision on develop, then promote develop to main through a release PR. The `Release promotion` check accepts only internal develop or deliberately named `hotfix/*` sources. Publication remains separately authorized and protected: run signing/archive/upload/publish workflows explicitly on main. Changing the default branch does not broaden `maven-central` or `ghcr-release` deployment policies, infer publication authority or create tags automatically.
 
