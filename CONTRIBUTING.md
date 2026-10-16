@@ -19,7 +19,7 @@ For implementation changes, run affected tests during development and the full b
 - Follow [ARCHITECTURE.md](ARCHITECTURE.md): public contracts across modules and NuaForma-owned facades with component-specific `adapters` for external integrations.
 - Preserve Java 17 library compatibility; server/Playground use Java 25. Keep test/build dependencies out of production and GUI assets out of production server/images.
 - Keep templates restricted, data request-private, operations bounded and API errors sanitized. Installed extensions are trusted code; do not weaken renderer/validator isolation to make tests pass.
-- Review dependencies for maintenance, licenses, security and transitive/JVM compatibility. Update [dependency reviews](DEPENDENCIES.md), notices and deliberate locks when applicable; introducing a dependency needs prior agreement.
+- Review dependencies for maintenance, licenses, security and transitive/JVM compatibility. Update [dependency reviews](DEPENDENCIES.md), notices, deliberate locks and [independently reviewed checksums](docs/code-quality.md#reviewed-dependency-verification) when applicable; introducing a dependency needs prior agreement. Do not bypass strict verification or blindly trust bootstrapped hashes.
 - Preserve supported document formatting. Explain intentional behavior changes and compatibility impact; never hide regressions by silently regenerating expected output.
 
 Use English for repository documentation, public API documentation, identifiers and commit messages. Keep prose soft-wrapped and avoid duplicating rules across guides. Agent-specific instructions live in [AGENTS.md](AGENTS.md); workstation-specific agreements are not distributed contributor requirements.

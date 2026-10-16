@@ -74,6 +74,10 @@ jobs:
         if: matrix.java == '17'
         run: ./gradlew --no-daemon verifyEmbeddedConsumers --warning-mode=fail
 
+      - name: Verify dependency rejection behavior
+        if: matrix.java == '17'
+        run: python3 tools/quality/probe_dependency_verification.py
+
       - name: Analyze with SonarQube Cloud
         if: matrix.java == '25' && steps.sonar.outputs.analyze == 'true'
         env:

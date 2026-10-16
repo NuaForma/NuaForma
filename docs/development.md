@@ -31,6 +31,8 @@ The full build includes module/dependency boundaries, ArchUnit architecture chec
 
 For the seven-module JaCoCo report, run `./gradlew coverageReport -Pcoverage=true`. The [code-quality guide](code-quality.md) explains local HTML/XML reports, SonarQube Cloud CI, coverage boundaries and safe maintainer token setup. Normal builds need no Sonar token or coverage agent.
 
+Gradle dependencies and their metadata are verified against reviewed SHA-256 checksums in strict mode. Version locks and checksum verification serve different purposes; deliberate dependency updates must include the [independent checksum review](code-quality.md#reviewed-dependency-verification), not blindly accept newly generated hashes or disable verification.
+
 Tests using synthetic DOCX/PDF inputs are not proof of visual fidelity. Changes affecting document processing, fonts, conversion, resource handling or transport require the relevant real integration checks, representative rendered-page review and independent barcode/profile checks. See [container qualification](../deployment/pdf-runtime/SERVICE.md#qualification-and-release-preparation) and the [renderer guide](../deployment/pdf-runtime/README.md#reproducible-qualification). Use synthetic data and licensed test fonts, not customer documents or private credentials.
 
 ## Run the service and export its contract

@@ -200,7 +200,12 @@ val coverageReport = tasks.register<JacocoReport>("coverageReport") {
         subprojects.map { it.extensions.getByType<SourceSetContainer>()["main"].output.classesDirs }
     })
     sourceDirectories.from(provider {
-        subprojects.map { it.extensions.getByType<SourceSetContainer>()["main"].allSource.sourceDirectories }
+        subprojects.flatMap {
+            listOf(
+                it.extensions.getByType<SourceSetContainer>()["main"].allJava.sourceDirectories,
+                it.extensions.getByType<KotlinJvmProjectExtension>().sourceSets["main"].kotlin.sourceDirectories,
+            )
+        }
     })
     reports {
         xml.required.set(true)
@@ -268,6 +273,12 @@ tasks.register<Exec>("verifyQualityTooling") {
     commandLine("python3", "-m", "unittest", "discover", "-s", "tools/quality", "-p", "test_*.py")
 }
 
+tasks.register<Exec>("verifyDependencyVerification") {
+    group = "verification"
+    description = "Checks exact, independently reviewed Gradle dependency checksums."
+    commandLine("python3", "tools/quality/dependency_verification.py")
+}
+
 tasks.register<Exec>("verifyEmbeddedConsumers") {
     group = "verification"
     dependsOn("stageLibraries")
@@ -285,6 +296,7 @@ tasks.named("check") {
     dependsOn("verifyReleaseTooling")
     dependsOn("verifyContainerTooling")
     dependsOn("verifyQualityTooling")
+    dependsOn("verifyDependencyVerification")
     dependsOn("verifySonarConfiguration")
 }
 

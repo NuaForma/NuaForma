@@ -49,6 +49,8 @@ Use the checked-in Gradle Wrapper from the repository root. The commands below u
 
 The dependency versions live in `gradle/libs.versions.toml`; resolved module dependencies are locked in each subproject's `gradle.lockfile`. Update locks deliberately using `--write-locks` with the affected verification commands and review the resulting changes. Do not regenerate locks as a routine build step.
 
+Keep Gradle dependency verification strict. Review new/changed SHA-256 entries against fresh official repository bytes and commit matching review receipts; follow [the checksum review procedure](docs/code-quality.md#reviewed-dependency-verification). Generated metadata alone is not approval. Never resolve checksum failures by silently accepting additional hashes, disabling verification or adding broad trust exceptions.
+
 Gradle with Kotlin DSL is the selected build system. Install JDK 17 and JDK 25: library compilation/tests use 17, server compilation/tests use 25, and Gradle may run on either. `JDK17` and `JDK25` can supply installations not found automatically. Use the checked-in Gradle Wrapper appropriate to the supported environment; workstation-specific execution instructions remain in `AGENTS.local.md`.
 
 - Run the affected tests while developing and the complete build before declaring an implementation complete.

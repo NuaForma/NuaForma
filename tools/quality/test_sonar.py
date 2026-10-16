@@ -53,6 +53,7 @@ class SonarEventTest(unittest.TestCase):
         self.assertNotIn("continue-on-error", workflow)
         self.assertIn("persist-credentials: false", workflow)
         self.assertIn("fetch-depth: 0", workflow)
+        self.assertIn("python3 tools/quality/probe_dependency_verification.py", workflow)
 
 
 class CoverageInventoryTest(unittest.TestCase):

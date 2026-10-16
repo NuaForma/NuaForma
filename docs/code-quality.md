@@ -26,6 +26,27 @@ The scanner runs for pushes/manual runs on `develop` or `main`, and for opened/r
 
 The scanner does not wait for or override the server-side Quality Gate. The README badge shows the current `develop` Quality Gate, which can lag a recent push while Sonar processes the report. Requiring both Java builds does not add a mandatory Sonar gate or change its quality profiles/issue dispositions. Do not lower a gate or suppress findings merely to get a green badge. The project does not yet import browser/Python coverage.
 
+## Reviewed dependency verification
+
+The source build uses Gradle's strict SHA-256 dependency verification, independently of Sonar or coverage. [Verification metadata](../gradle/verification-metadata.xml) pins individual artifacts and their POM/Gradle module metadata, including plugins, compiler, build/test tools, application dependencies and isolated validator libraries. Unknown artifacts or mismatched bytes fail resolution. Dependency locks still select versions; checksums additionally check the selected bytes. There are no wildcard trust rules or ignored artifacts.
+
+[Review receipts](../gradle/verification-review.json) record the SHA-256, size and exact official repository URL for every accepted artifact. The review helper freshly downloads bytes over HTTPS independently of Gradle's local cache, compares them with the candidate metadata and writes receipts only after every comparison succeeds. Plugin markers use the configured Gradle Plugin Portal; ordinary artifacts prefer Maven Central, with the official Plugin Portal as a fallback for portal-only artifacts. Its official artifact CDN is allowed. The Kotlin JVM marker POM on Central contains additional descriptive metadata; only the Portal bytes actually used by this build are accepted.
+
+This is repository-byte integrity pinning, **not publisher-signature verification**, a vulnerability scan or proof that upstream code is safe. A compromised upstream repository or an already malicious initial version is outside what same-origin HTTPS/checksum comparison proves. Review dependency identity, licenses, release history and security separately. The Gradle Wrapper retains its separate pinned checksum; OS packages/native renderer artifacts and scanner-provisioned analysis engines are outside Gradle's dependency inventory and retain their own review mechanisms.
+
+For a deliberate dependency update, on a trusted workstation:
+
+```sh
+./gradlew --write-verification-metadata sha256 help
+python3 tools/quality/dependency_verification.py --review
+./gradlew verifyDependencyVerification verifyQualityTooling
+python3 tools/quality/probe_dependency_verification.py
+```
+
+Bootstrapping is only a candidate, never automatic approval: review the XML/receipt diff and compare important dependencies with upstream release evidence. Resolve any task-specific inputs needed by the affected build; qualify both Java toolchains and native architectures in CI. Do not append a mismatched hash, add a trust exemption, disable verification or generate acceptance metadata in CI merely to make a failure pass. Commit the reviewed XML and receipts together. New/mismatched/unreviewed entries fail the offline review guard in the normal build; CI also exercises Gradle itself with a synthetic private Maven fixture, accepting reviewed bytes and rejecting altered or unlisted artifacts without changing the real dependency cache.
+
+For read-only checks of existing review records, omit `--review`; normal builds do not redownload all artifacts for this helper or rewrite either file. See [Gradle dependency verification](https://docs.gradle.org/9.7.0/userguide/dependency_verification.html) for its scope and bootstrap limitations. Playground impact: build integrity only; no UI, request, runtime dependency or container behavior changes.
+
 ## Maintainer setup and token rotation
 
 Before the first CI-based upload:
