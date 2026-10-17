@@ -47,15 +47,22 @@ internal object ExtensionClasspath {
                         require(jar.manifest?.mainAttributes?.getValue("Class-Path").isNullOrBlank()) { "EXTENSION_MANIFEST_CLASSPATH" }
                         val ownClasses = linkedSetOf<String>()
                         require(jar.size() <= 100000) { "EXTENSION_ARCHIVE_LIMIT" }
+                        val rawEntries = jar.entries()
+                        var rawCount = 0
+                        while (rawEntries.hasMoreElements()) {
+                            require(++rawCount <= 100000) { "EXTENSION_ARCHIVE_LIMIT" }
+                            val entry = rawEntries.nextElement()
+                            validateArchiveName(entry.name, entry.isDirectory)
+                        }
                         val iterator = jar.versionedStream().iterator()
                         var count = 0
                         while (iterator.hasNext()) {
                             require(++count <= 100000) { "EXTENSION_ARCHIVE_LIMIT" }
                             val entry = iterator.next()
                             val name = entry.name
-                            require(!name.startsWith('/') && !name.contains('\\') && name.split('/').none { it == ".." }) { "INVALID_EXTENSION_ARCHIVE" }
+                            validateArchiveName(name, entry.isDirectory)
                             if (!entry.isDirectory && name.endsWith(".class") && !name.startsWith("META-INF/") && name != "module-info.class") {
-                                require(name !in classes && parent.getResource(name) == null) { "EXTENSION_CLASS_CONFLICT" }
+                                require(ownClasses.add(name) && name !in classes && parent.getResource(name) == null) { "EXTENSION_CLASS_CONFLICT" }
                                 require(entry.size in 8..(16L * 1024 * 1024)) { "INVALID_EXTENSION_CLASS" }
                                 jar.getInputStream(entry).use { input ->
                                     val header = input.readNBytes(8)
@@ -64,12 +71,9 @@ internal object ExtensionClasspath {
                                     val major = ((header[6].toInt() and 255) shl 8) or (header[7].toInt() and 255)
                                     require(major in 45..(Runtime.version().feature() + 44) && minor != 65535) { "UNSUPPORTED_EXTENSION_CLASS_VERSION" }
                                 }
-                                ownClasses.add(name)
                             }
                         }
-                        for (name in ownClasses) {
-                            require(classes.add(name) && parent.getResource(name) == null) { "EXTENSION_CLASS_CONFLICT" }
-                        }
+                        classes.addAll(ownClasses)
                     }
                 } catch (_: java.io.IOException) { throw IllegalArgumentException("INVALID_EXTENSION_JAR") }
             }
@@ -83,6 +87,16 @@ internal object ExtensionClasspath {
             copies.forEach { Files.deleteIfExists(it) }
             Files.deleteIfExists(snapshot)
             throw failure
+        }
+    }
+
+    private fun validateArchiveName(name: String, directory: Boolean) {
+        require(name.isNotEmpty() && !name.startsWith('/') && name.none { it == '\\' || it == ':' || it == '\u0000' }) {
+            "INVALID_EXTENSION_ARCHIVE"
+        }
+        val relative = if (directory) name.dropLast(1) else name
+        require(relative.isNotEmpty() && relative.split('/').all { it.isNotEmpty() && it != "." && it != ".." }) {
+            "INVALID_EXTENSION_ARCHIVE"
         }
     }
 }
