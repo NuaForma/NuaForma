@@ -194,6 +194,35 @@ class DocxFontsTest {
     }
 
     @Test
+    fun `font declaration boundaries retain structured reasons instead of private option values`() {
+        val valid = mapOf("family" to family, "resource" to "font")
+        val cases = listOf(
+            List(65) { valid } to RejectionReason.FONTS_MUST_BE_AN_ARRAY_WITH_AT_MOST_64,
+            listOf("PRIVATE_TOKEN") to RejectionReason.INVALID_FONT_RESOURCE_DECLARATION,
+            listOf(valid + ("PRIVATE_TOKEN" to true)) to RejectionReason.INVALID_FONT_RESOURCE_DECLARATION,
+            listOf(emptyMap<String, Any?>()) to RejectionReason.A_FONT_NEEDS_A_FAMILY,
+            listOf(valid + ("family" to 1)) to RejectionReason.A_FONT_NEEDS_A_FAMILY,
+            listOf(mapOf("family" to family)) to RejectionReason.A_FONT_NEEDS_A_LOGICAL_RESOURCE_IDENTIFIER,
+            listOf(valid + ("family" to " ")) to RejectionReason.INVALID_FONT_FAMILY_FACE_OR_RESOURCE_IDENTIFIER,
+            listOf(valid + ("family" to "x".repeat(129))) to RejectionReason.INVALID_FONT_FAMILY_FACE_OR_RESOURCE_IDENTIFIER,
+            listOf(valid + ("family" to "PRIVATE_TOKEN\n")) to RejectionReason.INVALID_FONT_FAMILY_FACE_OR_RESOURCE_IDENTIFIER,
+            listOf(valid + ("face" to 1)) to RejectionReason.INVALID_FONT_FAMILY_FACE_OR_RESOURCE_IDENTIFIER,
+            listOf(valid, valid + ("resource" to "different")) to RejectionReason.FONT_FAMILY_FACE_DECLARATIONS_MUST_BE_UNIQUE,
+        )
+        for ((raw, expected) in cases) {
+            val assessment = DocxProvider().assess(GenerationRequirements(FormatRequest(DocumentFormat.DOCX),
+                FormatRequest(DocumentFormat.DOCX, mapOf("fontMode" to "validate", "fonts" to raw))))
+            assertEquals(AssessmentStatus.UNSUPPORTED, assessment.status)
+            assertSame(expected, assessment.diagnostics.single().rejectionReason)
+            assertFalse(assessment.diagnostics.single().message.contains("PRIVATE_TOKEN"))
+        }
+        for (face in listOf("regular", "bold", "italic", "boldItalic")) {
+            assertEquals(AssessmentStatus.SUPPORTED, DocxProvider().assess(GenerationRequirements(FormatRequest(DocumentFormat.DOCX),
+                FormatRequest(DocumentFormat.DOCX, mapOf("fontMode" to "validate", "fonts" to listOf(valid + ("face" to face)))))).status)
+        }
+    }
+
+    @Test
     fun `existing embedded faces survive preserve but cannot be silently replaced`() {
         val embedded = generate(fixture(true), "embed")
         val preserved = generate(embedded)
