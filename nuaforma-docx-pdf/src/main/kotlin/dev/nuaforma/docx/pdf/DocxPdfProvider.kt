@@ -88,11 +88,11 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
                 if (error.diagnostics.any { it.code == DiagnosticCodes.CANCELLED || it.code == DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED }) throw error
                 context.logging.operation("PDF_BACKEND_UNAVAILABLE", mapOf("reason" to "Check the configured qualified renderer, validators and kernel namespace/isolation support"))
                 CapabilityAssessment(AssessmentStatus.UNAVAILABLE, listOf(Diagnostic(DiagnosticCodes.PROVIDER_UNAVAILABLE,
-                    "Configure the qualified isolated LibreOffice runtime; DOCX output remains available")))
+                    RejectionReason.CONFIGURE_THE_QUALIFIED_ISOLATED_LIBREOFFICE_RUNTIME_DOCX_OUTPUT_REMAINS)))
             } catch (error: java.io.IOException) {
                 context.logging.failure("PDF_BACKEND_IO_FAILED", error)
                 CapabilityAssessment(AssessmentStatus.UNAVAILABLE, listOf(Diagnostic(DiagnosticCodes.PROVIDER_UNAVAILABLE,
-                    "Configure the qualified isolated LibreOffice runtime; DOCX output remains available")))
+                    RejectionReason.CONFIGURE_THE_QUALIFIED_ISOLATED_LIBREOFFICE_RUNTIME_DOCX_OUTPUT_REMAINS)))
             }
         return ProviderAvailability(setOf(DocumentFormat.DOCX),
             if (status.status == AssessmentStatus.SUPPORTED) setOf(DocumentFormat.DOCX, DocumentFormat.PDF) else setOf(DocumentFormat.DOCX), status.diagnostics)
@@ -116,11 +116,11 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
     private fun validate(requirements: GenerationRequirements): CapabilityAssessment {
         if (requirements.output.format == DocumentFormat.DOCX) return docx.assess(requirements)
         if (requirements.output.format != DocumentFormat.PDF) return CapabilityAssessment(AssessmentStatus.UNSUPPORTED,
-            listOf(Diagnostic(DiagnosticCodes.UNSUPPORTED_OUTPUT, "This provider writes DOCX and PDF only")))
+            listOf(Diagnostic(DiagnosticCodes.UNSUPPORTED_OUTPUT, RejectionReason.THIS_PROVIDER_WRITES_DOCX_AND_PDF_ONLY)))
         return try {
             val options = PdfOptions.read(requirements.output.options)
             if (options.profile == PdfProfile.PDFA_1B && requirements.options.watermark?.opacity?.let { it != 1.0 } == true) {
-                PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, "PDF/A-1b supports opaque watermarks only; choose PDF/A-2b or PDF/A-3b for transparency")
+                PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, RejectionReason.PDF_A_1B_SUPPORTS_OPAQUE_WATERMARKS_ONLY_CHOOSE_PDF)
             }
             docx.assess(GenerationRequirements(requirements.input, FormatRequest(DocumentFormat.DOCX, options.docxOptions), requirements.options))
         } catch (error: GenerationException) { CapabilityAssessment(AssessmentStatus.UNSUPPORTED, error.diagnostics) }

@@ -12,13 +12,13 @@ internal class PdfOptions private constructor(
     companion object {
         private val keys = setOf("version", "profile", "fontMode", "fonts", "paragraphDefaults")
         fun read(values: Map<String, Any?>): PdfOptions {
-            if (values.keys.any { it !in keys }) invalid("Unrecognized PDF options")
+            if (values.keys.any { it !in keys }) invalid(RejectionReason.UNRECOGNIZED_PDF_OPTIONS)
             val profile = if (!values.containsKey("profile")) PdfProfile.PDFA_3B else
-                PdfProfile.entries.firstOrNull { it.id == values["profile"] } ?: invalid("Unsupported PDF profile")
-            if (values.containsKey("version") && values["version"] != profile.version) invalid("PDF version conflicts with the requested profile")
+                PdfProfile.entries.firstOrNull { it.id == values["profile"] } ?: invalid(RejectionReason.UNSUPPORTED_PDF_PROFILE)
+            if (values.containsKey("version") && values["version"] != profile.version) invalid(RejectionReason.PDF_VERSION_CONFLICTS_WITH_THE_REQUESTED_PROFILE)
             val defaults = if (!values.containsKey("paragraphDefaults")) null else {
-                val raw = values["paragraphDefaults"] as? Map<*, *> ?: invalid("paragraphDefaults must be an object")
-                if (raw.isEmpty() || raw.keys.any { it !in setOf("afterTwips", "line240ths") }) invalid("Invalid paragraphDefaults fields")
+                val raw = values["paragraphDefaults"] as? Map<*, *> ?: invalid(RejectionReason.PARAGRAPHDEFAULTS_MUST_BE_AN_OBJECT)
+                if (raw.isEmpty() || raw.keys.any { it !in setOf("afterTwips", "line240ths") }) invalid(RejectionReason.INVALID_PARAGRAPHDEFAULTS_FIELDS)
                 ParagraphDefaults(integer(raw, "afterTwips", 0..2880), integer(raw, "line240ths", 1..2400))
             }
             return PdfOptions(values.filterKeys { it in setOf("fontMode", "fonts") }, defaults, profile)
@@ -27,13 +27,13 @@ internal class PdfOptions private constructor(
         private fun integer(values: Map<*, *>, name: String, range: IntRange): Int? {
             if (!values.containsKey(name)) return null
             val value = values[name]
-            if (value !is Byte && value !is Short && value !is Int && value !is Long && value !is java.math.BigInteger) invalid("Paragraph defaults require bounded integers")
-            val number = value.toString().toLongOrNull() ?: invalid("Paragraph defaults require bounded integers")
-            if (number < range.first || number > range.last) invalid("Paragraph default is outside its supported range")
+            if (value !is Byte && value !is Short && value !is Int && value !is Long && value !is java.math.BigInteger) invalid(RejectionReason.PARAGRAPH_DEFAULTS_REQUIRE_BOUNDED_INTEGERS)
+            val number = value.toString().toLongOrNull() ?: invalid(RejectionReason.PARAGRAPH_DEFAULTS_REQUIRE_BOUNDED_INTEGERS)
+            if (number < range.first || number > range.last) invalid(RejectionReason.PARAGRAPH_DEFAULT_IS_OUTSIDE_ITS_SUPPORTED_RANGE)
             return number.toInt()
         }
 
-        private fun invalid(message: String): Nothing = PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, message)
+        private fun invalid(reason: RejectionReason): Nothing = PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, reason)
     }
 }
 

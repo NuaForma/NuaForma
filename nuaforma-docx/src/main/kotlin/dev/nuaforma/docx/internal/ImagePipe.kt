@@ -62,8 +62,8 @@ internal class ImagePipe(private val generation: GenerationContext) : ContentPip
     }
 
     private fun invalid(): Nothing = DocxFailure.fail(DiagnosticCodes.INVALID_REQUEST,
-        "Image requires strict Base64 PNG/JPEG data and maximum dimensions from 0.1 to 500 millimetres")
-    private fun limit(): Nothing = DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "Image processing exceeds the generation resource limits")
+        RejectionReason.IMAGE_REQUIRES_STRICT_BASE64_PNG_JPEG_DATA_AND_MAXIMUM)
+    private fun limit(): Nothing = DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.IMAGE_PROCESSING_EXCEEDS_THE_GENERATION_RESOURCE_LIMITS)
 
     companion object {
         val DEFINITION = ContentPipeDefinition("image", "Static Base64 PNG/JPEG image; 96 DPI intrinsic size, fit within millimetre maxima, never upscale", listOf(

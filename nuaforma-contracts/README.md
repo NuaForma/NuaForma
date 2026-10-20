@@ -2,6 +2,10 @@
 
 Development API for Kotlin and Java 17, in `dev.nuaforma.contracts`. Release `0.2.0-alpha.1` uses contract **0.2**; historical `0.1` artifacts retain contract **0.1**. Runtime `0.2` accepts providers requiring `0.1` or `0.2`; implementations using new interfaces require `0.2` so older runtimes reject them before initialization. Artifact release versions and contract minima are separate. This module contains value types, provider contracts, descriptor parsing and validation helpers. Discovery and selection live in [core](../nuaforma-core/README.md). Expression evaluation, DOCX/PDF processing and HTTP serialization belong to implementation modules, not contracts.
 
+## Structured rejection explanations
+
+Unreleased issue #98 source adds the closed `RejectionReason` catalog and `Diagnostic(code, reason, severity, location, part)` overloads under contract **0.3**. This runtime continues to accept `0.1` and `0.2` providers; current built-in providers require `0.3` so older runtimes reject them before initialization. Existing String constructors, including Kotlin default-argument descriptors, remain unchanged; their free text never automatically becomes a server explanation. Embedded diagnostics retain the same codes, messages and severity, with additive optional reason/part metadata and additional XML coordinates on parsing failures. Existing template source offsets retain their meaning. The catalog contains only application-owned text and fixed recovery advice, never values or exception messages. Server disclosure and coordinate filtering remain at the transport boundary; libraries read no environment mode. Consumers using this new API require the updated contracts artifact; historical artifacts remain immutable. Java 17 remains the baseline.
+
 <a id="optional-value-pipes-unreleased-source"></a>
 
 ## Optional value pipes

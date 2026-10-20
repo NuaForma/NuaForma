@@ -28,6 +28,6 @@ class TemplatePipes private constructor(pipes: List<TemplatePipe>) {
         @JvmOverloads
         fun discover(loader: ClassLoader = Thread.currentThread().contextClassLoader ?: TemplatePipes::class.java.classLoader): TemplatePipes =
             TemplatePipes(ClasspathPipes(loader).discover())
-        private fun invalid(): Nothing = Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Value pipe registrations must have valid, unique definitions")
+        private fun invalid(): Nothing = Safety.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.VALUE_PIPE_REGISTRATIONS_MUST_HAVE_VALID_UNIQUE_DEFINITIONS)
     }
 }

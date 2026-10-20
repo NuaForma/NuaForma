@@ -1,5 +1,7 @@
 # NuaForma Playground
 
+Unreleased issue #98 source displays server-provided development rejection explanations, safe part/construct/location and recovery advice alongside the request ID. Results use text nodes, so diagnostic text cannot become HTML. The Playground does not select or override the server mode and exports no diagnostics-mode option. Production/restricted responses remain readable without optional fields; published images retain their prior behavior.
+
 A separate, development-only Java 25 application over the same REST server and engine. Production `nuaforma-server` artifacts and the `service` image do not depend on this module or contain its browser assets. The five embedded libraries retain Java 17 support. There is no separate generation implementation and no browser framework/CDN dependency.
 
 ## Run the development container

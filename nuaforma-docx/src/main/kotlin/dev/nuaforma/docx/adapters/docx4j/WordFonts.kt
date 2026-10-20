@@ -25,10 +25,10 @@ internal object WordFonts {
 
     fun apply(document: WordprocessingMLPackage, request: GenerationRequest, context: GenerationContext) {
         val policy = FontPolicy.read(request.requirements.output.options)
-        if (request.resources.keys != policy.fonts.map { it.resource }.toSet()) fail("Supply exactly the declared font resources; unused or missing resources are not accepted")
+        if (request.resources.keys != policy.fonts.map { it.resource }.toSet()) fail(RejectionReason.SUPPLY_EXACTLY_THE_DECLARED_FONT_RESOURCES_UNUSED_OR_MISSING)
         if (policy.mode == "preserve") return
         val declared = declaredFonts(document, context)
-        if (!policy.fonts.filter { it.face == "regular" }.map { it.family }.toSet().containsAll(declared)) fail("A declared template font family has no supplied regular face")
+        if (!policy.fonts.filter { it.face == "regular" }.map { it.family }.toSet().containsAll(declared)) fail(RejectionReason.A_DECLARED_TEMPLATE_FONT_FAMILY_HAS_NO_SUPPLIED_REGULAR)
         var total = 0L
         val inspected = mutableListOf<Pair<FontPolicy.FontResource, ByteArray>>()
         policy.fonts.forEach { font ->
@@ -39,7 +39,7 @@ internal object WordFonts {
             val bytes = buffer.toByteArray()
             total += bytes.size
             val metadata = OpenTypeMetadata.read(bytes)
-            if (font.family !in metadata.families || font.face != metadata.face) fail("Supplied font family or face does not match its declaration")
+            if (font.family !in metadata.families || font.face != metadata.face) fail(RejectionReason.SUPPLIED_FONT_FAMILY_OR_FACE_DOES_NOT_MATCH_ITS)
             if (policy.mode == "embed") metadata.requireEditableEmbedding()
             if (policy.mode == "embed") inspected.add(font to bytes)
         }
@@ -61,7 +61,7 @@ internal object WordFonts {
             try { part.marshal(BoundedStreams.Output(buffer, context.limits.maxExpandedBytes - total, context)) }
             catch (error: JAXBException) {
                 generateSequence<Throwable>(error) { it.cause }.filterIsInstance<GenerationException>().firstOrNull()?.let { throw it }
-                DocxFailure.fail(DiagnosticCodes.GENERATION_FAILED, "DOCX fonts cannot be inspected safely")
+                DocxFailure.fail(DiagnosticCodes.GENERATION_FAILED, RejectionReason.DOCX_FONTS_CANNOT_BE_INSPECTED_SAFELY)
             }
             total += buffer.size()
             val factory = XMLInputFactory.newDefaultFactory().apply {
@@ -80,7 +80,7 @@ internal object WordFonts {
                                 repeat(reader.attributeCount) { index ->
                                     if (reader.getAttributeNamespace(index) == WORD) {
                                         val attribute = reader.getAttributeLocalName(index)
-                                        if (attribute.endsWith("theme", true)) unsupported("Strict font processing requires explicit fonts instead of theme references")
+                                        if (attribute.endsWith("theme", true)) unsupported(RejectionReason.STRICT_FONT_PROCESSING_REQUIRES_EXPLICIT_FONTS_INSTEAD_OF_THEME)
                                         if (attribute in setOf("ascii", "hAnsi", "eastAsia", "cs")) {
                                             names.add(reader.getAttributeValue(index))
                                             if (inDefaults && attribute == "ascii") defaultAscii = true
@@ -89,21 +89,21 @@ internal object WordFonts {
                                     }
                                 }
                             }
-                            if (reader.namespaceURI == WORD && reader.localName == "sym") names.add(reader.getAttributeValue(WORD, "font") ?: fail("Symbol font is missing"))
+                            if (reader.namespaceURI == WORD && reader.localName == "sym") names.add(reader.getAttributeValue(WORD, "font") ?: fail(RejectionReason.SYMBOL_FONT_IS_MISSING))
                             if (reader.namespaceURI == DRAWING && reader.localName in setOf("latin", "ea", "cs")) {
-                                val name = reader.getAttributeValue(null, "typeface") ?: fail("Drawing font is missing")
-                                if (name.isBlank() || name.startsWith('+')) unsupported("Strict font processing requires explicit drawing font families")
+                                val name = reader.getAttributeValue(null, "typeface") ?: fail(RejectionReason.DRAWING_FONT_IS_MISSING)
+                                if (name.isBlank() || name.startsWith('+')) unsupported(RejectionReason.STRICT_FONT_PROCESSING_REQUIRES_EXPLICIT_DRAWING_FONT_FAMILIES)
                                 names.add(name)
                             }
-                            if (reader.namespaceURI == "urn:schemas-microsoft-com:vml" && reader.localName == "textpath") unsupported("Strict VML text-path font resolution is not supported")
-                            if (names.size > 128 || names.any { it.isBlank() || it.length > 128 }) fail("Invalid or excessive template font declarations")
+                            if (reader.namespaceURI == "urn:schemas-microsoft-com:vml" && reader.localName == "textpath") unsupported(RejectionReason.STRICT_VML_TEXT_PATH_FONT_RESOLUTION_IS_NOT_SUPPORTED)
+                            if (names.size > 128 || names.any { it.isBlank() || it.length > 128 }) fail(RejectionReason.INVALID_OR_EXCESSIVE_TEMPLATE_FONT_DECLARATIONS)
                         }
                         XMLStreamConstants.END_ELEMENT -> if (reader.namespaceURI == WORD && reader.localName == "rPrDefault") inDefaults = false
                     }
                 }
             } finally { reader.close() }
         }
-        if (!defaultAscii || !defaultAnsi) unsupported("Strict font processing requires explicit ascii and hAnsi document defaults")
+        if (!defaultAscii || !defaultAnsi) unsupported(RejectionReason.STRICT_FONT_PROCESSING_REQUIRES_EXPLICIT_ASCII_AND_HANSI_DOCUMENT)
         return names
     }
 
@@ -112,7 +112,7 @@ internal object WordFonts {
         val table = main.fontTablePart ?: FontTablePart().also { it.jaxbElement = Fonts(); main.addTargetPart(it) }
         val entry = table.jaxbElement.font.singleOrNull { it.name == font.family } ?: Fonts.Font().also { it.name = font.family; table.jaxbElement.font.add(it) }
         val existing = when (font.face) { "bold" -> entry.embedBold; "italic" -> entry.embedItalic; "boldItalic" -> entry.embedBoldItalic; else -> entry.embedRegular }
-        if (existing != null) unsupported("Replacing an existing embedded font face is not supported")
+        if (existing != null) unsupported(RejectionReason.REPLACING_AN_EXISTING_EMBEDDED_FONT_FACE_IS_NOT_SUPPORTED)
         val metadata = OpenTypeMetadata.read(bytes)
         entry.panose1 = FontPanose().apply { `val` = metadata.panose }
         entry.charset = CTUcharHexNumber().apply { `val` = if (metadata.codePageRanges[0].toLong(16) and 0x80000000L != 0L) "02" else "00" }
@@ -131,6 +131,6 @@ internal object WordFonts {
         when (font.face) { "bold" -> entry.embedBold = reference; "italic" -> entry.embedItalic = reference; "boldItalic" -> entry.embedBoldItalic = reference; else -> entry.embedRegular = reference }
     }
 
-    private fun fail(message: String): Nothing = DocxFailure.fail(DiagnosticCodes.INVALID_REQUEST, message)
-    private fun unsupported(message: String): Nothing = DocxFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, message)
+    private fun fail(reason: RejectionReason): Nothing = DocxFailure.fail(DiagnosticCodes.INVALID_REQUEST, reason)
+    private fun unsupported(reason: RejectionReason): Nothing = DocxFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, reason)
 }

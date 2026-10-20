@@ -11,13 +11,13 @@ internal class ContentRegistry(pipes: List<ContentPipe>) {
         if (pipes.size > 128) Safety.limit()
         val registrations = pipes.map { Entry(it, it.definition) }
         if (registrations.map { it.definition.name }.distinct().size != registrations.size) {
-            Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Content pipe names must be unique within the selected generator")
+            Safety.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.CONTENT_PIPE_NAMES_MUST_BE_UNIQUE_WITHIN_THE_SELECTED)
         }
         entries = registrations.associateBy { it.definition.name }
     }
 
     fun apply(name: String, value: Any?, arguments: List<Any?>, options: GenerationOptions, context: GenerationContext, step: () -> Unit): ContentResult {
-        val entry = entries[name] ?: Safety.fail(DiagnosticCodes.INVALID_TEMPLATE, "Content pipe is not supported by the selected generator")
+        val entry = entries[name] ?: Safety.fail(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.CONTENT_PIPE_IS_NOT_SUPPORTED_BY_THE_SELECTED_GENERATOR)
         val definitions = entry.definition.arguments
         if (arguments.size !in definitions.count { it.required }..definitions.size) invalid()
         val supplied = definitions.mapIndexed { index, definition ->
@@ -33,23 +33,23 @@ internal class ContentRegistry(pipes: List<ContentPipe>) {
             val result: ContentResult? = entry.pipe.apply(freeze(value, step), java.util.Collections.unmodifiableList(supplied.map { freeze(it, step) }),
                 ContentPipeContext(options.locale, options.timeZone, context))
             context.checkActive()
-            result ?: Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Content pipe returned no structured result")
+            result ?: Safety.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.CONTENT_PIPE_RETURNED_NO_STRUCTURED_RESULT)
         } catch (error: GenerationException) {
             context.logging.operation("CONTENT_PIPE_REJECTED", mapOf("pipe" to name, "reason" to error.diagnostics.take(4).joinToString(",") { it.code.id }))
             if (error.diagnostics.any { it.code == DiagnosticCodes.CANCELLED || it.code == DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED }) {
                 context.checkActive()
                 Safety.fail(error.diagnostics.first { it.code == DiagnosticCodes.CANCELLED || it.code == DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED }.code,
-                    "Content pipe processing stopped at a resource or cancellation boundary")
+                    RejectionReason.CONTENT_PIPE_PROCESSING_STOPPED_AT_A_RESOURCE_OR_CANCELLATION)
             }
-            Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Content pipe could not process its value or arguments")
+            Safety.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.CONTENT_PIPE_COULD_NOT_PROCESS_ITS_VALUE_OR_ARGUMENTS)
         } catch (error: Exception) {
             context.logging.failure("CONTENT_PIPE_FAILED", error, mapOf("pipe" to name))
             if (error is InterruptedException) Thread.currentThread().interrupt()
             context.checkActive()
-            Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Content pipe could not process its value or arguments")
+            Safety.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.CONTENT_PIPE_COULD_NOT_PROCESS_ITS_VALUE_OR_ARGUMENTS)
         } catch (error: LinkageError) {
             context.logging.failure("CONTENT_PIPE_FAILED", error, mapOf("pipe" to name))
-            Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Content pipe could not process its value or arguments")
+            Safety.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.CONTENT_PIPE_COULD_NOT_PROCESS_ITS_VALUE_OR_ARGUMENTS)
         }
     }
 
@@ -78,5 +78,5 @@ internal class ContentRegistry(pipes: List<ContentPipe>) {
             else -> value
         }
     }
-    private fun invalid(): Nothing = Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Content pipe arguments do not match the declared contract")
+    private fun invalid(): Nothing = Safety.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.CONTENT_PIPE_ARGUMENTS_DO_NOT_MATCH_THE_DECLARED_CONTRACT)
 }

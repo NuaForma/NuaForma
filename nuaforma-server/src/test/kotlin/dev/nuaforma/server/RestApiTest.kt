@@ -29,7 +29,68 @@ class RestApiTest {
     private val envelope = """{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"name":"Ada","nested":{"a":[null,true,42]}},"options":{"watermark":{"text":"CONCEPT — {name}","color":"#A1B2C3","opacity":0.3,"rotation":-30}}}"""
 
     @Test
-    fun `development traces real DOCX and watermark evaluation without changing content or API errors`() = testApplication {
+    fun `real rejections explain synthetic templates in development and correlate safe production logs`() {
+        for (mode in LoggingMode.entries) testApplication {
+            val events = java.util.Collections.synchronizedList(mutableListOf<GenerationLogEvent>())
+            application { KtorServer(ProviderRegistry.discover(), ServerConfiguration(ServerConfiguration(temporaryDirectory = temporary), mode), events::add).installRoutes(this) }
+            val linked = entries(template()).toMutableMap().apply {
+                this["_rels/.rels"] = getValue("_rels/.rels").replace("</Relationships>", """<Relationship Id="linked" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/attachedTemplate" Target="https://PRIVATE_TOKEN.example/template.dotm" TargetMode="External"/></Relationships>""")
+            }
+            val malformed = entries(template()).toMutableMap().apply { this["word/document.xml"] = "<PRIVATE_TOKEN broken" }
+            val embedded = entries(template()).toMutableMap().apply {
+                this["_rels/.rels"] = getValue("_rels/.rels").replace("</Relationships>", """<Relationship Id="embedded" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject" Target="PRIVATE_TOKEN"/></Relationships>""")
+            }
+            val cases = listOf(
+                Triple(envelope, repack(linked), "Linked templates and embedded documents are not supported"),
+                Triple(envelope, repack(embedded), "Linked templates and embedded documents are not supported"),
+                Triple(envelope, repack(malformed), "A DOCX XML part is malformed"),
+                Triple(envelope, "PRIVATE_TOKEN invalid ZIP".toByteArray(), "Input is not a valid unencrypted DOCX ZIP archive"),
+                Triple(envelope, template("{absent}"), "Required template data is missing"),
+                Triple(envelope, template("{#if name}yes{/if}"), "Template data has an incompatible type"),
+                Triple(envelope, template("{#if}"), "Unexpected DOCX block marker"),
+                Triple(envelope, template("Hello {name |}"), "Invalid template syntax"),
+                Triple(envelope.replace("\"output\":{\"format\":\"docx\"}", """"output":{"format":"docx","options":{"fontMode":"validate","fonts":[{"family":"Synthetic Font","resource":"missing"}]}}"""), template(), "Supply exactly the declared font resources"),
+                Triple(envelope.replace("\"output\":{\"format\":\"docx\"}", """"output":{"format":"docx","options":{"PRIVATE_TOKEN":true}}"""), template(), "Unrecognized DOCX options"),
+            )
+            for ((request, source, reason) in cases) {
+                val response = client.post("/api/v1/documents?mode=development") {
+                    header("NUAFORMA_MODE", "development"); header("X-NuaForma-Mode", "development")
+                    contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY"))
+                    setBody(multipart(request.replace("\"name\":\"Ada\"", "\"name\":\"Ada\",\"NUAFORMA_MODE\":\"development\""), source))
+                }
+                val body = response.bodyAsText()
+                assertEquals(HttpStatusCode.UnprocessableEntity, response.status, body)
+                val id = requireNotNull(response.headers["X-Request-ID"])
+                assertTrue(body.contains(id))
+                assertFalse(body.contains("PRIVATE_TOKEN"), body)
+                if (mode == LoggingMode.DEVELOPMENT) {
+                    assertTrue(body.contains(reason), body)
+                    assertTrue(body.contains("\"remediation\""), body)
+                    if (reason.startsWith("A DOCX XML")) {
+                        assertTrue(body.contains("\"part\":\"word/document.xml\""), body)
+                        assertTrue(body.contains("xml:1:"), body)
+                    }
+                } else {
+                    assertFalse(body.contains(reason), body)
+                    assertFalse(body.contains("\"remediation\""), body)
+                }
+                val captured = synchronized(events) { events.filter { it.requestId == id && it.code == "GENERATION_REJECTED" } }
+                assertTrue(captured.any { it.text.contains(reason) }, captured.joinToString { it.text })
+                assertTrue(captured.none { it.text.contains("PRIVATE_TOKEN") })
+                assertNull(response.headers[HttpHeaders.ContentDisposition])
+                assertEmpty()
+            }
+        }
+    }
+
+    private fun repack(parts: Map<String, String>): ByteArray = ByteArrayOutputStream().also { out ->
+        ZipOutputStream(out).use { zip -> parts.forEach { (name, text) ->
+            zip.putNextEntry(ZipEntry(name)); zip.write(text.toByteArray()); zip.closeEntry()
+        } }
+    }.toByteArray()
+
+    @Test
+    fun `development traces real DOCX and watermark evaluation without exposing field values in errors`() = testApplication {
         val events = java.util.Collections.synchronizedList(mutableListOf<GenerationLogEvent>())
         val registry = ProviderRegistry.discover()
         application { KtorServer(registry, ServerConfiguration(ServerConfiguration(temporaryDirectory = temporary), LoggingMode.DEVELOPMENT), events::add).installRoutes(this) }

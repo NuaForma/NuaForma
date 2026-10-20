@@ -15,7 +15,7 @@ data class ContractVersion(val major: Int, val minor: Int) {
 
     companion object {
         /** Development baseline, independent of module release versions; no stable release is claimed. */
-        @JvmField val CURRENT = ContractVersion(0, 2)
+        @JvmField val CURRENT = ContractVersion(0, 3)
 
         /** Numeric patch components are accepted but ignored for compatibility. */
         @JvmStatic

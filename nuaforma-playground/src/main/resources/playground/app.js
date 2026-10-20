@@ -328,7 +328,7 @@ async function send(generate) {
     const requestId = response.headers.get('X-Request-ID');
     if (!response.ok) {
       const text = (await response.text()).slice(0, 128000); let details;
-      try { details = JSON.parse(text).diagnostics.map(item => `${item.code}: ${item.message}`).join('\n'); } catch { details = `HTTP ${response.status}`; }
+      try { details = formatDiagnostics(JSON.parse(text).diagnostics); } catch { details = `HTTP ${response.status}`; }
       throw Error(`${details}\nRequest ID: ${requestId || 'not available'}`);
     }
     if (!generate) { const assessment = await response.json(); showResult(`Requirements supported by ${assessment.providerId}.\nThis does not validate the template or reserve availability.\nRequest ID: ${requestId}`); return; }
@@ -340,6 +340,12 @@ async function send(generate) {
     const warnings = response.headers.get('NuaForma-Warning-Codes'); if (warnings) $('result').append(create('p', `Warnings: ${warnings}`));
   } catch (error) { showResult(error.name === 'AbortError' ? 'Request cancelled. No output is available.' : error.message); }
   finally { running = null; $('cancel').hidden = true; updateRequest(); }
+}
+function formatDiagnostics(diagnostics) {
+  return diagnostics.slice(0, 64).map(item => [
+    `${item.code}: ${item.message}`, item.part && `Part: ${item.part}`, item.construct && `Construct: ${item.construct}`,
+    item.location && `Location: ${item.location}`, item.remediation && `Try: ${item.remediation}`
+  ].filter(Boolean).join('\n')).join('\n\n');
 }
 function showResult(message) { $('result').textContent = message; $('result').hidden = false; }
 

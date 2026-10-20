@@ -1,5 +1,6 @@
 package dev.nuaforma.docx.pdf.adapters.ooxml
 
+import dev.nuaforma.contracts.RejectionReason
 import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.docx.pdf.internal.PdfFailure
 import java.util.Locale
@@ -36,5 +37,5 @@ internal object ConversionSafety {
         fields.forEach { check(it.toString()) }
     }
 
-    private fun unsupported(): Nothing = PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, "Active or resource-retrieving Word fields are not supported in PDF conversion")
+    private fun unsupported(): Nothing = PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.ACTIVE_OR_RESOURCE_RETRIEVING_WORD_FIELDS_ARE_NOT_SUPPORTED)
 }

@@ -12,7 +12,7 @@ internal object TemporaryBudget {
         try {
             Files.newDirectoryStream(directory).use { root ->
                 if (root !is SecureDirectoryStream<Path>) PdfFailure.fail(DiagnosticCodes.PROVIDER_UNAVAILABLE,
-                    "PDF runtime requires secure private-directory traversal")
+                    RejectionReason.PDF_RUNTIME_REQUIRES_SECURE_PRIVATE_DIRECTORY_TRAVERSAL)
                 fun visit(stream: SecureDirectoryStream<Path>, depth: Int) {
                     if (depth > 64) exceeded()
                     context.checkActive()
@@ -29,7 +29,7 @@ internal object TemporaryBudget {
                             } else {
                                 if (++entries > 16_384) exceeded()
                                 if (!attributes.isRegularFile) PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED,
-                                    "Converter created an unsupported temporary filesystem entry")
+                                    RejectionReason.CONVERTER_CREATED_AN_UNSUPPORTED_TEMPORARY_FILESYSTEM_ENTRY)
                                 if (attributes.size() > 512L * 1024 * 1024 - bytes) exceeded()
                                 bytes += attributes.size()
                             }
@@ -39,8 +39,8 @@ internal object TemporaryBudget {
                 visit(root, 0)
             }
         } catch (_: java.io.IOException) {
-            PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, "Converter temporary files could not be inspected safely")
+            PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, RejectionReason.CONVERTER_TEMPORARY_FILES_COULD_NOT_BE_INSPECTED_SAFELY)
         }
     }
-    private fun exceeded(): Nothing = PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "PDF private temporary-storage budget was exceeded")
+    private fun exceeded(): Nothing = PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.PDF_PRIVATE_TEMPORARY_STORAGE_BUDGET_WAS_EXCEEDED)
 }
