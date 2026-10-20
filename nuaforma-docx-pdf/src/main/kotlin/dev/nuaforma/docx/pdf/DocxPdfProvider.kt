@@ -51,6 +51,7 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
 
     override fun fontCatalog(context: GenerationContext): FontCatalog {
         context.checkActive()
+        deploymentFonts.reportFailures(context.logging)
         converter.verify(context)
         ConversionFiles.create(context).use { files ->
             val mounted = deploymentFonts.catalog.fonts
@@ -82,6 +83,7 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
 
     override fun availability(context: GenerationContext): ProviderAvailability {
         context.checkActive()
+        deploymentFonts.reportFailures(context.logging)
         val status = try { converter.verify(context); CapabilityAssessment(AssessmentStatus.SUPPORTED) }
             catch (error: GenerationException) {
                 context.checkActive()
@@ -100,6 +102,7 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
 
     override fun assess(requirements: GenerationRequirements, context: GenerationContext): CapabilityAssessment {
         context.checkActive()
+        deploymentFonts.reportFailures(context.logging)
         val validation = validate(requirements)
         if (validation.status != AssessmentStatus.SUPPORTED || requirements.output.format == DocumentFormat.DOCX) return validation
         val available = availability(context)
@@ -128,6 +131,7 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
 
     override fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext): GenerationResult {
         context.checkActive()
+        deploymentFonts.reportFailures(context.logging)
         val status = validate(request.requirements)
         if (status.status != AssessmentStatus.SUPPORTED) throw GenerationException(status.diagnostics)
         if (request.requirements.output.format == DocumentFormat.DOCX) return docx.generate(request, output, context)

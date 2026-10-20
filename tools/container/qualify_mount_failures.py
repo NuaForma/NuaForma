@@ -61,9 +61,11 @@ def main():
     runtime = Runtime(args, *mount(invalid, "/opt/nuaforma/custom-fonts"))
     try:
         catalog = caps(runtime)
-        assert catalog["diagnostics"] and not any(provider["id"] == "nuaforma-docx" for provider in catalog["providers"])
-        assert generate(runtime.base, "docx", (args.fixtures / "font-reference/template.docx").read_bytes(), {"reference": "BAD", "customer": {"name": "Ada"}})[0] >= 400
-        checks.append("INVALID_FONT_DISCOVERY_REJECTED")
+        provider = next(provider for provider in catalog["providers"] if provider["id"] == "nuaforma-docx")
+        assert provider["fonts"]["status"] == "AVAILABLE" and provider["fonts"]["entries"] == []
+        assert generate(runtime.base, "docx", (args.fixtures / "font-reference/template.docx").read_bytes(), {"reference": "BAD", "customer": {"name": "Ada"}})[0] == 200
+        assert "bad.ttf" in runtime.command("logs", runtime.name)
+        checks.append("INVALID_FONT_SKIPPED_PROVIDER_RETAINED")
     finally:
         runtime.close()
     restricted = args.output / "restricted-fonts"

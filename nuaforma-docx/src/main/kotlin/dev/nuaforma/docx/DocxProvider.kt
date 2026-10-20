@@ -9,7 +9,7 @@ import java.io.OutputStream
 import dev.nuaforma.template.TemplatePipes
 
 /** Stateless DOCX-to-DOCX provider; each call owns a separate document and template session. */
-class DocxProvider private constructor(private val deploymentFonts: DeploymentFonts, private val valuePipes: TemplatePipes) : DocumentProvider, FontCatalogProvider, ContentPipeProvider, TemplatePipeProvider {
+class DocxProvider private constructor(private val deploymentFonts: DeploymentFonts, private val valuePipes: TemplatePipes) : DocumentProvider, FontCatalogProvider, ContentPipeProvider, TemplatePipeProvider, ProviderReadiness {
     @JvmOverloads
     constructor(deploymentFonts: DeploymentFonts = DeploymentFonts.configured()) : this(deploymentFonts, TemplatePipes.discover())
     private var pipes: List<ContentPipe> = emptyList()
@@ -51,13 +51,22 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
             definition.support.filter { it.input == DocumentFormat.DOCX && it.output == DocumentFormat.DOCX && it.profiles.isEmpty() }, definition.nullBehavior,
             definition.contentTypes)
     })
-    override fun fontCatalog(context: GenerationContext): FontCatalog { context.checkActive(); return deploymentFonts.catalog }
+    override fun fontCatalog(context: GenerationContext): FontCatalog { context.checkActive(); deploymentFonts.reportFailures(context.logging); return deploymentFonts.catalog }
     override fun capabilities() = ProviderCapabilities(setOf(DocumentFormat.DOCX), setOf(DocumentFormat.DOCX),
         outputOptions = mapOf(DocumentFormat.DOCX to listOf(
             OptionDefinition("fontMode", OptionType.STRING, "Preserve template fonts, validate supplied families, or embed supplied font faces", defaultValue = "preserve", allowedValues = listOf("preserve", "validate", "embed")),
             OptionDefinition("fonts", OptionType.ARRAY, "Bounded font family/face/resource declarations; embedding follows OpenType permissions"))),
         generalOptions = listOf(OptionDefinition("watermark", OptionType.OBJECT, "Optional text watermark using the template language and request data, with color, opacity and rotation; existing header objects are retained")))
     override fun availability() = ProviderAvailability(setOf(DocumentFormat.DOCX), setOf(DocumentFormat.DOCX))
+    override fun availability(context: GenerationContext): ProviderAvailability {
+        context.checkActive()
+        deploymentFonts.reportFailures(context.logging)
+        return availability()
+    }
+    override fun assess(requirements: GenerationRequirements, context: GenerationContext): CapabilityAssessment {
+        availability(context)
+        return assess(requirements)
+    }
 
     override fun assess(requirements: GenerationRequirements): CapabilityAssessment {
         val errors = mutableListOf<Diagnostic>()
@@ -74,6 +83,7 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
 
     override fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext): GenerationResult {
         context.checkActive()
+        deploymentFonts.reportFailures(context.logging)
         val assessment = assess(request.requirements)
         if (assessment.status != AssessmentStatus.SUPPORTED) throw GenerationException(assessment.diagnostics)
         Docx4jDocuments.generate(deploymentFonts.bind(request), output, context, listOf(ImagePipe(context)) + pipes, valuePipes)

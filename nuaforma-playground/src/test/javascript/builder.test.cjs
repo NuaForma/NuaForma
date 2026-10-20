@@ -80,6 +80,21 @@ test('incomplete duplicate invalid and stale font declarations fail explicitly',
   node('font-selections').children=[{_catalogFont:{family:'Stale',face:'regular',resource:'stale',source:'mounted'}}];
   set('availableFonts',[]); assert.throws(()=>api.buildRequest(),/not available/);
 });
+
+test('recovered catalog exports surviving mounted font and rejects a selection lost after restart',()=>{
+  const {api,node,set}=fixture();
+  const surviving={family:'Surviving',face:'regular',resource:'nf-mounted-surviving',source:'mounted'};
+  const rejected={family:'Rejected',face:'regular',resource:'nf-mounted-rejected',source:'mounted'};
+  set('availableFonts',[surviving]);
+  node('font-selections').children=[{_catalogFont:surviving}];
+  assert.deepEqual(JSON.parse(api.buildRequest()).output.options.fonts,[{family:'Surviving',face:'regular',resource:'nf-mounted-surviving'}]);
+  assert.equal(api.resourceFiles().length,0);
+  node('font-selections').children=[{_catalogFont:rejected}];
+  assert.throws(()=>api.buildRequest(),/not available/);
+  node('font-selections').children=[{_catalogFont:surviving}];
+  set('availableFonts',[]);
+  assert.throws(()=>api.buildRequest(),/not available/);
+});
 test('font resources cannot collide with manually added resource files',()=>{
   const {api,node}=fixture(); node('font-selections').children=[upload()];
   node('resources').children=[{querySelector:key=>key==='[data-resource-id]'?{value:'barcode'}:{files:[{name:'other.bin'}]}}];
