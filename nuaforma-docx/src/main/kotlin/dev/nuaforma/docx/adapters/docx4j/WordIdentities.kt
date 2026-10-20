@@ -1,5 +1,6 @@
 package dev.nuaforma.docx.adapters.docx4j
 
+import dev.nuaforma.contracts.RejectionReason
 import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.docx.internal.DocxFailure
@@ -39,12 +40,12 @@ internal class WordIdentities(private val context: GenerationContext) {
                 (repeated && (node is SdtElement || node is FldChar || node is CTSimpleField || node is CTTrackChange ||
                     (node is VmlAllCoreAttributes && (node !is CTShape || node.spid != null)) ||
                     name in setOf("footnoteReference", "endnoteReference")))) {
-                fail("Dynamic blocks cannot detach ranges or repeat fields, annotations, content controls, section breaks or vertical merges")
+                fail(RejectionReason.DYNAMIC_BLOCKS_CANNOT_DETACH_RANGES_OR_REPEAT_FIELDS_ANNOTATIONS)
             }
         }
-        if (starts.size != starts.distinct().size || starts.sorted() != ends.sorted()) fail("Each dynamic element must contain complete bookmark ranges")
+        if (starts.size != starts.distinct().size || starts.sorted() != ends.sorted()) fail(RejectionReason.EACH_DYNAMIC_ELEMENT_MUST_CONTAIN_COMPLETE_BOOKMARK_RANGES)
         if (original && localNames.any { referenceFields || (bookmarkLinks[it] ?: 0) > (localLinks[it] ?: 0) }) {
-            fail("Dynamic bookmarks cannot have incoming links from outside their element or coexist with bookmark-reference fields")
+            fail(RejectionReason.DYNAMIC_BOOKMARKS_CANNOT_HAVE_INCOMING_LINKS_FROM_OUTSIDE_THEIR)
         }
     }
 
@@ -74,11 +75,11 @@ internal class WordIdentities(private val context: GenerationContext) {
                 node is SdtElement || node is FldChar || node is CTSimpleField ||
                 (node is P && node.pPr?.sectPr != null) ||
                 (node is Tc && node.tcPr?.vMerge != null)) {
-                fail("Repeated content cannot contain annotations, fields, content controls, section breaks or vertically merged cells")
+                fail(RejectionReason.REPEATED_CONTENT_CANNOT_CONTAIN_ANNOTATIONS_FIELDS_CONTENT_CONTROLS_SECTION)
             }
             when {
-                node is CTBookmark -> { if (starts.put(node.id, node) != null) fail("Repeated bookmark IDs are ambiguous") }
-                name == "bookmarkEnd" && node is CTMarkupRange -> { if (ends.put(node.id, node) != null) fail("Repeated bookmark ends are ambiguous") }
+                node is CTBookmark -> { if (starts.put(node.id, node) != null) fail(RejectionReason.REPEATED_BOOKMARK_IDS_ARE_AMBIGUOUS) }
+                name == "bookmarkEnd" && node is CTMarkupRange -> { if (ends.put(node.id, node) != null) fail(RejectionReason.REPEATED_BOOKMARK_ENDS_ARE_AMBIGUOUS) }
                 node is Inline -> { node.docPr?.let { it.id = nextDrawing() }; if (node.anchorId != null) node.anchorId = nextExtension(); if (node.editId != null) node.editId = nextExtension() }
                 node is Anchor -> { node.docPr?.let { it.id = nextDrawing() }; if (node.anchorId != null) node.anchorId = nextExtension(); if (node.editId != null) node.editId = nextExtension() }
                 node is P -> {
@@ -86,14 +87,14 @@ internal class WordIdentities(private val context: GenerationContext) {
                     if (node.textId != null) node.textId = java.util.HexFormat.of().withUpperCase().formatHex(nextExtension())
                 }
                 node is CTShape -> {
-                    if (node.spid != null) fail("Repeated VML shapes with Office-specific shape IDs are not supported")
+                    if (node.spid != null) fail(RejectionReason.REPEATED_VML_SHAPES_WITH_OFFICE_SPECIFIC_SHAPE_IDS_ARE)
                     var id: String
                     do { id = "NuaFormaShape${++serial}" } while (!shapes.add(id))
                     node.vmlId = id
                 }
             }
         }
-        if (starts.keys != ends.keys) fail("Each repeated element must contain complete bookmark ranges")
+        if (starts.keys != ends.keys) fail(RejectionReason.EACH_REPEATED_ELEMENT_MUST_CONTAIN_COMPLETE_BOOKMARK_RANGES)
         val renamed = mutableMapOf<String, String>()
         starts.forEach { (id, start) ->
             bookmark += BigInteger.ONE
@@ -106,7 +107,7 @@ internal class WordIdentities(private val context: GenerationContext) {
     }
 
     fun nextDrawing(): Long {
-        if (drawing >= 0xFFFF_FFFFL) fail("No free drawing identifiers remain")
+        if (drawing >= 0xFFFF_FFFFL) fail(RejectionReason.NO_FREE_DRAWING_IDENTIFIERS_REMAIN)
         return ++drawing
     }
 
@@ -116,13 +117,13 @@ internal class WordIdentities(private val context: GenerationContext) {
             val bytes = java.nio.ByteBuffer.allocate(4).putInt((++serial).toInt()).array()
             if (extensionIds.add(java.util.HexFormat.of().formatHex(bytes))) return bytes
         }
-        fail("No free drawing extension identifiers remain")
+        fail(RejectionReason.NO_FREE_DRAWING_EXTENSION_IDENTIFIERS_REMAIN)
     }
 
     private fun walk(root: Any, action: (Any, Any) -> Unit) {
         fun visit(raw: Any, depth: Int) {
             context.checkActive()
-            if (depth > 128) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "DOCX identity traversal is too deep")
+            if (depth > 128) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.DOCX_IDENTITY_TRAVERSAL_IS_TOO_DEEP)
             val node = XmlUtils.unwrap(raw)
             action(raw, node)
             val graphic = when (node) { is Inline -> node.graphic; is Anchor -> node.graphic; else -> null }
@@ -132,5 +133,5 @@ internal class WordIdentities(private val context: GenerationContext) {
         }
         visit(root, 1)
     }
-    private fun fail(message: String): Nothing = DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, message)
+    private fun fail(reason: RejectionReason): Nothing = DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, reason)
 }

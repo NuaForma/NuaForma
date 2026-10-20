@@ -29,6 +29,19 @@ class Diagnostic @JvmOverloads constructor(
     val severity: Severity = Severity.ERROR,
     val location: String? = null,
 ) {
+    var rejectionReason: RejectionReason? = null
+        private set
+    var part: String? = null
+        private set
+
+    /** Additive structured explanation; original String constructors retain their JVM descriptors. */
+    @JvmOverloads
+    constructor(code: DiagnosticCode, reason: RejectionReason, severity: Severity = Severity.ERROR, location: String? = null, part: String? = null) :
+        this(code, reason.message, severity, location) {
+        rejectionReason = reason
+        this.part = part
+    }
+
     init {
         require(message.isNotBlank()) { "A diagnostic message is required" }
         require(location == null || location.isNotBlank()) { "A diagnostic location must not be blank" }

@@ -30,20 +30,20 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         }
         val roots = parts.map { it.second }
         val unsupported = document.parts.parts.values.mapNotNull { when (it) {
-            is org.docx4j.openpackaging.parts.WordprocessingML.FootnotesPart -> it.jaxbElement
-            is org.docx4j.openpackaging.parts.WordprocessingML.EndnotesPart -> it.jaxbElement
-            is org.docx4j.openpackaging.parts.WordprocessingML.CommentsPart -> it.jaxbElement
+            is org.docx4j.openpackaging.parts.WordprocessingML.FootnotesPart -> it to it.jaxbElement
+            is org.docx4j.openpackaging.parts.WordprocessingML.EndnotesPart -> it to it.jaxbElement
+            is org.docx4j.openpackaging.parts.WordprocessingML.CommentsPart -> it to it.jaxbElement
             else -> null
         } }
-        (roots + unsupported).forEach { identities.collect(it) }
-        unsupported.forEach { rejectUnsupportedContent(it, 1) }
-        parts.forEach { (part, value) -> owner = part; process(value, root, true, 1) }
-        parts.forEach { (part, value) -> owner = part; process(value, root, false, 1) }
+        (roots + unsupported.map { it.second }).forEach { identities.collect(it) }
+        unsupported.forEach { (part, value) -> DocxFailure.inPart(part.getPartName().name.removePrefix("/")) { rejectUnsupportedContent(value, 1) } }
+        parts.forEach { (part, value) -> DocxFailure.inPart(part.getPartName().name.removePrefix("/")) { owner = part; process(value, root, true, 1) } }
+        parts.forEach { (part, value) -> DocxFailure.inPart(part.getPartName().name.removePrefix("/")) { owner = part; process(value, root, false, 1) } }
         return watermark?.let { requested ->
             val text = StringBuilder()
             root.expand(requested.text).forEach { fragment ->
                 if (fragment.text.length > 4096 - text.length) {
-                    DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "Resolved watermark text exceeds 4096 characters")
+                    DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.RESOLVED_WATERMARK_TEXT_EXCEEDS_4096_CHARACTERS)
                 }
                 text.append(fragment.text)
             }
@@ -54,24 +54,24 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
 
     private fun rejectUnsupportedContent(raw: Any, depth: Int) {
         context.checkActive()
-        if (++visits > 1_000_000 || depth > 128) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "DOCX structure exceeds processing limits")
+        if (++visits > 1_000_000 || depth > 128) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.DOCX_STRUCTURE_EXCEEDS_PROCESSING_LIMITS)
         val node = XmlUtils.unwrap(raw)
         val content = children(node)
         if (node is P || node is P.Hyperlink) {
             val text = WordRuns.detectionSource(content)
-            if (ContentTemplates.containsContentMarker(text, valuePipes, context)) invalid("Content pipes are unsupported in comments, footnotes or endnotes")
+            if (ContentTemplates.containsContentMarker(text, valuePipes, context)) invalid(RejectionReason.CONTENT_PIPES_ARE_UNSUPPORTED_IN_COMMENTS_FOOTNOTES_OR_ENDNOTES)
         }
         content.forEach { rejectUnsupportedContent(it, depth + 1) }
     }
 
     private fun process(raw: Any, session: ContentTemplateSession, validateOnly: Boolean, depth: Int, inlineHandled: Boolean = false) {
         context.checkActive()
-        if (++visits > 1_000_000 || depth > 128) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "DOCX structure exceeds processing limits")
+        if (++visits > 1_000_000 || depth > 128) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.DOCX_STRUCTURE_EXCEEDS_PROCESSING_LIMITS)
         val node = XmlUtils.unwrap(raw)
         val children = children(node)
         if (validateOnly && node is R && WordRuns.plain(node) && !inlineHandled &&
             ContentTemplates.containsContentMarker(WordRuns.source(listOf(node)), valuePipes, context)) {
-            invalid("Content pipes require ordinary paragraph or hyperlink text, not field results or content controls")
+            invalid(RejectionReason.CONTENT_PIPES_REQUIRE_ORDINARY_PARAGRAPH_OR_HYPERLINK_TEXT_NOT)
         }
         if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context, valuePipes) { images.drawing(it, owner) }
         if (node is R) WordRuns.mixed(node, session, validateOnly, context, valuePipes)
@@ -80,7 +80,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         else children.toList().forEach { process(it, session, validateOnly, depth + 1,
             (node is P || node is P.Hyperlink) && XmlUtils.unwrap(it) is R) }
         if (!validateOnly && node is Tc && (children.isEmpty() || XmlUtils.unwrap(children.last()) !is P)) children.add(P())
-        if (!validateOnly && node is Tbl && children.none { XmlUtils.unwrap(it) is Tr }) invalid("Conditions or repeats removed every table row; wrap the whole table instead")
+        if (!validateOnly && node is Tbl && children.none { XmlUtils.unwrap(it) is Tr }) invalid(RejectionReason.CONDITIONS_OR_REPEATS_REMOVED_EVERY_TABLE_ROW_WRAP_THE)
     }
 
     private fun blocks(content: MutableList<Any>, session: ContentTemplateSession, validateOnly: Boolean, depth: Int) {
@@ -121,7 +121,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         var cursor = 0
         fun sequence(stops: Set<String>, nesting: Int): Pair<List<Block>, String?> {
             if (nesting > context.limits.maxExpressionDepth || depth + nesting > 128) {
-                DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "DOCX block nesting exceeds the configured limit")
+                DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.DOCX_BLOCK_NESTING_EXCEEDS_THE_CONFIGURED_LIMIT)
             }
             val result = mutableListOf<Block>()
             while (cursor < content.size) {
@@ -135,23 +135,23 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
                         val expression = marker.substring(4)
                         session.validateExpression(expression)
                         val (yes, stop) = sequence(setOf("#else", "/if"), nesting + 1)
-                        if (stop == null) invalid("Unclosed DOCX condition")
+                        if (stop == null) invalid(RejectionReason.UNCLOSED_DOCX_CONDITION)
                         val no = if (stop == "#else") sequence(setOf("/if"), nesting + 1).also {
-                            if (it.second == null) invalid("Unclosed DOCX condition")
+                            if (it.second == null) invalid(RejectionReason.UNCLOSED_DOCX_CONDITION)
                         }.first else emptyList()
                         result.add(Condition(expression, yes, no))
                     }
                     marker.startsWith("#each ") -> {
                         val match = Regex("(.+)\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*)").matchEntire(marker.substring(6))
-                            ?: invalid("Invalid DOCX repeat marker")
+                            ?: invalid(RejectionReason.INVALID_DOCX_REPEAT_MARKER)
                         val expression = match.groupValues[1]; val alias = match.groupValues[2]
-                        if (alias in setOf("data", "loop", "true", "false", "null")) invalid("Reserved DOCX repeat alias")
+                        if (alias in setOf("data", "loop", "true", "false", "null")) invalid(RejectionReason.RESERVED_DOCX_REPEAT_ALIAS)
                         session.validateExpression(expression)
                         val (body, stop) = sequence(setOf("/each"), nesting + 1)
-                        if (stop == null) invalid("Unclosed DOCX repeat")
+                        if (stop == null) invalid(RejectionReason.UNCLOSED_DOCX_REPEAT)
                         result.add(Repeat(expression, alias, body))
                     }
-                    else -> invalid("Unexpected DOCX block marker")
+                    else -> invalid(RejectionReason.UNEXPECTED_DOCX_BLOCK_MARKER)
                 }
             }
             return result to null
@@ -177,8 +177,8 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         if (!source.startsWith('{') || !source.endsWith('}')) return null
         val marker = source.substring(1, source.length - 1).trim()
         if (!(marker.startsWith('#') || marker.startsWith('/')) || '{' in marker || '}' in marker) return null
-        if (marker.length > 4096) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "DOCX structural marker exceeds the language limit")
-        if (paragraph.pPr?.sectPr != null) invalid("Block marker paragraphs cannot contain section breaks")
+        if (marker.length > 4096) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.DOCX_STRUCTURAL_MARKER_EXCEEDS_THE_LANGUAGE_LIMIT)
+        if (paragraph.pPr?.sectPr != null) invalid(RejectionReason.BLOCK_MARKER_PARAGRAPHS_CANNOT_CONTAIN_SECTION_BREAKS)
         return marker
     }
 
@@ -199,5 +199,5 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         else -> false
     }
 
-    private fun invalid(message: String): Nothing = DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, message)
+    private fun invalid(reason: RejectionReason): Nothing = DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, reason)
 }

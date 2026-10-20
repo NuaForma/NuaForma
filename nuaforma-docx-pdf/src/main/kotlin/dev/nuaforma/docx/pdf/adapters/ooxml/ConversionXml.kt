@@ -32,7 +32,7 @@ internal class ConversionXml(private val context: GenerationContext) {
 
     fun read(bytes: ByteArray): XmlElement {
         if (bytes.size > minOf(32L * 1024 * 1024, context.limits.maxExpandedBytes)) {
-            PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "Conversion XML byte budget was exceeded")
+            PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.CONVERSION_XML_BYTE_BUDGET_WAS_EXCEEDED)
         }
         val factory = XMLInputFactory.newDefaultFactory().apply {
             setProperty(XMLInputFactory.SUPPORT_DTD, false)
@@ -49,13 +49,13 @@ internal class ConversionXml(private val context: GenerationContext) {
                     val event = reader.next()
                     if (event in setOf(XMLStreamConstants.START_ELEMENT, XMLStreamConstants.CHARACTERS, XMLStreamConstants.CDATA, XMLStreamConstants.SPACE, XMLStreamConstants.COMMENT)) {
                         if (++nodes > minOf(1_000_000L, context.limits.maxExpandedBytes / 32)) {
-                            PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "Conversion XML structure budget was exceeded")
+                            PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.CONVERSION_XML_STRUCTURE_BUDGET_WAS_EXCEEDED)
                         }
                     }
                     when (event) {
                         XMLStreamConstants.START_ELEMENT -> {
                             if (stack.size >= 128) {
-                                PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "Conversion XML structure budget was exceeded")
+                                PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.CONVERSION_XML_STRUCTURE_BUDGET_WAS_EXCEEDED)
                             }
                             val element = XmlElement(reader.name)
                             repeat(reader.attributeCount) { element.attributes[reader.getAttributeName(it)] = reader.getAttributeValue(it) }
@@ -104,7 +104,7 @@ internal class ConversionXml(private val context: GenerationContext) {
                 }
             }
             if (output.size() > minOf(32L * 1024 * 1024, context.limits.maxExpandedBytes)) {
-                PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "Conversion XML byte budget was exceeded")
+                PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.CONVERSION_XML_BYTE_BUDGET_WAS_EXCEEDED)
             }
         }
         try {
@@ -116,5 +116,5 @@ internal class ConversionXml(private val context: GenerationContext) {
         return output.toByteArray()
     }
 
-    private fun invalid(): Nothing = PdfFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "Conversion copy contains unsupported or malformed XML")
+    private fun invalid(): Nothing = PdfFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.CONVERSION_COPY_CONTAINS_UNSUPPORTED_OR_MALFORMED_XML)
 }

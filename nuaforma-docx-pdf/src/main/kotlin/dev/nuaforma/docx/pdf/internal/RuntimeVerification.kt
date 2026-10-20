@@ -1,5 +1,6 @@
 package dev.nuaforma.docx.pdf.internal
 
+import dev.nuaforma.contracts.RejectionReason
 import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.contracts.GenerationException
 import dev.nuaforma.contracts.Diagnostic
@@ -38,7 +39,7 @@ internal class RuntimeVerification(
             verified = Verified(identity, nanoTime())
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
-            throw GenerationException(listOf(Diagnostic(DiagnosticCodes.CANCELLED, "PDF runtime verification was cancelled")))
+            throw GenerationException(listOf(Diagnostic(DiagnosticCodes.CANCELLED, RejectionReason.PDF_RUNTIME_VERIFICATION_WAS_CANCELLED)))
         } finally {
             if (acquired) lock.unlock()
         }

@@ -105,6 +105,6 @@ internal class ClasspathPipes(private val loader: ClassLoader) {
         }
         else -> throw IllegalArgumentException()
     }
-    private fun invalid(): Nothing = Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Value pipe metadata, compatibility, origin or registration is invalid")
+    private fun invalid(): Nothing = Safety.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.VALUE_PIPE_METADATA_COMPATIBILITY_ORIGIN_OR_REGISTRATION_IS_INVALID)
     companion object { private const val SERVICE = "META-INF/services/dev.nuaforma.contracts.TemplatePipe" }
 }

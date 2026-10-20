@@ -1,5 +1,6 @@
 package dev.nuaforma.template.internal
 
+import dev.nuaforma.contracts.RejectionReason
 import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.contracts.GenerationOptions
@@ -38,7 +39,7 @@ internal class Format(val kind: String, val pattern: String) {
                 }
                 "date" -> {
                     if (value !is String) state.typeFailure()
-                    if (value.length > 128) Safety.fail(DiagnosticCodes.INVALID_REQUEST, "ISO date input exceeds the supported length")
+                    if (value.length > 128) Safety.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.ISO_DATE_INPUT_EXCEEDS_THE_SUPPORTED_LENGTH)
                     val formatter = DateTimeFormatter.ofPattern(pattern, state.options.locale)
                     if (Regex("[0-9]{4}-[0-9]{2}-[0-9]{2}").matches(value)) formatter.format(LocalDate.parse(value))
                     else formatter.format(OffsetDateTime.parse(value).toInstant().atZone(state.options.timeZone))
@@ -47,10 +48,10 @@ internal class Format(val kind: String, val pattern: String) {
             }
         } catch (_: IllegalArgumentException) {
             state.pipeRejected(kind, "Value does not match the requested format")
-            Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Value cannot be formatted with the requested format")
+            Safety.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.VALUE_CANNOT_BE_FORMATTED_WITH_THE_REQUESTED_FORMAT)
         } catch (_: DateTimeException) {
             state.pipeRejected(kind, "Expected an ISO date or timestamp with offset matching the requested format")
-            Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Date must be an ISO date or an ISO timestamp with an offset and match the requested format")
+            Safety.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.DATE_MUST_BE_AN_ISO_DATE_OR_AN_ISO)
         }
     }
 }
@@ -103,7 +104,7 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
             "output" to if (secretTrace) "[redacted]" else result))
     }
     init {
-        if (contentNames.any { it in values.names }) Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Value and content pipe names must not collide")
+        if (contentNames.any { it in values.names }) Safety.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.VALUE_AND_CONTENT_PIPE_NAMES_MUST_NOT_COLLIDE)
     }
     fun pipe(name: String, value: Any?, arguments: List<Any?>): Any? {
         if (++pipeCalls > minOf(context.limits.maxRepetitions, 4096L)) Safety.limit()
@@ -159,8 +160,8 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
         context.checkActive()
         if (units > Safety.MAX_OPERATIONS - operations) Safety.limit()
     }
-    fun present(value: Any?) { if (value === Missing) Safety.fail(DiagnosticCodes.MISSING_VALUE, "Required template data is missing", offset) }
-    fun typeFailure(): Nothing = Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Template data has an incompatible type", offset)
+    fun present(value: Any?) { if (value === Missing) Safety.fail(DiagnosticCodes.MISSING_VALUE, RejectionReason.REQUIRED_TEMPLATE_DATA_IS_MISSING, offset) }
+    fun typeFailure(): Nothing = Safety.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.TEMPLATE_DATA_HAS_AN_INCOMPATIBLE_TYPE, offset)
     fun boolean(value: Any?): Boolean { present(value); return value as? Boolean ?: typeFailure() }
 
     fun render(nodes: List<Node>, scope: Map<String, Any?>) {
@@ -180,7 +181,7 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
                 }
                 is Node.Content -> {
                     offset = node.offset
-                    val fragments = capturedContent ?: Safety.fail(DiagnosticCodes.INVALID_TEMPLATE, "Content pipes require a document insertion context", offset)
+                    val fragments = capturedContent ?: Safety.fail(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.CONTENT_PIPES_REQUIRE_A_DOCUMENT_INSERTION_CONTEXT, offset)
                     if (++contentCalls > minOf(context.limits.maxRepetitions, 4096L)) Safety.limit()
                     val value = node.expression.evaluate(this, scope)
                     present(value)

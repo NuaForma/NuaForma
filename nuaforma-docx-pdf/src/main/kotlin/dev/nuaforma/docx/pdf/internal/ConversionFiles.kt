@@ -58,7 +58,7 @@ internal object PdfStreams {
             val count = input.read(buffer)
             if (count < 0) return
             if (count == 0) continue
-            if (count > maximum - total) PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "PDF conversion byte budget was exceeded")
+            if (count > maximum - total) PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.PDF_CONVERSION_BYTE_BUDGET_WAS_EXCEEDED)
             output.write(buffer, 0, count)
             total += count
         }
@@ -72,23 +72,23 @@ internal object PdfStreams {
     fun checkFraming(pdf: Path, context: GenerationContext, version: String = "1.7") {
         context.checkActive()
         if (!Files.isDirectory(pdf.parent, LinkOption.NOFOLLOW_LINKS) || !Files.isRegularFile(pdf, LinkOption.NOFOLLOW_LINKS)) {
-            PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, "Converter did not produce a regular PDF file in its output directory")
+            PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, RejectionReason.CONVERTER_DID_NOT_PRODUCE_A_REGULAR_PDF_FILE_IN)
         }
         val size = Files.size(pdf)
-        if (size > context.limits.maxOutputBytes) PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "PDF output byte budget was exceeded")
-        if (size < 16) PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, "Converter produced incomplete PDF output")
+        if (size > context.limits.maxOutputBytes) PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.PDF_OUTPUT_BYTE_BUDGET_WAS_EXCEEDED)
+        if (size < 16) PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, RejectionReason.CONVERTER_PRODUCED_INCOMPLETE_PDF_OUTPUT)
         // Cheap preflight before the bounded structural-validation subprocess.
         Files.newByteChannel(pdf).use { channel ->
             val header = java.nio.ByteBuffer.allocate(8)
             while (header.hasRemaining() && channel.read(header) >= 0) context.checkActive()
             if (!header.array().contentEquals("%PDF-$version".toByteArray(Charsets.US_ASCII))) {
-                PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, "Converter produced an unexpected PDF version")
+                PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, RejectionReason.CONVERTER_PRODUCED_AN_UNEXPECTED_PDF_VERSION)
             }
             channel.position(maxOf(0, size - 1024))
             val ending = java.nio.ByteBuffer.allocate(minOf(1024L, size).toInt())
             while (ending.hasRemaining() && channel.read(ending) >= 0) context.checkActive()
             if (!ending.array().toString(Charsets.US_ASCII).trimEnd().endsWith("%%EOF")) {
-                PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, "Converter produced incomplete PDF output")
+                PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, RejectionReason.CONVERTER_PRODUCED_INCOMPLETE_PDF_OUTPUT)
             }
         }
     }

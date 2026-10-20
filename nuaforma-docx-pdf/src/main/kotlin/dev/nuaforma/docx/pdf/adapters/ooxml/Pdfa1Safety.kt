@@ -1,5 +1,6 @@
 package dev.nuaforma.docx.pdf.adapters.ooxml
 
+import dev.nuaforma.contracts.RejectionReason
 import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.docx.pdf.internal.PdfFailure
 import java.util.Locale
@@ -74,5 +75,5 @@ internal object Pdfa1Safety {
 
     private val effects = setOf("effectlst", "effectdag", "clrchange", "clrrepl")
     private fun unsupported(): Nothing = PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT,
-        "PDF/A-1b supports a restricted transparency-free template profile with opaque PNG/JPEG images and no drawing effects; choose PDF/A-2b or PDF/A-3b")
+        RejectionReason.PDF_A_1B_SUPPORTS_A_RESTRICTED_TRANSPARENCY_FREE_TEMPLATE)
 }

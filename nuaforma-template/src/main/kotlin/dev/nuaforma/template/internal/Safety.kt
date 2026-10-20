@@ -1,5 +1,6 @@
 package dev.nuaforma.template.internal
 
+import dev.nuaforma.contracts.RejectionReason
 import dev.nuaforma.contracts.Diagnostic
 import dev.nuaforma.contracts.DiagnosticCode
 import dev.nuaforma.contracts.DiagnosticCodes
@@ -14,11 +15,11 @@ internal object Safety {
     const val MAX_OPERATIONS = 1_000_000
     fun depth(context: GenerationContext) = minOf(context.limits.maxExpressionDepth, 128)
 
-    fun fail(code: DiagnosticCode, message: String, offset: Int? = null): Nothing =
-        throw GenerationException(listOf(Diagnostic(code, message, location = offset?.let { "template:$it" })))
+    fun fail(code: DiagnosticCode, reason: RejectionReason, offset: Int? = null): Nothing =
+        throw GenerationException(listOf(Diagnostic(code, reason, location = offset?.let { "template:$it" })))
 
-    fun invalid(offset: Int): Nothing = fail(DiagnosticCodes.INVALID_TEMPLATE, "Invalid template syntax or unsupported operation", offset)
-    fun limit(): Nothing = fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "Template processing budget was exceeded")
+    fun invalid(offset: Int): Nothing = fail(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.INVALID_TEMPLATE_SYNTAX_OR_UNSUPPORTED_OPERATION, offset)
+    fun limit(): Nothing = fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.TEMPLATE_PROCESSING_BUDGET_WAS_EXCEEDED)
 
     fun utf8Length(value: String, context: GenerationContext, code: DiagnosticCode): Long {
         var bytes = 0L
@@ -30,10 +31,10 @@ internal object Safety {
                 character.code < 128 -> 1
                 character.code < 2048 -> 2
                 character.isHighSurrogate() -> {
-                    if (index >= value.length || !value[index++].isLowSurrogate()) fail(code, "Text contains an invalid Unicode sequence")
+                    if (index >= value.length || !value[index++].isLowSurrogate()) fail(code, RejectionReason.TEXT_CONTAINS_AN_INVALID_UNICODE_SEQUENCE)
                     4
                 }
-                character.isLowSurrogate() -> fail(code, "Text contains an invalid Unicode sequence")
+                character.isLowSurrogate() -> fail(code, RejectionReason.TEXT_CONTAINS_AN_INVALID_UNICODE_SEQUENCE)
                 else -> 3
             }
         }
@@ -63,18 +64,18 @@ internal object Safety {
                         }
                         else -> BigDecimal(value.toString())
                     } } catch (_: NumberFormatException) {
-                        fail(DiagnosticCodes.INVALID_REQUEST, "Data numbers must be finite")
+                        fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.DATA_NUMBERS_MUST_BE_FINITE)
                     }
                     if (number.unscaledValue().bitLength() > 3322 || number.precision() > 1000 || number.scale().toLong() !in -1000L..1000L) limit()
                     number
                 }
                 is Map<*, *>, is List<*> -> {
-                    if (ancestors.put(value, true) != null) fail(DiagnosticCodes.INVALID_REQUEST, "Data must not contain cycles")
+                    if (ancestors.put(value, true) != null) fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.DATA_MUST_NOT_CONTAIN_CYCLES)
                     try {
                         if (value is Map<*, *>) {
                             val result = linkedMapOf<String, Any?>()
                             value.forEach { (key, item) ->
-                                if (key !is String) fail(DiagnosticCodes.INVALID_REQUEST, "Data object keys must be strings")
+                                if (key !is String) fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.DATA_OBJECT_KEYS_MUST_BE_STRINGS)
                                 textBytes += utf8Length(key, context, DiagnosticCodes.INVALID_REQUEST)
                                 if (textBytes > context.limits.maxExpandedBytes) limit()
                                 result[key] = copy(item, depth + 1)
@@ -83,7 +84,7 @@ internal object Safety {
                         } else (value as List<*>).map { copy(it, depth + 1) }
                     } finally { ancestors.remove(value) }
                 }
-                else -> fail(DiagnosticCodes.INVALID_REQUEST, "Data must contain JSON-compatible values, not application objects")
+                else -> fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.DATA_MUST_CONTAIN_JSON_COMPATIBLE_VALUES_NOT_APPLICATION_OBJECTS)
             }
         }
         @Suppress("UNCHECKED_CAST")

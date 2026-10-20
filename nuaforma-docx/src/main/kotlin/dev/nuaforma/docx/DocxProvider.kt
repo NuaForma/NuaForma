@@ -61,11 +61,11 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
 
     override fun assess(requirements: GenerationRequirements): CapabilityAssessment {
         val errors = mutableListOf<Diagnostic>()
-        if (requirements.input.format != DocumentFormat.DOCX) errors.add(Diagnostic(DiagnosticCodes.UNSUPPORTED_INPUT, "This provider reads DOCX only"))
-        if (requirements.output.format != DocumentFormat.DOCX) errors.add(Diagnostic(DiagnosticCodes.UNSUPPORTED_OUTPUT, "This provider writes DOCX only"))
+        if (requirements.input.format != DocumentFormat.DOCX) errors.add(Diagnostic(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.THIS_PROVIDER_READS_DOCX_ONLY))
+        if (requirements.output.format != DocumentFormat.DOCX) errors.add(Diagnostic(DiagnosticCodes.UNSUPPORTED_OUTPUT, RejectionReason.THIS_PROVIDER_WRITES_DOCX_ONLY))
         if (requirements.input.options.isNotEmpty() || requirements.output.options.keys.any { it !in setOf("fontMode", "fonts") } ||
             requirements.options.extensions.isNotEmpty()) {
-            errors.add(Diagnostic(DiagnosticCodes.UNSUPPORTED_OPTION, "Unrecognized DOCX options"))
+            errors.add(Diagnostic(DiagnosticCodes.UNSUPPORTED_OPTION, RejectionReason.UNRECOGNIZED_DOCX_OPTIONS))
         }
         try { FontPolicy.read(requirements.output.options) } catch (error: GenerationException) { errors.addAll(error.diagnostics) }
         try { WatermarkPolicy.validate(requirements.options.watermark) } catch (error: GenerationException) { errors.addAll(error.diagnostics) }

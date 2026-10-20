@@ -164,7 +164,7 @@ internal class LibreOfficeProcesses(
             action()
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
-            throw GenerationException(listOf(Diagnostic(DiagnosticCodes.CANCELLED, "PDF conversion was interrupted")))
+            throw GenerationException(listOf(Diagnostic(DiagnosticCodes.CANCELLED, RejectionReason.PDF_CONVERSION_WAS_INTERRUPTED)))
         } finally { if (acquired) slots.release() }
     }
 

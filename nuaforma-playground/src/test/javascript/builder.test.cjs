@@ -16,7 +16,7 @@ function fixture() {
   const context = vm.createContext({document:{getElementById:node}, JSON, Error, Set, Boolean, Number});
   const source = fs.readFileSync(path.join(__dirname, '../../main/resources/playground/app.js'), 'utf8');
   vm.runInContext(source.slice(0, source.indexOf("$('builder').addEventListener")), context);
-  const api = vm.runInContext('({buildRequest, resourceFiles, fontDeclarations, matchingProviders, sharedDefinitions, prettyJson})', context);
+  const api = vm.runInContext('({buildRequest, resourceFiles, fontDeclarations, matchingProviders, sharedDefinitions, prettyJson, formatDiagnostics, showResult})', context);
   const option = {name:'fonts',type:'ARRAY',description:'Fonts',required:false,defaultValue:null,allowedValues:[]};
   const providers = [
     {id:'word',available:{readFormats:['docx'],writeFormats:['docx']},inputOptions:{},outputOptions:{docx:[option]},generalOptions:[],fonts:{status:'AVAILABLE',entries:[]}},
@@ -84,4 +84,15 @@ test('font resources cannot collide with manually added resource files',()=>{
   const {api,node}=fixture(); node('font-selections').children=[upload()];
   node('resources').children=[{querySelector:key=>key==='[data-resource-id]'?{value:'barcode'}:{files:[{name:'other.bin'}]}}];
   assert.throws(()=>api.resourceFiles(),/unique/);
+});
+
+test('rejection advice and coordinates render literally and older restricted errors remain readable',()=>{
+  const {api,node}=fixture();
+  Object.defineProperty(node('result'),'innerHTML',{set(){throw Error('HTML injection');}});
+  const text=api.formatDiagnostics([{code:'INVALID_TEMPLATE',message:'Unsupported <script>template</script>',part:'word/document.xml',construct:'attachedTemplate',location:'xml:4:8',remediation:'Remove the linked template.'}]);
+  api.showResult(text);
+  assert.equal(node('result').textContent,'INVALID_TEMPLATE: Unsupported <script>template</script>\nPart: word/document.xml\nConstruct: attachedTemplate\nLocation: xml:4:8\nTry: Remove the linked template.');
+  assert.equal(node('result').hidden,false);
+  assert.equal(api.formatDiagnostics([{code:'INVALID_TEMPLATE',message:'Restricted diagnostic'}]),'INVALID_TEMPLATE: Restricted diagnostic');
+  assert.equal(api.formatDiagnostics(Array(1000).fill({code:'INVALID_TEMPLATE',message:'Bounded'})).split('\n\n').length,64);
 });
