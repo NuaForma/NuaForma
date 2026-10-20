@@ -29,6 +29,39 @@ class RestApiTest {
     private val envelope = """{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"name":"Ada","nested":{"a":[null,true,42]}},"options":{"watermark":{"text":"CONCEPT — {name}","color":"#A1B2C3","opacity":0.3,"rotation":-30}}}"""
 
     @Test
+    fun `recovered mounted fonts retain activation HTTP catalog and DOCX availability after an empty restart`() {
+        val directory = Files.createDirectory(temporary.resolve("fonts"))
+        val fixture = Path.of(System.getProperty("nuaforma.repositoryRoot"), "nuaforma-docx/src/test/resources/fonts/LibreBarcode39-Regular.ttf")
+        val valid = Files.copy(fixture, directory.resolve("valid.ttf"))
+        Files.write(directory.resolve("rejected.otf"), byteArrayOf())
+        val fontsType = Class.forName("dev.nuaforma.docx.DeploymentFonts")
+        val providerType = Class.forName("dev.nuaforma.docx.DocxProvider").asSubclass(DocumentProvider::class.java)
+        for (restarted in listOf(false, true)) testApplication {
+            if (restarted) Files.write(valid, byteArrayOf())
+            val fonts = fontsType.getMethod("load", Path::class.java).invoke(null, directory)
+            val events = mutableListOf<GenerationLogEvent>()
+            val registry = ProviderRegistry.registered(listOf(ProviderRegistration(ProviderMetadata("nuaforma-docx", providerType.name,
+                "0.1.0", ContractVersion.CURRENT)) { providerType.getConstructor(fontsType).newInstance(fonts) }),
+                GenerationLogging(LoggingMode.DEVELOPMENT, null, events::add))
+            assertEquals(1, registry.providers.size)
+            assertTrue(registry.diagnostics.isEmpty())
+            assertTrue(events.any { it.code == "MOUNTED_FONT_REJECTED" && it.text.contains("rejected.otf") })
+            assertTrue(events.any { it.code == "MOUNTED_FONT_REJECTION_DETAIL" && it.text.contains("exception=") })
+            application { KtorServer(registry, ServerConfiguration(temporaryDirectory = temporary)).installRoutes(this) }
+            val catalog = client.get("/api/v1/capabilities")
+            assertEquals(HttpStatusCode.OK, catalog.status)
+            val body = catalog.bodyAsText()
+            assertEquals(!restarted, body.contains("Libre Barcode 39"))
+            assertFalse(body.contains(directory.toString()) || body.contains("rejected.otf"))
+            val response = client.post("/api/v1/documents") {
+                contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY"))
+                setBody(multipart(envelope, template()))
+            }
+            assertEquals(HttpStatusCode.OK, response.status)
+        }
+    }
+
+    @Test
     fun `real rejections explain synthetic templates in development and correlate safe production logs`() {
         for (mode in LoggingMode.entries) testApplication {
             val events = java.util.Collections.synchronizedList(mutableListOf<GenerationLogEvent>())
