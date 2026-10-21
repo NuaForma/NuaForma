@@ -17,6 +17,7 @@ internal class UsedWordFonts(private val document: WordprocessingMLPackage, priv
     }
     private val parts = linkedMapOf<String, Element>()
     private val required = linkedSetOf<Face>()
+    private val identities = mutableSetOf<Pair<String, String>>()
     private val styles: Map<String, Element>
     private val defaults: Element?
     private val defaultParagraph: String?
@@ -203,7 +204,7 @@ internal class UsedWordFonts(private val document: WordprocessingMLPackage, priv
     private fun record(family: String, state: Formatting) {
         if (family.isBlank() || family.length > 128 || family.any(Char::isISOControl)) unsupported()
         val face = if (state.bold && state.italic) "boldItalic" else if (state.bold) "bold" else if (state.italic) "italic" else "regular"
-        required.add(Face(family, face))
+        if (identities.add(family.lowercase(java.util.Locale.ROOT) to face)) required.add(Face(family, face))
         if (required.size > 64) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.FONTS_MUST_BE_AN_ARRAY_WITH_AT_MOST_64)
     }
 

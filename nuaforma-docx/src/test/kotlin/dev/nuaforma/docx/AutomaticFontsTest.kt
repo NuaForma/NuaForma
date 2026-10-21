@@ -142,6 +142,14 @@ class AutomaticFontsTest {
         assertEquals(5, decoded(generate(DocxProvider(catalog(false)))).size)
     }
 
+    @Test fun `case variants of the same used family and face embed only once`() {
+        val provider = DocxProvider(catalog())
+        val parts = fixture()
+        parts["word/document.xml"] = parts.getValue("word/document.xml").decodeToString().replaceFirst("<w:rPr><w:b/>",
+            """<w:rPr><w:rFonts w:ascii="nf alpha fixture" w:hAnsi="nf alpha fixture"/><w:b/>""").toByteArray()
+        assertEquals(5, decoded(generate(provider, parts)).size)
+    }
+
     @Test fun `MOUNT precedes IMAGE even when IMAGE identities conflict and request declarations precede both`() {
         catalog()
         val mounted = font(alpha).apply { this[lastIndex] = 3 }
@@ -190,6 +198,19 @@ class AutomaticFontsTest {
         for (mode in listOf("preserve", "validate")) assertEquals(AssessmentStatus.UNSUPPORTED, provider.assess(requirements(mapOf("fontMode" to mode))).status)
         assertEquals(AssessmentStatus.UNSUPPORTED, provider.assess(requirements(mapOf("fontSelection" to "unknown"))).status)
         assertThrows(GenerationException::class.java) { generate(provider, resources = mapOf("unused" to ResourceSource { error("must not open") })) }
+    }
+
+    @Test fun `malformed existing embedded references and obfuscation keys fail without output`() {
+        val provider = DocxProvider(catalog())
+        val generated = generate(provider)
+        val missing = generated.toMutableMap().apply { remove("word/_rels/fontTable.xml.rels") }
+        assertThrows(GenerationException::class.java) { generate(provider, missing) }
+        val key = generated.toMutableMap().apply {
+            this["word/fontTable.xml"] = getValue("word/fontTable.xml").decodeToString()
+                .replace(Regex("w:fontKey=\"[^\"]+\""), "w:fontKey=\"invalid\"").toByteArray()
+        }
+        assertEquals(RejectionReason.EMBEDDED_FONT_KEY_IS_INVALID,
+            assertThrows(GenerationException::class.java) { generate(provider, key) }.diagnostics.single().rejectionReason)
     }
 
     @Test fun `concurrent private resource overrides cannot cross request boundaries and budgets remain enforced`() {
@@ -253,6 +274,31 @@ class AutomaticFontsTest {
         assertEquals(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, assertThrows(GenerationException::class.java) {
             generate(provider, options = declarations, resources = mapOf("oversize" to ResourceSource { ByteArray(16 * 1024 * 1024 + 1).inputStream() }))
         }.diagnostics.single().code)
+    }
+
+    @Test fun `font aliases sharing one resource still count every embedded face toward the byte budget`() {
+        val bytes = font(alpha).copyOf(16 * 1024 * 1024)
+        val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN)
+        val table = (0 until (buffer.getShort(4).toInt() and 65535)).single { String(bytes, 12 + it * 16, 4, Charsets.US_ASCII) == "name" }
+        val offset = buffer.getInt(20 + table * 16)
+        repeat(buffer.getShort(offset + 2).toInt() and 65535) { index ->
+            val record = offset + 6 + index * 12
+            val platform = buffer.getShort(record).toInt() and 65535
+            val length = buffer.getShort(record + 8).toInt() and 65535
+            if (platform == 3 && length in 2..256) buffer.putShort(record + 6, 1)
+        }
+        val families = dev.nuaforma.docx.internal.OpenTypeMetadata.read(bytes).families.take(5)
+        assertEquals(5, families.size)
+        Files.write(root.resolve("aliases.ttf"), bytes)
+        val provider = DocxProvider(DeploymentFonts.load(root))
+        val parts = fixture()
+        val runs = families.joinToString("") { family ->
+            val escaped = family.replace("&", "&amp;").replace("\"", "&quot;")
+            """<w:r><w:rPr><w:rFonts w:ascii="$escaped"/></w:rPr><w:t>x</w:t></w:r>"""
+        }
+        parts["word/document.xml"] = """<w:document xmlns:w="${SyntheticDocx.W}"><w:body><w:p>$runs</w:p><w:sectPr/></w:body></w:document>""".toByteArray()
+        assertEquals(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED,
+            assertThrows(GenerationException::class.java) { generate(provider, parts) }.diagnostics.single().code)
     }
 
     @Test fun `cyclic inheritance missing defaults complex scripts and conditional table styles fail explicitly`() {

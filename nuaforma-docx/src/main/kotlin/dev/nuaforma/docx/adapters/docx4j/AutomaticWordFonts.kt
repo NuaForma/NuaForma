@@ -18,6 +18,7 @@ internal class AutomaticWordFonts(private val document: WordprocessingMLPackage,
     private val context: GenerationContext, private val catalog: DeploymentFonts) {
     private val cache = mutableMapOf<String, ByteArray>()
     private var total = 0L
+    private var faceBytes = 0L
 
     fun apply() {
         val policy = FontPolicy.read(request.requirements.output.options)
@@ -47,7 +48,7 @@ internal class AutomaticWordFonts(private val document: WordprocessingMLPackage,
     }
 
     private fun entry(family: String): Fonts.Font? {
-        val entries = document.mainDocumentPart.fontTablePart?.jaxbElement?.font?.filter { it.name.equals(family, true) } ?: emptyList()
+        val entries = document.mainDocumentPart.fontTablePart?.jaxbElement?.font?.filter { it.name.lowercase(Locale.ROOT) == family.lowercase(Locale.ROOT) } ?: emptyList()
         if (entries.size > 1) invalid(RejectionReason.USED_FONT_IDENTITY_CONFLICT)
         return entries.singleOrNull()
     }
@@ -76,7 +77,8 @@ internal class AutomaticWordFonts(private val document: WordprocessingMLPackage,
 
     private fun embedded(reference: FontRel): ByteArray {
         val table = document.mainDocumentPart.fontTablePart
-        val part = table.relationshipsPart.getPart(reference.id) as? ObfuscatedFontPart ?: invalid(RejectionReason.EMBEDDED_FONT_PART_IS_MISSING)
+        val id = reference.id ?: invalid(RejectionReason.EMBEDDED_FONT_RELATIONSHIP_IS_MISSING)
+        val part = table?.relationshipsPart?.getPart(id) as? ObfuscatedFontPart ?: invalid(RejectionReason.EMBEDDED_FONT_PART_IS_MISSING)
         val bytes = read("embedded:" + part.getPartName().name, ResourceSource { part.bytes.inputStream() }).clone()
         val value = reference.fontKey ?: invalid(RejectionReason.EMBEDDED_FONT_KEY_IS_MISSING)
         val guid = "[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}"
@@ -94,8 +96,11 @@ internal class AutomaticWordFonts(private val document: WordprocessingMLPackage,
     }
 
     private fun validate(font: UsedWordFonts.Face, bytes: ByteArray) {
+        faceBytes += bytes.size
+        if (faceBytes > minOf(64L * 1024 * 1024, context.limits.maxExpandedBytes))
+            DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.DOCX_BYTE_BUDGET_WAS_EXCEEDED)
         val metadata = OpenTypeMetadata.read(bytes)
-        if (metadata.families.none { it.equals(font.family, true) } || metadata.face != font.face) invalid(RejectionReason.SUPPLIED_FONT_FAMILY_OR_FACE_DOES_NOT_MATCH_ITS)
+        if (metadata.families.none { it.lowercase(Locale.ROOT) == font.family.lowercase(Locale.ROOT) } || metadata.face != font.face) invalid(RejectionReason.SUPPLIED_FONT_FAMILY_OR_FACE_DOES_NOT_MATCH_ITS)
         metadata.requireEditableEmbedding()
     }
 

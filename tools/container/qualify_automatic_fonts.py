@@ -55,7 +55,7 @@ def qualify(base, catalog, output):
         for name in incoming.namelist():
             data = incoming.read(name)
             if name == "word/styles.xml":
-                data = data.replace(b"Liberation Serif", families[0].encode())
+                data = data.replace(b"Liberation Serif", escape(families[0], {'"': '&quot;'}).encode())
             if name == "word/document.xml":
                 root = ET.fromstring(data)
                 section = ET.tostring(root.find(WORD + "body/" + WORD + "sectPr"), encoding="unicode")
