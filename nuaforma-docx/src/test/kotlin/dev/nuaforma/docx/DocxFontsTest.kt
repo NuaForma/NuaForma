@@ -190,7 +190,7 @@ class DocxFontsTest {
             assertEquals(AssessmentStatus.UNSUPPORTED, assessment.status)
             assertTrue(assessment.diagnostics.all { it.code == DiagnosticCodes.UNSUPPORTED_OPTION })
         }
-        assertEquals(listOf("fontMode", "fonts"), provider.capabilities().outputOptions.getValue(DocumentFormat.DOCX).map { it.name })
+        assertEquals(listOf("fontMode", "fontSelection", "fonts"), provider.capabilities().outputOptions.getValue(DocumentFormat.DOCX).map { it.name })
     }
 
     @Test

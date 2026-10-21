@@ -62,7 +62,7 @@ def main():
     try:
         catalog = caps(runtime)
         provider = next(provider for provider in catalog["providers"] if provider["id"] == "nuaforma-docx")
-        assert provider["fonts"]["status"] == "AVAILABLE" and provider["fonts"]["entries"] == []
+        assert provider["fonts"]["status"] == "AVAILABLE" and not any(font["source"] == "mounted" for font in provider["fonts"]["entries"])
         assert generate(runtime.base, "docx", (args.fixtures / "font-reference/template.docx").read_bytes(), {"reference": "BAD", "customer": {"name": "Ada"}})[0] == 200
         assert "bad.ttf" in runtime.command("logs", runtime.name)
         checks.append("INVALID_FONT_SKIPPED_PROVIDER_RETAINED")

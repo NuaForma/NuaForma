@@ -148,6 +148,36 @@ After enabling watermark expressions, all 42 previously verified control/variant
 
 ## Supplied fonts
 
+### Automatic embedding (unreleased issue #100 source)
+
+For DOCX output, request `fontMode: "embed"` with `fontSelection: "used"`. Selection defaults to `declared`, preserving existing explicit validation/embedding. `used` requires `embed`; default preservation and PDF output retain their behavior. Kotlin and Java use the same output-options map as REST:
+
+```kotlin
+val provider = DocxProvider(DeploymentFonts.load(listOf(imageFontDirectory), mountedFontDirectory))
+val output = FormatRequest(DocumentFormat.DOCX,
+    mapOf("fontMode" to "embed", "fontSelection" to "used"))
+```
+
+```java
+var provider = new DocxProvider(DeploymentFonts.load(List.of(imageFontDirectory), mountedFontDirectory));
+var output = new FormatRequest(DocumentFormat.DOCX,
+    Map.of("fontMode", "embed", "fontSelection", "used"));
+```
+
+Directories are trusted absolute application/operator configuration. The IMAGE directory list may be empty and the mount may be null. `configured()` reads `nuaforma.fonts.bundledDirectories` (platform path separator) and the existing `nuaforma.fonts.directory`. IMAGE roots are recursively snapshotted without following symbolic links; ordinary embedded applications infer no IMAGE roots. No ambient host font discovery, download, global installation or font-name substitution occurs. See [startup budgets and container defaults](../deployment/pdf-runtime/MOUNTS.md).
+
+Selection runs after supported template expansion and requested watermark insertion. Only effective families/faces used by remaining supported text, symbols and numbering are required; unused styles and catalog entries are not embedded. Family identity is case-insensitive; faces are regular/bold/italic/boldItalic. There is no fixed family list or synthetic bold/italic fallback. Full font bytes are embedded after metadata and editable-outline permission checks. Existing embedded faces are inspected and retained; explicit replacement attempts fail.
+
+Precedence for a used family/face is explicit `fonts` declaration, then MOUNT, then IMAGE. Request bytes win for the same logical resource ID. Other request resources still require declarations, and unused overrides fail. Same-tier ambiguous identities fail deterministically, including identities excluded as conflicting at startup. Generated state and uploaded fonts are request-private. Unused catalog fonts are not opened during generation. Requests allow at most 64 used faces, 16 MiB per font and 64 MiB total, further restricted by the generation expansion budget. Aliases count per selected face even when resource bytes are shared.
+
+The effective-formatting profile covers Latin WordprocessingML text in the body, headers, footers and supported VML/DrawingML Word text boxes; run defaults, default/explicit paragraph and character styles with bounded `basedOn` inheritance; style bold/italic toggles and direct overrides; explicit Latin and major/minor Latin theme fonts; and decimal/Roman/letter/bullet numbering levels and overrides. This is not complete Word font resolution or glyph-coverage validation. Complex-script/East-Asian text selection, RTL/complex-script overrides, conditional/default table font styling, native DrawingML text, picture bullets, numbering-style links, tracked revisions, populated footnote/endnote/comment parts, charts/diagrams and populated VML text paths are rejected when relevant. Missing effective fonts, missing/cyclic style references, unresolved themes, unavailable faces and embedding restrictions fail before publication. Default `preserve` remains available; explicit selection has its own restrictions below.
+
+The Playground exposes **Automatically embed used template fonts** only when the provider/output supports this selection. Its request/export uses the same options; uploads remain explicit overrides. Catalog availability establishes neither embedding permission nor glyph coverage.
+
+Automatic embedding verification on 2026-10-21: `AutomaticFontsTest` authors synthetic independently renamed families/faces under ignored `build/automatic-font-reference`, checks deobfuscated bytes/relationships and compares unaffected document structure. The two-page automatic output and independently requested explicit-selection baseline were rendered with Microsoft Word for Microsoft 365 and inspected after rasterization at 100 DPI; corresponding page PNGs were byte-identical. The fixtures exercise inherited/mixed faces, numbering, headers/footers and both Word text-box forms. Their barcode-derived outlines test font consumption and layout, not general glyph coverage or arbitrary barcode encoding. Actual IMAGE/MOUNT font/PDF qualification is additionally wired into the existing native container checks; its result must be verified on the candidate, not inferred from these fixtures.
+
+### Existing explicit selection
+
 Output option `fontMode` defaults to `preserve`: retain the template's font names, sizes and styling without looking up fonts on the engine host. This does not guarantee that a viewer has those fonts; the viewer's own substitution policy still applies. The engine never installs fonts, resolves host font directories or uses a global font cache.
 
 `validate` checks caller-supplied font metadata against the template's declared font families without embedding them. `embed` performs those checks and embeds the complete supplied font faces in the DOCX. Declare fonts in output option `fonts`, using `family`, logical `resource` ID and optional `face` (`regular`, `bold`, `italic` or `boldItalic`; default `regular`). Supply their bytes through `GenerationRequest.resources`. Resource IDs are not filesystem paths or URLs. Missing and unused resources fail. `preserve` does not accept supplied-font declarations.

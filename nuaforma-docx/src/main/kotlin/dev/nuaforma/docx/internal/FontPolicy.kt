@@ -2,13 +2,15 @@ package dev.nuaforma.docx.internal
 
 import dev.nuaforma.contracts.*
 
-internal class FontPolicy(val mode: String, val fonts: List<FontResource>) {
+internal class FontPolicy(val mode: String, val fonts: List<FontResource>, val selection: String) {
     class FontResource(val family: String, val face: String, val resource: String)
 
     companion object {
         fun read(options: Map<String, Any?>): FontPolicy {
             val mode = options["fontMode"] ?: "preserve"
             if (mode !in listOf("preserve", "validate", "embed")) invalid(RejectionReason.FONTMODE_MUST_BE_PRESERVE_VALIDATE_OR_EMBED)
+            val selection = options["fontSelection"] ?: "declared"
+            if (selection !in listOf("declared", "used") || selection == "used" && mode != "embed") invalid(RejectionReason.INVALID_AUTOMATIC_FONT_SELECTION)
             val raw = options["fonts"] ?: emptyList<Any?>()
             if (raw !is List<*> || raw.size > 64) invalid(RejectionReason.FONTS_MUST_BE_AN_ARRAY_WITH_AT_MOST_64)
             val fonts = raw.map { value ->
@@ -22,7 +24,7 @@ internal class FontPolicy(val mode: String, val fonts: List<FontResource>) {
             }
             if (fonts.map { it.family to it.face }.distinct().size != fonts.size) invalid(RejectionReason.FONT_FAMILY_FACE_DECLARATIONS_MUST_BE_UNIQUE)
             if (mode == "preserve" && fonts.isNotEmpty()) invalid(RejectionReason.SUPPLIED_FONTS_REQUIRE_VALIDATE_OR_EMBED_MODE)
-            return FontPolicy(mode as String, fonts)
+            return FontPolicy(mode as String, fonts, selection as String)
         }
 
         private fun invalid(reason: RejectionReason): Nothing = DocxFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, reason)

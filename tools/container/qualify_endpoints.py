@@ -49,7 +49,8 @@ def main():
         status, _, catalog = http(base, '/api/v1/capabilities')
         providers = {provider['id']: provider for provider in json.loads(catalog)['providers']}
         assert status == 200
-        assert [font['family'] for font in providers['nuaforma-docx']['fonts']['entries']] == ['Libre Barcode 39']
+        assert [font['family'] for font in providers['nuaforma-docx']['fonts']['entries'] if font['source'] == 'mounted'] == ['Libre Barcode 39']
+        assert any(font['source'] == 'bundled' for font in providers['nuaforma-docx']['fonts']['entries'])
         logs = runtime.command('logs', runtime.name)
         assert 'MOUNTED_FONT_REJECTED' in logs and 'bad.ttf' in logs
         assert ('MOUNTED_FONT_REJECTION_DETAIL' in logs) == (args.application == 'playground')

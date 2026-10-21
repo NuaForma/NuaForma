@@ -62,6 +62,17 @@ test('font upload generates matching declarations and binary resources',()=>{
   assert.equal(api.resourceFiles()[0].id,'barcode'); assert.equal(api.resourceFiles()[0].file.name,'barcode.ttf');
   node('font-mode').value='validate'; assert.equal(JSON.parse(api.buildRequest()).output.options.fontMode,'validate');
 });
+test('automatic used font embedding exports the approved options without a font list and retains explicit overrides',()=>{
+  const {api,node,providers}=fixture(); node('output-format').value='docx';
+  const selection={name:'fontSelection',type:'STRING',allowedValues:['declared','used']};
+  providers.forEach(provider=>provider.outputOptions.docx.push(selection));
+  node('auto-embed-fonts').checked=true;
+  assert.deepEqual(JSON.parse(api.buildRequest()).output.options,{fontMode:'embed',fontSelection:'used'});
+  node('font-selections').children=[upload()]; node('font-mode').value='validate';
+  assert.deepEqual(JSON.parse(api.buildRequest()).output.options,{fontMode:'embed',fontSelection:'used',fonts:[{family:'Libre Barcode 39',face:'regular',resource:'barcode'}]});
+  node('output-format').value='pdf';
+  assert.throws(()=>api.buildRequest(),/Automatic font embedding is not supported/);
+});
 test('mounted fonts need declarations but no upload; bundled fonts need neither',()=>{
   const {api,node,set}=fixture();
   const mounted={family:'Custom',face:'regular',source:'mounted',resource:'mounted-font'};

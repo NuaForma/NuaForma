@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 from qualify_service import Runtime, generate, http, multipart, template
 from verify_native_platform import verify
+from qualify_automatic_fonts import qualify as qualify_automatic_fonts
 
 
 def main():
@@ -54,7 +55,11 @@ def main():
                     if font["family"] == "Libre Barcode 39" and font["face"] == "regular")
         assert font["source"] == "mounted"
         declaration = {"family": font["family"], "face": font["face"], "resource": font["resource"]}
-        assert providers["nuaforma-docx"]["fonts"]["entries"] == [font]
+        docx_catalog = providers["nuaforma-docx"]["fonts"]["entries"]
+        assert [entry for entry in docx_catalog if entry["source"] == "mounted"] == [font]
+        assert any(entry["source"] == "bundled" for entry in docx_catalog)
+        qualify_automatic_fonts(base, docx_catalog, args.output)
+        checks.append("automatic-IMAGE-and-MOUNT/used-faces/independent-font-bytes/preserved-embedding/real-PDF")
         logs = runtime.command("logs", runtime.name)
         for rejected in ("corrupt.ttf", "unsupported.woff", "unreadable.ttf", "symlink.ttf"):
             assert re.search(r'MOUNTED_FONT_REJECTED[^\n]*' + re.escape(rejected), logs), rejected
@@ -114,7 +119,7 @@ def main():
         base = restarted.connect()
         status, _, body = http(base, "/api/v1/capabilities")
         providers = {provider["id"]: provider for provider in json.loads(body)["providers"]}
-        assert status == 200 and providers["nuaforma-docx"]["fonts"]["entries"] == []
+        assert status == 200 and not any(entry["source"] == "mounted" for entry in providers["nuaforma-docx"]["fonts"]["entries"])
         assert generate(base, "docx", document, {"name": "Preserve"})[0] == 200
         status, _, failure = generate(base, "pdf", document, {"name": "*NF001*"})
         assert status == 422 and b"INVALID_REQUEST" in failure, (status, failure[:1024])

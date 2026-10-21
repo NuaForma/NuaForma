@@ -11,6 +11,15 @@ class DeploymentFontsTest {
     @TempDir lateinit var root: Path
     private fun font() = javaClass.getResourceAsStream("/fonts/LibreBarcode39-Regular.ttf")!!.use { it.readAllBytes() }
 
+    @Test fun `combined IMAGE scan budget counts identical copies across roots before retaining snapshots`() {
+        val bytes = font().copyOf(16 * 1024 * 1024)
+        val directories = (1..3).map { index -> Files.createDirectory(root.resolve("image-$index")).also { directory ->
+            repeat(3) { Files.write(directory.resolve("duplicate-$it.ttf"), bytes) }
+        } }
+        val error = assertThrows(IllegalStateException::class.java) { DeploymentFonts.load(directories, null) }
+        assertEquals("Combined font scan byte limit exceeded", error.message)
+    }
+
     @Test fun `snapshot exposes logical resources and ignores subsequent file changes`() {
         val path = Files.write(root.resolve("barcode.ttf"), font())
         val catalog = DeploymentFonts.load(root)

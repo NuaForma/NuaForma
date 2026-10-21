@@ -8,6 +8,7 @@ import dev.nuaforma.contracts.GenerationRequest
 import dev.nuaforma.contracts.ContentPipe
 import dev.nuaforma.template.TemplatePipes
 import dev.nuaforma.docx.DocxDocument
+import dev.nuaforma.docx.DeploymentFonts
 import dev.nuaforma.docx.internal.BoundedStreams
 import dev.nuaforma.docx.internal.DocxFailure
 import dev.nuaforma.docx.internal.TemporaryPackage
@@ -24,11 +25,12 @@ import javax.xml.stream.XMLInputFactory
 import javax.xml.stream.XMLStreamException
 
 internal object Docx4jDocuments {
-    fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext, pipes: List<ContentPipe> = emptyList(), valuePipes: TemplatePipes = TemplatePipes.discover()) {
+    fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext, pipes: List<ContentPipe> = emptyList(), valuePipes: TemplatePipes = TemplatePipes.discover(), deploymentFonts: DeploymentFonts = DeploymentFonts.configured()) {
         open(request.template, context) {
-            WordFonts.apply(it, request, context)
+            if (request.requirements.output.options["fontSelection"] != "used") WordFonts.apply(it, request, context)
             val watermark = WordTemplates(request.data, request.requirements.options, context, pipes, valuePipes).apply(it)
             WordWatermarks(context).apply(it, watermark)
+            if (request.requirements.output.options["fontSelection"] == "used") AutomaticWordFonts(it, request, context, deploymentFonts).apply()
         }
             .use { it.writeTo(output) }
     }

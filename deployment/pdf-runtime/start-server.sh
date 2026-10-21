@@ -25,5 +25,6 @@ exec /opt/java/server/bin/java "-Xmx${heap}m" -Djava.awt.headless=true \
     "-Dnuaforma.pdf.launcher=${NUAFORMA_PDF_LAUNCHER:-/opt/nuaforma/bin/render-pdf}" \
     "-Dnuaforma.pdf.parallelism=$parallelism" \
     "-Dnuaforma.fonts.directory=${NUAFORMA_FONT_DIRECTORY:-/opt/nuaforma/custom-fonts}" \
+    "-Dnuaforma.fonts.bundledDirectories=${NUAFORMA_BUNDLED_FONT_DIRECTORIES:-/opt/nuaforma/renderer/usr/share/fonts:/opt/nuaforma/renderer/opt/libreoffice26.8/share/fonts/truetype}" \
     "-Dnuaforma.extensions.directory=${NUAFORMA_EXTENSION_DIRECTORY:-/opt/nuaforma/extensions}" \
     -cp '/opt/nuaforma/application/lib/*' "$application_main"

@@ -34,7 +34,7 @@ def main():
         "docx4j-17.3.2-NOTICE": "https://raw.githubusercontent.com/plutext/docx4j/VERSION_17_3_2/legals/NOTICE",
         "antlr-2.7.7.tar.gz": "https://www.antlr2.org/download/antlr-2.7.7.tar.gz",
         "antlr-2-license.html": "https://www.antlr2.org/license.html",
-        "antlr-2.7.7-copyright": "https://metadata.ftp-master.debian.org/changelogs/main/a/antlr/antlr_2.7.7+dfsg-6_copyright",
+        "antlr-2.7.7-copyright": "https://sources.debian.org/data/main/a/antlr/2.7.7%2Bdfsg-6/debian/copyright",
         "xalan-11.0.0-LICENSE.txt": "https://raw.githubusercontent.com/plutext/xalan-j/xalan-parent-11.0.0/LICENSE.txt",
         "xalan-11.0.0-NOTICE.txt": "https://raw.githubusercontent.com/plutext/xalan-j/xalan-parent-11.0.0/NOTICE.txt",
         "mbassador-1.3.2-LICENSE": "https://raw.githubusercontent.com/bennidi/mbassador/1e98ff489d2b2cbc78717a6f543a16fbaa1a8118/LICENSE",

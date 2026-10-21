@@ -29,6 +29,36 @@ class RestApiTest {
     private val envelope = """{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"name":"Ada","nested":{"a":[null,true,42]}},"options":{"watermark":{"text":"CONCEPT — {name}","color":"#A1B2C3","opacity":0.3,"rotation":-30}}}"""
 
     @Test
+    fun `automatic font selection uses the same public catalog and option semantics through REST and embedded generation`() = testApplication {
+        val directory = Files.createDirectory(temporary.resolve("automatic"))
+        val fixture = Path.of(System.getProperty("nuaforma.repositoryRoot"), "nuaforma-docx/src/test/resources/fonts/LibreBarcode39-Regular.ttf")
+        Files.copy(fixture, directory.resolve("opaque.ttf"))
+        val fontsType = Class.forName("dev.nuaforma.docx.DeploymentFonts")
+        val providerType = Class.forName("dev.nuaforma.docx.DocxProvider").asSubclass(DocumentProvider::class.java)
+        val fonts = fontsType.getMethod("load", List::class.java, Path::class.java).invoke(null, listOf(directory), null)
+        val provider = providerType.getConstructor(fontsType).newInstance(fonts)
+        val registry = ProviderRegistry.registered(listOf(ProviderRegistration(ProviderMetadata("nuaforma-docx", providerType.name, "0.1.0", ContractVersion.CURRENT)) { provider }))
+        application { KtorServer(registry, ServerConfiguration(temporaryDirectory = temporary)).installRoutes(this) }
+        val source = repack(entries(template()).mapValues { (name, text) -> if (name == "word/document.xml") text.replace("<w:b/>", """<w:rFonts w:ascii="Libre Barcode 39" w:hAnsi="Libre Barcode 39"/>""") else text })
+        val json = """{"input":{"format":"docx"},"output":{"format":"docx","options":{"fontMode":"embed","fontSelection":"used"}},"providerId":"nuaforma-docx","data":{"name":"Ada"}}"""
+        val expected = ByteArrayOutputStream()
+        provider.generate(GenerationRequest(source.inputStream(), GenerationRequirements(FormatRequest(DocumentFormat.DOCX),
+            FormatRequest(DocumentFormat.DOCX, mapOf("fontMode" to "embed", "fontSelection" to "used"))), mapOf("name" to "Ada")), expected, GenerationContext())
+        val response = client.post("/api/v1/documents") {
+            contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY")); setBody(multipart(json, source))
+        }
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        val actual = entries(response.bodyAsBytes())
+        assertEquals(entries(expected.toByteArray()).getValue("word/document.xml"), actual.getValue("word/document.xml"))
+        assertEquals(1, actual.keys.count { it.endsWith(".odttf") })
+        assertTrue(actual.getValue("word/fontTable.xml").contains("embedRegular"))
+        val caps = client.get("/api/v1/capabilities").bodyAsText()
+        assertTrue(caps.contains("fontSelection") && caps.contains("bundled"))
+        val invalid = client.post("/api/v1/assess") { contentType(ContentType.Application.Json); setBody(json.replace("\"embed\"", "\"validate\"")) }
+        assertEquals(HttpStatusCode.UnprocessableEntity, invalid.status)
+    }
+
+    @Test
     fun `recovered mounted fonts retain activation HTTP catalog and DOCX availability after an empty restart`() {
         val directory = Files.createDirectory(temporary.resolve("fonts"))
         val fixture = Path.of(System.getProperty("nuaforma.repositoryRoot"), "nuaforma-docx/src/test/resources/fonts/LibreBarcode39-Regular.ttf")
