@@ -12,7 +12,7 @@ import java.nio.file.Files
 import dev.nuaforma.template.TemplatePipes
 
 /** DOCX processing is delegated unchanged; only PDF uses an isolated conversion copy. */
-class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguration?, private val valuePipes: TemplatePipes) : DocumentProvider, FontCatalogProvider, ContentPipeProvider, TemplatePipeProvider, ProviderReadiness {
+class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguration?, private val valuePipes: TemplatePipes) : DocumentProvider, FontCatalogProvider, ContentPipeProvider, TemplatePipeProvider, ProviderReadiness, ConformancePolicyProvider {
     @JvmOverloads
     constructor(configuration: LibreOfficeConfiguration? = null) : this(configuration, TemplatePipes.discover())
     private var pipes: List<ContentPipe> = emptyList()
@@ -47,7 +47,12 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
                 listOf(ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.DOCX),
                     ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.PDF, PdfProfile.entries.map { it.id }.toSet())), image.nullBehavior, image.contentTypes)
         }) + pipes.map { it.definition })
-    private val converter: PdfConverter = LibreOfficeProcesses(configuration ?: PdfRuntimeConfiguration.read(System.getProperties()))
+    private val runtimeConfiguration = configuration ?: PdfRuntimeConfiguration.read(System.getProperties())
+    private val pdfaValidation = runtimeConfiguration?.pdfaValidation ?: PdfRuntimeConfiguration.validation(System.getProperties())
+    private val converter: PdfConverter = LibreOfficeProcesses(runtimeConfiguration)
+
+    override fun conformancePolicies(): List<ConformancePolicy> = java.util.Collections.singletonList(
+        ConformancePolicy(DocumentFormat.PDF, PdfProfile.entries.filter { it != PdfProfile.STANDARD }.map { it.id }.toSet(), pdfaValidation))
 
     override fun fontCatalog(context: GenerationContext): FontCatalog {
         context.checkActive()
@@ -68,7 +73,7 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
             outputOptions = mapOf(DocumentFormat.DOCX to original.outputOptions.getValue(DocumentFormat.DOCX),
                 DocumentFormat.PDF to listOf(
                     OptionDefinition("version", OptionType.STRING, "Derived from profile: 1.4 for PDF/A-1b, otherwise 1.7; explicit values must match", allowedValues = listOf("1.4", "1.7")),
-                    OptionDefinition("profile", OptionType.STRING, "Static standard PDF or independently validated archival PDF/A; no silent downgrade", defaultValue = "pdfa-3b", allowedValues = PdfProfile.entries.map { it.id }),
+                    OptionDefinition("profile", OptionType.STRING, "Standard PDF or PDF/A export profile; conformance checking follows provider operator policy; no silent downgrade", defaultValue = "pdfa-3b", allowedValues = PdfProfile.entries.map { it.id }),
                     OptionDefinition("fontMode", OptionType.STRING, "Preserve available or template-embedded fonts, or validate/embed private supplied fonts for static PDF", defaultValue = "preserve", allowedValues = listOf("preserve", "validate", "embed")),
                     OptionDefinition("fonts", OptionType.ARRAY, "Private family/face/resource declarations; PDF print embedding permissions apply"),
                     OptionDefinition("paragraphDefaults", OptionType.OBJECT, "Explicit optional afterTwips and line240ths fallback for missing paragraph defaults in the PDF copy only"))),

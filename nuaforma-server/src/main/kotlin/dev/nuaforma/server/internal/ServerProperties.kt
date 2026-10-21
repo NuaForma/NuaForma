@@ -11,6 +11,11 @@ import java.util.Properties
 
 /** Operator configuration only; never populated from HTTP input. */
 internal object ServerProperties {
+    fun pdfaValidation(value: String?): Boolean = when (value) {
+        null, "true" -> true
+        "false" -> false
+        else -> throw IllegalArgumentException("Invalid NUAFORMA_PDFA_VALIDATION; expected true or false")
+    }
     fun playground(value: String?, mode: LoggingMode, installed: Boolean): Boolean {
         require(value == null || value in setOf("true", "false")) { "Invalid NUAFORMA_PLAYGROUND" }
         val enabled = value == "true"

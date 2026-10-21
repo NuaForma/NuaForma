@@ -133,6 +133,7 @@ function prettyJson(text) {
 }
 
 function updateRequest() {
+  renderConformancePolicy();
   try {
     $('request').textContent = prettyJson(buildRequest()); $('data-status').textContent = 'JSON · object';
     $('export-json').disabled = false; $('export-curl').disabled = false;
@@ -142,6 +143,27 @@ function updateRequest() {
     $('request').textContent = error.message; $('data-status').textContent = 'Complete or correct the fields to preview your request';
     ['export-json', 'export-curl', 'generate', 'assess'].forEach(id => $(id).disabled = true); return false;
   }
+}
+
+function conformancePolicyText(items, output) {
+  if (output !== 'pdf' || !items.length) return '';
+  const descriptions = items.map(item => {
+    const policies = item.conformancePolicies;
+    if (!Array.isArray(policies)) return `${item.id}: PDF/A conformance policy unknown (not reported).`;
+    const archival = policies.filter(policy => policy.outputFormat === output && policy.profiles?.some(profile => profile.startsWith('pdfa-')));
+    if (!archival.length || archival.some(policy => typeof policy.validationEnabled !== 'boolean')) return `${item.id}: PDF/A conformance policy unknown (not reported).`;
+    return archival.map(policy => `${item.id} (${policy.profiles.join(', ')}): ${policy.validationEnabled
+      ? 'PDF/A conformance validation enabled.'
+      : 'PDF/A conformance is not checked by NuaForma. The operator is responsible for downstream validation.'}`).join('\n');
+  });
+  return descriptions.join('\n') + '\nExport profile support and validation policy are separate; capability metadata is not a certificate for an individual file.';
+}
+
+function renderConformancePolicy() {
+  const target = $('conformance-policy');
+  const text = conformancePolicyText(matchingProviders(), elements.output.value);
+  target.textContent = text; target.hidden = !text;
+  target.className = text.includes('is not checked') ? 'error' : 'availability';
 }
 
 function refreshFormats() {
@@ -167,6 +189,7 @@ function renderCatalog() {
     const section = create('details'); section.open = item.id === elements.provider.value;
     const summary = create('summary', `${item.id} · ${item.releaseVersion}`); section.append(summary);
     section.append(create('p', `Available: ${item.available.readFormats.join(', ') || 'none'} → ${item.available.writeFormats.join(', ') || 'none'}. Declared: ${item.declared.readFormats.join(', ')} → ${item.declared.writeFormats.join(', ')}.`, 'hint'));
+    if (item.declared.writeFormats.includes('pdf')) section.append(create('p', conformancePolicyText([item], 'pdf'), 'availability'));
     section.append(create('h3', `Fonts · ${item.fonts.status.toLowerCase()} (${item.fonts.entries.length})`));
     const fonts = create('div', undefined, 'chip-list');
     item.fonts.entries.forEach(font => fonts.append(create('span', `${font.family} · ${font.face} · ${font.source}`, 'chip'))); section.append(fonts);

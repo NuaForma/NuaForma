@@ -16,7 +16,7 @@ function fixture() {
   const context = vm.createContext({document:{getElementById:node}, JSON, Error, Set, Boolean, Number});
   const source = fs.readFileSync(path.join(__dirname, '../../main/resources/playground/app.js'), 'utf8');
   vm.runInContext(source.slice(0, source.indexOf("$('builder').addEventListener")), context);
-  const api = vm.runInContext('({buildRequest, resourceFiles, fontDeclarations, matchingProviders, sharedDefinitions, prettyJson, formatDiagnostics, showResult})', context);
+  const api = vm.runInContext('({buildRequest, resourceFiles, fontDeclarations, matchingProviders, sharedDefinitions, prettyJson, formatDiagnostics, showResult, conformancePolicyText, renderConformancePolicy})', context);
   const option = {name:'fonts',type:'ARRAY',description:'Fonts',required:false,defaultValue:null,allowedValues:[]};
   const providers = [
     {id:'word',available:{readFormats:['docx'],writeFormats:['docx']},inputOptions:{},outputOptions:{docx:[option]},generalOptions:[],fonts:{status:'AVAILABLE',entries:[]}},
@@ -30,6 +30,28 @@ function upload(family='Libre Barcode 39',resource='barcode',file={name:'barcode
   const controls = {'[data-font-family]':{value:family},'[data-font-face]':{value:'regular'},'[data-font-resource]':{value:resource},'[type=file]':{files:file?[file]:[]}};
   return {querySelector:key=>controls[key]};
 }
+
+test('operator conformance policy is visible, independent of availability and never exported as an override',()=>{
+  const {api,node,providers}=fixture();
+  for (const enabled of [true,false]) {
+    providers[1].conformancePolicies=[{outputFormat:'pdf',profiles:['pdfa-1b','pdfa-2b','pdfa-3b'],validationEnabled:enabled}];
+    api.renderConformancePolicy();
+    assert.equal(node('conformance-policy').hidden,false);
+    assert.equal(node('conformance-policy').textContent.includes('PDF/A conformance is not checked by NuaForma'),!enabled);
+    assert.equal(node('conformance-policy').textContent.includes('validation enabled'),enabled);
+    assert.equal(api.matchingProviders().length,1);
+    const request=api.buildRequest();
+    for(const name of ['conformancePolicies','validationEnabled','pdfaValidation','NUAFORMA_PDFA_VALIDATION']) assert.equal(request.includes(name),false);
+  }
+  for(const metadata of [undefined,null,[],[{outputFormat:'pdf',profiles:['pdfa-3b'],validationEnabled:'false'}]]) {
+    providers[1].conformancePolicies=metadata;
+    api.renderConformancePolicy();
+    assert.ok(node('conformance-policy').textContent.includes('policy unknown'));
+    assert.equal(node('conformance-policy').textContent.includes('is not checked'),false);
+  }
+  node('output-format').value='docx'; api.renderConformancePolicy();
+  assert.equal(node('conformance-policy').hidden,true);
+});
 
 test('automatic unique matching omits providerId and preserves exact JSON literals',()=>{
   const {api}=fixture(); const text=api.buildRequest(); const request=JSON.parse(text);

@@ -1,5 +1,7 @@
 # NuaForma Playground
 
+Unreleased issue #93 source shows the effective provider-owned PDF/A conformance policy beside the PDF selection and in the provider explorer. Disabled policy displays **PDF/A conformance is not checked by NuaForma**, with downstream operator responsibility. Generation remains available when the backend is ready. Missing/null/legacy metadata is shown as unknown; multiple matching providers retain their individual policies. There is no checkbox or request/export override. The same strict default-on `NUAFORMA_PDFA_VALIDATION` startup behavior and production-safe warning apply through the common server main. Published alpha images remain unchanged.
+
 Unreleased issue #98 source displays server-provided development rejection explanations, safe part/construct/location and recovery advice alongside the request ID. Results use text nodes, so diagnostic text cannot become HTML. The Playground does not select or override the server mode and exports no diagnostics-mode option. Production/restricted responses remain readable without optional fields; published images retain their prior behavior.
 
 A separate, development-only Java 25 application over the same REST server and engine. Production `nuaforma-server` artifacts and the `service` image do not depend on this module or contain its browser assets. The five embedded libraries retain Java 17 support. There is no separate generation implementation and no browser framework/CDN dependency.

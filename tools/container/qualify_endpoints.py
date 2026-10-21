@@ -5,6 +5,7 @@ import json
 import pathlib
 import shutil
 from qualify_service import Runtime, generate, http, template
+from qualify_pdfa_policy import qualify as qualify_pdfa_policy
 
 
 def verify_bom(bom, architecture, application):
@@ -67,7 +68,7 @@ def main():
             status, _, version = http(base, '/api/v1/version')
             version = json.loads(version)
             assert status == 200 and version['version'] == args.expected_version
-            assert version['contractVersion'] == '0.3'
+            assert version['contractVersion'] == '0.4'
         verify_bom(bom, args.architecture, args.application)
         (args.output / 'sbom.json').write_bytes(data)
         status, headers, body = http(base, '/playground/')
@@ -100,6 +101,7 @@ def main():
             assert int(invalid.command('wait',invalid.name)) != 0
         finally:
             invalid.close()
+    qualify_pdfa_policy(args)
     print('Shipped inventory and ' + args.application + ' boundary: PASS')
 
 

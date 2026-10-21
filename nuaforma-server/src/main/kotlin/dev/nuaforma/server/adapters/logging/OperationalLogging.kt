@@ -45,4 +45,12 @@ internal object OperationalLogging : GenerationLogSink {
             "* Operators must control access and log retention.         *\n" +
             "************************************************************")
     }
+    fun pdfaValidationWarning() {
+        logger.warn("************************************************************\n" +
+            "* PDF/A CONFORMANCE VALIDATION DISABLED                     *\n" +
+            "* PDF/A conformance is not checked by NuaForma.             *\n" +
+            "* Operators are responsible for downstream validation.    *\n" +
+            "* PDFBox safety checks and isolation remain mandatory.    *\n" +
+            "************************************************************")
+    }
 }

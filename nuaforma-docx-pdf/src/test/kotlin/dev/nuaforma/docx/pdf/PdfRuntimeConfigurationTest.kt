@@ -6,6 +6,22 @@ import org.junit.jupiter.api.Test
 import java.util.Properties
 
 class PdfRuntimeConfigurationTest {
+    @Test fun `conformance property accepts only exact booleans and validates even without a launcher`() {
+        val properties = Properties()
+        assertTrue(PdfRuntimeConfiguration.validation(properties))
+        for (value in listOf("true", "false")) {
+            properties.setProperty("nuaforma.pdf.pdfaValidation", value)
+            assertEquals(value == "true", PdfRuntimeConfiguration.validation(properties))
+            properties.setProperty("nuaforma.pdf.launcher", java.nio.file.Path.of(System.getProperty("java.io.tmpdir"), "launcher").toString())
+            assertEquals(value == "true", PdfRuntimeConfiguration.read(properties)!!.pdfaValidation)
+        }
+        properties.remove("nuaforma.pdf.launcher")
+        for (value in listOf("", " ", " true", "false ", "TRUE", "FALSE", "0", "1", "flase", "PRIVATE_TOKEN\nsecret")) {
+            properties.setProperty("nuaforma.pdf.pdfaValidation", value)
+            val error = assertThrows(IllegalArgumentException::class.java) { PdfRuntimeConfiguration.read(properties) }
+            assertFalse(error.message.orEmpty().contains("PRIVATE_TOKEN"))
+        }
+    }
     @Test
     fun `parallelism is bounded trusted host configuration with unchanged default`() {
         val properties = Properties()

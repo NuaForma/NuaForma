@@ -4,6 +4,8 @@ Available in `0.2.0-alpha.1`, from issue #76. Historical `0.1` images and librar
 
 ## Server and container configuration
 
+Unreleased issue #93 source adds independent strict startup `NUAFORMA_PDFA_VALIDATION`: unset/exact `true` keeps conformance validation enabled, exact `false` delegates it downstream, and every other value rejects startup without echoing the supplied value. Disabled policy always emits an asterisk-framed WARNING, including production: **PDF/A conformance is not checked by NuaForma**; the operator owns downstream validation. Default-on startup emits no such warning. This uses no document/request/configuration dump. Disabled generations emit no per-document veraPDF-start/completion event or attestation; PDFBox and all other isolation/resource checks remain mandatory. The probe still verifies bundled veraPDF readiness. Libraries use explicit captured instance configuration and opt-in logging, not environment reads. Published alpha artifacts remain unchanged.
+
 `NUAFORMA_MODE` is trusted startup configuration, read once before provider discovery:
 
 | Value | Behavior |

@@ -84,7 +84,7 @@ internal class LibreOfficeProcesses(
 
     override fun validate(files: ConversionFiles, context: GenerationContext) {
         withSlot(context) { BoundedProcess.run(command(files, "validate", context), context, operationDirectory = files.directory) }
-        if (files.profile != PdfProfile.STANDARD) {
+        if (files.profile != PdfProfile.STANDARD && configuration!!.pdfaValidation) {
             val response = files.directory.resolve("conformance.txt")
             withSlot(context) { BoundedProcess.run(command(files, "validate-${files.profile.id}", context), context, response, 256, files.directory) }
             context.checkActive()
