@@ -27,6 +27,7 @@ const resolve = value => value?.$ref ? schema(value.$ref.split('/').pop()) : val
 const locationFor = operationId => Object.entries(contract.paths).find(([, operations]) => Object.values(operations).some(operation => operation.operationId === operationId))?.[0];
 
 function configureOptions(target, definitions, kind) {
+  if (kind === 'output') definitions = definitions.filter(definition => definition.name !== 'fontSelection');
   const node = $(target); node.replaceChildren();
   if (!definitions.length) return;
   node.append(create('h3', `${kind === 'general' ? 'General' : kind === 'input' ? 'Input' : 'Output'} options`));
@@ -58,6 +59,7 @@ function configureOptions(target, definitions, kind) {
 function readOptions(kind) {
   const fields = optionGroups.filter(group => group.kind === kind).flatMap(group => group.fields);
   return rawObject(fields.flatMap(({definition: d, control}) => {
+    if (kind === 'output' && $('auto-embed-fonts').checked && ['fontMode', 'fontSelection'].includes(d.name)) return [];
     if (kind === 'output' && ['fontMode', 'fonts'].includes(d.name) && fontDeclarations().length) return [];
     if (!control.value.trim()) {
       if (d.required && d.defaultValue == null) throw Error(`Set ${kind} option ${d.name}.`);
@@ -96,9 +98,14 @@ function buildRequest() {
     let value = readOptions(kind);
     if (kind === 'output') {
       const fonts = fontDeclarations();
+      if ($('auto-embed-fonts').checked) {
+        if (!sharedDefinitions(matchingProviders(), 'output').some(option => option.name === 'fontSelection' && option.allowedValues?.includes('used'))) throw Error('Automatic font embedding is not supported by this provider/output.');
+        const additions = '"fontMode":"embed","fontSelection":"used"';
+        value = value === '{}' ? `{${additions}}` : value.slice(0, -1) + ',' + additions + '}';
+      }
       if (fonts.length) {
         if (!sharedDefinitions(matchingProviders(), 'output').some(option => option.name === 'fonts')) throw Error('Select a provider/output that supports supplied fonts.');
-        const additions = `"fonts":${literal(fonts)},"fontMode":${literal($('font-mode').value)}`;
+        const additions = `"fonts":${literal(fonts)}` + ($('auto-embed-fonts').checked ? '' : `,"fontMode":${literal($('font-mode').value)}`);
         value = value === '{}' ? `{${additions}}` : value.slice(0, -1) + ',' + additions + '}';
       }
     }
@@ -185,8 +192,12 @@ function refreshFonts() {
   availableFonts.forEach((font, index) => { const option = create('option', `${font.family} · ${font.face} · ${font.source}`); option.value = String(index); select.append(option); });
   select.disabled = availableFonts.length === 0; $('select-font').disabled = availableFonts.length === 0;
   const supportsFonts = sharedDefinitions(matches, 'output').some(option => option.name === 'fonts');
+  const supportsAutomatic = sharedDefinitions(matches, 'output').some(option => option.name === 'fontSelection' && option.allowedValues?.includes('used'));
+  $('auto-embed-fonts').disabled = !supportsAutomatic;
+  $('auto-embed-fonts-field').hidden = !supportsAutomatic;
+  if (!supportsAutomatic) $('auto-embed-fonts').checked = false;
   $('upload-font').disabled = !supportsFonts;
-  $('font-note').textContent = supportsFonts ? 'Upload standalone .ttf/.otf files. Enter the actual font family and style; the provider checks the bytes and embedding permissions.' : 'Uploaded font declarations are not supported by this selection. Choose a specific provider for its options.';
+  $('font-note').textContent = supportsFonts ? 'Automatic embedding selects used supported faces from IMAGE/MOUNT catalogs. Uploads override matching faces; missing faces and unsupported formatting fail clearly. Embedding permissions always apply. For uploads, enter the actual family and style.' : 'Uploaded font declarations are not supported by this selection. Choose a specific provider for its options.';
 }
 
 function fontDeclarations() {
@@ -217,10 +228,11 @@ function fontDeclarations() {
 
 function fontSelectionsChanged() {
   const hasDeclarations = [...$('font-selections').children].some(row => !row._catalogFont || row._catalogFont.resource);
-  $('font-mode-field').hidden = !hasDeclarations;
+  const automatic = $('auto-embed-fonts').checked;
+  $('font-mode-field').hidden = !hasDeclarations || automatic;
   for (const group of optionGroups.filter(group => group.kind === 'output')) for (const {definition, control} of group.fields) {
-    if (['fonts', 'fontMode'].includes(definition.name)) {
-      control.disabled = hasDeclarations;
+    if (['fonts', 'fontMode', 'fontSelection'].includes(definition.name)) {
+      control.disabled = definition.name === 'fonts' ? hasDeclarations : hasDeclarations || automatic;
       control.title = hasDeclarations ? 'Configured by Fonts for this document. Remove supplied fonts to edit manually.' : '';
     }
   }
@@ -362,6 +374,7 @@ $('select-font').addEventListener('click', () => {
 });
 $('upload-font').addEventListener('click', () => appendFontRow(null));
 $('font-mode').addEventListener('change', fontSelectionsChanged);
+$('auto-embed-fonts').addEventListener('change', fontSelectionsChanged);
 $('template').addEventListener('change', () => $('template-name').textContent = $('template').files[0]?.name || 'Select a file from your computer');
 $('watermark-enabled').addEventListener('change', () => $('watermark').hidden = !$('watermark-enabled').checked);
 $('refresh').addEventListener('click', bootstrap);

@@ -2,6 +2,17 @@ package dev.nuaforma.contracts
 
 /** Application-owned explanations only; never create reasons from exception or extension text. */
 enum class RejectionReason(val message: String, private val advice: RejectionAdvice, val construct: String? = null) {
+    INVALID_AUTOMATIC_FONT_SELECTION("fontSelection must be declared or used; used requires fontMode embed", RejectionAdvice.FONTS),
+    USED_FONT_FACE_UNAVAILABLE("A used font family/face is unavailable; supply the exact face through fonts/resources or configure an IMAGE/MOUNT catalog", RejectionAdvice.FONTS),
+    USED_FONT_IDENTITY_CONFLICT("Automatic font selection found conflicting case-insensitive family/face identities", RejectionAdvice.FONTS),
+    UNSUPPORTED_EFFECTIVE_FONT_CONSTRUCT("Automatic font selection cannot safely resolve this font construct; use explicit declared selection or simplify the effective formatting", RejectionAdvice.FONTS),
+    INVALID_FONT_STYLE_INHERITANCE("Automatic font selection found a missing, cyclic or unsupported style/numbering reference", RejectionAdvice.FONTS),
+    AUTOMATIC_FONT_UNSUPPORTED_SCRIPT("Automatic font selection supports Latin text; complex-script, East-Asian and RTL font selection needs explicit declared selection or preservation", RejectionAdvice.FONTS),
+    AUTOMATIC_FONT_UNRESOLVED_THEME("A used Latin theme font cannot be resolved; supply valid major/minor Latin theme mappings or explicit ascii/hAnsi fonts", RejectionAdvice.FONTS),
+    AUTOMATIC_FONT_UNSUPPORTED_TABLE_STYLE("Automatic font selection cannot resolve table style font inheritance; remove table styling or use declared selection", RejectionAdvice.FONTS),
+    AUTOMATIC_FONT_UNSUPPORTED_PART("Automatic font selection does not support populated footnotes/endnotes/comments, charts or diagrams; use declared selection or preservation", RejectionAdvice.FONTS),
+    AUTOMATIC_FONT_UNSUPPORTED_DRAWING_TEXT("Automatic font selection supports WordprocessingML text boxes, not native DrawingML text; use declared selection or preservation", RejectionAdvice.FONTS),
+    AUTOMATIC_FONT_UNSUPPORTED_REVISIONS("Automatic font selection cannot determine visible fonts across tracked revisions; accept/reject revisions or use declared selection", RejectionAdvice.FONTS),
     ACTIVE_CONTENT_AND_EMBEDDED_DOCUMENTS_ARE_NOT_SUPPORTED("Active content and embedded documents are not supported",
         RejectionAdvice.STRUCTURE),
     ACTIVE_OR_RESOURCE_RETRIEVING_WORD_FIELDS_ARE_NOT_SUPPORTED("Active or resource-retrieving Word fields are not supported in PDF conversion",

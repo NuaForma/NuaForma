@@ -107,7 +107,7 @@ internal object WordFonts {
         return names
     }
 
-    private fun embed(document: WordprocessingMLPackage, font: FontPolicy.FontResource, bytes: ByteArray) {
+    fun embed(document: WordprocessingMLPackage, font: FontPolicy.FontResource, bytes: ByteArray) {
         val main = document.mainDocumentPart
         val table = main.fontTablePart ?: FontTablePart().also { it.jaxbElement = Fonts(); main.addTargetPart(it) }
         val entry = table.jaxbElement.font.singleOrNull { it.name == font.family } ?: Fonts.Font().also { it.name = font.family; table.jaxbElement.font.add(it) }

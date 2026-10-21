@@ -55,6 +55,7 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
     override fun capabilities() = ProviderCapabilities(setOf(DocumentFormat.DOCX), setOf(DocumentFormat.DOCX),
         outputOptions = mapOf(DocumentFormat.DOCX to listOf(
             OptionDefinition("fontMode", OptionType.STRING, "Preserve template fonts, validate supplied families, or embed supplied font faces", defaultValue = "preserve", allowedValues = listOf("preserve", "validate", "embed")),
+            OptionDefinition("fontSelection", OptionType.STRING, "Declared resources, or actually used supported font faces; used requires fontMode embed", defaultValue = "declared", allowedValues = listOf("declared", "used")),
             OptionDefinition("fonts", OptionType.ARRAY, "Bounded font family/face/resource declarations; embedding follows OpenType permissions"))),
         generalOptions = listOf(OptionDefinition("watermark", OptionType.OBJECT, "Optional text watermark using the template language and request data, with color, opacity and rotation; existing header objects are retained")))
     override fun availability() = ProviderAvailability(setOf(DocumentFormat.DOCX), setOf(DocumentFormat.DOCX))
@@ -72,7 +73,7 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
         val errors = mutableListOf<Diagnostic>()
         if (requirements.input.format != DocumentFormat.DOCX) errors.add(Diagnostic(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.THIS_PROVIDER_READS_DOCX_ONLY))
         if (requirements.output.format != DocumentFormat.DOCX) errors.add(Diagnostic(DiagnosticCodes.UNSUPPORTED_OUTPUT, RejectionReason.THIS_PROVIDER_WRITES_DOCX_ONLY))
-        if (requirements.input.options.isNotEmpty() || requirements.output.options.keys.any { it !in setOf("fontMode", "fonts") } ||
+        if (requirements.input.options.isNotEmpty() || requirements.output.options.keys.any { it !in setOf("fontMode", "fontSelection", "fonts") } ||
             requirements.options.extensions.isNotEmpty()) {
             errors.add(Diagnostic(DiagnosticCodes.UNSUPPORTED_OPTION, RejectionReason.UNRECOGNIZED_DOCX_OPTIONS))
         }
@@ -86,7 +87,7 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
         deploymentFonts.reportFailures(context.logging)
         val assessment = assess(request.requirements)
         if (assessment.status != AssessmentStatus.SUPPORTED) throw GenerationException(assessment.diagnostics)
-        Docx4jDocuments.generate(deploymentFonts.bind(request), output, context, listOf(ImagePipe(context)) + pipes, valuePipes)
+        Docx4jDocuments.generate(deploymentFonts.bind(request), output, context, listOf(ImagePipe(context)) + pipes, valuePipes, deploymentFonts)
         return GenerationResult(request.requirements.output)
     }
 }

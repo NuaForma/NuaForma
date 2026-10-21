@@ -6,6 +6,27 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class JavaDocxProviderTest {
     @Test
+    void usedFontSelectionUsesExplicitJavaCatalogWithoutDeclarations(@org.junit.jupiter.api.io.TempDir java.nio.file.Path root) throws Exception {
+        try (var source = getClass().getResourceAsStream("/fonts/LibreBarcode39-Regular.ttf")) {
+            java.nio.file.Files.copy(source, root.resolve("opaque.ttf"));
+        }
+        var catalog = DeploymentFonts.load(java.util.List.of(root), null);
+        DocumentProvider provider = new DocxProvider(catalog);
+        var parts = new java.util.LinkedHashMap<>(SyntheticDocx.INSTANCE.parts("Java font selection"));
+        parts.replaceAll((name, bytes) -> name.endsWith(".xml") ? new String(bytes, java.nio.charset.StandardCharsets.UTF_8)
+            .replace("Arial", "Libre Barcode 39").replace("<w:b/>", "").replace("<w:i/>", "")
+            .getBytes(java.nio.charset.StandardCharsets.UTF_8) : bytes);
+        var requirements = new GenerationRequirements(new FormatRequest(DocumentFormat.DOCX), new FormatRequest(DocumentFormat.DOCX,
+            java.util.Map.of("fontMode", "embed", "fontSelection", "used")));
+        assertEquals(AssessmentStatus.SUPPORTED, provider.assess(requirements).getStatus());
+        var output = new java.io.ByteArrayOutputStream();
+        provider.generate(new GenerationRequest(new java.io.ByteArrayInputStream(SyntheticDocx.INSTANCE.zip(parts)), requirements,
+            java.util.Map.of("customer", java.util.Map.of("name", "Ada"), "reference", "NF001")), output, new GenerationContext());
+        assertEquals(1, SyntheticDocx.INSTANCE.unzip(output.toByteArray()).keySet().stream().filter(name -> name.endsWith(".odttf")).count());
+        assertEquals(FontOrigin.BUNDLED, catalog.getCatalog().getFonts().get(0).getOrigin());
+    }
+
+    @Test
     void standardImageIsAvailableThroughJavaContracts() throws Exception {
         var pixels = new java.awt.image.BufferedImage(8, 4, java.awt.image.BufferedImage.TYPE_INT_RGB);
         var picture = new java.io.ByteArrayOutputStream();

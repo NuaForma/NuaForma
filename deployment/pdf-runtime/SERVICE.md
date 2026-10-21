@@ -49,6 +49,7 @@ Operator environment variables, never request fields:
 | `NUAFORMA_PDF_LAUNCHER` | `/opt/nuaforma/bin/render-pdf` | Trusted isolated launcher; a missing path disables PDF only |
 | `NUAFORMA_PDF_PARALLELISM` | `1` | Source builds: 1–8 simultaneous PDF runtime processes per provider instance; invalid/empty values fail entry-point startup. Not a per-request option; published 0.2.0-alpha.1 does not implement this setting |
 | `NUAFORMA_FONT_DIRECTORY` | `/opt/nuaforma/custom-fonts` | Absolute operator font mount target; startup snapshot, not a request option |
+| `NUAFORMA_BUNDLED_FONT_DIRECTORIES` | Explicit shipped renderer font roots; see [mount guide](MOUNTS.md) | Path-separated immutable IMAGE roots for opt-in automatic DOCX embedding |
 | `NUAFORMA_EXTENSION_DIRECTORY` | `/opt/nuaforma/extensions` | Absolute operator JAR mount target; startup snapshot of trusted executable code |
 
 All launch arguments remain fixed; shell command strings from requests are never executed. Operator-controlled `JAVA_TOOL_OPTIONS` may set the JVM properties below, e.g. `-Dnuaforma.server.concurrency=2 -Dnuaforma.server.outputBytes=67108864`. This is trusted JVM configuration, not a restricted extension mechanism. Do not put secrets there; the JVM may report these options to stderr. Host/port/temp/launcher are supplied explicitly by the entry point; configure those through the listed environment variables.
