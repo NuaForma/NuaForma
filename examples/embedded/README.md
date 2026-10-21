@@ -36,6 +36,8 @@ Runtime assertions reject server/test/veraPDF dependencies in the embedded host.
 
 ## Configured PDF generation
 
+Unreleased issue #93 source adds explicit immutable per-instance `new LibreOfficeConfiguration(absoluteLauncher, 1, false)` (the same positional Kotlin call) to delegate PDF/A conformance validation downstream. Existing constructors remain default-on and binary compatible, including compiled Kotlin default calls. Explicit configuration takes precedence over trusted JVM property `nuaforma.pdf.pdfaValidation`; libraries read no environment. Optional `ConformancePolicyProvider.conformancePolicies()` reports the same effective policy as REST capabilities. Disabled validation retains PDFBox and isolation and makes no verified-conformance claim; the operator is responsible for downstream validation. The examples below and release qualification keep validation enabled. This addition is not present in published `0.2.0-alpha.1` libraries.
+
 `PdfExample` has two modes. With no arguments it verifies honest unavailability of PDF without the isolated runtime; it does not claim to render a PDF. With two arguments, supply the absolute path to the approved isolated launcher and a caller-owned output path:
 
 ```sh

@@ -30,6 +30,8 @@ Visit [nuaforma.dev](https://nuaforma.dev) for deployment examples and downloada
 
 These are bounded supported profiles, not a promise to reproduce every Word feature. PDF/A-1b rejects transparency; the known text-box positioning limitation is documented in the [PDF guide](nuaforma-docx-pdf/README.md). Keep remotely accessible services behind an authenticated TLS gateway.
 
+Unreleased issue #93 source adds a default-on [operator conformance policy](nuaforma-docx-pdf/README.md#operator-conformance-policy-unreleased-issue-93-source). Only exact `NUAFORMA_PDFA_VALIDATION=false` delegates PDF/A conformance checking downstream; PDFBox and isolation remain mandatory. This is not available in published alpha artifacts. See the [indicative short processing trials](docs/performance-snapshot.md) for the original measurements and their limitations.
+
 ## Get started
 
 ### Run the container

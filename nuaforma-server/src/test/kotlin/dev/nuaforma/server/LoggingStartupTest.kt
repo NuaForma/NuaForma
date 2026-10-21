@@ -18,13 +18,14 @@ class LoggingStartupTest {
 
     @Test
     fun `real server prints development warning before serving and production stays safe`() {
-        for (mode in listOf(null, "production", "development")) {
+        for (mode in listOf(null, "production", "development")) for (policy in listOf(null, "true", "false")) {
             val port = ServerSocket(0).use { it.localPort }
             val output = ByteArrayOutputStream()
             val builder = ProcessBuilder(java(), "-Dnuaforma.server.port=$port", "-Dnuaforma.pdf.launcher=/missing-logging-fixture",
                 "-Djava.io.tmpdir=$temporary", "-cp", classpath(), Main::class.java.name).redirectErrorStream(true)
             builder.environment().clear()
             if (mode != null) builder.environment()["NUAFORMA_MODE"] = mode
+            if (policy != null) builder.environment()["NUAFORMA_PDFA_VALIDATION"] = policy
             val process = builder.start()
             val reader = drain(process, output)
             try {
@@ -41,9 +42,32 @@ class LoggingStartupTest {
             } finally { close(process, reader) }
             val logs = output.toString(Charsets.UTF_8)
             assertEquals(mode == "development", logs.contains("DEVELOPMENT MODE — SENSITIVE DATA LOGGING ENABLED"))
+            assertEquals(policy == "false", logs.contains("PDF/A CONFORMANCE VALIDATION DISABLED"))
+            assertEquals(policy == "false", logs.contains("PDF/A conformance is not checked by NuaForma"))
+            if (policy == "false") assertTrue(logs.indexOf("CONFORMANCE VALIDATION DISABLED") < logs.indexOf("REQUEST_STARTED"))
             assertTrue(logs.contains("PDF_LAUNCHER_UNAVAILABLE")); assertTrue(logs.contains("PROVIDER_READINESS"))
             assertTrue(logs.contains("requestId=-")); assertFalse(logs.contains("/missing-logging-fixture"))
             if (mode == "development") assertTrue(logs.indexOf("DEVELOPMENT MODE") < logs.indexOf("REQUEST_STARTED"))
+        }
+    }
+
+    @Test fun `invalid conformance policy rejects both real entry points before binding without leaking configuration`() {
+        for (entry in listOf(Main::class.java.name, "dev.nuaforma.playground.Main")) {
+            for (value in listOf("", " ", "TRUE", "FALSE", "0", "1", "flase", "false ", "PRIVATE_TOKEN\nsecret")) {
+                val port = ServerSocket(0).use { it.localPort }
+                val output = ByteArrayOutputStream()
+                val builder = ProcessBuilder(java(), "-Dnuaforma.server.port=$port", "-cp", classpath(), entry).redirectErrorStream(true)
+                builder.environment().clear(); builder.environment()["NUAFORMA_PDFA_VALIDATION"] = value
+                val process = builder.start()
+                val reader = drain(process, output)
+                try { assertTrue(process.waitFor(15, TimeUnit.SECONDS)); assertNotEquals(0, process.exitValue()) }
+                finally { close(process, reader) }
+                val logs = output.toString(Charsets.UTF_8)
+                assertTrue(logs.contains("SERVER_STARTUP_FAILED"), logs)
+                assertFalse(logs.contains("PRIVATE_TOKEN") || logs.contains("secret"))
+                assertFalse(logs.contains("REQUEST_STARTED") || logs.contains("PROVIDER_ACTIVATED"))
+                ServerSocket(port).use { assertTrue(it.isBound) }
+            }
         }
     }
 

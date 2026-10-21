@@ -10,7 +10,7 @@ internal class OpenApiSchemaChecks(private val document: JsonNode) {
     fun matches(schema: JsonNode, value: JsonNode): Boolean {
         if (schema.isBoolean) return schema.booleanValue()
         check(schema.isObject) { "Missing/non-object schema" }
-        val supported = setOf("\$ref", "type", "properties", "required", "additionalProperties", "patternProperties", "items", "anyOf", "enum", "pattern", "minLength", "maxLength", "maxItems", "minimum", "maximum", "description", "default", "example", "format", "x-max-utf16-code-units")
+        val supported = setOf("\$ref", "type", "properties", "required", "additionalProperties", "patternProperties", "items", "anyOf", "enum", "pattern", "minLength", "maxLength", "minItems", "maxItems", "uniqueItems", "minimum", "maximum", "description", "default", "example", "format", "x-max-utf16-code-units")
         check(schema.fieldNames().asSequence().all { it in supported }) { "Add assertion support before adding schema keywords" }
         if (schema.has("\$ref")) {
             val reference = schema.path("\$ref").asText()
@@ -45,6 +45,8 @@ internal class OpenApiSchemaChecks(private val document: JsonNode) {
             if (schema.has("maximum") && value.decimalValue() > BigDecimal(schema.path("maximum").asText())) return false
         }
         if (value.isArray) {
+            if (schema.has("minItems") && value.size() < schema.path("minItems").asInt()) return false
+            if (schema.path("uniqueItems").asBoolean() && value.toList().distinct().size != value.size()) return false
             if (schema.has("maxItems") && value.size() > schema.path("maxItems").asInt()) return false
             if (schema.has("items") && value.any { !matches(schema.path("items"), it) }) return false
         }

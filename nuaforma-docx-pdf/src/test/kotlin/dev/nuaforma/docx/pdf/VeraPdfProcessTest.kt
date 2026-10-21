@@ -17,6 +17,34 @@ import java.nio.file.attribute.PosixFilePermissions
 class VeraPdfProcessTest {
     @TempDir lateinit var temporary: Path
 
+    @Test fun `enabled conformance process failure deadline and cancellation never bypass validation`() {
+        for (mode in listOf("failure", "deadline", "cancel")) {
+            val marker = temporary.resolve("started-$mode")
+            val launcher = temporary.resolve("fail-$mode.sh")
+            val action = if (mode == "failure") "exit 8" else "printf started > '$marker'; /bin/sleep 30"
+            Files.writeString(launcher, "#!/bin/sh\ncase \"\u0024{4}\" in validate) exit 0 ;; validate-pdfa-3b) $action ;; *) exit 64 ;; esac\n")
+            Files.setPosixFilePermissions(launcher, PosixFilePermissions.fromString("rwx------"))
+            val cancelled = java.util.concurrent.atomic.AtomicBoolean(false)
+            val context = GenerationContext(GenerationLimits(maxDuration = java.time.Duration.ofMillis(if (mode == "deadline") 200 else 10000)), CancellationToken { cancelled.get() })
+            val observer = if (mode == "cancel") Thread {
+                val deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5)
+                while (!Files.exists(marker) && System.nanoTime() < deadline) Thread.sleep(10)
+                cancelled.set(true)
+            }.apply { start() } else null
+            try {
+                ConversionFiles.create(context).use { files ->
+                    files.profile = PdfProfile.PDFA_3B
+                    Files.write(files.pdf, StaticPdfFixture.bytes())
+                    val error = assertThrows(GenerationException::class.java) {
+                        LibreOfficeProcesses(LibreOfficeConfiguration(launcher)).validate(files, context)
+                    }
+                    assertEquals(when (mode) { "failure" -> DiagnosticCodes.GENERATION_FAILED; "deadline" -> DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED; else -> DiagnosticCodes.CANCELLED }, error.diagnostics.single().code)
+                    assertFalse(Files.exists(files.directory.resolve("conformance.txt")) && Files.size(files.directory.resolve("conformance.txt")) > 0)
+                }
+            } finally { observer?.join(6000) }
+        }
+    }
+
     @Test
     fun `runtime warnings cannot be mistaken for an exact conformance proof`() {
         val pdf = StaticPdfFixture.bytes()

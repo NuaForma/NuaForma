@@ -1,5 +1,13 @@
 # REST service
 
+## PDF/A operator policy (unreleased issue #93 source)
+
+The common production/Playground main reads `NUAFORMA_PDFA_VALIDATION` once before provider discovery or traffic: absent/exact `true` enables veraPDF; only exact `false` skips per-document conformance validation. Empty strings, whitespace, alternate case, `0`, `1` and typos fail startup with sanitized diagnostics. Startup maps the policy to trusted JVM property `nuaforma.pdf.pdfaValidation` for provider construction; explicit embedded provider configuration remains leading. This is not an HTTP option. Attempts in input/output/general options or extension request metadata are rejected; data/resource names cannot configure the provider.
+
+Disabled startup emits a conspicuous warning, also in production: **PDF/A conformance is not checked by NuaForma**. The operator owns downstream conformance validation. PDFBox, all export/profile/font restrictions and isolation/resource controls remain mandatory. Enabled veraPDF failures never fall back. Standard PDF and DOCX are unchanged. The setting is not available in published `0.2.0-alpha.1` images.
+
+Each provider's capabilities response adds nullable `conformancePolicies`, directly from its optional embedded `ConformancePolicyProvider` facet. Example default: `[{"outputFormat":"pdf","profiles":["pdfa-1b","pdfa-2b","pdfa-3b"],"validationEnabled":true}]`. A false value reports effective policy, separately from `declared`/`available` generation support. Null or absent legacy metadata means unknown. These are not certificates for generated files. Both authoritative OpenAPI downloads describe the same boundary; no request field is added.
+
 Version `0.2.0-alpha.1` adds safe correlated operational logging and explicit `NUAFORMA_MODE=development` diagnostics; see the [configuration, privacy and forwarding guide](../docs/logging.md). Every application-level response has a generated `X-Request-ID`; safe errors also return the matching `requestId`. Neither incoming headers nor request/template options enable development mode. Historical `0.1` images are unchanged.
 
 The `0.2.0-alpha.1` providers use the same [value pipes](../nuaforma-template/README.md#extensible-value-pipes-unreleased-source) in embedded and REST document/watermark generation. Operator-installed JARs use the existing [read-only extension mount and startup snapshot](../deployment/pdf-runtime/MOUNTS.md); request data cannot register code or configure class loaders. Provider construction captures the startup registry, so later request threads do not rediscover extensions. Source capabilities/OpenAPI include the provider-owned pipe catalogs described below (#60). These pipes require `0.2.0-alpha.1` or newer; historical `0.1` images remain unchanged.
@@ -119,7 +127,7 @@ The optional `ContentPipeProvider` contract supplies source `/api/v1/capabilitie
 
 Source builds expose lightweight `GET /health/live` and `GET /health/ready` outside generation admission slots. Readiness requires initialization and a recent background observation with at least one executable provider pair; missing PDF does not disable usable DOCX generation. Responses contain only `status: UP|DOWN`, use 200/503 and retain request correlation without routine access-log noise. See the [health/lifecycle and deployment guide](../docs/health.md) for snapshot freshness, shutdown, the bundled Docker probe and Helm/Kubernetes/OpenShift settings. Previously published alpha images do not gain these routes retroactively.
 
-Unreleased issue #98 source reports contract `0.3` from version/capabilities endpoints. Published `0.2.0-alpha.1` remains contract `0.2`; the source change does not update deployed instances or publish artifacts.
+Unreleased source reports contract `0.4` from version/capabilities endpoints, including issue #98 structured diagnostics and issue #93 optional conformance policy. Published `0.2.0-alpha.1` remains contract `0.2`; source changes do not update deployed instances or publish artifacts.
 
 ## Multipart and resources
 

@@ -83,7 +83,7 @@ class ValuePipeDiscoveryTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["1.0", "0.4"])
+    @ValueSource(strings = ["1.0", "0.5"])
     fun `incompatible major and minimum minor fail before any implementation initialization`(version: String) {
         val fixtures = PipeJars(directory)
         fixtures.loader(fixtures.jar("Future", descriptor = fixtures.metadata("Future", version))).use { loader ->

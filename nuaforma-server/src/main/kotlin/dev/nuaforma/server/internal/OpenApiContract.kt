@@ -88,7 +88,13 @@ internal object OpenApiContract {
                 "entries" to (array(ref("ValuePipe")) + mapOf("maxItems" to 128)), "diagnostics" to array(ref("Diagnostic")))),
             "ContentPipeCatalog" to obj(mapOf("status" to (string() + mapOf("enum" to listOf("AVAILABLE", "UNSUPPORTED", "UNAVAILABLE"))),
                 "entries" to (array(ref("ContentPipe")) + mapOf("maxItems" to 128)), "diagnostics" to array(ref("Diagnostic")))),
+            "ConformancePolicy" to (obj(mapOf("outputFormat" to ref("FormatIdentifier"),
+                "profiles" to (array(string()) + mapOf("minItems" to 1, "maxItems" to 128, "uniqueItems" to true)),
+                "validationEnabled" to mapOf("type" to "boolean"))) + mapOf("description" to "Immutable provider-owned operator policy for the listed export profiles, separate from generation support. Not a per-file conformance certificate. False means NuaForma does not check conformance; the operator is responsible for downstream validation.",
+                "example" to mapOf("outputFormat" to "pdf", "profiles" to listOf("pdfa-1b", "pdfa-2b", "pdfa-3b"), "validationEnabled" to true))),
             "Provider" to obj(mapOf("id" to string(), "releaseVersion" to string(), "requiredContract" to string(), "fonts" to ref("FontCatalog"),
+                "conformancePolicies" to mapOf("anyOf" to listOf(array(ref("ConformancePolicy")) + mapOf("maxItems" to 128), mapOf("type" to "null")),
+                    "description" to "Effective provider policy. Null or absent legacy metadata means unknown, not validated and not disabled. Never a request option."),
                 "valuePipes" to ref("ValuePipeCatalog"), "contentPipes" to ref("ContentPipeCatalog"),
                 "declared" to ref("FormatSets"), "available" to ref("FormatSets"),
                 "inputOptions" to mapOf("type" to "object", "additionalProperties" to array(ref("OptionDefinition"))),
@@ -96,7 +102,7 @@ internal object OpenApiContract {
                 "generalOptions" to array(ref("OptionDefinition")), "diagnostics" to (array(ref("Diagnostic")) + mapOf("maxItems" to 64)))),
             "Capabilities" to obj(mapOf("contractVersion" to string(), "providers" to array(ref("Provider")), "diagnostics" to (array(ref("Diagnostic")) + mapOf("maxItems" to 64)))),
         )
-        val download = mapOf("description" to "Completed validated output. No document is published after a generation failure; a later network failure may truncate a committed attachment.",
+        val download = mapOf("description" to "Completed output after mandatory safety checks. PDF/A conformance follows the provider operator policy; disabled validation makes no conformance claim. No document is published after a generation failure; a later network failure may truncate a committed attachment.",
             "content" to (content(mapOf("type" to "string", "format" to "binary"), "application/vnd.openxmlformats-officedocument.wordprocessingml.document") +
                 content(mapOf("type" to "string", "format" to "binary"), "application/pdf") + content(mapOf("type" to "string", "format" to "binary"), "application/octet-stream")),
             "headers" to mapOf("Content-Disposition" to mapOf("schema" to string(), "description" to "attachment; filename=\"<basename>.<actual-format>\""),

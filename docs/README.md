@@ -18,6 +18,7 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [ARM64 and Podman](../deployment/pdf-runtime/ARM64.md), [AppArmor](../deployment/pdf-runtime/APPARMOR.md) and [renderer isolation](../deployment/pdf-runtime/README.md).
 - [Font and extension mounts](../deployment/pdf-runtime/MOUNTS.md).
 - [Operational logging](logging.md): correlation, safe errors and sensitive development diagnostics.
+- [Short processing trials](performance-snapshot.md): request counts, concurrency and isolated veraPDF A/B measurements; indicative results, not sustained capacity guarantees.
 - [Health endpoints](health.md) and [source Helm chart](../deployment/helm/README.md).
 - [Static CycloneDX inventory](sbom.md): component scope, exclusions and build-time validation.
 - [Java runtime compatibility](java-runtime-compatibility.md): Java 17 libraries, Java 25 server/Playground and separate Java 17 validators.
@@ -33,6 +34,8 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [Dependency reviews](../DEPENDENCIES.md), [third-party notices](../THIRD_PARTY.md) and [license](../LICENSE).
 
 ## Source versus published versions
+
+Unreleased issue #93 source adds the default-on operator PDF/A conformance policy and optional provider-owned `conformancePolicies` metadata under contract `0.4`; it retains earlier contract minima and Java 17 compatibility. Published `0.2.0-alpha.1` artifacts do not implement `NUAFORMA_PDFA_VALIDATION`. Only exact `false` delegates conformance validation downstream; PDFBox and isolation remain mandatory. The [PDF guide](../nuaforma-docx-pdf/README.md#operator-conformance-policy-unreleased-issue-93-source) documents consequences and configuration. The separate website's prepared performance overview and deployment kits must be coordinated with the actual authorized feature release, binding real released versions/digests and preserving the [short-trial limitations](performance-snapshot.md); this source delivery publishes neither website nor artifacts.
 
 As of the documentation review on 2026-10-15:
 

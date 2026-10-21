@@ -29,6 +29,7 @@ services:
       NUAFORMA_HEAP_MB: "512"
       NUAFORMA_HOST: "0.0.0.0"
       NUAFORMA_PORT: "8080"
+      NUAFORMA_PDFA_VALIDATION: "${NUAFORMA_PDFA_VALIDATION-true}"
     volumes:
       - type: bind
         source: ${NUAFORMA_CUSTOM_FONTS_DIR:-./custom-fonts}
