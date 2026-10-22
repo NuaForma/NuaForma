@@ -78,6 +78,7 @@ Gradle with Kotlin DSL is the selected build system. Install JDK 17 and JDK 25: 
 
 ## Dependencies and licensing
 
+- Follow the [stable-component and upgrade-debt policy](ARCHITECTURE.md#stable-components-and-upgrade-debt): prefer the latest suitable stable releases across build tools, libraries, native components, base images and JVMs; verify current upstream releases before a release or component change. Preserve approved compatibility boundaries, exact pins, checksum/source review and real tests. Document any older-version exception with evidence, risk and a tracked reassessment/removal condition; do not silently carry it forward or add a workaround that makes the next upgrade harder.
 - Prefer actively maintained, genuinely open-source libraries with licenses compatible with distributing NuaForma under Apache-2.0 and embedding it in proprietary applications.
 - Before adding or upgrading a dependency, check primary sources for its license, release activity, security posture, transitive dependencies and redistribution obligations. Do not equate a recent version number with healthy maintenance.
 - Avoid unmaintained libraries or proprietary-only features for required functionality. If a candidate is in maintenance-only mode or has material licensing uncertainty, explain the trade-off and ask before adoption.
