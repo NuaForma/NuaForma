@@ -54,6 +54,7 @@ XLSX, ODT and ODS, external template retrieval, signable PDF fields and a LibreO
 
 ## Maintainer release guides
 
+- [0.2.0-alpha.2 preparation](release-0.2.0-alpha.2.md): the selected next prerelease, contract `0.4`, candidate-specific review and separate website handoff; not a publication claim.
 - [0.2.0-alpha.1 preparation record](release-0.2.0-alpha.1.md) and [distribution review](release-0.2.0-alpha.1-audit.md), including contract `0.2` and the scoped evaluation-alpha security disposition.
 - [Maven Central signing, upload and publication](maven-central-releases.md).
 - [Container qualification and publication](container-releases.md), including mandatory website/download synchronization.

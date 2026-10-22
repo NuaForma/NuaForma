@@ -61,7 +61,7 @@ The JSON/YAML files are written beneath `nuaforma-server/build/generated/openapi
 
 These checks stage POM/main/source/documentation JARs to the ignored `build/library-repository` and test independently compiled Java/Maven and Kotlin/Gradle consumers. They do not upload to Maven Central. Documentation JARs contain module guides and architecture material, not generated Kotlin API pages.
 
-Release `0.2.0-alpha.1` uses contract `0.2` and is available on Central. Source verification still uses the examples' exclusive local repository and exact staged artifact hashes so a public release cannot silently substitute for the code under test. See [embedded examples](../examples/embedded/README.md) and the [value-pipe example](../examples/value-pipes/README.md).
+Published `0.2.0-alpha.1` uses contract `0.2`. The selected next candidate is `0.2.0-alpha.2` with runtime contract `0.4`; see its [preparation record](release-0.2.0-alpha.2.md). Source verification uses the examples' exclusive local repository and exact current staged artifact hashes so a public release cannot silently substitute for the code under test. Pass the candidate version explicitly when consuming local staging. See [embedded examples](../examples/embedded/README.md) and the [value-pipe example](../examples/value-pipes/README.md).
 
 ## Modules
 

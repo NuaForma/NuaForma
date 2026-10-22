@@ -6,7 +6,7 @@ on:
       version:
         description: Signed container version with publicly available matching sources
         required: true
-        default: '0.2.0-alpha.1'
+        default: '0.2.0-alpha.2'
         type: string
 
 permissions:
