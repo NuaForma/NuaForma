@@ -17,20 +17,20 @@ NuaForma is an open-source document-generation engine. Combine a Word template, 
 
 Visit [nuaforma.dev](https://nuaforma.dev) for deployment examples and downloadable test kits, or browse the [documentation](docs/README.md).
 
-> **Evaluation alpha:** libraries and containers use `0.2.0-alpha.1`, with contract `0.2`. Production and separate development Playground images support native AMD64 and ARM64. APIs are not stable; see [version status](docs/README.md#source-versus-published-versions). There is no `latest` prerelease tag or hosted generation service.
+> **Evaluation alpha:** libraries and containers use `0.2.0-alpha.2`, with contract `0.4`. Production and separate development Playground images support native AMD64 and ARM64. APIs are not stable; see [version status](docs/README.md#source-versus-published-versions). There is no `latest` prerelease tag or hosted generation service.
 
 ## Why NuaForma?
 
 - **Keep your Word layout:** replace placeholders and expand paragraphs/table rows while preserving supported formatting, headers, footers, images and text boxes.
 - **Use your own data:** nested objects, lists and null values, with inline conditions, nested repetitions and explicit number/date formatting.
-- **Choose the output:** DOCX, standard PDF or independently validated PDF/A-1b, PDF/A-2b and PDF/A-3b. PDF defaults to PDF/A-3b.
+- **Choose the output:** DOCX, standard PDF or PDF/A-1b, PDF/A-2b and PDF/A-3b, with independent conformance validation enabled by default. PDF defaults to PDF/A-3b.
 - **Control fonts and watermarks:** retain template fonts, supply fonts when needed and resolve dynamic text watermarks against the same data.
 - **Run where you need it:** embedded Kotlin/Java, REST or an on-premise container, with no mandatory cloud account.
 - **Respect security boundaries:** a restricted template language, bounded processing and isolated, network-denied PDF renderer/validator processes. Installed extensions remain trusted executable code, not sandboxed templates.
 
 These are bounded supported profiles, not a promise to reproduce every Word feature. PDF/A-1b rejects transparency; the known text-box positioning limitation is documented in the [PDF guide](nuaforma-docx-pdf/README.md). Keep remotely accessible services behind an authenticated TLS gateway.
 
-The next selected release is [`0.2.0-alpha.2`](docs/release-0.2.0-alpha.2.md), with contract `0.4`; it is not yet published. Its source adds structured rejection explanations, resilient mounted-font catalogs, optional used-font embedding, bounded PDF parallelism and a default-on [operator conformance policy](nuaforma-docx-pdf/README.md#operator-conformance-policy-unreleased-issue-93-source). Only exact `NUAFORMA_PDFA_VALIDATION=false` delegates PDF/A conformance checking downstream; PDFBox and isolation remain mandatory. These additions are not available in published alpha.1 artifacts. See the [indicative short processing trials](docs/performance-snapshot.md) for the original measurements and their limitations.
+Release [`0.2.0-alpha.2`](https://github.com/NuaForma/NuaForma/releases/tag/v0.2.0-alpha.2) uses contract `0.4` and adds structured rejection explanations, resilient mounted-font catalogs, optional used-font embedding, bounded PDF parallelism and a default-on [operator conformance policy](nuaforma-docx-pdf/README.md#operator-conformance-policy-unreleased-issue-93-source). Only exact `NUAFORMA_PDFA_VALIDATION=false` delegates PDF/A conformance checking downstream; PDFBox and isolation remain mandatory. Earlier alpha.1 artifacts remain unchanged. See the [indicative short processing trials](docs/performance-snapshot.md) for the original measurements and their limitations.
 
 ## Get started
 
@@ -44,7 +44,7 @@ For the separate [development Playground](nuaforma-playground/README.md), use it
 
 ### Embed the engine
 
-Use `dev.nuaforma:nuaforma-core` plus `dev.nuaforma:nuaforma-docx` for Word generation; add `nuaforma-docx-pdf` and the qualified external runtime for PDF. Published coordinates use `0.2.0-alpha.1`. DOCX-only applications do not need Docker, LibreOffice or the server. Start with the [Java/Maven and Kotlin/Gradle examples](examples/embedded/README.md).
+Use `dev.nuaforma:nuaforma-core` plus `dev.nuaforma:nuaforma-docx` for Word generation; add `nuaforma-docx-pdf` and the qualified external runtime for PDF. Published coordinates use `0.2.0-alpha.2`. DOCX-only applications do not need Docker, LibreOffice or the server. Start with the [Java/Maven and Kotlin/Gradle examples](examples/embedded/README.md).
 
 ### Write a template
 

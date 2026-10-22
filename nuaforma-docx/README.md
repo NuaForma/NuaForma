@@ -148,7 +148,9 @@ After enabling watermark expressions, all 42 previously verified control/variant
 
 ## Supplied fonts
 
-### Automatic embedding (unreleased issue #100 source)
+<a id="automatic-embedding-unreleased-issue-100-source"></a>
+
+### Automatic embedding (from 0.2.0-alpha.2)
 
 For DOCX output, request `fontMode: "embed"` with `fontSelection: "used"`. Selection defaults to `declared`, preserving existing explicit validation/embedding. `used` requires `embed`; default preservation and PDF output retain their behavior. Kotlin and Java use the same output-options map as REST:
 
