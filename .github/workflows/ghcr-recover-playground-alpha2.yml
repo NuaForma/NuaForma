@@ -1,0 +1,69 @@
+name: Recover approved Playground alpha.2 publication
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: multi-platform-container-publication
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: github.repository == 'NuaForma/NuaForma' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    environment: ghcr-release
+    permissions:
+      contents: read
+      packages: write
+    env:
+      RELEASE_VERSION: 0.2.0-alpha.2
+      REFERENCE: ghcr.io/nuaforma/nuaforma-playground:0.2.0-alpha.2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Revalidate both reviews and matching recipient-accessible sources
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/release/check_environment.py --environment ghcr-release
+          python3 tools/release/validate_multiarch_release.py --application server --version "$RELEASE_VERSION" --review "release-approvals/$RELEASE_VERSION.json" --companion-review "release-approvals/$RELEASE_VERSION-playground.json"
+          mkdir -p build/multiarch
+          for arch in amd64 arm64; do
+            archive="nuaforma-playground-container-$RELEASE_VERSION-$arch.tar.gz"
+            gh release download "v$RELEASE_VERSION" --repo NuaForma/NuaForma --pattern "$archive" --dir build/multiarch
+            python3 tools/release/check_multiarch_archive.py --application playground --review "release-approvals/$RELEASE_VERSION-playground.json" --architecture "$arch" --archive "build/multiarch/$archive"
+            docker load --input "build/multiarch/$archive"
+            python3 tools/release/check_multiarch_archive.py --application playground --review "release-approvals/$RELEASE_VERSION-playground.json" --architecture "$arch" --archive "build/multiarch/$archive" --check-loaded
+          done
+      - name: Require the exact existing AMD64 publication and absent remaining tags
+        run: |
+          docker manifest inspect --verbose "$REFERENCE-amd64" > build/multiarch/amd64-manifest.json
+          python3 tools/release/check_playground_alpha2_recovery.py --review "release-approvals/$RELEASE_VERSION-playground.json" --manifest build/multiarch/amd64-manifest.json
+          python3 tools/release/ensure_tag_absent.py --reference "$REFERENCE-arm64"
+          python3 tools/release/ensure_tag_absent.py --reference "$REFERENCE"
+      - name: Authenticate only after the recovery gates pass
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+      - name: Publish only the missing approved ARM64 platform and combined index
+        run: |
+          python3 tools/release/ensure_tag_absent.py --reference "$REFERENCE-arm64"
+          docker tag "nuaforma-playground:$RELEASE_VERSION-arm64-archive" "$REFERENCE-arm64"
+          docker push "$REFERENCE-arm64"
+          docker manifest inspect --verbose "$REFERENCE-amd64" > build/multiarch/amd64-manifest.json
+          python3 tools/release/check_playground_alpha2_recovery.py --review "release-approvals/$RELEASE_VERSION-playground.json" --manifest build/multiarch/amd64-manifest.json
+          docker manifest inspect --verbose "$REFERENCE-arm64" > build/multiarch/arm64-manifest.json
+          python3 tools/release/ensure_tag_absent.py --reference "$REFERENCE"
+          docker manifest create "$REFERENCE" ghcr.io/nuaforma/nuaforma-playground@sha256:7360db70f26dbf4c0810808b35801d4dbf39054715c0603733095deb8fb8e8fb "$REFERENCE-arm64"
+          docker manifest push "$REFERENCE"
+          docker manifest inspect "$REFERENCE" > build/multiarch/published-index.json
+          python3 tools/release/check_multiarch_index.py build/multiarch/published-index.json --review "release-approvals/$RELEASE_VERSION-playground.json" --amd64-manifest build/multiarch/amd64-manifest.json --arm64-manifest build/multiarch/arm64-manifest.json
+      - name: Clear registry authentication
+        if: always()
+        run: docker logout ghcr.io
