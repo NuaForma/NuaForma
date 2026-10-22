@@ -35,18 +35,18 @@ Choose a guide for the task you want to complete. Module guides are the technica
 
 ## Source versus published versions
 
-Unreleased issue #93 source adds the default-on operator PDF/A conformance policy and optional provider-owned `conformancePolicies` metadata under contract `0.4`; it retains earlier contract minima and Java 17 compatibility. Published `0.2.0-alpha.1` artifacts do not implement `NUAFORMA_PDFA_VALIDATION`. Only exact `false` delegates conformance validation downstream; PDFBox and isolation remain mandatory. The [PDF guide](../nuaforma-docx-pdf/README.md#operator-conformance-policy-unreleased-issue-93-source) documents consequences and configuration. The separate website's prepared performance overview and deployment kits must be coordinated with the actual authorized feature release, binding real released versions/digests and preserving the [short-trial limitations](performance-snapshot.md); this source delivery publishes neither website nor artifacts.
+Release `0.2.0-alpha.2` adds the default-on operator PDF/A conformance policy and optional provider-owned `conformancePolicies` metadata under contract `0.4`; it retains earlier contract minima and Java 17 compatibility. Published `0.2.0-alpha.1` artifacts do not implement `NUAFORMA_PDFA_VALIDATION`. Only exact `false` delegates conformance validation downstream; PDFBox and isolation remain mandatory. The [PDF guide](../nuaforma-docx-pdf/README.md#operator-conformance-policy-unreleased-issue-93-source) documents consequences and configuration. Use the version-matched website kits and preserve the [short-trial limitations](performance-snapshot.md); those measurements are not new alpha.2 benchmarks.
 
-As of the documentation review on 2026-10-15:
+Current evaluation release:
 
 | Distribution | Available version and scope |
 | --- | --- |
-| Maven Central libraries | `0.2.0-alpha.1`, Java 17; [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.2.0-alpha.1) |
-| GHCR production image | `ghcr.io/nuaforma/nuaforma:0.2.0-alpha.1`, native Linux AMD64/ARM64, Java 25 service and Java 17 validators |
-| GHCR development Playground | `ghcr.io/nuaforma/nuaforma-playground:0.2.0-alpha.1`, native Linux AMD64/ARM64; sensitive development logging enabled by default |
-| Current feature baseline | Extensible value/content pipes and Base64 image insertion, correlated logging, pipe catalogs, health endpoints, CycloneDX SBOM and the separate Playground |
+| Maven Central libraries | `0.2.0-alpha.2`, Java 17; [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.2.0-alpha.2) |
+| GHCR production image | `ghcr.io/nuaforma/nuaforma:0.2.0-alpha.2`, native Linux AMD64/ARM64, Java 25 service and Java 17 validators |
+| GHCR development Playground | `ghcr.io/nuaforma/nuaforma-playground:0.2.0-alpha.2`, native Linux AMD64/ARM64; sensitive development logging enabled by default |
+| Earlier alpha.1 baseline, retained in alpha.2 | Extensible value/content pipes and Base64 image insertion, correlated logging, pipe catalogs, health endpoints, CycloneDX SBOM and the separate Playground |
 
-Version `0.2.0-alpha.1` uses contract `0.2` and the [candidate-specific distribution review](release-0.2.0-alpha.1-audit.md). Contract `0.2` accepts existing `0.1` providers; implementations using the new contracts require at least `0.2` and are rejected by older runtimes before initialization. Earlier `0.1` library/image tags remain immutable and do not gain these features. Native qualification covers the recorded runtime and fixtures, not arbitrary host platforms. Source builds do not publish artifacts automatically.
+Version `0.2.0-alpha.2` uses runtime contract `0.4`, accepting compatible provider minima `0.1` through `0.4`. DOCX requires `0.3` and the PDF provider requires `0.4`; original pipe extensions may retain minimum `0.2`. Historical `0.2.0-alpha.1` uses contract `0.2` and the [candidate-specific distribution review](release-0.2.0-alpha.1-audit.md). Contract `0.2` accepts existing `0.1` providers; implementations using the new contracts require at least `0.2` and are rejected by older runtimes before initialization. Earlier `0.1` library/image tags remain immutable and do not gain these features. Native qualification covers the recorded runtime and fixtures, not arbitrary host platforms. Source builds do not publish artifacts automatically.
 
 Published alphas are for evaluation and retain documented native-runtime security findings tracked in [issue #51](https://github.com/NuaForma/NuaForma/issues/51). Review their release notes and deployment boundaries; earlier risk acceptance is not approval of a different release candidate.
 
@@ -54,7 +54,7 @@ XLSX, ODT and ODS, external template retrieval, signable PDF fields and a LibreO
 
 ## Maintainer release guides
 
-- [0.2.0-alpha.2 preparation](release-0.2.0-alpha.2.md): the selected next prerelease, contract `0.4`, candidate-specific review and separate website handoff; not a publication claim.
+- [0.2.0-alpha.2 preparation](release-0.2.0-alpha.2.md): contract `0.4`, with the [candidate-specific distribution review](release-0.2.0-alpha.2-audit.md).
 - [0.2.0-alpha.1 preparation record](release-0.2.0-alpha.1.md) and [distribution review](release-0.2.0-alpha.1-audit.md), including contract `0.2` and the scoped evaluation-alpha security disposition.
 - [Maven Central signing, upload and publication](maven-central-releases.md).
 - [Container qualification and publication](container-releases.md), including mandatory website/download synchronization.

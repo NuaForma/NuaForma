@@ -30,18 +30,18 @@ This compiles/runs the independent Maven reactor under `maven/` and independent 
 | Maven PDF | core, docx-pdf | Explicit trusted runtime configuration; missing conversion leaves PDF unavailable and DOCX selectable |
 | Gradle Kotlin DOCX | core, docx | Actual generation through the same public contracts and runtime dependency isolation |
 
-The examples' parent POM accepts `-Dnuaforma.repository=<local-file-repository-URL>` and `-Dnuaforma.version=<version>`. The Gradle example accepts `-PnuaformaRepository=<URL>` and `-PnuaformaVersion=<version>`. Published libraries are available as `0.2.0-alpha.1`, also the examples' default coordinate. These verification commands deliberately consume the exclusive local staging repository rather than silently substituting Central's immutable release. There are no project substitutions, composite builds or dependencies on the service.
+The examples' parent POM accepts `-Dnuaforma.repository=<local-file-repository-URL>` and `-Dnuaforma.version=<version>`. The Gradle example accepts `-PnuaformaRepository=<URL>` and `-PnuaformaVersion=<version>`. Published libraries are available as `0.2.0-alpha.2`. For manual consumer builds, pass `-Dnuaforma.version=0.2.0-alpha.2` or `-PnuaformaVersion=0.2.0-alpha.2` explicitly; the example projects retain their historical alpha.1 default coordinate. These verification commands deliberately consume the exclusive local staging repository rather than silently substituting Central's immutable release. There are no project substitutions, composite builds or dependencies on the service.
 
 Runtime assertions reject server/test/veraPDF dependencies in the embedded host. The DOCX stack legitimately includes PDFBox IO/FontBox helpers, but not the optional full PDFBox parser, LibreOffice executable or isolated veraPDF validator. The PDF module's host dependencies differ from the converter's separate runtime; that runtime is not delivered through Maven.
 
 ## Configured PDF generation
 
-Unreleased issue #93 source adds explicit immutable per-instance `new LibreOfficeConfiguration(absoluteLauncher, 1, false)` (the same positional Kotlin call) to delegate PDF/A conformance validation downstream. Existing constructors remain default-on and binary compatible, including compiled Kotlin default calls. Explicit configuration takes precedence over trusted JVM property `nuaforma.pdf.pdfaValidation`; libraries read no environment. Optional `ConformancePolicyProvider.conformancePolicies()` reports the same effective policy as REST capabilities. Disabled validation retains PDFBox and isolation and makes no verified-conformance claim; the operator is responsible for downstream validation. The examples below and release qualification keep validation enabled. This addition is not present in published `0.2.0-alpha.1` libraries.
+Release `0.2.0-alpha.2` adds explicit immutable per-instance `new LibreOfficeConfiguration(absoluteLauncher, 1, false)` (the same positional Kotlin call) to delegate PDF/A conformance validation downstream. Existing constructors remain default-on and binary compatible, including compiled Kotlin default calls. Explicit configuration takes precedence over trusted JVM property `nuaforma.pdf.pdfaValidation`; libraries read no environment. Optional `ConformancePolicyProvider.conformancePolicies()` reports the same effective policy as REST capabilities. Disabled validation retains PDFBox and isolation and makes no verified-conformance claim; the operator is responsible for downstream validation. The examples below and release qualification keep validation enabled. Historical alpha.1 libraries do not contain this addition.
 
 `PdfExample` has two modes. With no arguments it verifies honest unavailability of PDF without the isolated runtime; it does not claim to render a PDF. With two arguments, supply the absolute path to the approved isolated launcher and a caller-owned output path:
 
 ```sh
-java -cp 'examples/embedded/maven/pdf/target/classes:examples/embedded/maven/pdf/target/dependency/0.2.0-alpha.1/*' \
+java -cp 'examples/embedded/maven/pdf/target/classes:examples/embedded/maven/pdf/target/dependency/0.2.0-alpha.2/*' \
   dev.nuaforma.examples.PdfExample /absolute/path/to/isolated-launcher /absolute/path/to/output.pdf
 ```
 
