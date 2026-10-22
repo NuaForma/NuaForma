@@ -29,7 +29,131 @@ class RestApiTest {
     private val envelope = """{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"name":"Ada","nested":{"a":[null,true,42]}},"options":{"watermark":{"text":"CONCEPT — {name}","color":"#A1B2C3","opacity":0.3,"rotation":-30}}}"""
 
     @Test
-    fun `development traces real DOCX and watermark evaluation without changing content or API errors`() = testApplication {
+    fun `automatic font selection uses the same public catalog and option semantics through REST and embedded generation`() = testApplication {
+        val directory = Files.createDirectory(temporary.resolve("automatic"))
+        val fixture = Path.of(System.getProperty("nuaforma.repositoryRoot"), "nuaforma-docx/src/test/resources/fonts/LibreBarcode39-Regular.ttf")
+        Files.copy(fixture, directory.resolve("opaque.ttf"))
+        val fontsType = Class.forName("dev.nuaforma.docx.DeploymentFonts")
+        val providerType = Class.forName("dev.nuaforma.docx.DocxProvider").asSubclass(DocumentProvider::class.java)
+        val fonts = fontsType.getMethod("load", List::class.java, Path::class.java).invoke(null, listOf(directory), null)
+        val provider = providerType.getConstructor(fontsType).newInstance(fonts)
+        val registry = ProviderRegistry.registered(listOf(ProviderRegistration(ProviderMetadata("nuaforma-docx", providerType.name, "0.1.0", ContractVersion.CURRENT)) { provider }))
+        application { KtorServer(registry, ServerConfiguration(temporaryDirectory = temporary)).installRoutes(this) }
+        val source = repack(entries(template()).mapValues { (name, text) -> if (name == "word/document.xml") text.replace("<w:b/>", """<w:rFonts w:ascii="Libre Barcode 39" w:hAnsi="Libre Barcode 39"/>""") else text })
+        val json = """{"input":{"format":"docx"},"output":{"format":"docx","options":{"fontMode":"embed","fontSelection":"used"}},"providerId":"nuaforma-docx","data":{"name":"Ada"}}"""
+        val expected = ByteArrayOutputStream()
+        provider.generate(GenerationRequest(source.inputStream(), GenerationRequirements(FormatRequest(DocumentFormat.DOCX),
+            FormatRequest(DocumentFormat.DOCX, mapOf("fontMode" to "embed", "fontSelection" to "used"))), mapOf("name" to "Ada")), expected, GenerationContext())
+        val response = client.post("/api/v1/documents") {
+            contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY")); setBody(multipart(json, source))
+        }
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        val actual = entries(response.bodyAsBytes())
+        assertEquals(entries(expected.toByteArray()).getValue("word/document.xml"), actual.getValue("word/document.xml"))
+        assertEquals(1, actual.keys.count { it.endsWith(".odttf") })
+        assertTrue(actual.getValue("word/fontTable.xml").contains("embedRegular"))
+        val caps = client.get("/api/v1/capabilities").bodyAsText()
+        assertTrue(caps.contains("fontSelection") && caps.contains("bundled"))
+        val invalid = client.post("/api/v1/assess") { contentType(ContentType.Application.Json); setBody(json.replace("\"embed\"", "\"validate\"")) }
+        assertEquals(HttpStatusCode.UnprocessableEntity, invalid.status)
+    }
+
+    @Test
+    fun `recovered mounted fonts retain activation HTTP catalog and DOCX availability after an empty restart`() {
+        val directory = Files.createDirectory(temporary.resolve("fonts"))
+        val fixture = Path.of(System.getProperty("nuaforma.repositoryRoot"), "nuaforma-docx/src/test/resources/fonts/LibreBarcode39-Regular.ttf")
+        val valid = Files.copy(fixture, directory.resolve("valid.ttf"))
+        Files.write(directory.resolve("rejected.otf"), byteArrayOf())
+        val fontsType = Class.forName("dev.nuaforma.docx.DeploymentFonts")
+        val providerType = Class.forName("dev.nuaforma.docx.DocxProvider").asSubclass(DocumentProvider::class.java)
+        for (restarted in listOf(false, true)) testApplication {
+            if (restarted) Files.write(valid, byteArrayOf())
+            val fonts = fontsType.getMethod("load", Path::class.java).invoke(null, directory)
+            val events = mutableListOf<GenerationLogEvent>()
+            val registry = ProviderRegistry.registered(listOf(ProviderRegistration(ProviderMetadata("nuaforma-docx", providerType.name,
+                "0.1.0", ContractVersion.CURRENT)) { providerType.getConstructor(fontsType).newInstance(fonts) }),
+                GenerationLogging(LoggingMode.DEVELOPMENT, null, events::add))
+            assertEquals(1, registry.providers.size)
+            assertTrue(registry.diagnostics.isEmpty())
+            assertTrue(events.any { it.code == "MOUNTED_FONT_REJECTED" && it.text.contains("rejected.otf") })
+            assertTrue(events.any { it.code == "MOUNTED_FONT_REJECTION_DETAIL" && it.text.contains("exception=") })
+            application { KtorServer(registry, ServerConfiguration(temporaryDirectory = temporary)).installRoutes(this) }
+            val catalog = client.get("/api/v1/capabilities")
+            assertEquals(HttpStatusCode.OK, catalog.status)
+            val body = catalog.bodyAsText()
+            assertEquals(!restarted, body.contains("Libre Barcode 39"))
+            assertFalse(body.contains(directory.toString()) || body.contains("rejected.otf"))
+            val response = client.post("/api/v1/documents") {
+                contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY"))
+                setBody(multipart(envelope, template()))
+            }
+            assertEquals(HttpStatusCode.OK, response.status)
+        }
+    }
+
+    @Test
+    fun `real rejections explain synthetic templates in development and correlate safe production logs`() {
+        for (mode in LoggingMode.entries) testApplication {
+            val events = java.util.Collections.synchronizedList(mutableListOf<GenerationLogEvent>())
+            application { KtorServer(ProviderRegistry.discover(), ServerConfiguration(ServerConfiguration(temporaryDirectory = temporary), mode), events::add).installRoutes(this) }
+            val linked = entries(template()).toMutableMap().apply {
+                this["_rels/.rels"] = getValue("_rels/.rels").replace("</Relationships>", """<Relationship Id="linked" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/attachedTemplate" Target="https://PRIVATE_TOKEN.example/template.dotm" TargetMode="External"/></Relationships>""")
+            }
+            val malformed = entries(template()).toMutableMap().apply { this["word/document.xml"] = "<PRIVATE_TOKEN broken" }
+            val embedded = entries(template()).toMutableMap().apply {
+                this["_rels/.rels"] = getValue("_rels/.rels").replace("</Relationships>", """<Relationship Id="embedded" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject" Target="PRIVATE_TOKEN"/></Relationships>""")
+            }
+            val cases = listOf(
+                Triple(envelope, repack(linked), "Linked templates and embedded documents are not supported"),
+                Triple(envelope, repack(embedded), "Linked templates and embedded documents are not supported"),
+                Triple(envelope, repack(malformed), "A DOCX XML part is malformed"),
+                Triple(envelope, "PRIVATE_TOKEN invalid ZIP".toByteArray(), "Input is not a valid unencrypted DOCX ZIP archive"),
+                Triple(envelope, template("{absent}"), "Required template data is missing"),
+                Triple(envelope, template("{#if name}yes{/if}"), "Template data has an incompatible type"),
+                Triple(envelope, template("{#if}"), "Unexpected DOCX block marker"),
+                Triple(envelope, template("Hello {name |}"), "Invalid template syntax"),
+                Triple(envelope.replace("\"output\":{\"format\":\"docx\"}", """"output":{"format":"docx","options":{"fontMode":"validate","fonts":[{"family":"Synthetic Font","resource":"missing"}]}}"""), template(), "Supply exactly the declared font resources"),
+                Triple(envelope.replace("\"output\":{\"format\":\"docx\"}", """"output":{"format":"docx","options":{"PRIVATE_TOKEN":true}}"""), template(), "Unrecognized DOCX options"),
+            )
+            for ((request, source, reason) in cases) {
+                val response = client.post("/api/v1/documents?mode=development") {
+                    header("NUAFORMA_MODE", "development"); header("X-NuaForma-Mode", "development")
+                    contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY"))
+                    setBody(multipart(request.replace("\"name\":\"Ada\"", "\"name\":\"Ada\",\"NUAFORMA_MODE\":\"development\""), source))
+                }
+                val body = response.bodyAsText()
+                assertEquals(HttpStatusCode.UnprocessableEntity, response.status, body)
+                val id = requireNotNull(response.headers["X-Request-ID"])
+                assertTrue(body.contains(id))
+                assertFalse(body.contains("PRIVATE_TOKEN"), body)
+                if (mode == LoggingMode.DEVELOPMENT) {
+                    assertTrue(body.contains(reason), body)
+                    assertTrue(body.contains("\"remediation\""), body)
+                    if (reason.startsWith("A DOCX XML")) {
+                        assertTrue(body.contains("\"part\":\"word/document.xml\""), body)
+                        assertTrue(body.contains("xml:1:"), body)
+                    }
+                } else {
+                    assertFalse(body.contains(reason), body)
+                    assertFalse(body.contains("\"remediation\""), body)
+                }
+                val captured = synchronized(events) { events.filter { it.requestId == id && it.code == "GENERATION_REJECTED" } }
+                assertTrue(captured.any { it.text.contains(reason) }, captured.joinToString { it.text })
+                assertTrue(captured.none { it.text.contains("PRIVATE_TOKEN") })
+                assertNull(response.headers[HttpHeaders.ContentDisposition])
+                assertEmpty()
+            }
+        }
+    }
+
+    private fun repack(parts: Map<String, String>): ByteArray = ByteArrayOutputStream().also { out ->
+        ZipOutputStream(out).use { zip -> parts.forEach { (name, text) ->
+            zip.putNextEntry(ZipEntry(name)); zip.write(text.toByteArray()); zip.closeEntry()
+        } }
+    }.toByteArray()
+
+    @Test
+    fun `development traces real DOCX and watermark evaluation without exposing field values in errors`() = testApplication {
         val events = java.util.Collections.synchronizedList(mutableListOf<GenerationLogEvent>())
         val registry = ProviderRegistry.discover()
         application { KtorServer(registry, ServerConfiguration(ServerConfiguration(temporaryDirectory = temporary), LoggingMode.DEVELOPMENT), events::add).installRoutes(this) }

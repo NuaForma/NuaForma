@@ -29,6 +29,10 @@ node --test nuaforma-playground/src/test/javascript/builder.test.cjs
 
 The full build includes module/dependency boundaries, ArchUnit architecture checks, Java/Kotlin tests, SBOM schema checks and local library-publication verification. JUnit Jupiter, MockK, ArchUnit and Swagger Parser are test-only. Changing only prose normally requires link/diff review rather than rendering every document; executable examples and generated documentation still need their applicable checks.
 
+For the seven-module JaCoCo report, run `./gradlew coverageReport -Pcoverage=true`. The [code-quality guide](code-quality.md) explains local HTML/XML reports, SonarQube Cloud CI, coverage boundaries and safe maintainer token setup. Normal builds need no Sonar token or coverage agent.
+
+Gradle dependencies and their metadata are verified against reviewed SHA-256 checksums in strict mode. Version locks and checksum verification serve different purposes; deliberate dependency updates must include the [independent checksum review](code-quality.md#reviewed-dependency-verification), not blindly accept newly generated hashes or disable verification.
+
 Tests using synthetic DOCX/PDF inputs are not proof of visual fidelity. Changes affecting document processing, fonts, conversion, resource handling or transport require the relevant real integration checks, representative rendered-page review and independent barcode/profile checks. See [container qualification](../deployment/pdf-runtime/SERVICE.md#qualification-and-release-preparation) and the [renderer guide](../deployment/pdf-runtime/README.md#reproducible-qualification). Use synthetic data and licensed test fonts, not customer documents or private credentials.
 
 ## Run the service and export its contract
@@ -57,7 +61,7 @@ The JSON/YAML files are written beneath `nuaforma-server/build/generated/openapi
 
 These checks stage POM/main/source/documentation JARs to the ignored `build/library-repository` and test independently compiled Java/Maven and Kotlin/Gradle consumers. They do not upload to Maven Central. Documentation JARs contain module guides and architecture material, not generated Kotlin API pages.
 
-Release `0.2.0-alpha.1` uses contract `0.2` and is available on Central. Source verification still uses the examples' exclusive local repository and exact staged artifact hashes so a public release cannot silently substitute for the code under test. See [embedded examples](../examples/embedded/README.md) and the [value-pipe example](../examples/value-pipes/README.md).
+Published `0.2.0-alpha.1` uses contract `0.2`. The selected next candidate is `0.2.0-alpha.2` with runtime contract `0.4`; see its [preparation record](release-0.2.0-alpha.2.md). Source verification uses the examples' exclusive local repository and exact current staged artifact hashes so a public release cannot silently substitute for the code under test. Pass the candidate version explicitly when consuming local staging. See [embedded examples](../examples/embedded/README.md) and the [value-pipe example](../examples/value-pipes/README.md).
 
 ## Modules
 

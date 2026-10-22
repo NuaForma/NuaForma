@@ -26,6 +26,7 @@ target/
 /tools/container/__pycache__/
 /tools/site/__pycache__/
 /tools/sbom/__pycache__/
+/tools/quality/__pycache__/
 
 # IDE-local configuration
 .idea/

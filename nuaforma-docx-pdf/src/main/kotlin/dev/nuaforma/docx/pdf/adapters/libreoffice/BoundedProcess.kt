@@ -22,7 +22,7 @@ internal object BoundedProcess {
         builder.environment().clear()
         val process = try { builder.start() } catch (error: java.io.IOException) {
             context.logging.failure("SANDBOX_PROCESS_START_FAILED", error)
-            PdfFailure.fail(DiagnosticCodes.PROVIDER_UNAVAILABLE, "Isolated PDF converter could not be started")
+            PdfFailure.fail(DiagnosticCodes.PROVIDER_UNAVAILABLE, RejectionReason.ISOLATED_PDF_CONVERTER_COULD_NOT_BE_STARTED)
         }
         val captured = java.io.ByteArrayOutputStream(4096)
         val stderr = Thread({
@@ -46,7 +46,7 @@ internal object BoundedProcess {
                     nextBudgetCheck = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(250)
                 }
                 if (probeOutput != null && Files.exists(probeOutput) && Files.size(probeOutput) > maximumProbeBytes) {
-                    PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, "Converter readiness response exceeded its limit")
+                    PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, RejectionReason.CONVERTER_READINESS_RESPONSE_EXCEEDED_ITS_LIMIT)
                 }
                 if (process.waitFor(50, TimeUnit.MILLISECONDS)) break
             }
@@ -58,15 +58,15 @@ internal object BoundedProcess {
                 context.logging.operation("SANDBOX_PROCESS_FAILED", mapOf("operation" to phase, "exitCode" to process.exitValue().toString(), "reason" to reason.first, "action" to reason.second))
                 context.logging.trace("SANDBOX_FAILURE_DETAILS", mapOf("exitCode" to process.exitValue(), "reason" to reason.first,
                     "capturedBytes" to captured.size(), "captureLimitBytes" to 4096, "rawOutput" to "[withheld; may contain document or credential data]"))
-                PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, "Isolated PDF converter failed")
+                PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, RejectionReason.ISOLATED_PDF_CONVERTER_FAILED)
             }
             context.logging.operation("SANDBOX_PROCESS_COMPLETED", mapOf("operation" to phase))
             if (probeOutput != null && Files.size(probeOutput) > maximumProbeBytes) {
-                PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, "Converter readiness response exceeded its limit")
+                PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, RejectionReason.CONVERTER_READINESS_RESPONSE_EXCEEDED_ITS_LIMIT)
             }
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
-            PdfFailure.fail(DiagnosticCodes.CANCELLED, "PDF conversion was interrupted")
+            PdfFailure.fail(DiagnosticCodes.CANCELLED, RejectionReason.PDF_CONVERSION_WAS_INTERRUPTED)
         } finally {
             // Killing Bubblewrap's namespace supervisor also terminates remaining sandbox processes.
             val children = process.descendants().use { it.toList() }.sortedByDescending { child ->

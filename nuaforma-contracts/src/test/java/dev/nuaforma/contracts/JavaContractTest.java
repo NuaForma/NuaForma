@@ -16,6 +16,26 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class JavaContractTest {
     @Test
+    void structuredReasonsPreserveExistingJavaAndKotlinConstructors() throws ReflectiveOperationException {
+        var legacy = new Diagnostic(DiagnosticCodes.INVALID_TEMPLATE, "Legacy text");
+        assertEquals("Legacy text", legacy.getMessage());
+        assertNull(legacy.getRejectionReason());
+        assertNull(legacy.getPart());
+        var marker = Class.forName("kotlin.jvm.internal.DefaultConstructorMarker");
+        var originalDefault = Diagnostic.class.getConstructor(DiagnosticCode.class, String.class,
+            Severity.class, String.class, int.class, marker);
+        var kotlin = (Diagnostic) originalDefault.newInstance(DiagnosticCodes.INVALID_TEMPLATE, "Kotlin text", null, null, 12, null);
+        assertEquals(Severity.ERROR, kotlin.getSeverity());
+        assertNull(kotlin.getLocation());
+        var reason = RejectionReason.REQUIRED_TEMPLATE_DATA_IS_MISSING;
+        var diagnostic = new Diagnostic(DiagnosticCodes.MISSING_VALUE, reason, Severity.ERROR, "template:7", "word/document.xml");
+        assertSame(reason, diagnostic.getRejectionReason());
+        assertEquals("Required template data is missing", diagnostic.getMessage());
+        assertEquals("template:7", diagnostic.getLocation());
+        assertEquals("word/document.xml", diagnostic.getPart());
+    }
+
+    @Test
     void javaCanDescribeNestedRequestsAndProviderOptions() {
         var output = new FormatRequest(DocumentFormat.PDF, Map.of("version", "1.7", "embedFonts", true));
         var options = new GenerationOptions(new TextWatermark("CONCEPT"));

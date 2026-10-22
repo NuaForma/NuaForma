@@ -45,6 +45,9 @@ class ProviderRegistry internal constructor(providers: List<RegisteredProvider>,
                 else rejected += assessment.diagnostics
             } catch (error: Exception) {
                 context.checkActive()
+                if (error is GenerationException && error.diagnostics.any {
+                    it.code == DiagnosticCodes.CANCELLED || it.code == DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED
+                }) throw error
                 context.logging.failure("PROVIDER_ASSESSMENT_FAILED", error, mapOf("provider" to id))
                 rejected += failure("INVALID_PROVIDER", "Provider availability or assessment failed", id)
             } catch (error: LinkageError) {

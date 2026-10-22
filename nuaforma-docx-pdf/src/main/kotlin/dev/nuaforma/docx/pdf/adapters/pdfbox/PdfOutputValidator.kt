@@ -123,6 +123,6 @@ internal object PdfOutputValidator {
 
     private val forbiddenKeys = setOf("OpenAction", "AA", "JavaScript", "JS", "AcroForm", "XFA", "EmbeddedFiles", "EF", "AF", "FFilter", "FDecodeParms")
     private val actionTypes = setOf("GoTo", "GoToR", "GoToE", "Launch", "Thread", "URI", "Sound", "Movie", "Hide", "Named", "SubmitForm", "ResetForm", "ImportData", "JavaScript", "SetOCGState", "Rendition", "Trans", "GoTo3DView")
-    private fun invalid(): Nothing = PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, "Generated PDF failed static-output validation")
-    private fun limit(): Nothing = PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "PDF validation resource budget was exceeded")
+    private fun invalid(): Nothing = PdfFailure.fail(DiagnosticCodes.GENERATION_FAILED, RejectionReason.GENERATED_PDF_FAILED_STATIC_OUTPUT_VALIDATION)
+    private fun limit(): Nothing = PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.PDF_VALIDATION_RESOURCE_BUDGET_WAS_EXCEEDED)
 }

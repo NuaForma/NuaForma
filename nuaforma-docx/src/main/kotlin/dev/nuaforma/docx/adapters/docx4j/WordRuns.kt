@@ -1,5 +1,6 @@
 package dev.nuaforma.docx.adapters.docx4j
 
+import dev.nuaforma.contracts.RejectionReason
 import dev.nuaforma.template.TemplateSession
 import dev.nuaforma.template.ContentTemplateSession
 import dev.nuaforma.contracts.ContentResult
@@ -33,7 +34,7 @@ internal object WordRuns {
         if (plain(run)) return
         if (validateOnly && ContentTemplates.containsContentMarker(run.content.filterIsInstance<JAXBElement<*>>()
                 .filter { it.name.localPart != "t" && it.value is Text }.joinToString("") { (it.value as Text).value }, valuePipes, context)) {
-            DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "Content pipes cannot be inserted into field instructions")
+            DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.CONTENT_PIPES_CANNOT_BE_INSERTED_INTO_FIELD_INSTRUCTIONS)
         }
         var index = 0
         while (index < run.content.size) {
@@ -64,7 +65,7 @@ internal object WordRuns {
                 else -> ""
             } }
             if (ContentTemplates.containsContentMarker(instructions, valuePipes, context)) {
-                DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "Content pipes cannot be inserted into field instructions")
+                DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.CONTENT_PIPES_CANNOT_BE_INSERTED_INTO_FIELD_INSTRUCTIONS)
             }
         }
         var index = 0
@@ -126,7 +127,7 @@ internal object WordRuns {
                         null -> fragment.text
                         is ContentResult.Text -> result.text
                         ContentResult.Empty -> ""
-                        else -> DocxFailure.fail(DiagnosticCodes.INVALID_REQUEST, "Selected DOCX generator cannot insert this structured content result")
+                        else -> DocxFailure.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.SELECTED_DOCX_GENERATOR_CANNOT_INSERT_THIS_STRUCTURED_CONTENT_RESULT)
                     }
                     add(anchor, text)
                 }

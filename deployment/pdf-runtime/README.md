@@ -4,6 +4,8 @@ This directory defines the native Linux AMD64/ARM64 runtime boundary for the opt
 
 ## Build and application use
 
+Unreleased issue #93 source adds a strict default-on operator conformance policy; see [service configuration](SERVICE.md#docx-pdf-and-fonts) and [embedded configuration](../../nuaforma-docx-pdf/README.md#operator-conformance-policy-unreleased-issue-93-source). Explicit `false` skips only per-document veraPDF, never PDFBox, probe/runtime identity, network denial, private JVM/files or budgets. All validators remain bundled with the same license/source/SBOM obligations. Enabled validation still binds the requested profile to the final file digest and fails closed. Disabled output carries an export profile, not a verified-conformance claim; the operator owns downstream checking. Default-on release qualification remains mandatory. Published alpha images and digests stay immutable.
+
 Build with JDK 17 and JDK 25 installed and the repository wrapper, then Docker with BuildKit. The library/validator toolchain remains 17; the separately packaged server uses 25:
 
 ```sh

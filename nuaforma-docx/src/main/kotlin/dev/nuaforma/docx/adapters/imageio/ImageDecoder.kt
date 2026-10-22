@@ -139,6 +139,6 @@ internal object ImageDecoder {
     }
 
     private val PNG = byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 13, 10, 26, 10)
-    private fun invalid(): Nothing = DocxFailure.fail(DiagnosticCodes.INVALID_REQUEST, "Image must be a valid static PNG or JPEG within the supported image profile")
-    private fun limit(): Nothing = DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "Image encoding exceeds its byte limit")
+    private fun invalid(): Nothing = DocxFailure.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.IMAGE_MUST_BE_A_VALID_STATIC_PNG_OR_JPEG)
+    private fun limit(): Nothing = DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.IMAGE_ENCODING_EXCEEDS_ITS_BYTE_LIMIT)
 }

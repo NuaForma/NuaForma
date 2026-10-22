@@ -87,7 +87,7 @@ internal class NativeTextBoxes(private val xml: ConversionXml, private val right
         return try { BigDecimal(value.dropLast(2)).multiply(BigDecimal(12700)).longValueExact() } catch (_: ArithmeticException) { unsupported() }
     }
 
-    private fun unsupported(): Nothing = PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, "Text box is outside the verified PDF compatibility profile")
+    private fun unsupported(): Nothing = PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.TEXT_BOX_IS_OUTSIDE_THE_VERIFIED_PDF_COMPATIBILITY_PROFILE)
 
     companion object {
         const val WORD = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"

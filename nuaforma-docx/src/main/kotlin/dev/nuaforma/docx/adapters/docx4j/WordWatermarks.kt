@@ -21,7 +21,7 @@ internal class WordWatermarks(private val context: GenerationContext) {
         val main = document.mainDocumentPart
         val body = main.jaxbElement.body
         val sections = body.content.map { XmlUtils.unwrap(it) }.filterIsInstance<P>().mapNotNull { it.pPr?.sectPr }.toMutableList()
-        walk(body) { node -> if (node is P && node.pPr?.sectPr != null && node.pPr.sectPr !in sections) unsupported("Watermarks require section breaks in body paragraphs") }
+        walk(body) { node -> if (node is P && node.pPr?.sectPr != null && node.pPr.sectPr !in sections) unsupported(RejectionReason.WATERMARKS_REQUIRE_SECTION_BREAKS_IN_BODY_PARAGRAPHS) }
         val finalSection = body.sectPr ?: SectPr().also { body.sectPr = it }
         sections.add(finalSection)
         val even = main.documentSettingsPart?.jaxbElement?.evenAndOddHeaders?.isVal == true
@@ -35,7 +35,7 @@ internal class WordWatermarks(private val context: GenerationContext) {
                 size.w?.let { pageWidth = it.toDouble() / 20 }
                 size.h?.let { pageHeight = it.toDouble() / 20 }
             }
-            if (!pageWidth.isFinite() || !pageHeight.isFinite() || pageWidth <= 0 || pageHeight <= 0) unsupported("Watermark page geometry must be positive and finite")
+            if (!pageWidth.isFinite() || !pageHeight.isFinite() || pageWidth <= 0 || pageHeight <= 0) unsupported(RejectionReason.WATERMARK_PAGE_GEOMETRY_MUST_BE_POSITIVE_AND_FINITE)
             smallest = minOf(smallest, pageWidth, pageHeight)
         }
         val width = minOf(400.0, smallest * 0.65)
@@ -43,10 +43,10 @@ internal class WordWatermarks(private val context: GenerationContext) {
         sections.forEach { section ->
             context.checkActive()
             val references = section.getEGHdrFtrReferences().filterIsInstance<HeaderReference>()
-            if (references.map { it.type }.distinct().size != references.size) unsupported("Duplicate header kinds cannot be watermarked safely")
+            if (references.map { it.type }.distinct().size != references.size) unsupported(RejectionReason.DUPLICATE_HEADER_KINDS_CANNOT_BE_WATERMARKED_SAFELY)
             references.forEach { reference ->
-                val type = reference.type ?: unsupported("Watermark header references need an explicit kind")
-                val part = main.relationshipsPart?.getPart(reference.id) as? HeaderPart ?: unsupported("Watermark header reference does not point to a header")
+                val type = reference.type ?: unsupported(RejectionReason.WATERMARK_HEADER_REFERENCES_NEED_AN_EXPLICIT_KIND)
+                val part = main.relationshipsPart?.getPart(reference.id) as? HeaderPart ?: unsupported(RejectionReason.WATERMARK_HEADER_REFERENCE_DOES_NOT_POINT_TO_A_HEADER)
                 inherited[type] = part
             }
             val active = listOf(HdrFtrRef.DEFAULT) + (if (even) listOf(HdrFtrRef.EVEN) else emptyList()) +
@@ -55,7 +55,7 @@ internal class WordWatermarks(private val context: GenerationContext) {
                 val header = inherited[type] ?: run {
                     // A new anchor must not move the body where an absent header previously reserved no space.
                     val margins = section.pgMar
-                    if (margins?.header != null && margins.top != null && margins.header >= margins.top) unsupported("Watermarks cannot create a header at or below the body top margin")
+                    if (margins?.header != null && margins.top != null && margins.header >= margins.top) unsupported(RejectionReason.WATERMARKS_CANNOT_CREATE_A_HEADER_AT_OR_BELOW_THE)
                     var name: PartName
                     do { name = PartName("/word/nf-header-${UUID.randomUUID()}.xml") } while (document.parts.parts.containsKey(name))
                     val created = HeaderPart(name).apply { jaxbElement = Hdr() }
@@ -90,7 +90,7 @@ internal class WordWatermarks(private val context: GenerationContext) {
 
     private fun walk(raw: Any, depth: Int = 1, inspect: (Any) -> Unit) {
         context.checkActive()
-        if (++visits > 1_000_000 || depth > 128) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "Watermark traversal exceeds processing limits")
+        if (++visits > 1_000_000 || depth > 128) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.WATERMARK_TRAVERSAL_EXCEEDS_PROCESSING_LIMITS)
         val node = XmlUtils.unwrap(raw)
         inspect(node)
         TraversalUtil.getChildrenImpl(node)?.toList()?.forEach { walk(it, depth + 1, inspect) }
@@ -98,5 +98,5 @@ internal class WordWatermarks(private val context: GenerationContext) {
 
     private fun number(value: Double) = BigDecimal.valueOf(value).stripTrailingZeros().toPlainString()
     private fun escape(value: String) = value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;")
-    private fun unsupported(message: String): Nothing = DocxFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, message)
+    private fun unsupported(reason: RejectionReason): Nothing = DocxFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, reason)
 }

@@ -3,7 +3,9 @@ import argparse
 import hashlib
 import json
 import pathlib
+import shutil
 from qualify_service import Runtime, generate, http, template
+from qualify_pdfa_policy import qualify as qualify_pdfa_policy
 
 
 def verify_bom(bom, architecture, application):
@@ -38,9 +40,23 @@ def main():
     parser.add_argument('--output', type=pathlib.Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
-    runtime = Runtime(args)
+    fonts = args.output / 'mixed-fonts'
+    fonts.mkdir()
+    shutil.copyfile('nuaforma-docx/src/test/resources/fonts/LibreBarcode39-Regular.ttf', fonts / 'surviving.ttf')
+    (fonts / 'bad.ttf').write_bytes(b'not-a-font')
+    runtime = Runtime(args, '--mount', f'type=bind,source={fonts.resolve()},target=/opt/nuaforma/custom-fonts,readonly')
     try:
         base = runtime.connect()
+        status, _, catalog = http(base, '/api/v1/capabilities')
+        providers = {provider['id']: provider for provider in json.loads(catalog)['providers']}
+        assert status == 200
+        assert [font['family'] for font in providers['nuaforma-docx']['fonts']['entries'] if font['source'] == 'mounted'] == ['Libre Barcode 39']
+        assert any(font['source'] == 'bundled' for font in providers['nuaforma-docx']['fonts']['entries'])
+        logs = runtime.command('logs', runtime.name)
+        assert 'MOUNTED_FONT_REJECTED' in logs and 'bad.ttf' in logs
+        assert ('MOUNTED_FONT_REJECTION_DETAIL' in logs) == (args.application == 'playground')
+        if args.application == 'playground':
+            assert 'OpenTypeMetadata' in logs and 'stack=' in logs and 'exception=' in logs
         status, headers, data = http(base, '/api/v1/sbom')
         assert status == 200
         assert headers.get('Content-Type','').startswith('application/vnd.cyclonedx+json')
@@ -52,7 +68,7 @@ def main():
             status, _, version = http(base, '/api/v1/version')
             version = json.loads(version)
             assert status == 200 and version['version'] == args.expected_version
-            assert version['contractVersion'] == '0.2'
+            assert version['contractVersion'] == '0.4'
         verify_bom(bom, args.architecture, args.application)
         (args.output / 'sbom.json').write_bytes(data)
         status, headers, body = http(base, '/playground/')
@@ -85,6 +101,7 @@ def main():
             assert int(invalid.command('wait',invalid.name)) != 0
         finally:
             invalid.close()
+    qualify_pdfa_policy(args)
     print('Shipped inventory and ' + args.application + ' boundary: PASS')
 
 

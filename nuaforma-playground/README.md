@@ -1,5 +1,9 @@
 # NuaForma Playground
 
+Unreleased issue #93 source shows the effective provider-owned PDF/A conformance policy beside the PDF selection and in the provider explorer. Disabled policy displays **PDF/A conformance is not checked by NuaForma**, with downstream operator responsibility. Generation remains available when the backend is ready. Missing/null/legacy metadata is shown as unknown; multiple matching providers retain their individual policies. There is no checkbox or request/export override. The same strict default-on `NUAFORMA_PDFA_VALIDATION` startup behavior and production-safe warning apply through the common server main. Published alpha images remain unchanged.
+
+Unreleased issue #98 source displays server-provided development rejection explanations, safe part/construct/location and recovery advice alongside the request ID. Results use text nodes, so diagnostic text cannot become HTML. The Playground does not select or override the server mode and exports no diagnostics-mode option. Production/restricted responses remain readable without optional fields; published images retain their prior behavior.
+
 A separate, development-only Java 25 application over the same REST server and engine. Production `nuaforma-server` artifacts and the `service` image do not depend on this module or contain its browser assets. The five embedded libraries retain Java 17 support. There is no separate generation implementation and no browser framework/CDN dependency.
 
 ## Run the development container
@@ -23,6 +27,8 @@ The Playground image defaults to `NUAFORMA_PLAYGROUND=true`, `NUAFORMA_MODE=deve
 
 ## Prepare and generate
 
+Unreleased issue #100 source adds **Automatically embed used template fonts** when the selected DOCX provider advertises `fontSelection=used`. It exports `fontMode=embed, fontSelection=used` without requiring a font list. Explicit selected/uploaded faces remain overrides; automatic selection resolves only used supported faces from the same immutable IMAGE/MOUNT catalogs. Missing faces, embedding restrictions and unsupported effective formatting produce normal API diagnostics. The [DOCX guide](../nuaforma-docx/README.md#automatic-embedding-unreleased-issue-100-source) defines the profile. The control disappears for unsupported provider/output combinations; default preservation, explicit validate/embed and PDF behavior remain unchanged.
+
 The interface loads the running `/openapi.json` and `/api/v1/capabilities`: available provider pairs, provider input/output/general options, profiles, fonts and separate value/content pipe catalogs. Structured provider options use JSON editors, scalar options use typed controls, and unknown extension formats remain selectable when advertised. Availability is not a reservation; **Check requirements** assesses the complete envelope without uploading the template. Only **Generate document** uploads the chosen file/resources and downloads a successful result from the existing multipart endpoint.
 
 Data supports nested JSON objects, arrays and nulls. JSON editor literals, including large integers and decimals, are preserved in the exported/submitted envelope rather than passed through JavaScript number reserialization. The service remains the authoritative validator. Template markers, image content pipes and other features run in the provider, not in the browser.
@@ -44,5 +50,7 @@ No default browser storage, service worker, analytics, external script, remote f
 New functionality requires an explicit Playground impact assessment in issue planning and PR delivery, even when capabilities are discovered dynamically. Update controls, exports, warnings and tests with their owning feature; do not claim unsupported UI coverage.
 
 ## Browser request-builder regression checks
+
+Unreleased issue #99 source keeps the Playground available when individual mounted fonts are rejected. It shows the surviving entries from the same provider snapshot; no extra control or request setting is needed. Rejected/conflicting files never enter the catalog, and stale selections after a restart are rejected by the existing export validation. Startup development logs carry the file reasons and bounded stacks; no internal log endpoint or paths enter the UI. The builder regressions cover surviving/stale exports, and native endpoint qualification checks mixed-font startup in both production and Playground images. Published images retain their existing loader.
 
 Run `node --test nuaforma-playground/src/test/javascript/builder.test.cjs` from the repository root with a Node runtime supporting its built-in test runner. These dependency-free checks exercise the actual request-builder source: automatic/explicit/ambiguous selection, shared metadata, exact JSON literals, font declarations/resources, bundled/mounted distinctions and invalid/duplicate/stale selections. Browser file chooser, multipart submission and real document/font processing still require integration checks against the local application; these checks do not establish visual or barcode fidelity.

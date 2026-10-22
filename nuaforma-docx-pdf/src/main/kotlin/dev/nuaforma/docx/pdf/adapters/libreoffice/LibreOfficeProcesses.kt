@@ -5,21 +5,29 @@ import dev.nuaforma.docx.pdf.LibreOfficeConfiguration
 import dev.nuaforma.docx.pdf.internal.ConversionFiles
 import dev.nuaforma.docx.pdf.internal.PdfConverter
 import dev.nuaforma.docx.pdf.internal.PdfProfile
+import dev.nuaforma.docx.pdf.internal.RuntimeVerification
 import java.nio.file.Files
-import java.time.Duration
+import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.attribute.FileTime
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 
-internal class LibreOfficeProcesses(private val configuration: LibreOfficeConfiguration?) : PdfConverter {
+internal class LibreOfficeProcesses(
+    private val configuration: LibreOfficeConfiguration?,
+    private val verification: RuntimeVerification = RuntimeVerification(),
+) : PdfConverter {
     private val slots = Semaphore(configuration?.maximumParallelConversions ?: 1, true)
+    private data class LauncherIdentity(val size: Long, val modified: FileTime, val key: Any?)
 
     override fun readiness(): CapabilityAssessment {
-        if (configuration == null || !Files.isExecutable(configuration.launcher)) return unavailable()
-        val context = GenerationContext(GenerationLimits(maxDuration = Duration.ofSeconds(10)))
+        val context = GenerationContext()
         return try {
             verify(context)
             CapabilityAssessment(AssessmentStatus.SUPPORTED)
-        } catch (_: GenerationException) { unavailable() }
+        } catch (error: GenerationException) {
+            if (error.diagnostics.any { it.code == DiagnosticCodes.CANCELLED || it.code == DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED }) throw error
+            unavailable()
+        }
         catch (_: java.io.IOException) { unavailable() }
     }
 
@@ -30,23 +38,45 @@ internal class LibreOfficeProcesses(private val configuration: LibreOfficeConfig
             throw GenerationException(unavailable().diagnostics)
         }
         if (!Files.isExecutable(configuration.launcher)) {
+            verification.invalidate()
             context.logging.operation("PDF_LAUNCHER_UNAVAILABLE", mapOf("reason" to "Check that the configured PDF launcher exists and is executable"))
             throw GenerationException(unavailable().diagnostics)
         }
+        val identity = identity()
+        verification.ensure(identity, context) {
+            withSlot(context) { probe(identity, context) }
+        }
+    }
+
+    private fun probe(identity: LauncherIdentity, context: GenerationContext) {
         ConversionFiles.create(context).use { files ->
             configure(files)
             val response = files.directory.resolve("version.txt")
-            withSlot(context) { BoundedProcess.run(command(files, "probe", context), context, response, operationDirectory = files.directory) }
+            BoundedProcess.run(command(files, "probe", context), context, response, operationDirectory = files.directory)
             val lines = Files.readString(response).lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
             if (lines != listOf("LibreOffice 26.8.1.1 bf6ef2662401c7d6dce671ab4deb26ee0af3a7c1", "NuaForma PDF validator 1", "NuaForma PDF/A validator 1")) {
                 context.logging.operation("PDF_RUNTIME_VERSION_MISMATCH", mapOf("reason" to "Renderer or validator identity does not match the qualified runtime"))
                 throw GenerationException(unavailable().diagnostics)
             }
+            if (identity != identity()) throw GenerationException(unavailable().diagnostics)
+        }
+    }
+
+    private fun identity(): LauncherIdentity {
+        return try {
+            val attributes = Files.readAttributes(configuration!!.launcher, BasicFileAttributes::class.java)
+            LauncherIdentity(attributes.size(), attributes.lastModifiedTime(), attributes.fileKey())
+        } catch (error: java.io.IOException) {
+            verification.invalidate()
+            throw error
         }
     }
 
     override fun convert(files: ConversionFiles, context: GenerationContext) {
-        if (configuration == null || !Files.isExecutable(configuration.launcher)) throw GenerationException(unavailable().diagnostics)
+        if (configuration == null || !Files.isExecutable(configuration.launcher)) {
+            verification.invalidate()
+            throw GenerationException(unavailable().diagnostics)
+        }
         configure(files)
         val mode = if (files.profile == PdfProfile.STANDARD) "convert" else "convert-${files.profile.id}"
         withSlot(context) { BoundedProcess.run(command(files, mode, context), context, operationDirectory = files.directory) }
@@ -54,7 +84,7 @@ internal class LibreOfficeProcesses(private val configuration: LibreOfficeConfig
 
     override fun validate(files: ConversionFiles, context: GenerationContext) {
         withSlot(context) { BoundedProcess.run(command(files, "validate", context), context, operationDirectory = files.directory) }
-        if (files.profile != PdfProfile.STANDARD) {
+        if (files.profile != PdfProfile.STANDARD && configuration!!.pdfaValidation) {
             val response = files.directory.resolve("conformance.txt")
             withSlot(context) { BoundedProcess.run(command(files, "validate-${files.profile.id}", context), context, response, 256, files.directory) }
             context.checkActive()
@@ -134,7 +164,7 @@ internal class LibreOfficeProcesses(private val configuration: LibreOfficeConfig
             action()
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
-            throw GenerationException(listOf(Diagnostic(DiagnosticCodes.CANCELLED, "PDF conversion was interrupted")))
+            throw GenerationException(listOf(Diagnostic(DiagnosticCodes.CANCELLED, RejectionReason.PDF_CONVERSION_WAS_INTERRUPTED)))
         } finally { if (acquired) slots.release() }
     }
 

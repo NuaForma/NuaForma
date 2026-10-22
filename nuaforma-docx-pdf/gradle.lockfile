@@ -56,6 +56,7 @@ org.eclipse.angus:angus-activation:2.0.3=runtimeClasspath,testRuntimeClasspath
 org.glassfish.jaxb:jaxb-core:4.0.9=runtimeClasspath,testRuntimeClasspath
 org.glassfish.jaxb:jaxb-runtime:4.0.9=runtimeClasspath,testRuntimeClasspath
 org.glassfish.jaxb:txw2:4.0.9=runtimeClasspath,testRuntimeClasspath
+org.jacoco:org.jacoco.agent:0.8.15=jacocoAgent
 org.jetbrains.kotlin:kotlin-bom:2.4.21=compileClasspath,pdfValidationRuntime,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.jetbrains.kotlin:kotlin-build-tools-api:2.4.21=kotlinBuildToolsApiClasspath
 org.jetbrains.kotlin:kotlin-build-tools-compat:2.4.21=kotlinBuildToolsApiClasspath

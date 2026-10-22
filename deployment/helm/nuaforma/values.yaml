@@ -2,6 +2,8 @@ image:
   repository: nuaforma
   tag: local
   digest: ""
+# Exact strings only; false delegates PDF/A conformance checks to the operator.
+pdfaValidation: "true"
 seccomp:
   localhostProfile: nuaforma/seccomp.json
 fonts:

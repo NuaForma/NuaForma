@@ -8,6 +8,15 @@ import java.nio.file.Path
 import java.util.Properties
 
 class ServerPropertiesTest {
+    @Test fun `PDF A policy has a strict default on startup matrix shared by both applications`() {
+        assertTrue(ServerProperties.pdfaValidation(null))
+        assertTrue(ServerProperties.pdfaValidation("true"))
+        assertFalse(ServerProperties.pdfaValidation("false"))
+        for (value in listOf("", " ", " true", "false ", "TRUE", "FALSE", "0", "1", "flase", "PRIVATE_TOKEN\nsecret")) {
+            val error = assertThrows(IllegalArgumentException::class.java) { ServerProperties.pdfaValidation(value) }
+            assertFalse(error.message.orEmpty().contains("PRIVATE_TOKEN"))
+        }
+    }
     @TempDir lateinit var temporary: Path
     private fun properties(vararg values: Pair<String, String>) = Properties().apply {
         setProperty("java.io.tmpdir", temporary.toString())

@@ -5,9 +5,12 @@ import io
 import json
 import pathlib
 import re
+import shutil
+import xml.etree.ElementTree as ET
 import zipfile
 from qualify_service import Runtime, generate, http, multipart, template
 from verify_native_platform import verify
+from qualify_automatic_fonts import qualify as qualify_automatic_fonts
 
 
 def main():
@@ -22,7 +25,16 @@ def main():
     parser.add_argument("--apparmor", choices=("nuaforma-runtime",))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
-    runtime = Runtime(args, "--mount", f"type=bind,source={args.fonts.resolve()},target=/opt/nuaforma/custom-fonts,readonly",
+    fonts = args.output / "mixed-fonts"
+    shutil.copytree(args.fonts, fonts)
+    original = (fonts / "LibreBarcode39-Regular.ttf").read_bytes()
+    (fonts / "duplicate.ttf").write_bytes(original)
+    (fonts / "corrupt.ttf").write_bytes(b"not-a-font")
+    (fonts / "unsupported.woff").write_bytes(b"wOFF" + bytes(32))
+    (fonts / "unreadable.ttf").write_bytes(original)
+    (fonts / "unreadable.ttf").chmod(0)
+    (fonts / "symlink.ttf").symlink_to("LibreBarcode39-Regular.ttf")
+    runtime = Runtime(args, "--mount", f"type=bind,source={fonts.resolve()},target=/opt/nuaforma/custom-fonts,readonly",
                       "--mount", f"type=bind,source={args.extensions.resolve()},target=/opt/nuaforma/extensions,readonly")
     checks = []
     try:
@@ -43,6 +55,16 @@ def main():
                     if font["family"] == "Libre Barcode 39" and font["face"] == "regular")
         assert font["source"] == "mounted"
         declaration = {"family": font["family"], "face": font["face"], "resource": font["resource"]}
+        docx_catalog = providers["nuaforma-docx"]["fonts"]["entries"]
+        assert [entry for entry in docx_catalog if entry["source"] == "mounted"] == [font]
+        assert any(entry["source"] == "bundled" for entry in docx_catalog)
+        qualify_automatic_fonts(base, docx_catalog, args.output)
+        checks.append("automatic-IMAGE-and-MOUNT/used-faces/independent-font-bytes/preserved-embedding/real-PDF")
+        logs = runtime.command("logs", runtime.name)
+        for rejected in ("corrupt.ttf", "unsupported.woff", "unreadable.ttf", "symlink.ttf"):
+            assert re.search(r'MOUNTED_FONT_REJECTED[^\n]*' + re.escape(rejected), logs), rejected
+        assert "MOUNTED_FONT_REJECTION_DETAIL" not in logs
+        checks.append("mixed-mount/per-file-production-diagnostics/provider-and-catalog-survival")
         source = template()
         output = io.BytesIO()
         with zipfile.ZipFile(io.BytesIO(source)) as incoming, zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as outgoing:
@@ -67,15 +89,43 @@ def main():
         status, _, docx = generate(base, "docx", document, {"name": "*NF001*"}, {"fontMode": "embed", "fonts": [declaration]})
         assert status == 200, (status, docx[:1024])
         with zipfile.ZipFile(io.BytesIO(docx)) as archive:
-            assert any(name.startswith("word/fonts/") and name.endswith(".odttf") for name in archive.namelist())
+            word = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+            table = ET.fromstring(archive.read("word/fontTable.xml"))
+            key = next(item.attrib[word + "fontKey"] for entry in table for item in entry if item.tag == word + "embedRegular")
+            mask = bytes.fromhex(key.replace("{", "").replace("}", "").replace("-", ""))[::-1]
+            embedded = bytearray(archive.read(next(name for name in archive.namelist() if name.endswith(".odttf"))))
+            for index in range(32):
+                embedded[index] ^= mask[index % 16]
+            assert embedded == original
         (args.output / "mounted-font.docx").write_bytes(docx)
         status, _, pdf = generate(base, "pdf", docx, {})
         assert status == 200 and pdf.startswith(b"%PDF-1.7"), (status, pdf[:1024])
         (args.output / "mounted-font.pdf").write_bytes(pdf)
+        # Generate from the unembedded template too, so mounted fallback must actually run.
+        status, _, pdf = generate(base, "pdf", document, {"name": "*NF001*"})
+        assert status == 200, (status, pdf[:1024])
+        assert re.search(rb"/BaseFont\s*/[^\s/]*LibreBarcode39", pdf) and b"/FontFile2" in pdf
+        (args.output / "mounted-fallback.pdf").write_bytes(pdf)
+        # Existing instances retain bytes; a fresh instance must observe the changed mount.
+        (fonts / "LibreBarcode39-Regular.ttf").write_bytes(b"invalid after startup")
+        (fonts / "duplicate.ttf").write_bytes(b"invalid after startup")
+        assert generate(base, "pdf", document, {"name": "*NF001*"})[0] == 200
         runtime.clean()
         checks.append("mounted-open-font/catalog/DOCX-embedding/PDF-A3b-validation/private-cleanup")
     finally:
         runtime.close()
+    restarted = Runtime(args, "--mount", f"type=bind,source={fonts.resolve()},target=/opt/nuaforma/custom-fonts,readonly")
+    try:
+        base = restarted.connect()
+        status, _, body = http(base, "/api/v1/capabilities")
+        providers = {provider["id"]: provider for provider in json.loads(body)["providers"]}
+        assert status == 200 and not any(entry["source"] == "mounted" for entry in providers["nuaforma-docx"]["fonts"]["entries"])
+        assert generate(base, "docx", document, {"name": "Preserve"})[0] == 200
+        status, _, failure = generate(base, "pdf", document, {"name": "*NF001*"})
+        assert status == 422 and b"INVALID_REQUEST" in failure, (status, failure[:1024])
+        checks.append("immutable-snapshot/restart/all-invalid-provider-survival/missing-font-no-substitution")
+    finally:
+        restarted.close()
     (args.output / "qualification.json").write_text(json.dumps({"architecture": args.architecture, "checks": checks}, indent=2))
     print(json.dumps(checks))
 

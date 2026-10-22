@@ -163,9 +163,8 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
         } catch (error: java.util.concurrent.CancellationException) { throw error }
         catch (error: ApiFailure) { failure(call, error.status, error.code, error.safeMessage) }
         catch (error: GenerationException) {
-            logging(call).operation("GENERATION_REJECTED", mapOf("codes" to error.diagnostics.take(32).joinToString(",") { it.code.id },
-                "locations" to error.diagnostics.mapNotNull { diagnostic -> diagnostic.location?.takeIf { it.matches(Regex("template:[0-9]{1,8}")) } }.take(8).joinToString(",")))
-            call.respondText(json.encode(mapOf("requestId" to logging(call).requestId, "diagnostics" to ApiErrors.diagnostics(error.diagnostics))), ContentType.Application.Json,
+            ApiErrors.logRejections(logging(call), error.diagnostics)
+            call.respondText(json.encode(mapOf("requestId" to logging(call).requestId, "diagnostics" to ApiErrors.diagnostics(error.diagnostics, config.loggingMode))), ContentType.Application.Json,
                 HttpStatusCode.fromValue(ApiErrors.status(error.diagnostics)))
         } catch (_: PayloadTooLargeException) { failure(call, 413, "RESOURCE_LIMIT_EXCEEDED", "Request body exceeds its limit") }
         catch (_: BadRequestException) { failure(call, 400, "INVALID_REQUEST", "Malformed HTTP request") }
@@ -305,7 +304,8 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
                     "available" to mapOf("readFormats" to available.readFormats.map { it.id }.sorted(), "writeFormats" to available.writeFormats.map { it.id }.sorted()),
                     "inputOptions" to declared.inputOptions.mapKeys { it.key.id }.mapValues { definitions(it.value) },
                     "outputOptions" to declared.outputOptions.mapKeys { it.key.id }.mapValues { definitions(it.value) },
-                    "generalOptions" to definitions(declared.generalOptions), "diagnostics" to ApiErrors.diagnostics(available.diagnostics)) +
+                    "generalOptions" to definitions(declared.generalOptions), "diagnostics" to ApiErrors.diagnostics(available.diagnostics),
+                    "conformancePolicies" to ConformancePolicies.describe(registered.provider, declared, context)) +
                     mapOf("fonts" to fontCatalog(registered.provider, context)) +
                     PipeCatalog.describe(registered.provider, declared, available, context)
             })

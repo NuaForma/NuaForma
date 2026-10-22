@@ -34,6 +34,14 @@ object Main {
                 throw error
             }
         val configuration = ServerConfiguration(ServerProperties.read(System.getProperties()), mode)
+        val pdfaValidation = try { ServerProperties.pdfaValidation(System.getenv("NUAFORMA_PDFA_VALIDATION")) }
+            catch (error: IllegalArgumentException) {
+                OperationalLogging.configured(LoggingMode.PRODUCTION).operation("SERVER_CONFIGURATION_REJECTED",
+                    mapOf("setting" to "NUAFORMA_PDFA_VALIDATION", "reason" to "Expected exact true, false or unset; all other values are invalid"))
+                throw error
+            }
+        System.setProperty("nuaforma.pdf.pdfaValidation", pdfaValidation.toString())
+        if (!pdfaValidation) OperationalLogging.pdfaValidationWarning()
         val playground = ServerProperties.playground(System.getenv("NUAFORMA_PLAYGROUND"), mode, webApplication != null)
         if (mode == LoggingMode.DEVELOPMENT) OperationalLogging.developmentWarning()
         if (playground) OperationalLogging.playgroundWarning()

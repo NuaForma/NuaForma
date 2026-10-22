@@ -25,7 +25,7 @@ internal object ConversionCopy {
             if (entries.size > context.limits.maxArchiveEntries) limited()
             if (entries.map { it.name }.distinct().size != entries.size || entries.any {
                 it.name.startsWith('/') || it.name.contains('\\') || it.name.split('/').any { piece -> piece == ".." || piece == "." }
-            }) PdfFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "Conversion package has invalid archive entries")
+            }) PdfFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.CONVERSION_PACKAGE_HAS_INVALID_ARCHIVE_ENTRIES)
             val xml = ConversionXml(context)
             val wordParts = entries.filter { it.name.startsWith("word/") && it.name.endsWith(".xml") }
             var id = 0L
@@ -51,8 +51,8 @@ internal object ConversionCopy {
                         element.descendants().any { it.name.namespaceURI == "http://schemas.microsoft.com/office/word/2010/wordprocessingShape" && it.name.localPart == "txbx" }) modernInline = true
                     if (element.name.namespaceURI == NativeTextBoxes.WP && element.name.localPart == "docPr") {
                         val value = element.attribute("", "id")?.toLongOrNull()
-                            ?: PdfFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "Drawing identifier is invalid")
-                        if (value !in 0..Int.MAX_VALUE.toLong()) PdfFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "Drawing identifier is invalid")
+                            ?: PdfFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.DRAWING_IDENTIFIER_IS_INVALID)
+                        if (value !in 0..Int.MAX_VALUE.toLong()) PdfFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.DRAWING_IDENTIFIER_IS_INVALID)
                         id = maxOf(id, value)
                     }
                     if (entry.name == "word/document.xml" && element.name.namespaceURI == NativeTextBoxes.WORD && element.name.localPart == "sectPr") {
@@ -64,7 +64,7 @@ internal object ConversionCopy {
             }
             if (options.profile == PdfProfile.PDFA_1B) {
                 val typesEntry = entries.singleOrNull { it.name == "[Content_Types].xml" }
-                    ?: PdfFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, "Conversion package has no content types")
+                    ?: PdfFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.CONVERSION_PACKAGE_HAS_NO_CONTENT_TYPES)
                 val types = xml.read(bytes(typesEntry))
                 val defaults = types.elements().filter { it.name.localPart == "Default" }.associate {
                     (it.attribute("", "Extension") ?: "").lowercase(java.util.Locale.ROOT) to (it.attribute("", "ContentType") ?: "")
@@ -80,12 +80,12 @@ internal object ConversionCopy {
                 for (entry in entries.filter { it.name.endsWith(".rels") }) {
                     for (target in Pdfa1Safety.imageTargets(xml.read(bytes(entry)), entry.name)) {
                         val image = entries.singleOrNull { it.name == target }
-                            ?: PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, "PDF/A-1b requires internal opaque PNG/JPEG image resources")
+                            ?: PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.PDF_A_1B_REQUIRES_INTERNAL_OPAQUE_PNG_JPEG_IMAGE)
                         Pdfa1Safety.media(image.name, bytes(image))
                     }
                 }
                 if (entries.any { it.name.startsWith("word/charts/") || it.name.startsWith("word/diagrams/") || it.name.startsWith("word/embeddings/") })
-                    PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, "PDF/A-1b does not support charts, diagrams or embedded objects in its initial template profile")
+                    PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.PDF_A_1B_DOES_NOT_SUPPORT_CHARTS_DIAGRAMS_OR)
             }
             if (rightMargin == Long.MAX_VALUE) rightMargin = 0
             val boxes = NativeTextBoxes(xml, rightMargin, id)
@@ -112,7 +112,7 @@ internal object ConversionCopy {
                 }
             }
             if (options.paragraphDefaults != null && entries.none { it.name == "word/styles.xml" }) {
-                PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, "Paragraph compatibility defaults require a styles part")
+                PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.PARAGRAPH_COMPATIBILITY_DEFAULTS_REQUIRE_A_STYLES_PART)
             }
             return Summary(boxes.normalized, modernInline)
         }
@@ -132,5 +132,5 @@ internal object ConversionCopy {
         override fun close() = output.close()
     }
 
-    private fun limited(): Nothing = PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "Conversion package byte or entry budget was exceeded")
+    private fun limited(): Nothing = PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.CONVERSION_PACKAGE_BYTE_OR_ENTRY_BUDGET_WAS_EXCEEDED)
 }

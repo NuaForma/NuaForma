@@ -29,6 +29,7 @@ httpclient-tests = "5.6.5"
 httpcore-tests = "5.4.4"
 swagger-core-tests = "2.2.55"
 snakeyaml-tests = "2.7"
+jacoco = "0.8.15"
 
 [libraries]
 kotlin-bom = { module = "org.jetbrains.kotlin:kotlin-bom", version.ref = "kotlin" }
@@ -78,5 +79,6 @@ swagger-annotations-tests = { module = "io.swagger.core.v3:swagger-annotations",
 snakeyaml-tests = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml-tests" }
 
 [plugins]
+sonarqube = { id = "org.sonarqube", version = "7.5.0.8588" }
 cyclonedx = { id = "org.cyclonedx.bom", version = "3.5.1" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

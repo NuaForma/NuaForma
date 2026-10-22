@@ -28,6 +28,10 @@ The server uses [Ktor 3.6.0](https://github.com/ktorio/ktor/blob/3.6.0/LICENSE),
 
 The unreleased correlated-logging implementation adds unmodified Apache Log4j 2.26.1 `log4j-api`, `log4j-core` and `log4j-slf4j2-impl` to the server runtime only, under [Apache-2.0 with original LICENSE/NOTICE material](https://github.com/apache/logging-log4j2/tree/rel/2.26.1). Retain notices/matching sources through the application-materials staging gate. Libraries and isolated validators acquire no Log4j implementation. Optional network/database/mail appenders are not added or configured.
 
+## Code-quality build and test tooling
+
+The optional code-quality build uses unmodified [SonarScanner for Gradle 7.5.0.8588](https://github.com/SonarSource/sonar-scanner-gradle/blob/7.5.0.8588/LICENSE.txt), LGPL-3.0, and [JaCoCo 0.8.15](https://www.jacoco.org/jacoco/trunk/doc/license.html), EPL-2.0, with their upstream scanner/ASM/Ant dependencies and notices. These tools execute only during build/test/analysis; they are not included in the libraries, service/Playground distributions or runtime SBOM. NuaForma's Apache-2.0 license does not replace their terms. Any separate tooling redistribution must retain its applicable notices/licenses and corresponding-source obligations. See [code-quality setup and scope](docs/code-quality.md).
+
 ## OpenAPI test tooling
 
 [Swagger Parser 2.1.48](https://github.com/swagger-api/swagger-parser/blob/v2.1.48/LICENSE) and its Swagger Core 2.2.55, Jackson 2.22/2.22.3, SnakeYAML 2.7 and Jakarta Validation API 2.0.2 transitives are test-only Apache-2.0 components. Production code uses no Swagger/YAML parser/vendor model, and the service/library distributions do not contain these artifacts. Preserve their original LICENSE/NOTICE and copyright material if distributing the tools independently; NuaForma's license is not a substitute. The existing JAXB/SLF4J/Commons transitive terms remain unchanged. See the dependency review for the deliberately patched Jackson test alignment and advisory snapshot.

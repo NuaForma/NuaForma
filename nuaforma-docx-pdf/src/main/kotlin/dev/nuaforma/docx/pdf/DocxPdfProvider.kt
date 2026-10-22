@@ -9,11 +9,10 @@ import dev.nuaforma.docx.pdf.adapters.ooxml.PdfFonts
 import dev.nuaforma.docx.pdf.internal.*
 import java.io.OutputStream
 import java.nio.file.Files
-import java.nio.file.Path
 import dev.nuaforma.template.TemplatePipes
 
 /** DOCX processing is delegated unchanged; only PDF uses an isolated conversion copy. */
-class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguration?, private val valuePipes: TemplatePipes) : DocumentProvider, FontCatalogProvider, ContentPipeProvider, TemplatePipeProvider, ProviderReadiness {
+class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguration?, private val valuePipes: TemplatePipes) : DocumentProvider, FontCatalogProvider, ContentPipeProvider, TemplatePipeProvider, ProviderReadiness, ConformancePolicyProvider {
     @JvmOverloads
     constructor(configuration: LibreOfficeConfiguration? = null) : this(configuration, TemplatePipes.discover())
     private var pipes: List<ContentPipe> = emptyList()
@@ -48,12 +47,16 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
                 listOf(ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.DOCX),
                     ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.PDF, PdfProfile.entries.map { it.id }.toSet())), image.nullBehavior, image.contentTypes)
         }) + pipes.map { it.definition })
-    private val converter: PdfConverter = LibreOfficeProcesses(configuration ?: System.getProperty("nuaforma.pdf.launcher")?.let {
-        LibreOfficeConfiguration(Path.of(it))
-    })
+    private val runtimeConfiguration = configuration ?: PdfRuntimeConfiguration.read(System.getProperties())
+    private val pdfaValidation = runtimeConfiguration?.pdfaValidation ?: PdfRuntimeConfiguration.validation(System.getProperties())
+    private val converter: PdfConverter = LibreOfficeProcesses(runtimeConfiguration)
+
+    override fun conformancePolicies(): List<ConformancePolicy> = java.util.Collections.singletonList(
+        ConformancePolicy(DocumentFormat.PDF, PdfProfile.entries.filter { it != PdfProfile.STANDARD }.map { it.id }.toSet(), pdfaValidation))
 
     override fun fontCatalog(context: GenerationContext): FontCatalog {
         context.checkActive()
+        deploymentFonts.reportFailures(context.logging)
         converter.verify(context)
         ConversionFiles.create(context).use { files ->
             val mounted = deploymentFonts.catalog.fonts
@@ -70,7 +73,7 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
             outputOptions = mapOf(DocumentFormat.DOCX to original.outputOptions.getValue(DocumentFormat.DOCX),
                 DocumentFormat.PDF to listOf(
                     OptionDefinition("version", OptionType.STRING, "Derived from profile: 1.4 for PDF/A-1b, otherwise 1.7; explicit values must match", allowedValues = listOf("1.4", "1.7")),
-                    OptionDefinition("profile", OptionType.STRING, "Static standard PDF or independently validated archival PDF/A; no silent downgrade", defaultValue = "pdfa-3b", allowedValues = PdfProfile.entries.map { it.id }),
+                    OptionDefinition("profile", OptionType.STRING, "Standard PDF or PDF/A export profile; conformance checking follows provider operator policy; no silent downgrade", defaultValue = "pdfa-3b", allowedValues = PdfProfile.entries.map { it.id }),
                     OptionDefinition("fontMode", OptionType.STRING, "Preserve available or template-embedded fonts, or validate/embed private supplied fonts for static PDF", defaultValue = "preserve", allowedValues = listOf("preserve", "validate", "embed")),
                     OptionDefinition("fonts", OptionType.ARRAY, "Private family/face/resource declarations; PDF print embedding permissions apply"),
                     OptionDefinition("paragraphDefaults", OptionType.OBJECT, "Explicit optional afterTwips and line240ths fallback for missing paragraph defaults in the PDF copy only"))),
@@ -85,18 +88,18 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
 
     override fun availability(context: GenerationContext): ProviderAvailability {
         context.checkActive()
-        val probeContext = GenerationContext(context.limits, context.cancellation,
-            minOf(context.deadline, java.time.Instant.now().plusSeconds(10)), java.time.Clock.systemUTC(), context.logging)
-        val status = try { converter.verify(probeContext); CapabilityAssessment(AssessmentStatus.SUPPORTED) }
+        deploymentFonts.reportFailures(context.logging)
+        val status = try { converter.verify(context); CapabilityAssessment(AssessmentStatus.SUPPORTED) }
             catch (error: GenerationException) {
                 context.checkActive()
+                if (error.diagnostics.any { it.code == DiagnosticCodes.CANCELLED || it.code == DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED }) throw error
                 context.logging.operation("PDF_BACKEND_UNAVAILABLE", mapOf("reason" to "Check the configured qualified renderer, validators and kernel namespace/isolation support"))
                 CapabilityAssessment(AssessmentStatus.UNAVAILABLE, listOf(Diagnostic(DiagnosticCodes.PROVIDER_UNAVAILABLE,
-                    "Configure the qualified isolated LibreOffice runtime; DOCX output remains available")))
+                    RejectionReason.CONFIGURE_THE_QUALIFIED_ISOLATED_LIBREOFFICE_RUNTIME_DOCX_OUTPUT_REMAINS)))
             } catch (error: java.io.IOException) {
                 context.logging.failure("PDF_BACKEND_IO_FAILED", error)
                 CapabilityAssessment(AssessmentStatus.UNAVAILABLE, listOf(Diagnostic(DiagnosticCodes.PROVIDER_UNAVAILABLE,
-                    "Configure the qualified isolated LibreOffice runtime; DOCX output remains available")))
+                    RejectionReason.CONFIGURE_THE_QUALIFIED_ISOLATED_LIBREOFFICE_RUNTIME_DOCX_OUTPUT_REMAINS)))
             }
         return ProviderAvailability(setOf(DocumentFormat.DOCX),
             if (status.status == AssessmentStatus.SUPPORTED) setOf(DocumentFormat.DOCX, DocumentFormat.PDF) else setOf(DocumentFormat.DOCX), status.diagnostics)
@@ -104,6 +107,7 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
 
     override fun assess(requirements: GenerationRequirements, context: GenerationContext): CapabilityAssessment {
         context.checkActive()
+        deploymentFonts.reportFailures(context.logging)
         val validation = validate(requirements)
         if (validation.status != AssessmentStatus.SUPPORTED || requirements.output.format == DocumentFormat.DOCX) return validation
         val available = availability(context)
@@ -120,11 +124,11 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
     private fun validate(requirements: GenerationRequirements): CapabilityAssessment {
         if (requirements.output.format == DocumentFormat.DOCX) return docx.assess(requirements)
         if (requirements.output.format != DocumentFormat.PDF) return CapabilityAssessment(AssessmentStatus.UNSUPPORTED,
-            listOf(Diagnostic(DiagnosticCodes.UNSUPPORTED_OUTPUT, "This provider writes DOCX and PDF only")))
+            listOf(Diagnostic(DiagnosticCodes.UNSUPPORTED_OUTPUT, RejectionReason.THIS_PROVIDER_WRITES_DOCX_AND_PDF_ONLY)))
         return try {
             val options = PdfOptions.read(requirements.output.options)
             if (options.profile == PdfProfile.PDFA_1B && requirements.options.watermark?.opacity?.let { it != 1.0 } == true) {
-                PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, "PDF/A-1b supports opaque watermarks only; choose PDF/A-2b or PDF/A-3b for transparency")
+                PdfFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, RejectionReason.PDF_A_1B_SUPPORTS_OPAQUE_WATERMARKS_ONLY_CHOOSE_PDF)
             }
             docx.assess(GenerationRequirements(requirements.input, FormatRequest(DocumentFormat.DOCX, options.docxOptions), requirements.options))
         } catch (error: GenerationException) { CapabilityAssessment(AssessmentStatus.UNSUPPORTED, error.diagnostics) }
@@ -132,6 +136,7 @@ class DocxPdfProvider private constructor(configuration: LibreOfficeConfiguratio
 
     override fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext): GenerationResult {
         context.checkActive()
+        deploymentFonts.reportFailures(context.logging)
         val status = validate(request.requirements)
         if (status.status != AssessmentStatus.SUPPORTED) throw GenerationException(status.diagnostics)
         if (request.requirements.output.format == DocumentFormat.DOCX) return docx.generate(request, output, context)

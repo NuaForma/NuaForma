@@ -27,6 +27,7 @@ const resolve = value => value?.$ref ? schema(value.$ref.split('/').pop()) : val
 const locationFor = operationId => Object.entries(contract.paths).find(([, operations]) => Object.values(operations).some(operation => operation.operationId === operationId))?.[0];
 
 function configureOptions(target, definitions, kind) {
+  if (kind === 'output') definitions = definitions.filter(definition => definition.name !== 'fontSelection');
   const node = $(target); node.replaceChildren();
   if (!definitions.length) return;
   node.append(create('h3', `${kind === 'general' ? 'General' : kind === 'input' ? 'Input' : 'Output'} options`));
@@ -58,6 +59,7 @@ function configureOptions(target, definitions, kind) {
 function readOptions(kind) {
   const fields = optionGroups.filter(group => group.kind === kind).flatMap(group => group.fields);
   return rawObject(fields.flatMap(({definition: d, control}) => {
+    if (kind === 'output' && $('auto-embed-fonts').checked && ['fontMode', 'fontSelection'].includes(d.name)) return [];
     if (kind === 'output' && ['fontMode', 'fonts'].includes(d.name) && fontDeclarations().length) return [];
     if (!control.value.trim()) {
       if (d.required && d.defaultValue == null) throw Error(`Set ${kind} option ${d.name}.`);
@@ -96,9 +98,14 @@ function buildRequest() {
     let value = readOptions(kind);
     if (kind === 'output') {
       const fonts = fontDeclarations();
+      if ($('auto-embed-fonts').checked) {
+        if (!sharedDefinitions(matchingProviders(), 'output').some(option => option.name === 'fontSelection' && option.allowedValues?.includes('used'))) throw Error('Automatic font embedding is not supported by this provider/output.');
+        const additions = '"fontMode":"embed","fontSelection":"used"';
+        value = value === '{}' ? `{${additions}}` : value.slice(0, -1) + ',' + additions + '}';
+      }
       if (fonts.length) {
         if (!sharedDefinitions(matchingProviders(), 'output').some(option => option.name === 'fonts')) throw Error('Select a provider/output that supports supplied fonts.');
-        const additions = `"fonts":${literal(fonts)},"fontMode":${literal($('font-mode').value)}`;
+        const additions = `"fonts":${literal(fonts)}` + ($('auto-embed-fonts').checked ? '' : `,"fontMode":${literal($('font-mode').value)}`);
         value = value === '{}' ? `{${additions}}` : value.slice(0, -1) + ',' + additions + '}';
       }
     }
@@ -126,6 +133,7 @@ function prettyJson(text) {
 }
 
 function updateRequest() {
+  renderConformancePolicy();
   try {
     $('request').textContent = prettyJson(buildRequest()); $('data-status').textContent = 'JSON · object';
     $('export-json').disabled = false; $('export-curl').disabled = false;
@@ -135,6 +143,27 @@ function updateRequest() {
     $('request').textContent = error.message; $('data-status').textContent = 'Complete or correct the fields to preview your request';
     ['export-json', 'export-curl', 'generate', 'assess'].forEach(id => $(id).disabled = true); return false;
   }
+}
+
+function conformancePolicyText(items, output) {
+  if (output !== 'pdf' || !items.length) return '';
+  const descriptions = items.map(item => {
+    const policies = item.conformancePolicies;
+    if (!Array.isArray(policies)) return `${item.id}: PDF/A conformance policy unknown (not reported).`;
+    const archival = policies.filter(policy => policy.outputFormat === output && policy.profiles?.some(profile => profile.startsWith('pdfa-')));
+    if (!archival.length || archival.some(policy => typeof policy.validationEnabled !== 'boolean')) return `${item.id}: PDF/A conformance policy unknown (not reported).`;
+    return archival.map(policy => `${item.id} (${policy.profiles.join(', ')}): ${policy.validationEnabled
+      ? 'PDF/A conformance validation enabled.'
+      : 'PDF/A conformance is not checked by NuaForma. The operator is responsible for downstream validation.'}`).join('\n');
+  });
+  return descriptions.join('\n') + '\nExport profile support and validation policy are separate; capability metadata is not a certificate for an individual file.';
+}
+
+function renderConformancePolicy() {
+  const target = $('conformance-policy');
+  const text = conformancePolicyText(matchingProviders(), elements.output.value);
+  target.textContent = text; target.hidden = !text;
+  target.className = text.includes('is not checked') ? 'error' : 'availability';
 }
 
 function refreshFormats() {
@@ -160,6 +189,7 @@ function renderCatalog() {
     const section = create('details'); section.open = item.id === elements.provider.value;
     const summary = create('summary', `${item.id} · ${item.releaseVersion}`); section.append(summary);
     section.append(create('p', `Available: ${item.available.readFormats.join(', ') || 'none'} → ${item.available.writeFormats.join(', ') || 'none'}. Declared: ${item.declared.readFormats.join(', ')} → ${item.declared.writeFormats.join(', ')}.`, 'hint'));
+    if (item.declared.writeFormats.includes('pdf')) section.append(create('p', conformancePolicyText([item], 'pdf'), 'availability'));
     section.append(create('h3', `Fonts · ${item.fonts.status.toLowerCase()} (${item.fonts.entries.length})`));
     const fonts = create('div', undefined, 'chip-list');
     item.fonts.entries.forEach(font => fonts.append(create('span', `${font.family} · ${font.face} · ${font.source}`, 'chip'))); section.append(fonts);
@@ -185,8 +215,12 @@ function refreshFonts() {
   availableFonts.forEach((font, index) => { const option = create('option', `${font.family} · ${font.face} · ${font.source}`); option.value = String(index); select.append(option); });
   select.disabled = availableFonts.length === 0; $('select-font').disabled = availableFonts.length === 0;
   const supportsFonts = sharedDefinitions(matches, 'output').some(option => option.name === 'fonts');
+  const supportsAutomatic = sharedDefinitions(matches, 'output').some(option => option.name === 'fontSelection' && option.allowedValues?.includes('used'));
+  $('auto-embed-fonts').disabled = !supportsAutomatic;
+  $('auto-embed-fonts-field').hidden = !supportsAutomatic;
+  if (!supportsAutomatic) $('auto-embed-fonts').checked = false;
   $('upload-font').disabled = !supportsFonts;
-  $('font-note').textContent = supportsFonts ? 'Upload standalone .ttf/.otf files. Enter the actual font family and style; the provider checks the bytes and embedding permissions.' : 'Uploaded font declarations are not supported by this selection. Choose a specific provider for its options.';
+  $('font-note').textContent = supportsFonts ? 'Automatic embedding selects used supported faces from IMAGE/MOUNT catalogs. Uploads override matching faces; missing faces and unsupported formatting fail clearly. Embedding permissions always apply. For uploads, enter the actual family and style.' : 'Uploaded font declarations are not supported by this selection. Choose a specific provider for its options.';
 }
 
 function fontDeclarations() {
@@ -217,10 +251,11 @@ function fontDeclarations() {
 
 function fontSelectionsChanged() {
   const hasDeclarations = [...$('font-selections').children].some(row => !row._catalogFont || row._catalogFont.resource);
-  $('font-mode-field').hidden = !hasDeclarations;
+  const automatic = $('auto-embed-fonts').checked;
+  $('font-mode-field').hidden = !hasDeclarations || automatic;
   for (const group of optionGroups.filter(group => group.kind === 'output')) for (const {definition, control} of group.fields) {
-    if (['fonts', 'fontMode'].includes(definition.name)) {
-      control.disabled = hasDeclarations;
+    if (['fonts', 'fontMode', 'fontSelection'].includes(definition.name)) {
+      control.disabled = definition.name === 'fonts' ? hasDeclarations : hasDeclarations || automatic;
       control.title = hasDeclarations ? 'Configured by Fonts for this document. Remove supplied fonts to edit manually.' : '';
     }
   }
@@ -328,7 +363,7 @@ async function send(generate) {
     const requestId = response.headers.get('X-Request-ID');
     if (!response.ok) {
       const text = (await response.text()).slice(0, 128000); let details;
-      try { details = JSON.parse(text).diagnostics.map(item => `${item.code}: ${item.message}`).join('\n'); } catch { details = `HTTP ${response.status}`; }
+      try { details = formatDiagnostics(JSON.parse(text).diagnostics); } catch { details = `HTTP ${response.status}`; }
       throw Error(`${details}\nRequest ID: ${requestId || 'not available'}`);
     }
     if (!generate) { const assessment = await response.json(); showResult(`Requirements supported by ${assessment.providerId}.\nThis does not validate the template or reserve availability.\nRequest ID: ${requestId}`); return; }
@@ -340,6 +375,12 @@ async function send(generate) {
     const warnings = response.headers.get('NuaForma-Warning-Codes'); if (warnings) $('result').append(create('p', `Warnings: ${warnings}`));
   } catch (error) { showResult(error.name === 'AbortError' ? 'Request cancelled. No output is available.' : error.message); }
   finally { running = null; $('cancel').hidden = true; updateRequest(); }
+}
+function formatDiagnostics(diagnostics) {
+  return diagnostics.slice(0, 64).map(item => [
+    `${item.code}: ${item.message}`, item.part && `Part: ${item.part}`, item.construct && `Construct: ${item.construct}`,
+    item.location && `Location: ${item.location}`, item.remediation && `Try: ${item.remediation}`
+  ].filter(Boolean).join('\n')).join('\n\n');
 }
 function showResult(message) { $('result').textContent = message; $('result').hidden = false; }
 
@@ -356,6 +397,7 @@ $('select-font').addEventListener('click', () => {
 });
 $('upload-font').addEventListener('click', () => appendFontRow(null));
 $('font-mode').addEventListener('change', fontSelectionsChanged);
+$('auto-embed-fonts').addEventListener('change', fontSelectionsChanged);
 $('template').addEventListener('change', () => $('template-name').textContent = $('template').files[0]?.name || 'Select a file from your computer');
 $('watermark-enabled').addEventListener('change', () => $('watermark').hidden = !$('watermark-enabled').checked);
 $('refresh').addEventListener('click', bootstrap);

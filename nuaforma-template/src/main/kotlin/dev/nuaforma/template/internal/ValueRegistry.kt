@@ -32,7 +32,7 @@ internal class ValueRegistry(private val pipes: TemplatePipes) {
             context.logging.operation("VALUE_PIPE_REJECTED", mapOf("pipe" to name, "reason" to error.diagnostics.take(4).joinToString(",") { it.code.id }))
             context.checkActive()
             val boundary = error.diagnostics.firstOrNull { it.code == DiagnosticCodes.CANCELLED || it.code == DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED }
-            if (boundary != null) Safety.fail(boundary.code, "Value pipe processing stopped at a resource or cancellation boundary")
+            if (boundary != null) Safety.fail(boundary.code, RejectionReason.VALUE_PIPE_PROCESSING_STOPPED_AT_A_RESOURCE_OR_CANCELLATION)
             invalid()
         } catch (error: Exception) {
             context.logging.failure("VALUE_PIPE_FAILED", error, mapOf("pipe" to name))
@@ -54,7 +54,7 @@ internal class ValueRegistry(private val pipes: TemplatePipes) {
             else -> left == right
         }
     }
-    private fun invalid(): Nothing = Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Value pipe could not process its value, arguments or result")
+    private fun invalid(): Nothing = Safety.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.VALUE_PIPE_COULD_NOT_PROCESS_ITS_VALUE_ARGUMENTS_OR)
 }
 
 /** Shared across a generation and its structural scopes, including every intermediate result. */
@@ -100,5 +100,5 @@ internal class PipeValues(private val context: GenerationContext, private val st
             else -> invalid()
         }
     }
-    private fun invalid(): Nothing = Safety.fail(DiagnosticCodes.INVALID_REQUEST, "Value pipes require finite JSON-compatible values without cycles")
+    private fun invalid(): Nothing = Safety.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.VALUE_PIPES_REQUIRE_FINITE_JSON_COMPATIBLE_VALUES_WITHOUT_CYCLES)
 }

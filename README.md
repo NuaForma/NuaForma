@@ -9,6 +9,7 @@
 # NuaForma
 
 [![Maven Central](https://img.shields.io/maven-central/v/dev.nuaforma/nuaforma-core?strategy=highestVersion&label=Maven%20Central&color=008b90)](https://central.sonatype.com/artifact/dev.nuaforma/nuaforma-core)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=NuaForma_NuaForma&metric=alert_status&branch=develop)](https://sonarcloud.io/dashboard?id=NuaForma_NuaForma&branch=develop)
 
 **Turn templates and structured data into documents.**
 
@@ -28,6 +29,8 @@ Visit [nuaforma.dev](https://nuaforma.dev) for deployment examples and downloada
 - **Respect security boundaries:** a restricted template language, bounded processing and isolated, network-denied PDF renderer/validator processes. Installed extensions remain trusted executable code, not sandboxed templates.
 
 These are bounded supported profiles, not a promise to reproduce every Word feature. PDF/A-1b rejects transparency; the known text-box positioning limitation is documented in the [PDF guide](nuaforma-docx-pdf/README.md). Keep remotely accessible services behind an authenticated TLS gateway.
+
+The next selected release is [`0.2.0-alpha.2`](docs/release-0.2.0-alpha.2.md), with contract `0.4`; it is not yet published. Its source adds structured rejection explanations, resilient mounted-font catalogs, optional used-font embedding, bounded PDF parallelism and a default-on [operator conformance policy](nuaforma-docx-pdf/README.md#operator-conformance-policy-unreleased-issue-93-source). Only exact `NUAFORMA_PDFA_VALIDATION=false` delegates PDF/A conformance checking downstream; PDFBox and isolation remain mandatory. These additions are not available in published alpha.1 artifacts. See the [indicative short processing trials](docs/performance-snapshot.md) for the original measurements and their limitations.
 
 ## Get started
 

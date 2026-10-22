@@ -24,6 +24,8 @@ Java 17 providers remain usable on the Java 25 server. Operators may deliberatel
 
 ## Runtime inputs and distribution
 
+The [stable-component policy](../ARCHITECTURE.md#stable-components-and-upgrade-debt) keeps approved major/API baselines while preferring current stable security patches. For evaluation release `0.2.0-alpha.2`, the maintainer explicitly approved retaining the pins below on 2026-10-22 rather than waiting for complete upstream Temurin 25.0.5 AMD64/ARM64 inputs. Both application architectures retain the same 25.0.4.1+1 runtime; validators separately retain 17.0.20.1+1. This is not a claim that the newer patch is implemented, qualified or unnecessary for security. See the [release-specific risk and reassessment condition](release-0.2.0-alpha.2.md). Track exact sources, native qualification and the final inventory review in [issue #105](https://github.com/NuaForma/NuaForma/issues/105); reassess the exception before the next release/runtime change rather than carrying it forward silently.
+
 The Java 25 server runtime is unmodified Eclipse Temurin 25.0.4.1+1, pinned by OCI index `sha256:d9a39a23634650173f1e2bbc176227af9728587ecf0f4b62d53e9355cd7a19ab`:
 
 - AMD64 child: `sha256:78498f30dd330b06755c1b134039dcbf8324bedb385136819dd519b842a3816a`.

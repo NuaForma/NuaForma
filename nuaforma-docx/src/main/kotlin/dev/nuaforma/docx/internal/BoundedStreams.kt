@@ -1,5 +1,6 @@
 package dev.nuaforma.docx.internal
 
+import dev.nuaforma.contracts.RejectionReason
 import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.contracts.GenerationContext
 import java.io.InputStream
@@ -14,7 +15,7 @@ internal object BoundedStreams {
             val count = input.read(buffer)
             if (count < 0) return total
             if (count == 0) continue
-            if (count > limit - total) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "DOCX byte budget was exceeded")
+            if (count > limit - total) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.DOCX_BYTE_BUDGET_WAS_EXCEEDED)
             output.write(buffer, 0, count)
             total += count
         }
@@ -25,7 +26,7 @@ internal object BoundedStreams {
         override fun write(value: Int) = write(byteArrayOf(value.toByte()), 0, 1)
         override fun write(bytes: ByteArray, offset: Int, length: Int) {
             context.checkActive()
-            if (length > limit - total) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "DOCX output byte budget was exceeded")
+            if (length > limit - total) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.DOCX_OUTPUT_BYTE_BUDGET_WAS_EXCEEDED)
             delegate.write(bytes, offset, length)
             total += length
         }
