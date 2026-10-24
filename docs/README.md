@@ -82,3 +82,5 @@ Research records describe the measured baseline, not current supported features 
 - [Own-engine tabs and leaders](../tools/pdf-evaluation/own-engine/TABS.md): physical stops, decimal alignment, inherited overrides and actual Word evidence.
 
 - [Own-engine styles and spacing](../tools/pdf-evaluation/own-engine/STYLES.md): effective styles, theme fonts, automatic line boxes and contextual paragraph spacing compared with Word.
+
+- [Own-engine international text](../tools/pdf-evaluation/own-engine/INTERNATIONAL.md): qualified Russian/Ukrainian/Greek text and language metadata; shaping/RTL research remains separate.

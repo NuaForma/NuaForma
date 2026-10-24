@@ -73,3 +73,5 @@ This proves the end-to-end path for this controlled letter only. It does not est
 The [tabs and leaders trial](TABS.md) adds two actual Word-exported pages, 49 independently audited field anchors and unmasked raster comparisons.
 
 The [style and spacing trial](STYLES.md) qualifies effective run/paragraph/table styles, Latin theme fonts, explicit overrides and automatic line/contextual paragraph spacing.
+
+The [first international increment](INTERNATIONAL.md) compares Russian, Ukrainian and Greek paragraphs, tables and lists with Word, plus independent PDFium extraction/search. Arabic/Hebrew shaping remains unqualified research.

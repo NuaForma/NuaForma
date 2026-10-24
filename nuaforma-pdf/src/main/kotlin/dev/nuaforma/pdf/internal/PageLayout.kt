@@ -12,6 +12,9 @@ internal data class PositionedBox(val box: PdfTextBox, val x: Float, val top: Fl
 internal data class PageLayout(val page: PdfPage, val elements: List<PositionedElement>)
 
 internal object PageLayouter {
+    private val simpleScripts = setOf(Character.UnicodeScript.LATIN, Character.UnicodeScript.GREEK, Character.UnicodeScript.CYRILLIC, Character.UnicodeScript.COMMON)
+    private val unshapedForbiddenTypes = setOf(Character.FORMAT.toInt(), Character.SURROGATE.toInt(), Character.UNASSIGNED.toInt(), Character.NON_SPACING_MARK.toInt(), Character.COMBINING_SPACING_MARK.toInt(), Character.ENCLOSING_MARK.toInt())
+
     fun layout(document: PdfDocument, measurer: TextMeasurer): PageLayout {
         val page = document.page
         val width = page.width - page.margins.left - page.margins.right
@@ -204,8 +207,8 @@ internal object PageLayouter {
         text.codePoints().forEach { point ->
             val script = Character.UnicodeScript.of(point)
             val category = Character.getType(point)
-            if (script !in setOf(Character.UnicodeScript.LATIN, Character.UnicodeScript.COMMON) ||
-                Character.isISOControl(point) || category in setOf(Character.FORMAT.toInt(), Character.SURROGATE.toInt(), Character.UNASSIGNED.toInt()) ||
+            if (script !in simpleScripts ||
+                Character.isISOControl(point) || category in unshapedForbiddenTypes ||
                 point != 32 && Character.isWhitespace(point)) {
                 throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Text requires unsupported shaping or control handling")
             }

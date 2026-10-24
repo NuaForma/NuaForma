@@ -3,6 +3,7 @@ package dev.nuaforma.pdf.adapters.pdfbox
 import dev.nuaforma.pdf.*
 import dev.nuaforma.pdf.internal.*
 import org.apache.pdfbox.contentstream.operator.Operator
+import org.apache.pdfbox.cos.COSDictionary
 import org.apache.pdfbox.cos.COSFloat
 import org.apache.pdfbox.cos.COSName
 import org.apache.pdfbox.cos.COSString
@@ -106,6 +107,10 @@ internal object PdfBoxWriter {
                                 }
                                 is PositionedText -> {
                                     if (element.decoration) command("BMC", COSName.ARTIFACT)
+                                    element.style.languageTag?.let { language ->
+                                        val properties = COSDictionary().apply { setString(COSName.LANG, language) }
+                                        command("BDC", COSName.getPDFName("Span"), properties)
+                                    }
                                     val color = element.style.color
                                     val font = fonts.getValue(element.style.fontId)
                                     usedFonts += element.style.fontId
@@ -114,9 +119,10 @@ internal object PdfBoxWriter {
                                     command("Tf", page.resources.add(font), number(element.style.size))
                                     command("rg", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
                                     command("Tm", number(1f), number(0f), number(0f), number(1f), number(element.x), number(canvasHeight - element.baseline))
-                                    // Write the same Latin cmap glyphs used for measurement, without a second GSUB pass.
+                                    // Write the same qualified cmap glyphs used for measurement, without a second GSUB pass.
                                     command("Tj", COSString(font.encode(element.text)))
                                     command("ET")
+                                    if (element.style.languageTag != null) command("EMC")
                                     if (element.decoration) command("EMC")
                                 }
                                 is PositionedImage -> {

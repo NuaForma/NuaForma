@@ -156,7 +156,7 @@ internal class OwnEngineDocxReader {
                     val cached = run.elements().singleOrNull() ?: reject("Invalid PAGE field")
                     children(cached, setOf("rPr", "t"))
                     val face = faceFor(cached.one("rPr"))
-                    return@flatMap listOf(PdfPageNumber(PdfTextStyle(face.id(), face.size ?: reject("Missing font size"), face.color)))
+                    return@flatMap listOf(PdfPageNumber(PdfTextStyle(face.id(), face.size ?: reject("Missing font size"), face.color, face.languageTag)))
                 }
                 children(run, setOf("rPr", "t", "tab", "drawing"))
                 val face = faceFor(run.one("rPr"))
@@ -167,19 +167,19 @@ internal class OwnEngineDocxReader {
                         check(item.elements().isEmpty(), "Invalid text node")
                         val text = item.children.filterIsInstance<XmlText>().joinToString("") { it.text }
                         check(text == text.trim() || item.attribute("http://www.w3.org/XML/1998/namespace", "space") == "preserve", "Significant edge whitespace requires explicit preservation")
-                        PdfTextRun(text.ifEmpty { " " }, PdfTextStyle(face.id(), face.size ?: reject("Missing font size"), face.color))
+                        PdfTextRun(text.ifEmpty { " " }, PdfTextStyle(face.id(), face.size ?: reject("Missing font size"), face.color, face.languageTag))
                     }
-                    "tab" -> { attributes(item, emptySet()); check(item.elements().isEmpty(), "Invalid tab control"); PdfTab(PdfTextStyle(face.id(), face.size ?: reject("Missing font size"), face.color)) }
+                    "tab" -> { attributes(item, emptySet()); check(item.elements().isEmpty(), "Invalid tab control"); PdfTab(PdfTextStyle(face.id(), face.size ?: reject("Missing font size"), face.color, face.languageTag)) }
                     "drawing" -> PdfImageRun(image(item, partRelations, parts))
                     else -> reject("Unsupported run content")
                 } }
             }
-            val content = runs.ifEmpty { listOf(PdfTextRun(" ", PdfTextStyle(base.id(), base.size ?: reject("Missing font size"), base.color))) }
+            val content = runs.ifEmpty { listOf(PdfTextRun(" ", PdfTextStyle(base.id(), base.size ?: reject("Missing font size"), base.color, base.languageTag))) }
             check(content.none { it is PdfImageRun } || content.size == 1, "Mixed image/text paragraphs are outside the proof profile")
             val label = listEntry?.let { entry ->
                 check(content.all { it is PdfTextRun }, "List images are outside the proof")
                 val markerFace = resolveRun(entry.level.one("rPr"), base)
-                PdfListLabel(entry.value, PdfTextStyle(markerFace.id(), markerFace.size ?: reject("Missing marker size"), markerFace.color), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval)
+                PdfListLabel(entry.value, PdfTextStyle(markerFace.id(), markerFace.size ?: reject("Missing marker size"), markerFace.color, markerFace.languageTag), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval)
             }
             return PdfParagraph(content, geometry.before, geometry.after, PdfParagraphFormat(geometry.alignment, geometry.left, geometry.right,
                 geometry.first, geometry.line, true,
@@ -418,7 +418,7 @@ internal class OwnEngineDocxReader {
     }
 
     private data class Face(val family: String? = null, val size: Float? = null, val bold: Boolean = false,
-        val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0)) {
+        val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null) {
         fun id(): String {
             check(family == "Liberation Sans") { "Proof font family is not supplied" }
             return when { bold && italic -> "bolditalic"; bold -> "bold"; italic -> "italic"; else -> "regular" }
@@ -427,7 +427,7 @@ internal class OwnEngineDocxReader {
 
     private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>): Face {
         if (property == null) return initial
-        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color"))
+        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang"))
         var result = initial
         property.one("numPr")?.let { node ->
             attributes(node, emptySet()); children(node, setOf("numId", "ilvl")); check(node.elements().isNotEmpty(), "Empty numbering reference")
@@ -442,6 +442,13 @@ internal class OwnEngineDocxReader {
             val family = family("ascii") ?: reject("Explicit Latin font required")
             check(family("hAnsi") == family, "Mixed font families are unsupported")
             result = result.copy(family = family)
+        }
+        property.one("lang")?.let {
+            attributes(it, setOf("val")); check(it.elements().isEmpty(), "Invalid run language")
+            val language = it.value("val") ?: reject("Missing run language")
+            // Validate using the shared language contract; source mapping remains format-specific.
+            PdfTextStyle("regular", 11f, languageTag = language)
+            result = result.copy(languageTag = language)
         }
         property.one("sz")?.let { result = result.copy(size = number(it.value("val")) / 2) }
         fun enabled(node: XmlElement): Boolean = when (node.value("val")) { null, "true", "1", "on" -> true; "false", "0", "off" -> false; else -> reject("Invalid toggle") }

@@ -174,8 +174,10 @@ data class PdfTextStyle @JvmOverloads constructor(
     val fontId: String,
     val size: Float,
     val color: PdfColor = PdfColor(0, 0, 0),
+    val languageTag: String? = null,
 ) {
     init {
+        require(languageTag == null || languageTag.length <= 64 && languageTag.matches(Regex("[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*"))) { "Invalid text language tag" }
         require(fontId.matches(Regex("[A-Za-z0-9_-]{1,64}"))) { "Invalid font ID" }
         require(size.isFinite() && size in 1f..200f) { "Invalid font size" }
     }

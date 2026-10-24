@@ -4,7 +4,7 @@ plugins {
     `maven-publish`
 }
 
-description = "Experimental format-neutral NuaForma PDF engine; single-page Latin-text foundation"
+description = "Experimental format-neutral NuaForma PDF engine; qualified Latin, Greek and Cyrillic text"
 
 dependencies {
     implementation(libs.pdfbox)

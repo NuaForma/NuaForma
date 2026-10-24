@@ -9,6 +9,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JavaPdfEngineTest {
     @Test
+    void javaCallerCanRenderCyrillicWithLanguageMetadata() throws IOException {
+        var style = new PdfTextStyle("regular", 11, new PdfColor(0, 0, 0), "uk-UA");
+        var paragraph = new PdfParagraph(List.of(new PdfTextRun("Київ, Україна", style)));
+        byte[] font;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            font = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        try (var pdf = Loader.loadPDF(new PdfEngine().render(new PdfDocument(new PdfPage(300, 200, new PdfMargins(20, 20, 20, 20)), List.of(paragraph)), List.of(new PdfFont("regular", font))))) {
+            assertTrue(new PDFTextStripper().getText(pdf).contains("Київ, Україна"));
+        }
+    }
+
+    @Test
     void javaCallerCanRenderAutomaticLineSpacing() throws IOException {
         var format = new PdfParagraphFormat(PdfAlignment.LEFT, 0, 0, 0, null, true, false, false, false, false, null, null, new PdfAutomaticLineSpacing(1.5f));
         var p = new PdfParagraph(List.of(new PdfTextRun("Java automatic spacing", new PdfTextStyle("regular", 11))), 0, 0, format);
