@@ -178,7 +178,7 @@ internal object FlowLayouter {
 
     internal fun paragraph(p: PdfParagraph, width: Float, measurer: TextMeasurer): MeasuredParagraph {
         val height = p.format.exactLineHeight ?: fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paginated proof requires explicit exact line spacing")
-        val normalized = PdfParagraph(p.runs, 0f, 0f, p.format)
+        val normalized = PdfParagraph(p.runs, 0f, 0f, p.format, p.listLabel)
         val local = PageLayouter.layout(PdfDocument(PdfPage(width, 14_400f, PdfMargins(0f, 0f, 0f, 0f)), listOf(normalized)), measurer)
         val lines = local.elements.groupBy { element -> when (element) {
             is PositionedText -> element.baseline
@@ -196,7 +196,7 @@ internal object FlowLayouter {
         val elements = mutableListOf<PositionedElement>()
         var top = 0f
         var after = 0f
-        fun resolve(p: PdfParagraph) = PdfParagraph(p.runs.map { if (it is PdfPageNumber) PdfTextRun(number.toString(), it.style) else it }, p.spaceBefore, p.spaceAfter, p.format)
+        fun resolve(p: PdfParagraph) = PdfParagraph(p.runs.map { if (it is PdfPageNumber) PdfTextRun(number.toString(), it.style) else it }, p.spaceBefore, p.spaceAfter, p.format, p.listLabel)
         fun resolveTable(t: PdfTable): PdfTable = PdfTable(t.columnWidths, t.rows.map { row -> PdfTableRow(row.cells.map { cell ->
             PdfTableCell(cell.blocks.map { when (it) { is PdfParagraph -> resolve(it); is PdfTable -> resolveTable(it); is PdfImage -> it; is PdfTextBox -> error("Frame in table") } }, cell.background, cell.columnSpan, cell.rowSpan)
         }, row.allowSplit, row.splitOversized) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent)

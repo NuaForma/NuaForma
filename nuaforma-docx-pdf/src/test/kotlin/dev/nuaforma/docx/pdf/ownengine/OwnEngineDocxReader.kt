@@ -51,9 +51,9 @@ internal class OwnEngineDocxReader {
         val result = root.elements().associate { element ->
             val id = element.attribute("", "Id") ?: reject("Missing relationship ID")
             val target = element.attribute("", "Target") ?: reject("Missing relationship target")
-            check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.png|styles\\.xml|header1\\.xml|footer1\\.xml)")), "Unsupported relationship target")
+            check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.png|styles\\.xml|numbering\\.xml|settings\\.xml|header1\\.xml|footer1\\.xml)")), "Unsupported relationship target")
             val type = element.attribute("", "Type")
-            check(type == "$rel/image" && target.startsWith("media/") || type == "$rel/styles" && target == "styles.xml" ||
+            check(type == "$rel/image" && target.startsWith("media/") || type == "$rel/styles" && target == "styles.xml" || type == "$rel/numbering" && target == "numbering.xml" || type == "$rel/settings" && target == "settings.xml" ||
                 type == "$rel/header" && target == "header1.xml" || type == "$rel/footer" && target == "footer1.xml", "Unsupported relationship type")
             id to target
         }
@@ -61,6 +61,14 @@ internal class OwnEngineDocxReader {
         return result
         }
         val relations = readRelations(relationRoot)
+        check(("word/settings.xml" in parts) == relations.values.contains("settings.xml"), "Settings relationship/part mismatch")
+        val defaultTabInterval = parts["word/settings.xml"]?.let { bytes ->
+            val settings = xml.read(bytes)
+            check(settings.name.namespaceURI == word && settings.name.localPart == "settings", "Invalid settings root")
+            attributes(settings, emptySet()); children(settings, setOf("defaultTabStop"))
+            settings.one("defaultTabStop")?.let { node -> attributes(node, setOf("val")); twips(node.value("val")) }
+        } ?: 36f
+        check(defaultTabInterval in 1f..14_400f, "Invalid default tab interval")
         val stylesRoot = part("word/styles.xml")
         check(stylesRoot.name.namespaceURI == word && stylesRoot.name.localPart == "styles", "Unsupported styles root")
         children(stylesRoot, setOf("docDefaults", "style"))
@@ -82,13 +90,24 @@ internal class OwnEngineDocxReader {
             val parent = style.one("basedOn")?.value("val")
             return (parent?.let { chain(it, type, seen + id) } ?: emptyList()) + style
         }
+        check(defaultParagraph?.one("numPr") == null, "Numbering in document defaults is outside the proof")
+        check(("word/numbering.xml" in parts) == relations.values.contains("numbering.xml"), "Numbering relationship/part mismatch")
+        val numbering = OwnEngineNumbering(parts["word/numbering.xml"]?.let(xml::read), body) { paragraph ->
+            chain(paragraph.one("pPr")?.one("pStyle")?.value("val") ?: normal, "paragraph")
+        }
         fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false): PdfParagraph {
             context.checkActive()
             children(paragraph, if (fields) setOf("pPr", "r", "fldSimple") else setOf("pPr", "r"))
             val direct = paragraph.one("pPr")
             val styleChain = chain(direct?.one("pStyle")?.value("val") ?: normal, "paragraph")
-            val paragraphChain = listOfNotNull(defaultParagraph) + styleChain.mapNotNull { it.one("pPr") } + listOfNotNull(direct)
+            val listEntry = numbering.entry(paragraph)
+            val sourceProperties = styleChain.mapNotNull { it.one("pPr") } + listOfNotNull(direct)
+            if (listEntry == null && sourceProperties.any { it.one("numPr") != null }) {
+                check(sourceProperties.mapNotNull { it.one("numPr")?.one("numId")?.value("val") }.lastOrNull() == "0", "Numbering outside body paragraphs is not qualified")
+            }
+            val paragraphChain = listOfNotNull(defaultParagraph, listEntry?.level?.one("pPr")) + styleChain.mapNotNull { it.one("pPr") } + listOfNotNull(direct)
             val geometry = paragraphChain.fold(Geometry()) { result, property -> paragraphProperties(property, result) }
+            check(listEntry != null || geometry.listTab == null, "List tab without numbering")
             val base = styleChain.fold(runProperties(defaultRun, Face(), false)) { result, style -> runProperties(style.one("rPr"), result, true) }
             fun faceFor(properties: XmlElement?): Face {
                 val characterStyle = properties?.one("rStyle")?.value("val")
@@ -125,9 +144,14 @@ internal class OwnEngineDocxReader {
             }
             val content = runs.ifEmpty { listOf(PdfTextRun(" ", PdfTextStyle(base.id(), base.size ?: reject("Missing font size"), base.color))) }
             check(content.none { it is PdfImageRun } || content.size == 1, "Mixed image/text paragraphs are outside the proof profile")
+            val label = listEntry?.let { entry ->
+                check(content.all { it is PdfTextRun }, "List images are outside the proof")
+                val markerFace = runProperties(entry.level.one("rPr"), base, false)
+                PdfListLabel(entry.value, PdfTextStyle(markerFace.id(), markerFace.size ?: reject("Missing marker size"), markerFace.color), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval)
+            }
             return PdfParagraph(content, geometry.before, geometry.after, PdfParagraphFormat(geometry.alignment, geometry.left, geometry.right,
                 geometry.first, geometry.line ?: reject("Only explicit exact line spacing is supported"), true,
-                geometry.keepWithNext, geometry.keepLines, geometry.widowControl, geometry.pageBreakBefore))
+                geometry.keepWithNext, geometry.keepLines, geometry.widowControl, geometry.pageBreakBefore, geometry.outline), label)
         }
         fun readTable(table: XmlElement, partRelations: Map<String, String>, fields: Boolean, depth: Int = 0): PdfTable {
             check(depth <= 1, "Only one nested table level is supported")
@@ -329,6 +353,7 @@ internal class OwnEngineDocxReader {
                             check(child.elements().all { it in frames || it.name.localPart == "rPr" }, "Mixed frame/text runs are unsupported"); null
                         } else child
                     }
+                    numbering.alias(block, plain)
                     frames.map { if (it.name.localPart == "pict") readBox(it, partRelations) else readDrawingBox(it, partRelations) } + readParagraph(plain, partRelations, fields)
                 }
                 "tbl" -> listOf(readTable(block, partRelations, fields))
@@ -352,7 +377,7 @@ internal class OwnEngineDocxReader {
         val header = band("header")
         val footer = band("footer")
         val flow = if (header != null || footer != null || blocks.any { it is PdfTable || it is PdfTextBox || it is PdfParagraph &&
-            (it.format.keepWithNext || it.format.keepLines || it.format.widowControl || it.format.pageBreakBefore) }) PdfFlow(header, footer) else null
+            (it.listLabel != null || it.format.keepWithNext || it.format.keepLines || it.format.widowControl || it.format.pageBreakBefore) }) PdfFlow(header, footer) else null
         return PdfDocument(page, blocks, flow)
     }
 
@@ -368,6 +393,10 @@ internal class OwnEngineDocxReader {
         if (property == null) return initial
         children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color"))
         var result = initial
+        property.one("numPr")?.let { node ->
+            attributes(node, emptySet()); children(node, setOf("numId", "ilvl")); check(node.elements().isNotEmpty(), "Empty numbering reference")
+            node.elements().forEach { leaf -> attributes(leaf, setOf("val")); check(leaf.elements().isEmpty(), "Invalid numbering reference"); check(number(leaf.value("val")) <= if (leaf.name.localPart == "ilvl") 8 else 1_000_000, "Numbering reference exceeds bounds") }
+        }
         property.one("rFonts")?.let {
             attributes(it, setOf("ascii", "hAnsi"))
             val family = it.value("ascii") ?: reject("Explicit Latin font required")
@@ -389,14 +418,20 @@ internal class OwnEngineDocxReader {
 
     private data class Geometry(val before: Float = 0f, val after: Float = 0f, val line: Float? = null,
         val alignment: PdfAlignment = PdfAlignment.LEFT, val left: Float = 0f, val right: Float = 0f, val first: Float = 0f,
-        val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false)
+        val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null)
 
     private fun paragraphProperties(property: XmlElement, initial: Geometry): Geometry {
-        children(property, setOf("pStyle", "spacing", "jc", "ind", "widowControl", "keepNext", "keepLines", "pageBreakBefore"))
+        children(property, setOf("pStyle", "spacing", "jc", "ind", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs"))
         var result = initial
         fun flag(node: XmlElement): Boolean {
             attributes(node, setOf("val"))
             return when (node.value("val")) { null, "true", "1", "on" -> true; "false", "0", "off" -> false; else -> reject("Invalid paragraph toggle") }
+        }
+        property.one("outlineLvl")?.let { attributes(it, setOf("val")); val level = number(it.value("val")).toInt(); check(level in 0..8, "Unsupported outline level"); result = result.copy(outline = level) }
+        property.one("tabs")?.let { tabs ->
+            children(tabs, setOf("tab")); val tab = tabs.elements().singleOrNull() ?: reject("Exactly one list tab is required")
+            attributes(tab, setOf("val", "pos")); check(tab.value("val") in setOf("num", "left"), "Only list tabs are supported")
+            result = result.copy(listTab = twips(tab.value("pos")))
         }
         property.one("keepNext")?.let { result = result.copy(keepWithNext = flag(it)) }
         property.one("keepLines")?.let { result = result.copy(keepLines = flag(it)) }
@@ -455,7 +490,7 @@ internal class OwnEngineDocxReader {
                     context.checkActive()
                     val entry = zip.nextEntry ?: break
                     check(parts.size < 64 && entry.name !in parts && !entry.isDirectory, "Invalid or excessive ZIP entries")
-                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|word/(?:(?:document|styles|header1|footer1)\\.xml|_rels/(?:document|header1|footer1)\\.xml\\.rels|media/[A-Za-z0-9_.-]+\\.png))")), "Unsupported package part")
+                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|word/(?:(?:document|styles|numbering|settings|header1|footer1)\\.xml|_rels/(?:document|header1|footer1)\\.xml\\.rels|media/[A-Za-z0-9_.-]+\\.png))")), "Unsupported package part")
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(8192)
                     while (true) {

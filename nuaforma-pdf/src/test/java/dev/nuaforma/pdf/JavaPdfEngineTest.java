@@ -9,6 +9,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JavaPdfEngineTest {
     @Test
+    void javaCallerCanResolveAndRenderSemanticNumbering() throws IOException {
+        var definition = new PdfListDefinition("java", List.of(new PdfListLevel(PdfNumberFormat.DECIMAL, "%1.")));
+        var value = PdfNumbering.resolve(List.of(definition), List.of(new PdfListStep("java", 0))).get(0);
+        var style = new PdfTextStyle("regular", 10);
+        var label = new PdfListLabel(value, style);
+        var paragraph = new PdfParagraph(List.of(new PdfTextRun("Numbered Java item", style)), 0, 0,
+            new PdfParagraphFormat(PdfAlignment.LEFT, 36, 0, -18, 14f), label);
+        byte[] font;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            font = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        var document = new PdfDocument(new PdfPage(300, 200, new PdfMargins(20, 20, 20, 20)), List.of(paragraph));
+        try (var pdf = Loader.loadPDF(new PdfEngine().render(document, List.of(new PdfFont("regular", font))))) {
+            var text = new PDFTextStripper().getText(pdf);
+            assertTrue(text.contains("1.") && text.contains("Numbered Java item"));
+        }
+    }
+
+    @Test
     void javaCallerCanCreateAPositionedTextFrame() throws IOException {
         byte[] font;
         try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {

@@ -20,6 +20,14 @@ Coordinates and sizes are points (1/72 inch); content flows from the top-left in
 
 The model includes page/margins, paragraphs with inline text/image items and before/after spacing, RGB text colors and PNG images with explicit physical dimensions. `PdfParagraphFormat` adds left/center/right alignment, physical left/right/first-line indentation, optional exact line height and collapsed paragraph spacing. Exact lines currently use an experimental 80% baseline; this does not reproduce all Word line policies. It is independent of DOCX/ODT/parser/PDFBox types. Other page policies, styles, units and semantic roles in the [full design](../docs/architecture/conversion-engine.md) remain planned rather than empty placeholder APIs.
 
+## Lists and numbering
+
+`PdfNumbering.resolve` is a pure batch resolver over immutable `PdfListDefinition`/`PdfListLevel` rules and source-ordered `PdfListStep` values. Each call owns its counters. Independent instances can use separate sequences or share a `sequenceId`, with explicit restarts. Decimal/leading-zero, repeated Latin letters (A…Z, AA, BB…), Roman and bullet formats, ancestor placeholders and legal decimal labels are bounded. Latin letter formats intentionally follow Word's repeated-letter sequence, not spreadsheet column names. Unsupported formats, missing ancestors and counter/label budgets fail explicitly.
+
+Readers attach a resolved `PdfListLabel` to each paragraph. Its text remains separate from `runs`, with list identity, level and ordinal retained for later semantic output. The renderer measures/embeds its actual font, aligns the label left/center/right, implements tab/space/no suffix and uses a declared default tab interval when a wide label overruns its explicit tab. Body continuation indentation is independent of label position. Labels paint only on the first line, so pagination/relayout cannot advance counters or repeat a label. `PdfParagraphFormat.outlineLevel` preserves heading level; this does not itself generate PDF tags or bookmarks.
+
+The [eight-page Word trial](../tools/pdf-evaluation/own-engine/LISTS.md) qualifies body lists, three levels, start overrides, continued sequences, chapter-style inheritance, label styling and hanging/first-line indentation. The test DOCX reader rejects source lists in tables/frames/bands, full level overrides, linked numbering styles and unqualified combinations. General text tabs, leaders, theme fonts, arbitrary scripts and production DOCX/ODT integration remain later work. The neutral types and pure resolver remain inside this one shared artifact, ready for a future ODT reader; no new package artifact or dependency is added.
+
 ## Supported and rejected behavior
 
 - Tested horizontal Latin text, precomposed accents, common punctuation and euro sign. Unsupported scripts, combining marks, control/format characters and unpaired surrogates fail explicitly. This is not general Unicode shaping.

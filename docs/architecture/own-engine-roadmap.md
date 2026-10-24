@@ -15,7 +15,7 @@ The approved own-engine execution direction is now **in-process conversion withi
 | Order | Part | Acceptance evidence | Status |
 |---|---|---|---|
 | 1 | Paragraph pagination: keep-with-next, keep-lines, widow/orphan control and explicit break-before | Boundary/unit/concurrency checks; actual Word-exported proof; no blank pages, lost/duplicated text or silent keep relaxation | Complete; [evidence](../../tools/pdf-evaluation/own-engine/PAGINATION.md) |
-| 2 | Lists and numbering | Bullets, nested levels, restarts and chapter numbering; source/style inheritance and Word comparison | Planned |
+| 2 | Lists and numbering | Bullets, nested levels, restarts, styled labels, hanging indentation and chapter numbering; source/style inheritance and Word comparison | Complete; [evidence](../../tools/pdf-evaluation/own-engine/LISTS.md) |
 | 3 | Tabs and leaders | Left/right/center/decimal stops, dotted leaders, mixed-font measurement and Word comparison | Planned |
 | 4 | Broader style resolution | Effective paragraph/run/table styles, theme fonts, overrides and automatic line/paragraph spacing | Planned |
 | 5 | International text and writing systems | Cyrillic, Arabic, Hebrew and representative additional scripts; shaping, bidirectional text, mixed-direction numbers/punctuation, font availability and Word references | Planned; moved forward after international-scope clarification |
@@ -35,7 +35,13 @@ The approved own-engine execution direction is now **in-process conversion withi
 
 Accessibility is cross-cutting rather than deferred to part 17: preserve list/heading roles, reading order, table-header relationships and image alternatives as those source constructs enter the model. Existing template conditions, repetitions, value formatting and resource pipes remain in their current modules; this roadmap does not introduce another template engine or a package per feature.
 
-Part 1 passed the full repository build, local publication checks and five independent Java/Kotlin consumers: 569 JVM tests, zero failures/errors/skips. Its ten-page Word trial preserves all text and page boundaries; the earlier 18 page pairs remain unchanged. All 140 comparison PNGs match their visually reviewed hashes. The next proposed increment is part 2; later rows remain planned.
+Part 1 passed the full repository build, local publication checks and five independent Java/Kotlin consumers: 569 JVM tests, zero failures/errors/skips. Its ten-page Word trial preserves all text and page boundaries; the earlier 18 page pairs remain unchanged. All 140 comparison PNGs match their visually reviewed hashes. Part 2 also passed: 585 JVM tests with zero failures/errors/skips, five independent consumers, eight additional Word-matched pages and 180 unchanged reviewed comparison PNGs in total. Parts 3 and 4 are authorized next; later rows remain planned.
+
+## Automated visual regression direction
+
+During part 2, the maintainer agreed that each new feature should receive an initial Word-reference review, followed by automated regression against deliberately reviewed, versioned references. Keep content/structure assertions alongside visual comparisons. Fix variable input values where practical, or declare narrow excluded rectangles for fields such as dates. Reference updates remain explicit review actions. Pin the rendering/font/test profile so existing tests can stay green without manually reviewing every unchanged page on every code change.
+
+The maintainer will confirm the comparison library used elsewhere. PdfCompare (`de.redsix:pdfcompare`) matches the described pixel/rectangle capabilities but has not been identified as an existing NuaForma dependency or added to this delivery. Tool selection, dependency review and build integration follow after that confirmation; the existing Word/content/raster checks remain the current evidence.
 
 ## International acceptance requirements
 
@@ -50,4 +56,4 @@ International scripts are promoted to part 5, before production integration. The
 
 Each part needs the relevant normal/boundary/invalid-input tests, source provenance and page-level Word comparison, independent output checks and existing-proof regressions. Run the full project build and relevant local library/consumer checks before delivery. Report supported combinations and remaining gaps explicitly. Add no dependency, profile claim, publisher, tag or deployment merely to complete an item. Keep the existing issue open until its broader acceptance criteria are actually satisfied.
 
-After part 1, propose **lists and numbering** as the next increment; do not infer permission to start it from completing part 1.
+The maintainer separately authorized parts 3 and 4 for sequential follow-up after part 2 on 2026-10-24, subject to the agreed execution limits checked before each new part. This does not authorize starting part 5 or later, merging, publishing or changing the production provider.

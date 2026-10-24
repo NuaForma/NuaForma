@@ -37,23 +37,39 @@ internal object PageLayouter {
                 is PdfParagraph -> {
                     if (block.format.pageBreakBefore && elements.isNotEmpty()) overflow()
                     val format = block.format
+                    val label = block.listLabel
+                    if (label != null && format.alignment != PdfAlignment.LEFT) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "List body alignment is outside the qualified profile")
+                    label?.let { requireSupportedText(it.value.text) }
+                    val marker = label?.let { measurer.measure(it.value.text, it.style) }
+                    val markerAnchor = format.leftIndent + format.firstLineIndent
+                    val markerLeft = markerAnchor - (marker?.width ?: 0f) * when (label?.alignment) { PdfAlignment.RIGHT -> 1f; PdfAlignment.CENTER -> .5f; else -> 0f }
+                    val markerEnd = markerLeft + (marker?.width ?: 0f)
+                    if (label != null && (markerLeft < -.001f || markerEnd > width - format.rightIndent + .001f)) overflow()
+                    val firstTextLeft = if (label == null) format.leftIndent + format.firstLineIndent else when (label.suffix) {
+                        PdfListSuffix.NOTHING -> markerEnd
+                        PdfListSuffix.SPACE -> markerEnd + measurer.measure(" ", label.style).width
+                        PdfListSuffix.TAB -> label.tabStop?.takeIf { it > markerEnd + .001f }
+                            ?: ((kotlin.math.floor(markerEnd / label.defaultTabInterval) + 1) * label.defaultTabInterval)
+                    }
                     top += if (format.collapseSpacing) maxOf(0f, block.spaceBefore - previousAfter) else block.spaceBefore
                     var firstLine = true
-                    fun availableWidth() = width - format.leftIndent - format.rightIndent - if (firstLine) format.firstLineIndent else 0f
+                    fun lineLeft() = if (firstLine) firstTextLeft else format.leftIndent
+                    fun availableWidth() = width - format.rightIndent - lineLeft()
                     if (availableWidth() <= 0 || width - format.leftIndent - format.rightIndent <= 0) overflow()
                     var line = mutableListOf<Fragment>()
                     var lineWidth = 0f
                     val spaces = mutableListOf<Fragment>()
                     fun flush() {
                         if (line.isEmpty()) return
-                        val ascent = line.maxOf { it.metrics.ascent }
-                        val descent = line.maxOf { it.metrics.descent }
+                        val ascent = maxOf(line.maxOf { it.metrics.ascent }, if (firstLine) marker?.ascent ?: 0f else 0f)
+                        val descent = maxOf(line.maxOf { it.metrics.descent }, if (firstLine) marker?.descent ?: 0f else 0f)
                         val height = format.exactLineHeight ?: (ascent + descent) * 1.2f
                         if (top + height > bottom) overflow()
                         val baseline = top + (format.exactLineHeight?.times(0.8f) ?: ascent)
                         if (baseline - ascent < page.margins.top - 0.01f || baseline + descent > bottom + 0.01f) overflow()
                         val remaining = availableWidth() - lineWidth
-                        var x = page.margins.left + format.leftIndent + (if (firstLine) format.firstLineIndent else 0f) + when (format.alignment) {
+                        if (firstLine && label != null) elements += PositionedText(label.value.text, label.style, page.margins.left + markerLeft, baseline)
+                        var x = page.margins.left + lineLeft() + when (format.alignment) {
                             PdfAlignment.LEFT -> 0f
                             PdfAlignment.CENTER -> remaining / 2
                             PdfAlignment.RIGHT -> remaining

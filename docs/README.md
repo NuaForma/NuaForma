@@ -36,6 +36,7 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [Own-engine frame trials](../tools/pdf-evaluation/own-engine/FRAMES.md): images in both page bands, text frames, wrapping, rotations and full-page barcode decoding, plus concurrent shared-engine verification.
 - [Own-engine roadmap](architecture/own-engine-roadmap.md): prioritized increments, delivery gates and current scope.
 - [Own-engine paragraph pagination](../tools/pdf-evaluation/own-engine/PAGINATION.md): keeps, widow/orphan control and explicit page breaks compared with a real Word export.
+- [Own-engine lists and numbering](../tools/pdf-evaluation/own-engine/LISTS.md): bullets, multiple levels, shared sequences/restarts, styled labels and chapter numbering compared per page with Word.
 - [Create/install extensions](extensions.md) and the [independent value-pipe example](../examples/value-pipes/README.md).
 - [Contribution guidelines](../CONTRIBUTING.md).
 - [Architecture decisions](../ARCHITECTURE.md), [provider contracts](../nuaforma-contracts/README.md) and [provider discovery/core](../nuaforma-core/README.md).

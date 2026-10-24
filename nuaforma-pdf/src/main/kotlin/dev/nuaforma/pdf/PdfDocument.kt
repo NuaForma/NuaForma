@@ -9,7 +9,7 @@ class PdfDocument @JvmOverloads constructor(val page: PdfPage, blocks: List<PdfB
 
     init {
         require(this.blocks.size in 1..1_000) { "A document needs 1 to 1000 blocks" }
-        require(allParagraphs().sumOf { it.runs.filterIsInstance<PdfTextRun>().sumOf { run -> run.text.length.toLong() } } <= 100_000) {
+        require(allParagraphs().sumOf { it.runs.filterIsInstance<PdfTextRun>().sumOf { run -> run.text.length.toLong() } + (it.listLabel?.value?.text?.length ?: 0) } <= 100_000) {
             "Document text exceeds the foundation limit"
         }
     }
@@ -133,8 +133,10 @@ data class PdfParagraphFormat @JvmOverloads constructor(
     val keepLines: Boolean = false,
     val widowControl: Boolean = false,
     val pageBreakBefore: Boolean = false,
+    val outlineLevel: Int? = null,
 ) {
     init {
+        require(outlineLevel == null || outlineLevel in 0..8) { "Invalid outline level" }
         require(listOf(leftIndent, rightIndent).all { it.isFinite() && it in 0f..14_400f }) { "Invalid paragraph indentation" }
         require(firstLineIndent.isFinite() && firstLineIndent in -14_400f..14_400f && leftIndent + firstLineIndent >= 0) { "Invalid first-line indentation" }
         require(exactLineHeight == null || exactLineHeight.isFinite() && exactLineHeight in 1f..14_400f) { "Invalid exact line height" }
@@ -150,6 +152,7 @@ class PdfParagraph @JvmOverloads constructor(
     val spaceBefore: Float = 0f,
     val spaceAfter: Float = 8f,
     val format: PdfParagraphFormat = PdfParagraphFormat(),
+    val listLabel: PdfListLabel? = null,
 ) : PdfBlock {
     val runs: List<PdfInline> = Collections.unmodifiableList(ArrayList(runs))
     init {
