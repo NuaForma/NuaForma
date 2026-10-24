@@ -61,13 +61,13 @@ class OwnEngineDocxReaderTest {
         }
     }
 
-    @Test fun `direct formatting overrides inherited formatting and style toggles are respected`() {
+    @Test fun `direct false overrides inherited formatting and repeated positive styles stay enabled`() {
         val changed = mutate("word/document.xml") { it.replace("<w:r><w:rPr></w:rPr><w:t xml:space=\"preserve\">Bevestiging", "<w:r><w:rPr><w:b w:val=\"0\"/></w:rPr><w:t xml:space=\"preserve\">Bevestiging") }
         val title = (OwnEngineDocxReader().read(changed).blocks[1] as PdfParagraph).runs.single() as PdfTextRun
         assertEquals("regular", title.style.fontId)
         val toggled = mutate("word/styles.xml") { it.replace("<w:pPr><w:spacing w:before=\"0\" w:after=\"240\"", "<w:rPr><w:b/></w:rPr><w:pPr><w:spacing w:before=\"0\" w:after=\"240\"") }
         val toggledTitle = (OwnEngineDocxReader().read(toggled).blocks[1] as PdfParagraph).runs.single() as PdfTextRun
-        assertEquals("regular", toggledTitle.style.fontId)
+        assertEquals("bold", toggledTitle.style.fontId)
     }
 
     @Test fun `unsupported document features and external relationships are rejected explicitly`() {

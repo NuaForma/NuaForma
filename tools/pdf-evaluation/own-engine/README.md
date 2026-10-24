@@ -71,3 +71,5 @@ The outputs are close, not pixel-identical. Word exports the 11-point body as 11
 This proves the end-to-end path for this controlled letter only. It does not establish fidelity for arbitrary existing DOCX files, justify replacing the current converter or qualify any PDF/A profile. Playground, REST/provider behavior, release workflows and website remain unchanged.
 
 The [tabs and leaders trial](TABS.md) adds two actual Word-exported pages, 49 independently audited field anchors and unmasked raster comparisons.
+
+The [style and spacing trial](STYLES.md) qualifies effective run/paragraph/table styles, Latin theme fonts, explicit overrides and automatic line/contextual paragraph spacing.

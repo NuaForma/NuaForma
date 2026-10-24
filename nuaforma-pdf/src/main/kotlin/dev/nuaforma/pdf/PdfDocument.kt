@@ -136,8 +136,10 @@ data class PdfParagraphFormat @JvmOverloads constructor(
     val pageBreakBefore: Boolean = false,
     val outlineLevel: Int? = null,
     val tabs: PdfTabSettings? = null,
+    val automaticLineSpacing: PdfAutomaticLineSpacing? = null,
 ) {
     init {
+        require(exactLineHeight == null || automaticLineSpacing == null) { "Conflicting line policies" }
         require(outlineLevel == null || outlineLevel in 0..8) { "Invalid outline level" }
         require(listOf(leftIndent, rightIndent).all { it.isFinite() && it in 0f..14_400f }) { "Invalid paragraph indentation" }
         require(firstLineIndent.isFinite() && firstLineIndent in -14_400f..14_400f && leftIndent + firstLineIndent >= 0) { "Invalid first-line indentation" }

@@ -13,9 +13,11 @@ object OwnEngineProof {
         val fonts = listOf("regular" to "Regular", "bold" to "Bold", "italic" to "Italic").map { (id, face) ->
             PdfFont(id, Files.readAllBytes(Path.of(args[2]).resolve("LiberationSans-$face.ttf")))
         }
+        val optionalBoldItalic = Path.of(args[2]).resolve("LiberationSans-BoldItalic.ttf")
+        val suppliedFonts = if (Files.exists(optionalBoldItalic)) fonts + PdfFont("bolditalic", Files.readAllBytes(optionalBoldItalic)) else fonts
         val output = Path.of(args[1])
         Files.createDirectories(output.toAbsolutePath().parent)
-        Files.write(output, PdfEngine().render(document, fonts))
+        Files.write(output, PdfEngine().render(document, suppliedFonts))
         println("DOCX proof rendered through the neutral model; no external converter and no PDF/A claim.")
     }
 }

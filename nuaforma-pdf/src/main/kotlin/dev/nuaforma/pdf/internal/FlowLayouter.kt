@@ -177,7 +177,7 @@ internal object FlowLayouter {
     }
 
     internal fun paragraph(p: PdfParagraph, width: Float, measurer: TextMeasurer): MeasuredParagraph {
-        val height = p.format.exactLineHeight ?: fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paginated proof requires explicit exact line spacing")
+        val height = PageLayouter.automaticBox(p, measurer)?.first ?: p.format.exactLineHeight ?: fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paginated proof requires explicit exact line spacing")
         val normalized = PdfParagraph(p.runs, 0f, 0f, p.format, p.listLabel)
         val local = PageLayouter.layout(PdfDocument(PdfPage(width, 14_400f, PdfMargins(0f, 0f, 0f, 0f)), listOf(normalized)), measurer)
         val lines = local.elements.groupBy { element -> when (element) {

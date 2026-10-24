@@ -80,3 +80,5 @@ Preparation, publication and website deployment are separate actions. These guid
 Research records describe the measured baseline, not current supported features or uncompleted release requirements. Follow the current module guides for actual behavior.
 
 - [Own-engine tabs and leaders](../tools/pdf-evaluation/own-engine/TABS.md): physical stops, decimal alignment, inherited overrides and actual Word evidence.
+
+- [Own-engine styles and spacing](../tools/pdf-evaluation/own-engine/STYLES.md): effective styles, theme fonts, automatic line boxes and contextual paragraph spacing compared with Word.

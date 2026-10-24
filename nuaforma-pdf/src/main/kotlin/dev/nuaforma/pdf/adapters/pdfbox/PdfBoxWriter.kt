@@ -25,9 +25,11 @@ internal object PdfBoxWriter {
         PageLayouter.checkCancellation()
         PDDocument().use { pdf ->
             pdf.version = 1.7f
+            val lineMetrics = mutableMapOf<String, FloatArray>()
             val fonts = suppliedFonts.associate { resource ->
                 val bytes = resource.bytes()
                 validateFontPermissions(bytes)
+                naturalMetrics(bytes)?.let { lineMetrics[resource.id] = it }
                 val font = try {
                     PDType0Font.load(pdf, ByteArrayInputStream(bytes), true)
                 } catch (_: IOException) {
@@ -44,7 +46,10 @@ internal object PdfBoxWriter {
                 }
                 val box = font.fontDescriptor.fontBoundingBox
                 TextMetrics(width, maxOf(font.fontDescriptor.ascent, box.upperRightY) * style.size / 1000f,
-                    maxOf(-font.fontDescriptor.descent, -box.lowerLeftY) * style.size / 1000f)
+                    maxOf(-font.fontDescriptor.descent, -box.lowerLeftY) * style.size / 1000f,
+                    lineMetrics[style.fontId]?.get(0)?.times(style.size) ?: Float.NaN,
+                    lineMetrics[style.fontId]?.get(1)?.times(style.size) ?: Float.NaN,
+                    lineMetrics[style.fontId]?.get(2)?.times(style.size) ?: Float.NaN)
             }
             val layouts = if (document.flow == null) listOf(PageLayouter.layout(document, measurer)) else FlowLayouter.layout(document, measurer)
             fun decorationSize(elements: List<PositionedElement>): Long = elements.sumOf { element -> when (element) {
@@ -161,6 +166,25 @@ internal object PdfBoxWriter {
         if ((flags and 15) !in setOf(0, 4, 8) || flags and 0x0300 != 0) {
             fail(PdfFailureCode.FONT_EMBEDDING_FORBIDDEN, "Font permission flags do not allow the foundation's subset outline embedding")
         }
+    }
+
+    private fun naturalMetrics(bytes: ByteArray): FloatArray? {
+        val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN)
+        fun table(tag: Int, minimum: Int): Int? {
+            val entries = (0 until (buffer.getShort(4).toInt() and 65535)).filter { buffer.getInt(12 + it * 16) == tag }
+            if (entries.size != 1) return null
+            val position = 12 + entries.single() * 16
+            if (buffer.getInt(position + 12) < minimum) return null
+            return buffer.getInt(position + 8)
+        }
+        val head = table(0x68656164, 20) ?: return null
+        val hhea = table(0x68686561, 10) ?: return null
+        val units = buffer.getShort(head + 18).toInt() and 65535
+        val ascent = buffer.getShort(hhea + 4).toInt()
+        val descent = -buffer.getShort(hhea + 6).toInt()
+        val gap = buffer.getShort(hhea + 8).toInt()
+        if (units !in 16..16_384 || ascent <= 0 || descent < 0 || gap < 0) return null
+        return floatArrayOf(ascent.toFloat() / units, descent.toFloat() / units, gap.toFloat() / units)
     }
 
     private fun validatePng(bytes: ByteArray) {

@@ -2,7 +2,7 @@ package dev.nuaforma.pdf.internal
 
 import dev.nuaforma.pdf.*
 
-internal data class TextMetrics(val width: Float, val ascent: Float, val descent: Float)
+internal data class TextMetrics(val width: Float, val ascent: Float, val descent: Float, val naturalAscent: Float = ascent, val naturalDescent: Float = descent, val lineGap: Float = 0f)
 internal fun interface TextMeasurer { fun measure(text: String, style: PdfTextStyle): TextMetrics }
 internal sealed interface PositionedElement
 internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false) : PositionedElement
@@ -37,6 +37,7 @@ internal object PageLayouter {
                 is PdfParagraph -> {
                     if (block.format.pageBreakBefore && elements.isNotEmpty()) overflow()
                     val format = block.format
+                    val automatic = automaticBox(block, measurer)
                     val label = block.listLabel
                     if (label != null && format.alignment != PdfAlignment.LEFT) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "List body alignment is outside the qualified profile")
                     label?.let { requireSupportedText(it.value.text) }
@@ -61,11 +62,11 @@ internal object PageLayouter {
                     val spaces = mutableListOf<Fragment>()
                     fun flush() {
                         if (line.isEmpty()) return
-                        val ascent = maxOf(line.maxOf { it.metrics.ascent }, if (firstLine) marker?.ascent ?: 0f else 0f)
-                        val descent = maxOf(line.maxOf { it.metrics.descent }, if (firstLine) marker?.descent ?: 0f else 0f)
-                        val height = format.exactLineHeight ?: (ascent + descent) * 1.2f
+                        val ascent = maxOf(line.maxOf { if (automatic == null) it.metrics.ascent else it.metrics.naturalAscent }, if (firstLine) (if (automatic == null) marker?.ascent else marker?.naturalAscent) ?: 0f else 0f)
+                        val descent = maxOf(line.maxOf { if (automatic == null) it.metrics.descent else it.metrics.naturalDescent }, if (firstLine) (if (automatic == null) marker?.descent else marker?.naturalDescent) ?: 0f else 0f)
+                        val height = automatic?.first ?: format.exactLineHeight ?: (ascent + descent) * 1.2f
                         if (top + height > bottom) overflow()
-                        val baseline = top + (format.exactLineHeight?.times(0.8f) ?: ascent)
+                        val baseline = top + (automatic?.second ?: format.exactLineHeight?.times(0.8f) ?: ascent)
                         if (baseline - ascent < page.margins.top - 0.01f || baseline + descent > bottom + 0.01f) overflow()
                         val remaining = availableWidth() - lineWidth
                         if (firstLine && label != null) elements += PositionedText(label.value.text, label.style, page.margins.left + markerLeft, baseline)
@@ -151,6 +152,23 @@ internal object PageLayouter {
             }
         }
         return PageLayout(page, elements)
+    }
+
+    internal fun automaticBox(p: PdfParagraph, measurer: TextMeasurer): Pair<Float, Float>? {
+        val policy = p.format.automaticLineSpacing ?: return null
+        val styles = p.runs.map { when (it) {
+            is PdfTextRun -> it.style; is PdfTab -> it.style; is PdfPageNumber -> it.style
+            else -> throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Automatic inline image spacing is not qualified")
+        } } + listOfNotNull(p.listLabel?.style)
+        val metrics = styles.map { measurer.measure(" ", it) }
+        if (metrics.any { !it.naturalAscent.isFinite() || !it.naturalDescent.isFinite() || !it.lineGap.isFinite() })
+            throw PdfRenderException(PdfFailureCode.INVALID_RESOURCE, "Natural font line metrics are unavailable")
+        val boxes = metrics.map { Triple(it.naturalAscent, it.naturalDescent, it.lineGap) }.distinct()
+        if (boxes.size != 1) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Mixed natural line boxes are not qualified")
+        val (ascent, descent, gap) = boxes.single()
+        val height = (ascent + descent + gap) * policy.multiple
+        if (!height.isFinite() || height !in 1f..14_400f || height < ascent + descent + gap) overflow()
+        return height to (ascent + gap)
     }
 
     private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null, val tab: PdfTab? = null, val paintOffset: Float = 0f, val decoration: Boolean = false)

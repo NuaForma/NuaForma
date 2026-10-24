@@ -9,6 +9,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JavaPdfEngineTest {
     @Test
+    void javaCallerCanRenderAutomaticLineSpacing() throws IOException {
+        var format = new PdfParagraphFormat(PdfAlignment.LEFT, 0, 0, 0, null, true, false, false, false, false, null, null, new PdfAutomaticLineSpacing(1.5f));
+        var p = new PdfParagraph(List.of(new PdfTextRun("Java automatic spacing", new PdfTextStyle("regular", 11))), 0, 0, format);
+        byte[] font;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            font = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        try (var pdf = Loader.loadPDF(new PdfEngine().render(new PdfDocument(new PdfPage(300, 200, new PdfMargins(20, 20, 20, 20)), List.of(p), new PdfFlow()), List.of(new PdfFont("regular", font))))) {
+            assertTrue(new PDFTextStripper().getText(pdf).contains("Java automatic spacing"));
+        }
+    }
+
+    @Test
     void javaCallerCanRenderTypedTabs() throws IOException {
         var style = new PdfTextStyle("regular", 10);
         var tabs = new PdfTabSettings(List.of(new PdfTabStop(180, PdfTabAlignment.RIGHT, PdfTabLeader.DOT)));
