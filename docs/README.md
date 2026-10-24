@@ -28,6 +28,7 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [Build and test](development.md).
 - [Code quality and coverage](code-quality.md): SonarQube Cloud, JVM coverage and safe CI setup.
 - [Branches, releases and the separate website](branch-workflow.md).
+- [Own PDF engine design](architecture/conversion-engine.md): agreed shared `nuaforma-pdf` package, DOCX/ODT adapter boundaries, milestones and the dedicated integration/release track; implementation is future work.
 - [Create/install extensions](extensions.md) and the [independent value-pipe example](../examples/value-pipes/README.md).
 - [Contribution guidelines](../CONTRIBUTING.md).
 - [Architecture decisions](../ARCHITECTURE.md), [provider contracts](../nuaforma-contracts/README.md) and [provider discovery/core](../nuaforma-core/README.md).

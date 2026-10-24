@@ -63,6 +63,7 @@ Supply the corresponding `data` object in the generation request. Conditions req
 
 - [Documentation index](docs/README.md): templates, API, deployment, fonts, security and known limitations.
 - [Development guide](docs/development.md): build from source, tests and module overview.
+- [Own PDF engine design](docs/architecture/conversion-engine.md): planned shared `nuaforma-pdf` engine for DOCX and later ODT, developed on `feature/own-pdf-engine`; not implemented yet.
 - [Extension guide](docs/extensions.md): custom providers, value pipes, content pipes and installation.
 - [Contributing](CONTRIBUTING.md): issues, changes, signed commits and pull requests.
 - [Roadmap](https://github.com/NuaForma/NuaForma/issues?q=is%3Aissue%20is%3Aopen): planned formats and capabilities; open issues are not implemented support.

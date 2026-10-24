@@ -29,6 +29,18 @@ The Gradle build, initial public provider contracts, core provider discovery/sel
 
 Do not expand the implementation scope merely because a capability appears in this section. Implement the requested milestone; document limitations and ask before materially expanding it.
 
+## Own PDF engine development track
+
+Decision approved on 2026-10-24. Develop a freely usable open-source PDF conversion engine on the long-lived `feature/own-pdf-engine` integration branch. This is an approved design direction, not implemented or qualified conversion support. The existing LibreOffice backend remains the current product baseline until a separately reviewed replacement/release decision; published artifacts are unchanged.
+
+- Add one shared artifact, `nuaforma-pdf`, containing the neutral document model, style resolution, font handling, pagination/layout, PDF writing, validation orchestration, diagnostics and bounded execution. Keep these responsibilities as internal packages rather than separately published modules. Preserve Java 17 embedded compatibility, the existing Java 25 server/Playground boundary and approved validator isolation.
+- The existing `nuaforma-docx-pdf` will translate filled DOCX content to the shared model and invoke `nuaforma-pdf`, while retaining DOCX generation/delegation and the existing provider contracts. A future `nuaforma-odt-pdf` will translate ODT to the same model. The shared engine must not depend on either format adapter, expose their parser types or contain a second template engine. Preserve ODT page-master/style semantics in the model from the start.
+- Work branches for this version start from `feature/own-pdf-engine` and target that branch for PRs for now. Regularly merge `develop` into it; unrelated development continues through the normal `develop` workflow. This is a scoped exception to ordinary feature branching, not a change to the repository default or protected branches.
+- Future own-engine releases need their own distinguishable tags and must contain no LibreOffice or hidden external-renderer fallback. Exact tags, versions, publication paths and workflow/environment changes remain deferred and require separate approval. Existing main-only publishers are not authorization to publish from this branch. Retain candidate qualification, compatibility decisions, licensing/source/SBOM obligations, signing and website coordination.
+- Requalify every executable PDF profile against the own engine before exposing it. Existing archival profile support/defaults and the approved operator conformance policy are not silently replaced by the prototype's narrower profile scope. Missing required validation or unsupported requests must fail explicitly; an approved opt-out must never claim checked conformance.
+
+The [technical design and milestones](docs/architecture/conversion-engine.md) describe the intended algorithms, internal boundaries and acceptance gates. The [branch workflow](docs/branch-workflow.md#own-pdf-engine-integration-branch) owns synchronization and release planning. No source modules, dependencies, build/release workflows, tags or runtime changes are introduced by this documentation decision. Playground impact: no current UI/runtime changes; future capability changes must be assessed through the existing server composition/API.
+
 <a id="operator-controlled-pdfa-conformance-validation-unreleased-source"></a>
 
 ## Operator-controlled PDF/A conformance validation

@@ -10,6 +10,18 @@ An urgent product hotfix may start from main, enter main through a checked PR an
 
 Issue #88 installs the one-time infrastructure migration baseline through develop and a reviewed promotion to main. It changes branch/site ownership, not the released product binaries or their immutable tags. After this synchronization, normal feature work stays on develop until release promotion.
 
+## Own PDF engine integration branch
+
+Approved on 2026-10-24: `feature/own-pdf-engine` is the long-lived integration branch for the own PDF engine version. It starts from current `develop`; the initial local branch base is `6549e4342295b53da68c923cca77473bc109d417`. Its agreed package structure and design are recorded in the [architecture decision](../ARCHITECTURE.md#own-pdf-engine-development-track) and [technical design](architecture/conversion-engine.md).
+
+For this track, create work branches from the current `feature/own-pdf-engine` and use **`feature/own-pdf-engine` as the PR target** for now, including track-specific fixes and documentation. Do not target `develop` by default for this work. Unrelated development continues through ordinary branches targeting `develop`; the repository default branch remains unchanged.
+
+Regularly bring current `develop` into the integration branch with merges, proposed at least weekly during active work and before milestones. Review conflicts, preserve both tracks' intended behavior and run the checks relevant to the combined changes. Use authorized work sessions, not an unrequested schedule. Do not rewrite/rebase the shared integration history or merge incomplete engine work into `develop` merely to synchronize it. Final integration into `develop` is a separately approved, reviewed PR. Normal signing, review and applicable build/qualification requirements continue to apply.
+
+The branch must eventually be able to produce separate own-engine releases with distinguishable immutable tags. Their binaries/images must contain no LibreOffice and must not invoke it as a fallback. Review the final artifacts, dependencies, filesystem, launchers and SBOM as well as the release claims; source intent alone is insufficient. Preserve required notices/source materials for all components that remain.
+
+Exact tag/version syntax, artifact/image publication identifiers, candidate workflow design and protected-environment eligibility are deferred. **No branch publisher, workflow trigger, protection change or tag is configured by this agreement.** Existing product publishers remain main-only and cannot be reused from this branch by bypassing their gates. Future changes require a concrete review and explicit approval, with exact-profile qualification, compatibility assessment, signing, license/source review and the normal corresponding website handoff. Do not overwrite ordinary release artifacts or existing tags.
+
 ## Separate website repository
 
 [NuaForma/website](https://github.com/NuaForma/website) owns the static site, downloadable deployment/examples/collections, website authoring/packaging and static QA. Product technical documentation, renderer/runtime security policy, license/source audits and actual runtime qualification remain here. Website inputs do not become part of the Java library graph.

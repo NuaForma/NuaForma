@@ -99,6 +99,10 @@ Gradle with Kotlin DSL is the selected build system. Install JDK 17 and JDK 25: 
 - The public website, static downloads and their packaging/checks live in [NuaForma/website](https://github.com/NuaForma/website), not this product checkout. Keep technical documentation and real runtime qualification here. Website administrator emergency direct-push permission does not apply to either protected product branch. Product release environments/workflows remain explicitly main-only even though develop is the default branch.
 - The GitHub organization and repository are NuaForma; the project domain is nuaforma.dev. Do not infer permission to publish, deploy or configure DNS from that ownership.
 
+## Own PDF engine branch scope
+
+For work belonging to the own PDF engine version, start work branches from `feature/own-pdf-engine` and target their PRs there until the maintainer changes that target. This approved exception takes precedence over the general `develop` starting-point/target rule above for this track only. Keep the integration branch current through merges from `develop`; ordinary unrelated work retains the default workflow. Follow the [own-engine architecture decision](ARCHITECTURE.md#own-pdf-engine-development-track) and [branch/release agreement](docs/branch-workflow.md#own-pdf-engine-integration-branch). Branch-specific releases/tags are planned, not configured or authorized for publication; implementation still requires an explicit requested milestone.
+
 ## Boundaries
 
 - Always: preserve user work, follow ARCHITECTURE.md, verify document fidelity, enforce explicit failure policies and report validation honestly.
