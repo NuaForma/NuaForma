@@ -113,6 +113,28 @@ val frameRenders = listOf("bands", "frames", "rotated").map { kind ->
 tasks.processTestResources { from(layout.buildDirectory.dir("own-engine-frames")) { into("own-engine-frames") } }
 tasks.register("renderOwnEngineDrawingProofs") { group = "verification"; dependsOn(frameRenders) }
 
+val generateOwnEnginePagination = tasks.register<Exec>("generateOwnEnginePagination") {
+    val folder = rootProject.file("tools/pdf-evaluation/own-engine")
+    val output = layout.buildDirectory.file("own-engine-pagination/source.docx")
+    inputs.files(folder.resolve("build_pagination_fixture.py"), folder.resolve("build_report_fixture.py"), folder.resolve("build_fixture.py"), rootProject.file("assets/branding/nuaforma-icon-transparent.png"))
+    outputs.file(output)
+    commandLine("python3", folder.resolve("build_pagination_fixture.py").absolutePath, output.get().asFile.absolutePath)
+}
+tasks.processTestResources {
+    dependsOn(generateOwnEnginePagination)
+    from(layout.buildDirectory.dir("own-engine-pagination")) { into("own-engine-pagination") }
+}
+tasks.register<JavaExec>("renderOwnEnginePagination") {
+    group = "verification"
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("dev.nuaforma.docx.pdf.ownengine.OwnEngineProof")
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+    args(rootProject.layout.buildDirectory.file("own-engine-pagination/source.docx").get().asFile.absolutePath,
+        rootProject.layout.buildDirectory.file("own-engine-pagination/own-engine.pdf").get().asFile.absolutePath,
+        rootProject.layout.buildDirectory.dir("own-engine-proof/fonts").get().asFile.absolutePath)
+}
+
 sourceSets.test { resources.srcDir(project(":nuaforma-docx").file("src/test/resources")) }
 
 // Unmodified upstream library JARs, isolated from the hosting application's runtime.

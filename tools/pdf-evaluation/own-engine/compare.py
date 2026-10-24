@@ -111,6 +111,13 @@ def main():
         report['wordExport'] = provenance
     for name, path in [('word', args.reference), ('engine', args.candidate)]:
         subprocess.run([tool, '-png', '-r', '144', str(path.resolve()), str(output / name)], check=True, timeout=120)
+        # Poppler pads page numbers once a document reaches ten pages.
+        digits = len(str(reference['pageCount']))
+        for index in range(1, reference['pageCount'] + 1):
+            generated = output / f'{name}-{index:0{digits}d}.png'
+            canonical = output / f'{name}-{index}.png'
+            if generated != canonical:
+                generated.replace(canonical)
     for index, (before, after) in enumerate(zip(reference['pages'], candidate['pages']), start=1):
         word = Image.open(output / f'word-{index}.png').convert('RGB')
         engine = Image.open(output / f'engine-{index}.png').convert('RGB')

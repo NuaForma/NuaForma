@@ -119,7 +119,9 @@ class PdfTextBox @JvmOverloads constructor(
 
 enum class PdfAlignment { LEFT, CENTER, RIGHT }
 
-/** Physical paragraph geometry; an exact line box uses an 80% baseline in this experimental profile. */
+/** Physical geometry and body-flow keep rules; exact line boxes use an experimental 80% baseline.
+ * Keep flags default off in the neutral model; readers resolve their source-format defaults.
+ */
 data class PdfParagraphFormat @JvmOverloads constructor(
     val alignment: PdfAlignment = PdfAlignment.LEFT,
     val leftIndent: Float = 0f,
@@ -127,6 +129,10 @@ data class PdfParagraphFormat @JvmOverloads constructor(
     val firstLineIndent: Float = 0f,
     val exactLineHeight: Float? = null,
     val collapseSpacing: Boolean = false,
+    val keepWithNext: Boolean = false,
+    val keepLines: Boolean = false,
+    val widowControl: Boolean = false,
+    val pageBreakBefore: Boolean = false,
 ) {
     init {
         require(listOf(leftIndent, rightIndent).all { it.isFinite() && it in 0f..14_400f }) { "Invalid paragraph indentation" }

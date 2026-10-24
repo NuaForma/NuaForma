@@ -35,6 +35,7 @@ internal object PageLayouter {
                     previousAfter = 0f
                 }
                 is PdfParagraph -> {
+                    if (block.format.pageBreakBefore && elements.isNotEmpty()) overflow()
                     val format = block.format
                     top += if (format.collapseSpacing) maxOf(0f, block.spaceBefore - previousAfter) else block.spaceBefore
                     var firstLine = true

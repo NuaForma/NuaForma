@@ -26,6 +26,9 @@ internal object TableLayouter {
             for (block in placement.cell.blocks) {
                 when (block) {
                     is PdfParagraph -> {
+                        if (block.format.keepWithNext || block.format.keepLines || block.format.widowControl || block.format.pageBreakBefore) {
+                            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph pagination rules inside table cells are not qualified")
+                        }
                         val p = FlowLayouter.paragraph(block, width, measurer)
                         top += if (block.format.collapseSpacing) maxOf(0f, block.spaceBefore - after) else block.spaceBefore
                         for (line in p.lines) {

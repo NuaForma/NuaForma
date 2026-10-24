@@ -15,6 +15,9 @@ internal object FlowLayouter {
         var top = page.margins.top
         var after = 0f
         val exclusions = mutableMapOf<Int, MutableList<Pair<Float, Float>>>()
+        val paragraphCache = mutableMapOf<Int, MeasuredParagraph>()
+        fun measuredAt(index: Int) = paragraphCache.getOrPut(index) { paragraph(document.blocks[index] as PdfParagraph, width, measurer) }
+        var protectedThrough = -1
         fun nextPage() {
             if (pages.size >= policy.maxPages) fail(PdfFailureCode.RESOURCE_LIMIT, "Page budget exceeded")
             pages += mutableListOf<PositionedElement>()
@@ -32,7 +35,7 @@ internal object FlowLayouter {
             }
         }
 
-        for (block in document.blocks) {
+        for ((blockIndex, block) in document.blocks.withIndex()) {
             PageLayouter.checkCancellation()
             when (block) {
                 is PdfTextBox -> {
@@ -48,15 +51,53 @@ internal object FlowLayouter {
                 }
                 is PdfParagraph -> {
                     if (block.runs.any { it is PdfPageNumber }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields are supported only in page bands")
-                    val measured = paragraph(block, width, measurer)
-                    val before = if (block.format.collapseSpacing) maxOf(0f, block.spaceBefore - after) else block.spaceBefore
+                    val format = block.format
+                    if (format.pageBreakBefore && top > page.margins.top + .001f) nextPage()
+                    if (exclusions[pages.lastIndex].orEmpty().isNotEmpty() && (format.keepWithNext || format.keepLines || format.widowControl)) {
+                        fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph keep rules with wrapped frames are not qualified")
+                    }
+                    val measured = measuredAt(blockIndex)
+                    var before = if (format.collapseSpacing) maxOf(0f, block.spaceBefore - after) else block.spaceBefore
+                    if (format.keepWithNext && blockIndex >= protectedThrough) {
+                        val group = ParagraphKeeps.measure(document.blocks, blockIndex, ::measuredAt, measurer)
+                        if (group != null) {
+                            if (group.minimum > freshHeight() + .001f) overflow()
+                            if (!fits(before + group.minimum)) {
+                                nextPage(); before = 0f
+                            }
+                            protectedThrough = group.lastIndex
+                        }
+                    }
+                    if (format.keepLines) {
+                        val contentHeight = measured.lines.size * measured.lineHeight
+                        if (contentHeight > freshHeight() + .001f) overflow()
+                        if (!fits(before + contentHeight)) { nextPage(); before = 0f }
+                    }
                     if (!fits(before + measured.lineHeight)) nextPage() else top += before
-                    for (line in measured.lines) {
-                        if (measured.lineHeight > freshHeight()) overflow()
-                        avoid(measured.lineHeight)
-                        if (!fits(measured.lineHeight)) nextPage()
-                        placeLine(line, page.margins.left, top, pages.last())
-                        top += measured.lineHeight
+                    if (!format.widowControl || format.keepLines) {
+                        for (line in measured.lines) {
+                            if (measured.lineHeight > freshHeight()) overflow()
+                            avoid(measured.lineHeight)
+                            placeLine(line, page.margins.left, top, pages.last())
+                            top += measured.lineHeight
+                        }
+                    } else {
+                        var consumed = 0
+                        while (consumed < measured.lines.size) {
+                            PageLayouter.checkCancellation()
+                            val left = measured.lines.size - consumed
+                            var count = minOf(left, kotlin.math.floor((bottom - top + .001f) / measured.lineHeight).toInt())
+                            if (count < left && left - count == 1) count--
+                            if (count < minOf(2, left)) {
+                                if (top <= page.margins.top + .001f) overflow()
+                                nextPage(); continue
+                            }
+                            repeat(count) {
+                                placeLine(measured.lines[consumed++], page.margins.left, top, pages.last())
+                                top += measured.lineHeight
+                            }
+                            if (consumed < measured.lines.size) nextPage()
+                        }
                     }
                     top += block.spaceAfter
                     after = block.spaceAfter
@@ -163,6 +204,7 @@ internal object FlowLayouter {
             when (block) {
                 is PdfTextBox -> overflow()
                 is PdfParagraph -> {
+                    if (block.format.pageBreakBefore) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Page breaks inside page bands are unsupported")
                     val p = paragraph(resolve(block), width, measurer)
                     top += if (block.format.collapseSpacing) maxOf(0f, block.spaceBefore - after) else block.spaceBefore
                     for (line in p.lines) { placeLine(line, page.margins.left, top, elements); top += p.lineHeight }

@@ -1,6 +1,6 @@
 # Own PDF conversion engine: technical design and implementation plan
 
-Date: 2026-10-24. Status: package and branch direction approved; the first [foundation slice](../../nuaforma-pdf/README.md) exists in source with a single-page default and opt-in bounded table/page flow. A test-only DOCX adapter connects a [strict letter](../../tools/pdf-evaluation/own-engine/README.md) and a [three-page report](../../tools/pdf-evaluation/own-engine/REPORT.md), compared with actual Word exports. The report trial adds fixed tables, repeated table headers and shared header/footer bands with PAGE fields. The [advanced table trials](../../tools/pdf-evaluation/own-engine/ADVANCED.md) add bounded spans, one-level nesting and row fragmentation, with an explicit opt-in relaxation for oversized atomic rows to preserve content that Word clips. The [frame trials](../../tools/pdf-evaluation/own-engine/FRAMES.md) add images in both page bands, positioned text frames, bounded top/bottom wrapping and rotated text/images, with shared-engine concurrency checks. These controlled proofs do not complete every milestone item below or expose a production DOCX conversion route. Production DOCX/ODT adapters, broader layout and release qualification remain future work. This document describes the target design, not a claim that all stages exist.
+Date: 2026-10-24. Status: package and branch direction approved; the first [foundation slice](../../nuaforma-pdf/README.md) exists in source with a single-page default and opt-in bounded table/page flow. A test-only DOCX adapter connects a [strict letter](../../tools/pdf-evaluation/own-engine/README.md) and a [three-page report](../../tools/pdf-evaluation/own-engine/REPORT.md), compared with actual Word exports. The report trial adds fixed tables, repeated table headers and shared header/footer bands with PAGE fields. The [advanced table trials](../../tools/pdf-evaluation/own-engine/ADVANCED.md) add bounded spans, one-level nesting and row fragmentation, with an explicit opt-in relaxation for oversized atomic rows to preserve content that Word clips. The [frame trials](../../tools/pdf-evaluation/own-engine/FRAMES.md) add images in both page bands, positioned text frames, bounded top/bottom wrapping and rotated text/images, with shared-engine concurrency checks. The [paragraph trial](../../tools/pdf-evaluation/own-engine/PAGINATION.md) adds body keeps, widow/orphan control and explicit page breaks; the [ordered roadmap](own-engine-roadmap.md) owns subsequent increments. These controlled proofs do not complete every milestone item below or expose a production DOCX conversion route. Production DOCX/ODT adapters, broader layout and release qualification remain future work. This document describes the target design, not a claim that all stages exist.
 
 ## 1. Baseline, scope and constraints
 
@@ -207,9 +207,9 @@ Strict rendering is the own-engine design default. An explicit lenient policy mu
 
 Use an internal CLI/worker entry point for qualification. Stage output privately until checks succeed; atomic file publication is possible for engine-owned paths, but caller-owned streams cannot promise rollback after arbitrary writes. Document stream ownership and staging limits. HTTP and queue behavior belongs to `nuaforma-server`; do not create another REST service module.
 
-## 9. Isolation, resources and capacity
+## 9. Execution, resources and capacity
 
-For hosted execution, use bounded request-private child processes, one job per worker execution, cancellation, deadlines and OS-level memory/process/network boundaries. Thread deadlines alone cannot stop a hung parser/font decoder. Any future process pooling requires explicit evidence for cleanup and cross-request isolation; do not weaken the current request-private execution policy merely to increase throughput.
+The maintainer approved in-process execution for the own renderer on 2026-10-24. Each conversion owns its parser, layout and PDF-writing state inside the hosting JVM; a fresh child process per document is not required. Reuse the existing server admission boundary with bounded concurrency/queues, cumulative resource budgets, deadlines and cooperative cancellation. A thread deadline does not forcibly stop a hung decoder, and in-process jobs have no separate OS memory boundary. Capacity qualification must establish aggregate limits before production integration. Current LibreOffice execution and separately isolated PDF validators retain their qualified controls; this decision does not change them. The foundation itself remains a source-only library with a test-only DOCX reader, not a hosted production integration.
 
 Prototype limits are starting proposals, not changes to existing qualified production settings:
 
@@ -222,7 +222,7 @@ Prototype limits are starting proposals, not changes to existing qualified produ
 | Decoded image | 40 megapixels each, plus a cumulative budget |
 | Output | 500 pages / 100 MiB |
 | Total job deadline | 120 seconds including required validation |
-| Child heap | 768 MiB plus a separate native/OS memory cap |
+| Host memory | Qualify aggregate JVM/native memory and admitted jobs; no per-job child heap |
 
 Count during decompression/decoding; reject path traversal, duplicate normalized paths, DTD/XXE, encrypted packages and external resource retrieval. Also bound nodes, cells, glyphs and layout iterations. Hyperlinks may survive as inert PDF links without being visited by the engine.
 
@@ -249,7 +249,8 @@ Prefer Apache/MIT/BSD/appropriate Unicode licenses for direct engine dependencie
 | Tables, merges and repeated headers | M4 | Release only tested combinations |
 | Rectangular wrapping and bookmarks | M5 | Reject unsupported wrap variants |
 | ODT | Small proof at M2 | Full adapter and support claim later |
-| Charts/SmartArt/metafiles, notes/columns, complex scripts | After first release | Explicit diagnosis until qualified |
+| International text, including Cyrillic, Arabic/Hebrew and mixed RTL/LTR | Before broad production support claims | Script/font-specific shaping, bidi, extraction and visual Word qualification; see the [international matrix](own-engine-roadmap.md#international-acceptance-requirements) |
+| Charts/SmartArt/metafiles, notes/columns | Later qualification | Explicit diagnosis until qualified |
 
 Start with five synthetic document families: branded letter, report/headings/lists, multipage table, mixed page sizes and anchored-logo document. Maintain at least twenty focused fixtures and five integrated examples, adding a minimal regression case for each defect.
 
@@ -279,14 +280,14 @@ Estimates are engineering effort for one sustained development stream with revie
 | M2 | Styles, numbering, tabs, paragraphs and a small ODT contract proof | 4–6 weeks | Equivalent DOCX/ODT model fixtures without splitting shared responsibilities into new artifacts |
 | M3 | Page masters, headers/footers, breaks, numbering and anchored logos | 4–6 weeks | Mixed-page report, first/odd/even policies and stable fields |
 | M4 | Table sizing, merges, repeated headers and bounded row continuation | 4–6 weeks | Multipage tables preserve content; unsupported combinations rejected |
-| M5 | Wrapping subset, links/bookmarks, process isolation, integration and measured capacity | 4–6 weeks | Five document families pass declared scope; explicit preview limitations |
+| M5 | Wrapping subset, links/bookmarks, bounded in-process integration and measured capacity | 4–6 weeks | Five document families pass declared scope; explicit preview limitations |
 | M6 | Archival-profile gate, compatibility/release review, native packaging and documentation | 3–5 weeks | Qualified own-engine candidate; ordinary/PDF-A capabilities accurately disclosed |
 
 Total: **24–36 engineering weeks** before large redesigns and full ODT import. A tentative calendar envelope is **6–12 months** with sustained work and feedback. Major uncertainties are searchable glyph emission, source-style fidelity and tables. Failure of a gate changes scope or the estimate, not acceptance criteria silently.
 
 Plan an additional **4–8 engineering weeks provisionally** for ODT support at the same subset after shared-engine stabilization; re-estimate after M2. ODT-specific frames/sections/page styles may cost more. DOCX/ODT output generation is distinct from this PDF conversion work.
 
-First implementation backlog, now approved for the bounded M0 proof only:
+The initial M0 backlog below is historical: the bounded foundation and later approved table/frame proofs have now been implemented. The [prioritized incremental roadmap](own-engine-roadmap.md) owns the current execution order and delivery status. The estimates above remain the original planning envelope, not a claim that production integration or the remaining format features are complete.
 
 1. Agree on synthetic document fixtures and their exact required features.
 2. Review the proposed `nuaforma-pdf` facade, existing adapter boundary and Java 17 dependencies.

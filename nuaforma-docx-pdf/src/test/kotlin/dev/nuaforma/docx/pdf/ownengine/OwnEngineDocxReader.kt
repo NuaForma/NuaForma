@@ -126,7 +126,8 @@ internal class OwnEngineDocxReader {
             val content = runs.ifEmpty { listOf(PdfTextRun(" ", PdfTextStyle(base.id(), base.size ?: reject("Missing font size"), base.color))) }
             check(content.none { it is PdfImageRun } || content.size == 1, "Mixed image/text paragraphs are outside the proof profile")
             return PdfParagraph(content, geometry.before, geometry.after, PdfParagraphFormat(geometry.alignment, geometry.left, geometry.right,
-                geometry.first, geometry.line ?: reject("Only explicit exact line spacing is supported"), true))
+                geometry.first, geometry.line ?: reject("Only explicit exact line spacing is supported"), true,
+                geometry.keepWithNext, geometry.keepLines, geometry.widowControl, geometry.pageBreakBefore))
         }
         fun readTable(table: XmlElement, partRelations: Map<String, String>, fields: Boolean, depth: Int = 0): PdfTable {
             check(depth <= 1, "Only one nested table level is supported")
@@ -350,7 +351,8 @@ internal class OwnEngineDocxReader {
         val blocks = readBlocks(body, relations, false)
         val header = band("header")
         val footer = band("footer")
-        val flow = if (header != null || footer != null || blocks.any { it is PdfTable || it is PdfTextBox }) PdfFlow(header, footer) else null
+        val flow = if (header != null || footer != null || blocks.any { it is PdfTable || it is PdfTextBox || it is PdfParagraph &&
+            (it.format.keepWithNext || it.format.keepLines || it.format.widowControl || it.format.pageBreakBefore) }) PdfFlow(header, footer) else null
         return PdfDocument(page, blocks, flow)
     }
 
@@ -386,12 +388,20 @@ internal class OwnEngineDocxReader {
     }
 
     private data class Geometry(val before: Float = 0f, val after: Float = 0f, val line: Float? = null,
-        val alignment: PdfAlignment = PdfAlignment.LEFT, val left: Float = 0f, val right: Float = 0f, val first: Float = 0f)
+        val alignment: PdfAlignment = PdfAlignment.LEFT, val left: Float = 0f, val right: Float = 0f, val first: Float = 0f,
+        val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false)
 
     private fun paragraphProperties(property: XmlElement, initial: Geometry): Geometry {
-        children(property, setOf("pStyle", "spacing", "jc", "ind", "widowControl"))
-        property.one("widowControl")?.let { check(it.value("val") in setOf("0", "false"), "Widow/orphan control is outside the proof") }
+        children(property, setOf("pStyle", "spacing", "jc", "ind", "widowControl", "keepNext", "keepLines", "pageBreakBefore"))
         var result = initial
+        fun flag(node: XmlElement): Boolean {
+            attributes(node, setOf("val"))
+            return when (node.value("val")) { null, "true", "1", "on" -> true; "false", "0", "off" -> false; else -> reject("Invalid paragraph toggle") }
+        }
+        property.one("keepNext")?.let { result = result.copy(keepWithNext = flag(it)) }
+        property.one("keepLines")?.let { result = result.copy(keepLines = flag(it)) }
+        property.one("widowControl")?.let { result = result.copy(widowControl = flag(it)) }
+        property.one("pageBreakBefore")?.let { result = result.copy(pageBreakBefore = flag(it)) }
         property.one("spacing")?.let {
             attributes(it, setOf("before", "after", "line", "lineRule"))
             if (it.value("line") != null || it.value("lineRule") != null) check(it.value("lineRule") == "exact" && it.value("line") != null, "Only exact line spacing is supported")
