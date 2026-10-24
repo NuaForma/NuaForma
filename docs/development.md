@@ -6,7 +6,7 @@ Use develop as the default working branch; feature PRs target develop and releas
 
 ## Requirements
 
-- JDK 17 for the five embedded libraries and JDK 25 for the server/Playground. Gradle can run on either; both compilation/test toolchains must be installed.
+- JDK 17 for embedded libraries, including the experimental source-only PDF engine, and JDK 25 for the server/Playground. Gradle can run on either; both compilation/test toolchains must be installed.
 - Python 3 for publication checks, SBOM normalization and repository tools.
 - The checked-in Gradle Wrapper; no global Gradle installation is required. Initial setup downloads pinned build tools/dependencies.
 - Maven 3.9.6 or later for independent embedded-consumer verification.
@@ -23,13 +23,14 @@ Libraries retain Java 17 API/bytecode compatibility. The server and Playground u
 ./gradlew build
 ./gradlew test
 ./gradlew :nuaforma-template:test
+./gradlew :nuaforma-pdf:test :nuaforma-pdf:renderFoundationLetter
 ./gradlew :nuaforma-server:test --tests 'dev.nuaforma.architecture.*'
 node --test nuaforma-playground/src/test/javascript/builder.test.cjs
 ```
 
 The full build includes module/dependency boundaries, ArchUnit architecture checks, Java/Kotlin tests, SBOM schema checks and local library-publication verification. JUnit Jupiter, MockK, ArchUnit and Swagger Parser are test-only. Changing only prose normally requires link/diff review rather than rendering every document; executable examples and generated documentation still need their applicable checks.
 
-For the seven-module JaCoCo report, run `./gradlew coverageReport -Pcoverage=true`. The [code-quality guide](code-quality.md) explains local HTML/XML reports, SonarQube Cloud CI, coverage boundaries and safe maintainer token setup. Normal builds need no Sonar token or coverage agent.
+For the aggregate JaCoCo report, run `./gradlew coverageReport -Pcoverage=true`. The [code-quality guide](code-quality.md) explains local HTML/XML reports, SonarQube Cloud CI, coverage boundaries and safe maintainer token setup. Normal builds need no Sonar token or coverage agent.
 
 Gradle dependencies and their metadata are verified against reviewed SHA-256 checksums in strict mode. Version locks and checksum verification serve different purposes; deliberate dependency updates must include the [independent checksum review](code-quality.md#reviewed-dependency-verification), not blindly accept newly generated hashes or disable verification.
 
@@ -72,10 +73,11 @@ Published `0.2.0-alpha.1` uses contract `0.2`. The current release is `0.2.0-alp
 | [nuaforma-template](../nuaforma-template/README.md) | Restricted format-independent template language and pipe evaluation |
 | [nuaforma-docx](../nuaforma-docx/README.md) | Native Word transformation, fonts, images and watermarks |
 | [nuaforma-docx-pdf](../nuaforma-docx-pdf/README.md) | DOCX reuse plus isolated PDF conversion/validation |
+| [nuaforma-pdf](../nuaforma-pdf/README.md) | Experimental neutral PDF model: single-page default plus opt-in bounded table/page flow and header/footer bands; not connected to providers or the server |
 | [nuaforma-server](../nuaforma-server/README.md) | REST transport and operational endpoints |
 | [nuaforma-playground](../nuaforma-playground/README.md) | Separate development GUI over the public server composition facade |
 
-The first five modules are independently publishable libraries. Server and Playground are separate Java 25 applications; the production server must not depend on the Playground. Keep external integrations behind component-specific `adapters` packages and use public contracts across module boundaries. [ARCHITECTURE.md](../ARCHITECTURE.md) is authoritative for the dependency and compatibility rules.
+The first six source modules are independently publishable libraries; the new `nuaforma-pdf` is local/source-only and has not been added to existing releases. Server and Playground are separate Java 25 applications; production does not depend on Playground or the experimental PDF engine. Keep external integrations behind component-specific `adapters` packages and use public contracts across module boundaries. [ARCHITECTURE.md](../ARCHITECTURE.md) is authoritative for the dependency and compatibility rules.
 
 ## Dependencies and releases
 

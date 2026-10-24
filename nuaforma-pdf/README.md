@@ -1,0 +1,53 @@
+# Shared PDF engine: M0 foundation
+
+`nuaforma-pdf` is a Java-17-compatible, experimental source library for the own-engine track. It converts a bounded, format-neutral document model to ordinary PDF 1.7 using the already reviewed PDFBox 3.0.8 dependency. The default remains single-page; opt-in exact-line pagination now supports fixed tables and shared page bands in the [report proof](../tools/pdf-evaluation/own-engine/REPORT.md). It requires no Word, LibreOffice, HTTP service, filesystem font installation or commercial license.
+
+This is an experimental foundation, not a production-qualified renderer or a replacement for the current `nuaforma-docx-pdf` provider. A test-only DOCX adapter now translates a [controlled letter](../tools/pdf-evaluation/own-engine/README.md) and a [three-page report](../tools/pdf-evaluation/own-engine/REPORT.md), followed by [advanced table fixtures](../tools/pdf-evaluation/own-engine/ADVANCED.md), into this model and compares them with real Word-exported references. There is no production DOCX/ODT reader, provider registration, existing API/default/profile, server runtime, Playground or release workflow change. The artifact is included in local source builds/publication checks, not claimed as published on Maven Central.
+
+## Minimal Java API
+
+```java
+var style = new PdfTextStyle("regular", 11);
+var paragraph = new PdfParagraph(List.of(new PdfTextRun("café €", style)));
+var document = new PdfDocument(
+    new PdfPage(595.28f, 841.89f, new PdfMargins(56.7f, 56.7f, 56.7f, 56.7f)),
+    List.of(paragraph));
+byte[] result = new PdfEngine().render(document,
+    List.of(new PdfFont("regular", callerSuppliedTrueTypeBytes)));
+```
+
+Coordinates and sizes are points (1/72 inch); content flows from the top-left inside the margins. Font IDs explicitly select real regular/bold/italic font files; there is no synthetic bold/italic or system-font fallback. Resource byte arrays and collections are copied. The engine owns per-call PDF state and returns bytes only after successful layout, writing and subset finalization. The caller owns its input/output files. Failure does not publish a partial result to a caller stream.
+
+The model includes page/margins, paragraphs with inline text/image items and before/after spacing, RGB text colors and PNG images with explicit physical dimensions. `PdfParagraphFormat` adds left/center/right alignment, physical left/right/first-line indentation, optional exact line height and collapsed paragraph spacing. Exact lines currently use an experimental 80% baseline; this does not reproduce all Word line policies. It is independent of DOCX/ODT/parser/PDFBox types. Other page policies, styles, units and semantic roles in the [full design](../docs/architecture/conversion-engine.md) remain planned rather than empty placeholder APIs.
+
+## Supported and rejected behavior
+
+- Tested horizontal Latin text, precomposed accents, common punctuation and euro sign. Unsupported scripts, combining marks, control/format characters and unpaired surrogates fail explicitly. This is not general Unicode shaping.
+- Greedy wrapping on ordinary spaces, preserving words across run/font changes. Line-edge whitespace is not a preserved formatting mechanism; use paragraph indentation instead. Long unbreakable words or single-page overflow fail with `CONTENT_OVERFLOW`; flow pagination is an explicit opt-in, without shrinking or hidden fallback.
+- The same supplied font's cmap advances determine measurement and output. Typed PDF operators write those exact encoded glyphs, avoiding an unmeasured second GSUB/ligature transformation. `ToUnicode` and real font subsets preserve extraction. This deliberately unshaped Latin path must not be advertised for complex scripts.
+- Standalone TrueType outlines only, with a bounded, valid table directory and OS/2 embedding-permissions table. Restricted, malformed/reserved low permission flags, bitmap-only and no-subsetting fonts are rejected. Full embedding and CFF/collections are not implemented. A technical embedding flag does not replace the caller's font license rights.
+- PNG only: bounded encoded bytes, signature/header checks and decoded-dimension limits before PDFBox image decoding. No external resource retrieval.
+- Opt-in `PdfFlow`: exact-line paragraph pagination, fixed-width `PdfTable` cells with uniform padding/borders and explicit fills, repeated leading headers and shared `PdfPageBand` header/footer content. Bands reserve margin space, and `PdfPageNumber` resolves only inside bands. Overlapping bands and page-budget overflow fail explicitly. Omitting `PdfFlow` retains single-page overflow behavior.
+- The [advanced table trials](../tools/pdf-evaluation/own-engine/ADVANCED.md) add validated `columnSpan`/`rowSpan`, one nested table level and line-boundary row fragments. `PdfTableCell.blocks` accepts paragraphs/tables; its `paragraphs` view contains direct paragraphs only. Nested borders may consume parent right padding but cannot leave the parent cell. Row splitting (`allowSplit`) is opt-in; an atomic row moves whole when it fits a fresh page. An oversized atomic row still rejects unless `splitOversized` explicitly permits content-preserving fragmentation. This differs deliberately from Word's clipping behavior for an oversized `cantSplit` row. There is no production fallback/option change.
+- The [page-band and text-frame trials](../tools/pdf-evaluation/own-engine/FRAMES.md) verify images in both bands, fixed-size `PdfTextBox` blocks with physical page/flow-cursor anchors, padding, fill/border, paragraph alignment, vertical alignment and clockwise center rotation. Frame text remains actual embedded-font PDF text. The qualified source subset uses unrotated rectangular VML frames and page-relative DrawingML frames. Rotated PNG Code 39 barcodes are independently scanned on full pages; barcode fonts are not qualified by this image-based trial.
+- `PdfBoxWrap.NONE` reserves no body space. Unrotated `TOP_BOTTOM` frames use forward-only exclusion areas in `PdfFlow`: text uses space above the frame, skips intersecting line boxes, and continues below. Combined wrapped frames/body tables, retroactive page-relative exclusions, frame splitting/autofitting, arbitrary square/tight wrapping, nested frames, legacy VML rotation/text-flow combinations and floating frames inside tables/bands are unsupported. Frame content exceeding its line-box area or rotated physical page bounds fails explicitly without clipping or shrinking. Paragraph anchoring here means the block's current flow cursor; general source anchor relocation/overlap reconciliation across page breaks remains future work.
+- Combined vertical spans/nesting with allowed row splitting are rejected in this profile. Fragmentation of oversized rows in a vertically merged table is also rejected. Nested tables remain atomic inside their parent cell. Rich field evaluation, alternate page masters, table-cell vertical alignment, keep-with-next, widow/orphan control, hyperlinks, arbitrary line breaks/tabs, production DOCX/ODT readers, PDF/A, PDF/UA and PDF/X remain unsupported.
+
+`PdfRenderException.code` distinguishes invalid resources, unsupported text, missing fonts/glyphs, embedding restrictions, overflow, resource limits and interruption. Invalid API arguments use `IllegalArgumentException`. No source text or font bytes appear in diagnostics. Interruption is cooperative and retains the caller's interrupt flag; it is not a hard process deadline.
+
+Prototype limits: one page by default or at most 32 opt-in flow pages, 1,000 main blocks, 2,000 paragraphs including cells/bands, 500 rows and 16 columns per table, 128 blocks per cell and one nested table level, 1,000 runs per paragraph, 100,000 UTF-16 text units total, 16 distinct fonts (8 MiB each/32 MiB total), PNG 4 MiB each/16 MiB total and at most 8,192 pixels per dimension/16 megapixels each, output 16 MiB. These are defensive bounds, **not** isolation or a measured hosted-service memory guarantee. Font/image parsing still executes in-process. Do not connect untrusted hosted input before the planned request-private process and aggregate-budget qualification.
+
+Frames accept 1–128 paragraphs each and participate in the existing aggregate text/image/paragraph budgets. Geometry must be finite and bounded; rotated extents include the border. Render/layout/PDFBox state is owned by each `render` call. A shared stateless `PdfEngine` and immutable models/font/image snapshots can be used concurrently; the frame regression shares one engine across 12 requests on four threads and verifies distinct text and decoded image pixels without cross-request contamination. This is correctness verification, not a throughput or hosted-isolation guarantee.
+
+## Reproduce and verify the letter
+
+```sh
+./gradlew :nuaforma-pdf:test
+./gradlew :nuaforma-pdf:renderFoundationLetter
+```
+
+The second command writes `nuaforma-pdf/build/foundation/foundation-letter.pdf` using the test-only licensed fonts and the approved project logo. It is a synthetic Dutch letter containing accents, euro, real bold/italic and a searchable `office affinity` case. The build output is ignored; font licenses/provenance remain in [test resources](src/test/resources/fonts/README.md). No production font assets are bundled.
+
+Tests reopen the actual bytes, extract Unicode, inspect embedded subsets/ToUnicode, font faces, page/image geometry and text bounds, and reject overflow, unsupported shaping, missing glyphs, restricted fonts, malformed images and oversized decoded images. Concurrent renders and Java callers are exercised. Render the generated PDF with an independent viewer for visual QA; text assertions alone do not prove appearance. See the [architecture](../ARCHITECTURE.md#own-pdf-engine-development-track) for the full roadmap and integration boundary.
+
+Changes are developed on a work branch targeting `feature/own-pdf-engine`. Keep the worktree until authorized delivery/merge, then remove it after preserving any needed ignored QA artifacts. This milestone does not authorize publication or switching the live converter.

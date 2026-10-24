@@ -15,6 +15,7 @@ internal class ArchitecturePolicy {
         Component("nuaforma-template", "dev.nuaforma.template", setOf("nuaforma-contracts")),
         Component("nuaforma-docx-pdf", "dev.nuaforma.docx.pdf", setOf("nuaforma-contracts", "nuaforma-docx", "nuaforma-template")),
         Component("nuaforma-docx", "dev.nuaforma.docx", setOf("nuaforma-contracts", "nuaforma-template")),
+        Component("nuaforma-pdf", "dev.nuaforma.pdf", emptySet()),
         Component("nuaforma-server", "dev.nuaforma.server", setOf("nuaforma-contracts", "nuaforma-core")),
         Component("nuaforma-playground", "dev.nuaforma.playground", setOf("nuaforma-server")),
     )
@@ -50,7 +51,8 @@ internal class ArchitecturePolicy {
             }
             "adapters" -> dependencyCondition("access external types only through their assigned adapter") { source, target, dependency ->
                 if (component(target) != null || platform(target) || compilerAnnotation(target, dependency)) true
-                else integrations.entries.any { (namespace, owner) -> inside(target.packageName, namespace) && inside(source.packageName, owner) }
+                else integrations.entries.any { (namespace, owner) -> inside(target.packageName, namespace) && inside(source.packageName, owner) } ||
+                    inside(target.packageName, "org.apache.pdfbox") && inside(source.packageName, "dev.nuaforma.pdf.adapters.pdfbox")
             }
             "api-leaks" -> apiCondition()
             "cycles" -> cycleCondition()

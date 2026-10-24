@@ -1,4 +1,4 @@
-"""Verify the five standalone local publications; never upload or load credentials."""
+"""Verify the standalone local publications; never upload or load credentials."""
 import argparse
 import hashlib
 import json
@@ -12,10 +12,12 @@ if not __debug__:
     raise RuntimeError("Release verification must run without Python optimization")
 
 MODULES = ("nuaforma-contracts", "nuaforma-core", "nuaforma-template", "nuaforma-docx", "nuaforma-docx-pdf")
+SOURCE_MODULES = MODULES + ("nuaforma-pdf",)
 DEPENDENCIES = {
     "nuaforma-contracts": set(), "nuaforma-core": {"nuaforma-contracts"},
     "nuaforma-template": {"nuaforma-contracts"}, "nuaforma-docx": {"nuaforma-contracts", "nuaforma-template"},
     "nuaforma-docx-pdf": {"nuaforma-contracts", "nuaforma-docx", "nuaforma-template"},
+    "nuaforma-pdf": set(),
 }
 NS = {"m": "http://maven.apache.org/POM/4.0.0"}
 
@@ -45,9 +47,9 @@ def artifacts(repository, module, version):
     return files
 
 
-def verify(repository, version):
+def verify(repository, version, modules=MODULES):
     records = []
-    for module in MODULES:
+    for module in modules:
         files = artifacts(repository, module, version)
         pom = ET.parse(files[0]).getroot()
         def value(path):
@@ -65,7 +67,9 @@ def verify(repository, version):
             assert not group.startswith(("org.junit", "io.mockk", "com.tngtech.archunit", "io.swagger", "org.verapdf", "io.ktor")), (module, group)
             assert name != "nuaforma-server"
             if module not in ("nuaforma-docx", "nuaforma-docx-pdf"):
-                assert not group.startswith(("org.docx4j", "org.apache.pdfbox", "jakarta.xml.bind")), (module, group)
+                assert not group.startswith(("org.docx4j", "jakarta.xml.bind")), (module, group)
+                if module != "nuaforma-pdf":
+                    assert not group.startswith("org.apache.pdfbox"), (module, group)
             if group == "dev.nuaforma":
                 own.add(name)
                 assert dependency.findtext("m:version", namespaces=NS) == version
@@ -127,13 +131,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("repository", type=pathlib.Path)
     parser.add_argument("--version", required=True)
+    parser.add_argument("--include-experimental-pdf-engine", action="store_true",
+                        help="Check the source-only engine locally; does not change release bundle membership")
     args = parser.parse_args()
     inventory = pathlib.Path(__file__).resolve().parents[2] / "build/library-runtime-files.json"
     runtime = json.loads(inventory.read_text(encoding="utf-8"))
-    assert set(runtime) == set(MODULES), "All five library runtime graphs must be checked"
+    modules = SOURCE_MODULES if args.include_experimental_pdf_engine else MODULES
+    assert set(runtime) == set(modules), "All selected library runtime graphs must be checked"
     for file in sorted({path for paths in runtime.values() for path in paths}):
         verify_java17_classes(pathlib.Path(file))
-    records = verify(args.repository, args.version)
+    records = verify(args.repository, args.version, modules)
     print(json.dumps(records, indent=2))
 
 

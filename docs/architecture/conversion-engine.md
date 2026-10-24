@@ -1,6 +1,6 @@
 # Own PDF conversion engine: technical design and implementation plan
 
-Date: 2026-10-24. Status: approved package and branch direction; detailed algorithms and milestones remain a design proposal. No own-engine implementation is introduced by this document.
+Date: 2026-10-24. Status: package and branch direction approved; the first [foundation slice](../../nuaforma-pdf/README.md) exists in source with a single-page default and opt-in bounded table/page flow. A test-only DOCX adapter connects a [strict letter](../../tools/pdf-evaluation/own-engine/README.md) and a [three-page report](../../tools/pdf-evaluation/own-engine/REPORT.md), compared with actual Word exports. The report trial adds fixed tables, repeated table headers and shared header/footer bands with PAGE fields. The [advanced table trials](../../tools/pdf-evaluation/own-engine/ADVANCED.md) add bounded spans, one-level nesting and row fragmentation, with an explicit opt-in relaxation for oversized atomic rows to preserve content that Word clips. The [frame trials](../../tools/pdf-evaluation/own-engine/FRAMES.md) add images in both page bands, positioned text frames, bounded top/bottom wrapping and rotated text/images, with shared-engine concurrency checks. These controlled proofs do not complete every milestone item below or expose a production DOCX conversion route. Production DOCX/ODT adapters, broader layout and release qualification remain future work. This document describes the target design, not a claim that all stages exist.
 
 ## 1. Baseline, scope and constraints
 
@@ -14,7 +14,7 @@ The engine will read DOCX first and ODT later, preserve supported styling, and g
 - Preserve the existing provider contracts, template language and DOCX generation responsibilities. A different backend does not authorize incompatible public API changes or silent output-profile changes.
 - First prove ordinary PDF. Qualify individual archival profiles separately; an implementation option or metadata label is not evidence of conformance.
 - Unsupported layout features require explicit diagnostics or rejection. Never silently switch to an external converter.
-- Keep the product in the existing Gradle multi-project repository. This change does not create modules, dependencies, source code, workflows, tags or publications.
+- Keep the product in the existing Gradle multi-project repository. The M0 source change adds only the agreed shared artifact and its verification/example integration; it does not add a new conversion provider, workflow, tag or public release.
 
 [ARCHITECTURE.md](../../ARCHITECTURE.md) owns architectural decisions. [Branch workflow](../branch-workflow.md#own-pdf-engine-integration-branch) owns the branch/release agreement. This document elaborates the own-engine design rather than replacing current module guides.
 
@@ -286,7 +286,7 @@ Total: **24–36 engineering weeks** before large redesigns and full ODT import.
 
 Plan an additional **4–8 engineering weeks provisionally** for ODT support at the same subset after shared-engine stabilization; re-estimate after M2. ODT-specific frames/sections/page styles may cost more. DOCX/ODT output generation is distinct from this PDF conversion work.
 
-First implementation backlog, **not authorized by this documentation task**:
+First implementation backlog, now approved for the bounded M0 proof only:
 
 1. Agree on synthetic document fixtures and their exact required features.
 2. Review the proposed `nuaforma-pdf` facade, existing adapter boundary and Java 17 dependencies.
