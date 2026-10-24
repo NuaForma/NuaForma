@@ -113,6 +113,28 @@ val frameRenders = listOf("bands", "frames", "rotated").map { kind ->
 tasks.processTestResources { from(layout.buildDirectory.dir("own-engine-frames")) { into("own-engine-frames") } }
 tasks.register("renderOwnEngineDrawingProofs") { group = "verification"; dependsOn(frameRenders) }
 
+val generateOwnEngineTabs = tasks.register<Exec>("generateOwnEngineTabs") {
+    val folder = rootProject.file("tools/pdf-evaluation/own-engine")
+    val output = layout.buildDirectory.file("own-engine-tabs/source.docx")
+    inputs.files(folder.resolve("build_tabs_fixture.py"), folder.resolve("build_report_fixture.py"), folder.resolve("build_fixture.py"), rootProject.file("assets/branding/nuaforma-icon-transparent.png"))
+    outputs.file(output)
+    commandLine("python3", folder.resolve("build_tabs_fixture.py").absolutePath, output.get().asFile.absolutePath)
+}
+tasks.processTestResources {
+    dependsOn(generateOwnEngineTabs)
+    from(layout.buildDirectory.dir("own-engine-tabs")) { into("own-engine-tabs") }
+}
+tasks.register<JavaExec>("renderOwnEngineTabs") {
+    group = "verification"
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("dev.nuaforma.docx.pdf.ownengine.OwnEngineProof")
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+    args(rootProject.layout.buildDirectory.file("own-engine-tabs/source.docx").get().asFile.absolutePath,
+        rootProject.layout.buildDirectory.file("own-engine-tabs/own-engine.pdf").get().asFile.absolutePath,
+        rootProject.layout.buildDirectory.dir("own-engine-proof/fonts").get().asFile.absolutePath)
+}
+
 val generateOwnEngineLists = tasks.register<Exec>("generateOwnEngineLists") {
     val folder = rootProject.file("tools/pdf-evaluation/own-engine")
     val output = layout.buildDirectory.file("own-engine-lists/source.docx")

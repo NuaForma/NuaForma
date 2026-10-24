@@ -16,7 +16,7 @@ The approved own-engine execution direction is now **in-process conversion withi
 |---|---|---|---|
 | 1 | Paragraph pagination: keep-with-next, keep-lines, widow/orphan control and explicit break-before | Boundary/unit/concurrency checks; actual Word-exported proof; no blank pages, lost/duplicated text or silent keep relaxation | Complete; [evidence](../../tools/pdf-evaluation/own-engine/PAGINATION.md) |
 | 2 | Lists and numbering | Bullets, nested levels, restarts, styled labels, hanging indentation and chapter numbering; source/style inheritance and Word comparison | Complete; [evidence](../../tools/pdf-evaluation/own-engine/LISTS.md) |
-| 3 | Tabs and leaders | Left/right/center/decimal stops, dotted leaders, mixed-font measurement and Word comparison | Planned |
+| 3 | Tabs and leaders | Left/right/center/decimal stops, dotted leaders, mixed-font measurement and Word comparison | Complete; [evidence](../../tools/pdf-evaluation/own-engine/TABS.md) |
 | 4 | Broader style resolution | Effective paragraph/run/table styles, theme fonts, overrides and automatic line/paragraph spacing | Planned |
 | 5 | International text and writing systems | Cyrillic, Arabic, Hebrew and representative additional scripts; shaping, bidirectional text, mixed-direction numbers/punctuation, font availability and Word references | Planned; moved forward after international-scope clarification |
 | 6 | International page geometry and sections | A4/A3, US Letter/Legal, portrait/landscape, margins, pagination and explicit section transitions; Word references for each qualified size | Planned |
@@ -35,7 +35,7 @@ The approved own-engine execution direction is now **in-process conversion withi
 
 Accessibility is cross-cutting rather than deferred to part 17: preserve list/heading roles, reading order, table-header relationships and image alternatives as those source constructs enter the model. Existing template conditions, repetitions, value formatting and resource pipes remain in their current modules; this roadmap does not introduce another template engine or a package per feature.
 
-Part 1 passed the full repository build, local publication checks and five independent Java/Kotlin consumers: 569 JVM tests, zero failures/errors/skips. Its ten-page Word trial preserves all text and page boundaries; the earlier 18 page pairs remain unchanged. All 140 comparison PNGs match their visually reviewed hashes. Part 2 also passed: 585 JVM tests with zero failures/errors/skips, five independent consumers, eight additional Word-matched pages and 180 unchanged reviewed comparison PNGs in total. Parts 3 and 4 are authorized next; later rows remain planned.
+Part 1 passed the full repository build, local publication checks and five independent Java/Kotlin consumers: 569 JVM tests, zero failures/errors/skips. Its ten-page Word trial preserves all text and page boundaries; the earlier 18 page pairs remain unchanged. All 140 comparison PNGs match their visually reviewed hashes. Part 2 also passed: 585 JVM tests with zero failures/errors/skips, five independent consumers, eight additional Word-matched pages and 180 unchanged reviewed comparison PNGs in total. Part 3 passed 597 JVM tests with zero failures/errors/skips, five independent consumers and two additional Word-matched pages; all 190 reviewed comparison PNGs remain unchanged. Part 4 is authorized next; later rows remain planned.
 
 ## Automated visual regression direction
 

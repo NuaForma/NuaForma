@@ -47,6 +47,12 @@ internal object PdfBoxWriter {
                     maxOf(-font.fontDescriptor.descent, -box.lowerLeftY) * style.size / 1000f)
             }
             val layouts = if (document.flow == null) listOf(PageLayouter.layout(document, measurer)) else FlowLayouter.layout(document, measurer)
+            fun decorationSize(elements: List<PositionedElement>): Long = elements.sumOf { element -> when (element) {
+                is PositionedText -> if (element.decoration) element.text.length.toLong() else 0L
+                is PositionedBox -> decorationSize(element.elements)
+                else -> 0L
+            } }
+            if (layouts.sumOf { decorationSize(it.elements) } > 100_000) fail(PdfFailureCode.RESOURCE_LIMIT, "Generated leader budget exceeded")
             val usedFonts = linkedSetOf<String>()
             val images = java.util.IdentityHashMap<PdfImage, PDImageXObject>()
             for (layout in layouts) {
@@ -94,6 +100,7 @@ internal object PdfBoxWriter {
                                     command("Q")
                                 }
                                 is PositionedText -> {
+                                    if (element.decoration) command("BMC", COSName.ARTIFACT)
                                     val color = element.style.color
                                     val font = fonts.getValue(element.style.fontId)
                                     usedFonts += element.style.fontId
@@ -105,6 +112,7 @@ internal object PdfBoxWriter {
                                     // Write the same Latin cmap glyphs used for measurement, without a second GSUB pass.
                                     command("Tj", COSString(font.encode(element.text)))
                                     command("ET")
+                                    if (element.decoration) command("EMC")
                                 }
                                 is PositionedImage -> {
                                     val image = images.getOrPut(element.image) {

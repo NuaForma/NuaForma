@@ -12,6 +12,7 @@ class PdfDocument @JvmOverloads constructor(val page: PdfPage, blocks: List<PdfB
         require(allParagraphs().sumOf { it.runs.filterIsInstance<PdfTextRun>().sumOf { run -> run.text.length.toLong() } + (it.listLabel?.value?.text?.length ?: 0) } <= 100_000) {
             "Document text exceeds the foundation limit"
         }
+        require(allParagraphs().sumOf { it.runs.count { run -> run is PdfTab } } <= 2_000) { "Tab control budget exceeded" }
     }
 
     internal fun allParagraphs(): List<PdfParagraph> {
@@ -134,6 +135,7 @@ data class PdfParagraphFormat @JvmOverloads constructor(
     val widowControl: Boolean = false,
     val pageBreakBefore: Boolean = false,
     val outlineLevel: Int? = null,
+    val tabs: PdfTabSettings? = null,
 ) {
     init {
         require(outlineLevel == null || outlineLevel in 0..8) { "Invalid outline level" }
@@ -157,6 +159,7 @@ class PdfParagraph @JvmOverloads constructor(
     val runs: List<PdfInline> = Collections.unmodifiableList(ArrayList(runs))
     init {
         require(this.runs.size in 1..1_000) { "A paragraph needs 1 to 1000 runs" }
+        require(this.runs.count { it is PdfTab } <= 32) { "Paragraph tab budget exceeded" }
         require(spaceBefore.isFinite() && spaceAfter.isFinite() && spaceBefore in 0f..14_400f && spaceAfter in 0f..14_400f) { "Invalid paragraph spacing" }
     }
 }

@@ -78,3 +78,5 @@ Preparation, publication and website deployment are separate actions. These guid
 - [Endpoint/Playground delivery and impact review](endpoint-integration.md).
 
 Research records describe the measured baseline, not current supported features or uncompleted release requirements. Follow the current module guides for actual behavior.
+
+- [Own-engine tabs and leaders](../tools/pdf-evaluation/own-engine/TABS.md): physical stops, decimal alignment, inherited overrides and actual Word evidence.

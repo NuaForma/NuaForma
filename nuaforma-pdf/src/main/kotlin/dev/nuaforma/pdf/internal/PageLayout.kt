@@ -5,7 +5,7 @@ import dev.nuaforma.pdf.*
 internal data class TextMetrics(val width: Float, val ascent: Float, val descent: Float)
 internal fun interface TextMeasurer { fun measure(text: String, style: PdfTextStyle): TextMetrics }
 internal sealed interface PositionedElement
-internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float) : PositionedElement
+internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false) : PositionedElement
 internal data class PositionedImage(val image: PdfImage, val x: Float, val top: Float) : PositionedElement
 internal data class PositionedRectangle(val x: Float, val top: Float, val width: Float, val height: Float, val fill: PdfColor?, val border: PdfBorder?) : PositionedElement
 internal data class PositionedBox(val box: PdfTextBox, val x: Float, val top: Float, val elements: List<PositionedElement>) : PositionedElement
@@ -76,7 +76,7 @@ internal object PageLayouter {
                         }
                         for (fragment in line) {
                             if (fragment.image != null) elements += PositionedImage(fragment.image, x, baseline - fragment.image.height)
-                            else elements += PositionedText(fragment.text, requireNotNull(fragment.style), x, baseline)
+                            else elements += PositionedText(fragment.text, requireNotNull(fragment.style), x + fragment.paintOffset, baseline, fragment.decoration)
                             x += fragment.metrics.width
                         }
                         top += height
@@ -84,8 +84,43 @@ internal object PageLayouter {
                         lineWidth = 0f
                         firstLine = false
                     }
-                    for (word in words(block.runs, measurer)) {
+                    val groups = words(block.runs, measurer)
+                    for ((groupIndex, word) in groups.withIndex()) {
                         checkCancellation()
+                        val control = word.singleOrNull()?.tab
+                        if (control != null) {
+                            if (format.alignment != PdfAlignment.LEFT) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Tab paragraphs require left body alignment")
+                            line += spaces; lineWidth += spaces.sumOf { it.metrics.width.toDouble() }.toFloat(); spaces.clear()
+                            val settings = format.tabs ?: PdfTabSettings()
+                            val cursor = lineLeft() + lineWidth
+                            val following = groups.drop(groupIndex + 1).takeWhile { group -> group.none { it.tab != null } }.flatten()
+                            val payloadWidth = following.sumOf { it.metrics.width.toDouble() }.toFloat()
+                            var decimalWidth = 0f
+                            for (fragment in following) {
+                                if (settings.decimalSeparator in fragment.text) {
+                                    decimalWidth += measurer.measure(fragment.text.substringBefore(settings.decimalSeparator), requireNotNull(fragment.style)).width
+                                    break
+                                }
+                                decimalWidth += fragment.metrics.width
+                            }
+                            val explicit = settings.stops.firstOrNull { it.position > cursor + .001f }
+                            val stop = explicit ?: PdfTabStop((kotlin.math.floor((cursor + .001f) / settings.defaultInterval) + 1) * settings.defaultInterval)
+                            val start = stop.position - when (stop.alignment) {
+                                PdfTabAlignment.LEFT -> 0f; PdfTabAlignment.RIGHT -> payloadWidth
+                                PdfTabAlignment.CENTER -> payloadWidth / 2; PdfTabAlignment.DECIMAL -> decimalWidth
+                            }
+                            if (start < cursor - .001f || start > width - format.rightIndent + .001f || stop.alignment != PdfTabAlignment.LEFT && start + payloadWidth > width - format.rightIndent + .001f) overflow()
+                            val gap = maxOf(0f, start - cursor)
+                            val symbol = when (stop.leader) { PdfTabLeader.NONE -> " "; PdfTabLeader.DOT -> "."; PdfTabLeader.HYPHEN -> "-"; PdfTabLeader.UNDERSCORE -> "_" }
+                            val metrics = measurer.measure(symbol, control.style)
+                            val count = if (stop.leader == PdfTabLeader.NONE) 1 else kotlin.math.floor(gap / metrics.width).toInt()
+                            if (count > 4096) throw PdfRenderException(PdfFailureCode.RESOURCE_LIMIT, "Tab leader budget exceeded")
+                            val text = if (count > 0) symbol.repeat(count) else " "
+                            val offset = if (stop.leader == PdfTabLeader.NONE || count == 0) 0f else (gap - count * metrics.width) / 2
+                            line += Fragment(text, control.style, metrics.copy(width = gap), paintOffset = offset, decoration = stop.leader != PdfTabLeader.NONE)
+                            lineWidth += gap
+                            continue
+                        }
                         if (word.all { it.text.all { character -> character == ' ' } }) {
                             spaces += word
                             continue
@@ -118,13 +153,18 @@ internal object PageLayouter {
         return PageLayout(page, elements)
     }
 
-    private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null)
+    private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null, val tab: PdfTab? = null, val paintOffset: Float = 0f, val decoration: Boolean = false)
 
     private fun words(runs: List<PdfInline>, measurer: TextMeasurer): List<List<Fragment>> {
         val groups = mutableListOf<MutableList<Fragment>>()
         var previousSpace: Boolean? = null
         for (run in runs) {
             if (run is PdfPageNumber) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields require page-band resolution")
+            if (run is PdfTab) {
+                groups += mutableListOf(Fragment("\t", run.style, TextMetrics(0f, 0f, 0f), tab = run))
+                previousSpace = null
+                continue
+            }
             if (run is PdfImageRun) {
                 groups += mutableListOf(Fragment("\uFFFC", null, TextMetrics(run.image.width, run.image.height, 0f), run.image))
                 previousSpace = null

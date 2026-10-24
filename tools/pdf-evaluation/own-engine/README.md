@@ -69,3 +69,5 @@ Measured on 2026-10-24 against Microsoft Word 16.0, build `16.0.20430`, using it
 The outputs are close, not pixel-identical. Word exports the 11-point body as 11.04-point PDF text and rounds glyph positioning; the engine uses the DOCX's 11 points and measured cmap advances. Word resamples the logo to 149 × 149 pixels; the engine retains the 1254 × 1254 source image at the same physical size. These differences remain visible in the amplified difference image; the engine does not degrade the source logo to match Word's resampling. The line-start/baseline measurements are anchor measurements, not a bound on every glyph's horizontal displacement.
 
 This proves the end-to-end path for this controlled letter only. It does not establish fidelity for arbitrary existing DOCX files, justify replacing the current converter or qualify any PDF/A profile. Playground, REST/provider behavior, release workflows and website remain unchanged.
+
+The [tabs and leaders trial](TABS.md) adds two actual Word-exported pages, 49 independently audited field anchors and unmasked raster comparisons.

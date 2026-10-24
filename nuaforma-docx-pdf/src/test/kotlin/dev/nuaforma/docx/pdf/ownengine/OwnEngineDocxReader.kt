@@ -62,10 +62,12 @@ internal class OwnEngineDocxReader {
         }
         val relations = readRelations(relationRoot)
         check(("word/settings.xml" in parts) == relations.values.contains("settings.xml"), "Settings relationship/part mismatch")
+        var decimalSeparator = "."
         val defaultTabInterval = parts["word/settings.xml"]?.let { bytes ->
             val settings = xml.read(bytes)
             check(settings.name.namespaceURI == word && settings.name.localPart == "settings", "Invalid settings root")
-            attributes(settings, emptySet()); children(settings, setOf("defaultTabStop"))
+            attributes(settings, emptySet()); children(settings, setOf("defaultTabStop", "decimalSymbol"))
+            settings.one("decimalSymbol")?.let { node -> attributes(node, setOf("val")); decimalSeparator = node.value("val") ?: reject("Missing decimal symbol"); check(decimalSeparator in setOf(".", ","), "Unsupported decimal symbol") }
             settings.one("defaultTabStop")?.let { node -> attributes(node, setOf("val")); twips(node.value("val")) }
         } ?: 36f
         check(defaultTabInterval in 1f..14_400f, "Invalid default tab interval")
@@ -116,7 +118,7 @@ internal class OwnEngineDocxReader {
                 } ?: base
                 return runProperties(properties, inherited, false)
             }
-            val runs = paragraph.elements().filter { it.name.localPart != "pPr" }.map { run ->
+            val runs = paragraph.elements().filter { it.name.localPart != "pPr" }.flatMap { run ->
                 if (run.name.localPart == "fldSimple") {
                     attributes(run, setOf("instr"))
                     check(run.value("instr")?.trim() == "PAGE", "Only PAGE fields in page bands are supported")
@@ -124,23 +126,23 @@ internal class OwnEngineDocxReader {
                     val cached = run.elements().singleOrNull() ?: reject("Invalid PAGE field")
                     children(cached, setOf("rPr", "t"))
                     val face = faceFor(cached.one("rPr"))
-                    return@map PdfPageNumber(PdfTextStyle(face.id(), face.size ?: reject("Missing font size"), face.color))
+                    return@flatMap listOf(PdfPageNumber(PdfTextStyle(face.id(), face.size ?: reject("Missing font size"), face.color)))
                 }
-                children(run, setOf("rPr", "t", "drawing"))
+                children(run, setOf("rPr", "t", "tab", "drawing"))
                 val face = faceFor(run.one("rPr"))
                 val contents = run.elements().filter { it.name.localPart != "rPr" }
-                check(contents.size == 1, "Each proof run must contain one text or image node")
-                val item = contents.single()
-                when (item.name.localPart) {
+                check(contents.isNotEmpty(), "Each proof run needs content")
+                contents.map { item -> when (item.name.localPart) {
                     "t" -> {
                         check(item.elements().isEmpty(), "Invalid text node")
                         val text = item.children.filterIsInstance<XmlText>().joinToString("") { it.text }
                         check(text == text.trim() || item.attribute("http://www.w3.org/XML/1998/namespace", "space") == "preserve", "Significant edge whitespace requires explicit preservation")
                         PdfTextRun(text.ifEmpty { " " }, PdfTextStyle(face.id(), face.size ?: reject("Missing font size"), face.color))
                     }
+                    "tab" -> { attributes(item, emptySet()); check(item.elements().isEmpty(), "Invalid tab control"); PdfTab(PdfTextStyle(face.id(), face.size ?: reject("Missing font size"), face.color)) }
                     "drawing" -> PdfImageRun(image(item, partRelations, parts))
                     else -> reject("Unsupported run content")
-                }
+                } }
             }
             val content = runs.ifEmpty { listOf(PdfTextRun(" ", PdfTextStyle(base.id(), base.size ?: reject("Missing font size"), base.color))) }
             check(content.none { it is PdfImageRun } || content.size == 1, "Mixed image/text paragraphs are outside the proof profile")
@@ -151,7 +153,8 @@ internal class OwnEngineDocxReader {
             }
             return PdfParagraph(content, geometry.before, geometry.after, PdfParagraphFormat(geometry.alignment, geometry.left, geometry.right,
                 geometry.first, geometry.line ?: reject("Only explicit exact line spacing is supported"), true,
-                geometry.keepWithNext, geometry.keepLines, geometry.widowControl, geometry.pageBreakBefore, geometry.outline), label)
+                geometry.keepWithNext, geometry.keepLines, geometry.widowControl, geometry.pageBreakBefore, geometry.outline,
+                if (geometry.tabStops.isNotEmpty() || content.any { it is PdfTab }) PdfTabSettings(geometry.tabStops, defaultTabInterval, decimalSeparator) else null), label)
         }
         fun readTable(table: XmlElement, partRelations: Map<String, String>, fields: Boolean, depth: Int = 0): PdfTable {
             check(depth <= 1, "Only one nested table level is supported")
@@ -377,7 +380,7 @@ internal class OwnEngineDocxReader {
         val header = band("header")
         val footer = band("footer")
         val flow = if (header != null || footer != null || blocks.any { it is PdfTable || it is PdfTextBox || it is PdfParagraph &&
-            (it.listLabel != null || it.format.keepWithNext || it.format.keepLines || it.format.widowControl || it.format.pageBreakBefore) }) PdfFlow(header, footer) else null
+            (it.runs.any { run -> run is PdfTab } || it.listLabel != null || it.format.keepWithNext || it.format.keepLines || it.format.widowControl || it.format.pageBreakBefore) }) PdfFlow(header, footer) else null
         return PdfDocument(page, blocks, flow)
     }
 
@@ -418,7 +421,7 @@ internal class OwnEngineDocxReader {
 
     private data class Geometry(val before: Float = 0f, val after: Float = 0f, val line: Float? = null,
         val alignment: PdfAlignment = PdfAlignment.LEFT, val left: Float = 0f, val right: Float = 0f, val first: Float = 0f,
-        val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null)
+        val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList())
 
     private fun paragraphProperties(property: XmlElement, initial: Geometry): Geometry {
         children(property, setOf("pStyle", "spacing", "jc", "ind", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs"))
@@ -429,9 +432,27 @@ internal class OwnEngineDocxReader {
         }
         property.one("outlineLvl")?.let { attributes(it, setOf("val")); val level = number(it.value("val")).toInt(); check(level in 0..8, "Unsupported outline level"); result = result.copy(outline = level) }
         property.one("tabs")?.let { tabs ->
-            children(tabs, setOf("tab")); val tab = tabs.elements().singleOrNull() ?: reject("Exactly one list tab is required")
-            attributes(tab, setOf("val", "pos")); check(tab.value("val") in setOf("num", "left"), "Only list tabs are supported")
-            result = result.copy(listTab = twips(tab.value("pos")))
+            children(tabs, setOf("tab"))
+            val merged = result.tabStops.associateBy { it.position }.toMutableMap()
+            val positions = mutableSetOf<Float>()
+            var numTab = result.listTab
+            for (tab in tabs.elements()) {
+                attributes(tab, setOf("val", "pos", "leader")); check(tab.elements().isEmpty(), "Invalid tab stop")
+                val pos = twips(tab.value("pos")); check(positions.add(pos), "Duplicate source tab position")
+                if (tab.value("val") == "clear") { merged.remove(pos); if (numTab == pos) numTab = null; continue }
+                val kind = when (tab.value("val")) {
+                    "left", "num" -> PdfTabAlignment.LEFT; "right" -> PdfTabAlignment.RIGHT
+                    "center" -> PdfTabAlignment.CENTER; "decimal" -> PdfTabAlignment.DECIMAL
+                    else -> reject("Unsupported tab alignment")
+                }
+                val leader = when (tab.value("leader") ?: "none") {
+                    "none" -> PdfTabLeader.NONE; "dot" -> PdfTabLeader.DOT; "hyphen" -> PdfTabLeader.HYPHEN; "underscore" -> PdfTabLeader.UNDERSCORE
+                    else -> reject("Unsupported tab leader")
+                }
+                merged[pos] = PdfTabStop(pos, kind, leader)
+                if (tab.value("val") == "num") numTab = pos
+            }
+            result = result.copy(listTab = numTab, tabStops = merged.values.sortedBy { it.position })
         }
         property.one("keepNext")?.let { result = result.copy(keepWithNext = flag(it)) }
         property.one("keepLines")?.let { result = result.copy(keepLines = flag(it)) }
@@ -516,7 +537,7 @@ internal class OwnEngineDocxReader {
     }
     private fun children(node: XmlElement, allowed: Set<String>) {
         check(node.elements().all { it.name.namespaceURI == word && it.name.localPart in allowed }, "Unsupported document feature")
-        check(node.elements().groupBy { it.name.localPart }.all { (name, values) -> name in setOf("r", "p", "style", "tbl", "tr", "tc", "fldSimple") || values.size == 1 }, "Duplicate property")
+        check(node.elements().groupBy { it.name.localPart }.all { (name, values) -> name in setOf("r", "p", "style", "tbl", "tr", "tc", "fldSimple", "t", "tab") || values.size == 1 }, "Duplicate property")
     }
     private fun attributes(node: XmlElement, allowed: Set<String>) {
         check(node.attributes.keys.all { it.namespaceURI == word && it.localPart in allowed }, "Unsupported formatting attribute")

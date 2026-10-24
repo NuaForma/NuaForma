@@ -9,6 +9,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JavaPdfEngineTest {
     @Test
+    void javaCallerCanRenderTypedTabs() throws IOException {
+        var style = new PdfTextStyle("regular", 10);
+        var tabs = new PdfTabSettings(List.of(new PdfTabStop(180, PdfTabAlignment.RIGHT, PdfTabLeader.DOT)));
+        var format = new PdfParagraphFormat(PdfAlignment.LEFT, 0, 0, 0, 14f, false, false, false, false, false, null, tabs);
+        var paragraph = new PdfParagraph(List.of(new PdfTextRun("Java", style), new PdfTab(style), new PdfTextRun("Value", style)), 0, 0, format);
+        byte[] font;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            font = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        var document = new PdfDocument(new PdfPage(300, 200, new PdfMargins(20, 20, 20, 20)), List.of(paragraph));
+        try (var pdf = Loader.loadPDF(new PdfEngine().render(document, List.of(new PdfFont("regular", font))))) {
+            assertTrue(new PDFTextStripper().getText(pdf).contains("Value"));
+        }
+    }
+
+    @Test
     void javaCallerCanResolveAndRenderSemanticNumbering() throws IOException {
         var definition = new PdfListDefinition("java", List.of(new PdfListLevel(PdfNumberFormat.DECIMAL, "%1.")));
         var value = PdfNumbering.resolve(List.of(definition), List.of(new PdfListStep("java", 0))).get(0);
