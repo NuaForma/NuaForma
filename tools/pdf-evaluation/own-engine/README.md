@@ -85,3 +85,5 @@ The [first/even/odd band trial](PAGE_MASTERS.md) adds two Word reports with reso
 The [page-field trial](FIELDS.md) resolves PAGE/NUMPAGES against the final document-wide total, with a 13-page Word report and explicit cache-format/overflow limits.
 
 The [sequence-numbering trial](NUMBERING.md) adds decimal restarts/continuation, SECTIONPAGES, displayed-number band parity and explicit padding policies verified against Word with both shared and different even/odd bands.
+
+The [cell-alignment trials](CELL_ALIGNMENT.md) cover top/center/bottom alignment with natural row heights, spans and atomic nested tables. Automatic widths and per-cell borders remain planned.

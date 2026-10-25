@@ -281,7 +281,7 @@ internal class OwnEngineDocxReader {
             check(borders.isEmpty() || borders.size == 6 && borders.distinct().size == 1, "Only uniform table borders are supported")
             val rowNodes = table.elements().filter { it.name.localPart == "tr" }
             val headerFlags = mutableListOf<Boolean>()
-            data class CellSpec(val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, var rows: Int = 1)
+            data class CellSpec(val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment, var rows: Int = 1)
             val specs = mutableListOf<Pair<List<CellSpec>, Boolean>>()
             var previous = mapOf<Int, CellSpec>()
             for (row in rowNodes) {
@@ -297,7 +297,11 @@ internal class OwnEngineDocxReader {
                 for (cell in row.elements().filter { it.name.localPart == "tc" }) {
                     children(cell, setOf("tcPr", "p", "tbl"))
                     val cp = cell.one("tcPr") ?: reject("Explicit cell properties required")
-                    children(cp, setOf("tcW", "shd", "gridSpan", "vMerge"))
+                    children(cp, setOf("tcW", "shd", "gridSpan", "vMerge", "vAlign"))
+                    val alignment = cp.one("vAlign")?.let { node ->
+                        attributes(node, setOf("val")); children(node, emptySet())
+                        when (node.value("val")) { "top" -> PdfVerticalAlignment.TOP; "center" -> PdfVerticalAlignment.CENTER; "bottom" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported cell vertical alignment") }
+                    } ?: PdfVerticalAlignment.TOP
                     val span = cp.one("gridSpan")?.let { attributes(it, setOf("val")); number(it.value("val")).toInt() } ?: 1
                     check(span in 1..16 && column + span <= widths.size, "Invalid grid span")
                     val actualWidth = dimension(cp.one("tcW") ?: reject("Missing cell width"))
@@ -321,12 +325,13 @@ internal class OwnEngineDocxReader {
                         "continue" -> {
                             val origin = previous[column] ?: reject("Vertical continuation has no origin")
                             check(origin.span == span && origin.background == background, "Inconsistent vertical continuation")
+                            check(cp.one("vAlign") == null || origin.alignment == alignment, "Inconsistent vertical continuation alignment")
                             check(blocks.all { it is PdfParagraph && it.runs.all { run -> run is PdfTextRun && run.text.isBlank() } }, "Continuation cells must not contain additional content")
                             origin.rows++
                             active[column] = origin
                         }
                         null, "restart" -> {
-                            val spec = CellSpec(blocks, background, span)
+                            val spec = CellSpec(blocks, background, span, alignment)
                             cells += spec
                             if (merge == "restart") active[column] = spec
                         }
@@ -338,7 +343,7 @@ internal class OwnEngineDocxReader {
                 specs += cells to allowSplit
                 previous = active
             }
-            val rows = specs.map { (cells, allow) -> PdfTableRow(cells.map { PdfTableCell(it.blocks, it.background, it.span, it.rows) }, allow, splitOversized = true) }
+            val rows = specs.map { (cells, allow) -> PdfTableRow(cells.map { PdfTableCell(it.blocks, it.background, it.span, it.rows, it.alignment) }, allow, splitOversized = true) }
             val count = headerFlags.takeWhile { it }.size
             check(headerFlags.drop(count).none { it }, "Table headers must be leading rows")
             val indent = properties.one("tblInd")?.let(::dimension) ?: reject("Explicit table indent required")

@@ -90,7 +90,10 @@ data class PdfBorder(val width: Float, val color: PdfColor) {
     init { require(width.isFinite() && width in 0.1f..4f) { "Invalid border width" } }
 }
 
-class PdfTableCell @JvmOverloads constructor(blocks: List<PdfBlock>, val background: PdfColor? = null, val columnSpan: Int = 1, val rowSpan: Int = 1) {
+class PdfTableCell @JvmOverloads constructor(
+    blocks: List<PdfBlock>, val background: PdfColor? = null, val columnSpan: Int = 1, val rowSpan: Int = 1,
+    val verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP,
+) {
     val blocks: List<PdfBlock> = Collections.unmodifiableList(ArrayList(blocks))
     val paragraphs: List<PdfParagraph> get() = blocks.filterIsInstance<PdfParagraph>()
     init {

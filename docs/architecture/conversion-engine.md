@@ -6,6 +6,8 @@ The [paper-format proof](../../tools/pdf-evaluation/own-engine/PAGE_FORMATS.md) 
 
 The [page-field proof](../../tools/pdf-evaluation/own-engine/FIELDS.md) adds global decimal PAGE/NUMPAGES in fixed reserved bands after all body ranges have been paginated. The [sequence-numbering follow-up](../../tools/pdf-evaluation/own-engine/NUMBERING.md) adds bounded decimal restarts/continuation, SECTIONPAGES and explicit parity padding. General field evaluation and other numbering formats remain unqualified.
 
+The [cell-alignment trials](../../tools/pdf-evaluation/own-engine/CELL_ALIGNMENT.md) add neutral top/center/bottom policies over naturally measured fixed table rows, including bounded spans, nested tables and page-band copying. Non-TOP cells crossing physical page fragments reject explicitly. Automatic widths, per-cell border policies and broader advanced table combinations remain planned.
+
 ## 1. Baseline, scope and constraints
 
 This work starts from the existing NuaForma product on `develop`, not from an empty repository. DOCX generation, provider contracts, the REST service, Playground, and the qualified LibreOffice-backed PDF provider already exist. Their current behavior is documented in the module guides. The own engine is future work and does not retrospectively change published artifacts or their supported profiles.

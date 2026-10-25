@@ -75,11 +75,17 @@ internal object TableLayouter {
             val a = maxOf(start, from)
             val b = minOf(end, until)
             if (a >= b - 0.001f) continue
+            val alignment = cell.placement.cell.verticalAlignment
+            if (alignment != PdfVerticalAlignment.TOP && (start < from - 0.001f || end > until + 0.001f)) {
+                throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Vertical alignment across page fragments is not qualified")
+            }
+            val spare = maxOf(0f, end - start - layout.frame - cell.contentHeight)
+            val shift = when (alignment) { PdfVerticalAlignment.TOP -> 0f; PdfVerticalAlignment.CENTER -> spare / 2; PdfVerticalAlignment.BOTTOM -> spare }
             val left = x + table.columnWidths.take(cell.placement.column).sum()
             val width = table.columnWidths.subList(cell.placement.column, cell.placement.column + cell.placement.cell.columnSpan).sum()
             target += PositionedRectangle(left, top + a - from + layout.closing / 2, width, b - a, cell.placement.cell.background, table.border)
             for (piece in cell.pieces) {
-                val y = start + layout.closing + table.cellMargins.top + piece.top
+                val y = start + layout.closing + table.cellMargins.top + shift + piece.top
                 if (y + piece.height <= from + 0.001f || y >= until - 0.001f) continue
                 if (y < from - 0.001f || y + piece.height > until + 0.001f) overflow("Merged cell content crosses an unsupported row boundary")
                 target += piece.elements.map { translate(it, left + table.cellMargins.left, top + y - from) }
@@ -88,6 +94,9 @@ internal object TableLayouter {
     }
 
     fun cut(layout: Measured, row: Int, from: Float, limit: Float): Float {
+        if (layout.rowCells(row).any { it.placement.cell.verticalAlignment != PdfVerticalAlignment.TOP }) {
+            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Vertical alignment across fragmented rows is not qualified")
+        }
         var end = minOf(layout.rowCells(row).maxOf { it.contentHeight }, limit)
         var remaining = 20_000
         while (remaining-- > 0) {
