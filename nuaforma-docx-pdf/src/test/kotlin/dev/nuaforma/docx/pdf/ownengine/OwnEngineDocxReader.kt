@@ -156,6 +156,7 @@ internal class OwnEngineDocxReader {
                     val cached = run.elements().singleOrNull() ?: reject("Invalid PAGE field")
                     children(cached, setOf("rPr", "t"))
                     val face = faceFor(cached.one("rPr"))
+                    check(face.rtl != true, "Forced complex-script page fields are not qualified")
                     return@flatMap listOf(PdfPageNumber(PdfTextStyle(face.id(), face.size ?: reject("Missing font size"), face.color, face.languageTag)))
                 }
                 children(run, setOf("rPr", "t", "tab", "drawing"))
@@ -166,6 +167,15 @@ internal class OwnEngineDocxReader {
                     "t" -> {
                         check(item.elements().isEmpty(), "Invalid text node")
                         val text = item.children.filterIsInstance<XmlText>().joinToString("") { it.text }
+                        val hebrew = text.codePoints().anyMatch { Character.UnicodeScript.of(it) == Character.UnicodeScript.HEBREW }
+                        check(face.rtl != true || hebrew, "Only Hebrew text may force complex-script reading order in this proof")
+                        if (hebrew || face.rtl == true) check(geometry.direction == PdfTextDirection.RIGHT_TO_LEFT && face.rtl == true &&
+                            text.codePoints().noneMatch { Character.getDirectionality(it) == Character.DIRECTIONALITY_LEFT_TO_RIGHT }, "Only explicitly marked Hebrew RTL runs are qualified")
+                        if (hebrew) {
+                            val explicit = run.one("rPr") ?: reject("Explicit complex-script properties are required")
+                            check(explicit.one("rFonts")?.value("cs") == face.family && explicit.one("szCs")?.value("val")?.let { number(it) / 2 } == face.size &&
+                                explicit.one("bCs") != null && explicit.one("iCs") != null, "Hebrew proof runs must pin all matching complex-script face properties")
+                        }
                         check(text == text.trim() || item.attribute("http://www.w3.org/XML/1998/namespace", "space") == "preserve", "Significant edge whitespace requires explicit preservation")
                         PdfTextRun(text.ifEmpty { " " }, PdfTextStyle(face.id(), face.size ?: reject("Missing font size"), face.color, face.languageTag))
                     }
@@ -181,10 +191,14 @@ internal class OwnEngineDocxReader {
                 val markerFace = resolveRun(entry.level.one("rPr"), base)
                 PdfListLabel(entry.value, PdfTextStyle(markerFace.id(), markerFace.size ?: reject("Missing marker size"), markerFace.color, markerFace.languageTag), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval)
             }
-            return PdfParagraph(content, geometry.before, geometry.after, PdfParagraphFormat(geometry.alignment, geometry.left, geometry.right,
+            val alignment = if (geometry.direction == PdfTextDirection.RIGHT_TO_LEFT) when (geometry.alignment) {
+                PdfAlignment.LEFT -> PdfAlignment.RIGHT; PdfAlignment.RIGHT -> PdfAlignment.LEFT; PdfAlignment.CENTER -> PdfAlignment.CENTER
+            } else geometry.alignment
+            check(geometry.direction != PdfTextDirection.RIGHT_TO_LEFT || geometry.left == 0f && geometry.right == 0f, "RTL source indentation is not qualified")
+            return PdfParagraph(content, geometry.before, geometry.after, PdfParagraphFormat(alignment, geometry.left, geometry.right,
                 geometry.first, geometry.line, true,
                 geometry.keepWithNext, geometry.keepLines, geometry.widowControl, geometry.pageBreakBefore, geometry.outline,
-                if (geometry.tabStops.isNotEmpty() || content.any { it is PdfTab }) PdfTabSettings(geometry.tabStops, defaultTabInterval, decimalSeparator) else null, geometry.automatic), label)
+                if (geometry.tabStops.isNotEmpty() || content.any { it is PdfTab }) PdfTabSettings(geometry.tabStops, defaultTabInterval, decimalSeparator) else null, geometry.automatic, geometry.direction), label)
         }
         fun readTable(table: XmlElement, partRelations: Map<String, String>, fields: Boolean, depth: Int = 0): PdfTable {
             check(depth <= 1, "Only one nested table level is supported")
@@ -413,12 +427,12 @@ internal class OwnEngineDocxReader {
         val header = band("header")
         val footer = band("footer")
         val flow = if (header != null || footer != null || blocks.any { it is PdfTable || it is PdfTextBox || it is PdfParagraph &&
-            (it.runs.any { run -> run is PdfTab } || it.listLabel != null || it.format.keepWithNext || it.format.keepLines || it.format.widowControl || it.format.pageBreakBefore) }) PdfFlow(header, footer) else null
+            (it.format.textDirection != null || it.runs.any { run -> run is PdfTab } || it.listLabel != null || it.format.keepWithNext || it.format.keepLines || it.format.widowControl || it.format.pageBreakBefore) }) PdfFlow(header, footer) else null
         return PdfDocument(page, blocks, flow)
     }
 
     private data class Face(val family: String? = null, val size: Float? = null, val bold: Boolean = false,
-        val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null) {
+        val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null) {
         fun id(): String {
             check(family == "Liberation Sans") { "Proof font family is not supplied" }
             return when { bold && italic -> "bolditalic"; bold -> "bold"; italic -> "italic"; else -> "regular" }
@@ -427,20 +441,21 @@ internal class OwnEngineDocxReader {
 
     private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>): Face {
         if (property == null) return initial
-        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang"))
+        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl"))
         var result = initial
         property.one("numPr")?.let { node ->
             attributes(node, emptySet()); children(node, setOf("numId", "ilvl")); check(node.elements().isNotEmpty(), "Empty numbering reference")
             node.elements().forEach { leaf -> attributes(leaf, setOf("val")); check(leaf.elements().isEmpty(), "Invalid numbering reference"); check(number(leaf.value("val")) <= if (leaf.name.localPart == "ilvl") 8 else 1_000_000, "Numbering reference exceeds bounds") }
         }
         property.one("rFonts")?.let {
-            attributes(it, setOf("ascii", "hAnsi", "asciiTheme", "hAnsiTheme"))
+            attributes(it, setOf("ascii", "hAnsi", "asciiTheme", "hAnsiTheme", "cs"))
             fun family(name: String): String? = it.value(name + "Theme")?.let { key ->
                 val kind = when (key) { "majorAscii", "majorHAnsi" -> "major"; "minorAscii", "minorHAnsi" -> "minor"; else -> reject("Unsupported theme font role") }
                 themeFonts[kind] ?: reject("Unresolved theme font")
             } ?: it.value(name) ?: initial.family
             val family = family("ascii") ?: reject("Explicit Latin font required")
             check(family("hAnsi") == family, "Mixed font families are unsupported")
+            check(it.value("cs") == null || it.value("cs") == family, "Separate complex-script font faces are outside this proof")
             result = result.copy(family = family)
         }
         property.one("lang")?.let {
@@ -452,8 +467,12 @@ internal class OwnEngineDocxReader {
         }
         property.one("sz")?.let { result = result.copy(size = number(it.value("val")) / 2) }
         fun enabled(node: XmlElement): Boolean = when (node.value("val")) { null, "true", "1", "on" -> true; "false", "0", "off" -> false; else -> reject("Invalid toggle") }
+        property.one("rtl")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty(), "Invalid run direction"); result = result.copy(rtl = enabled(it)) }
         property.one("b")?.let { result = result.copy(bold = enabled(it)) }
         property.one("i")?.let { result = result.copy(italic = enabled(it)) }
+        property.one("szCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && number(it.value("val")) / 2 == result.size, "Separate complex-script sizes are not qualified") }
+        property.one("bCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && enabled(it) == result.bold, "Separate complex-script weight is not qualified") }
+        property.one("iCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && enabled(it) == result.italic, "Separate complex-script slant is not qualified") }
         property.one("color")?.let {
             attributes(it, setOf("val"))
             val value = it.value("val") ?: reject("Missing color")
@@ -465,15 +484,16 @@ internal class OwnEngineDocxReader {
 
     private data class Geometry(val before: Float = 0f, val after: Float = 0f, val line: Float? = null,
         val alignment: PdfAlignment = PdfAlignment.LEFT, val left: Float = 0f, val right: Float = 0f, val first: Float = 0f,
-        val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false)
+        val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false, val direction: PdfTextDirection? = null)
 
     private fun paragraphProperties(property: XmlElement, initial: Geometry): Geometry {
-        children(property, setOf("pStyle", "contextualSpacing", "spacing", "jc", "ind", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs"))
+        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs"))
         var result = initial
         fun flag(node: XmlElement): Boolean {
             attributes(node, setOf("val"))
             return when (node.value("val")) { null, "true", "1", "on" -> true; "false", "0", "off" -> false; else -> reject("Invalid paragraph toggle") }
         }
+        property.one("bidi")?.let { check(it.elements().isEmpty(), "Invalid paragraph direction"); result = result.copy(direction = if (flag(it)) PdfTextDirection.RIGHT_TO_LEFT else PdfTextDirection.LEFT_TO_RIGHT) }
         property.one("outlineLvl")?.let { attributes(it, setOf("val")); val level = number(it.value("val")).toInt(); check(level in 0..8, "Unsupported outline level"); result = result.copy(outline = level) }
         property.one("tabs")?.let { tabs ->
             children(tabs, setOf("tab"))

@@ -41,6 +41,16 @@ internal object PageLayouter {
                     if (block.format.pageBreakBefore && elements.isNotEmpty()) overflow()
                     val format = block.format
                     val automatic = automaticBox(block, measurer)
+                    if (format.textDirection != null && block.runs.any { it !is PdfTextRun })
+                        throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Bidi tabs and inline images are not qualified")
+                    if (format.textDirection == PdfTextDirection.RIGHT_TO_LEFT && (block.listLabel != null || format.firstLineIndent != 0f))
+                        throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "RTL hanging or first-line indentation is not qualified")
+                    if (format.textDirection != null) {
+                        val points = block.runs.filterIsInstance<PdfTextRun>().joinToString("") { it.text }.codePoints().toArray()
+                        if (points.any { Character.UnicodeScript.of(it) == Character.UnicodeScript.HEBREW } &&
+                            (format.textDirection != PdfTextDirection.RIGHT_TO_LEFT || points.any { Character.getDirectionality(it) == Character.DIRECTIONALITY_LEFT_TO_RIGHT }))
+                            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Mixed Hebrew and LTR text is not qualified for logical extraction")
+                    }
                     val label = block.listLabel
                     if (label != null && format.alignment != PdfAlignment.LEFT) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "List body alignment is outside the qualified profile")
                     label?.let { requireSupportedText(it.value.text) }
@@ -63,6 +73,11 @@ internal object PageLayouter {
                     var line = mutableListOf<Fragment>()
                     var lineWidth = 0f
                     val spaces = mutableListOf<Fragment>()
+                    val groups = words(block.runs, measurer, format.textDirection != null)
+                    val paragraphBidi = format.textDirection?.let { direction ->
+                        val text = block.runs.filterIsInstance<PdfTextRun>().joinToString("") { it.text }
+                        java.text.Bidi(text, if (direction == PdfTextDirection.RIGHT_TO_LEFT) java.text.Bidi.DIRECTION_RIGHT_TO_LEFT else java.text.Bidi.DIRECTION_LEFT_TO_RIGHT)
+                    }
                     fun flush() {
                         if (line.isEmpty()) return
                         val ascent = maxOf(line.maxOf { if (automatic == null) it.metrics.ascent else it.metrics.naturalAscent }, if (firstLine) (if (automatic == null) marker?.ascent else marker?.naturalAscent) ?: 0f else 0f)
@@ -78,7 +93,13 @@ internal object PageLayouter {
                             PdfAlignment.CENTER -> remaining / 2
                             PdfAlignment.RIGHT -> remaining
                         }
-                        for (fragment in line) {
+                        if (paragraphBidi != null) {
+                            val slices = line.map { LogicalTextSlice(it.text, requireNotNull(it.style), it.sourceStart) }
+                            for (run in BidiLine.visualRuns(paragraphBidi, slices)) {
+                                elements += PositionedText(run.text, run.style, x, baseline)
+                                x += measurer.measure(run.text, run.style).width
+                            }
+                        } else for (fragment in line) {
                             if (fragment.image != null) elements += PositionedImage(fragment.image, x, baseline - fragment.image.height)
                             else elements += PositionedText(fragment.text, requireNotNull(fragment.style), x + fragment.paintOffset, baseline, fragment.decoration)
                             x += fragment.metrics.width
@@ -88,7 +109,6 @@ internal object PageLayouter {
                         lineWidth = 0f
                         firstLine = false
                     }
-                    val groups = words(block.runs, measurer)
                     for ((groupIndex, word) in groups.withIndex()) {
                         checkCancellation()
                         val control = word.singleOrNull()?.tab
@@ -174,10 +194,11 @@ internal object PageLayouter {
         return height to (ascent + gap)
     }
 
-    private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null, val tab: PdfTab? = null, val paintOffset: Float = 0f, val decoration: Boolean = false)
+    private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null, val tab: PdfTab? = null, val paintOffset: Float = 0f, val decoration: Boolean = false, val sourceStart: Int = 0)
 
-    private fun words(runs: List<PdfInline>, measurer: TextMeasurer): List<List<Fragment>> {
+    private fun words(runs: List<PdfInline>, measurer: TextMeasurer, bidi: Boolean): List<List<Fragment>> {
         val groups = mutableListOf<MutableList<Fragment>>()
+        var sourceOffset = 0
         var previousSpace: Boolean? = null
         for (run in runs) {
             if (run is PdfPageNumber) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields require page-band resolution")
@@ -192,22 +213,23 @@ internal object PageLayouter {
                 continue
             }
             run as PdfTextRun
-            requireSupportedText(run.text)
+            requireSupportedText(run.text, bidi)
             for (match in Regex(" +|[^ ]+").findAll(run.text)) {
                 val space = match.value[0] == ' '
                 if (space != previousSpace) groups += mutableListOf<Fragment>()
-                groups.last() += Fragment(match.value, run.style, measurer.measure(match.value, run.style))
+                groups.last() += Fragment(match.value, run.style, measurer.measure(match.value, run.style), sourceStart = sourceOffset + match.range.first)
                 previousSpace = space
             }
+            sourceOffset += run.text.length
         }
         return groups
     }
 
-    private fun requireSupportedText(text: String) {
+    private fun requireSupportedText(text: String, bidi: Boolean = false) {
         text.codePoints().forEach { point ->
             val script = Character.UnicodeScript.of(point)
             val category = Character.getType(point)
-            if (script !in simpleScripts ||
+            if ((script !in simpleScripts && !(bidi && script == Character.UnicodeScript.HEBREW && point !in 0xFB1D..0xFB4F)) ||
                 Character.isISOControl(point) || category in unshapedForbiddenTypes ||
                 point != 32 && Character.isWhitespace(point)) {
                 throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Text requires unsupported shaping or control handling")

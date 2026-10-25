@@ -6,6 +6,7 @@ import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class JavaPdfEngineTest {
     @Test
@@ -81,6 +82,21 @@ class JavaPdfEngineTest {
         var document = new PdfDocument(new PdfPage(300, 200, new PdfMargins(20, 20, 20, 20)), List.of(box));
         try (var pdf = Loader.loadPDF(new PdfEngine().render(document, List.of(new PdfFont("regular", font))))) {
             assertTrue(new PDFTextStripper().getText(pdf).contains("Positioned Java frame"));
+        }
+    }
+
+    @Test
+    void javaCallerCanRequestRightToLeftParagraphs() throws IOException {
+        byte[] font;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            font = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        var format = new PdfParagraphFormat(PdfAlignment.RIGHT, 0, 0, 0, 18f, false,
+            false, false, false, false, null, null, null, PdfTextDirection.RIGHT_TO_LEFT);
+        var paragraph = new PdfParagraph(List.of(new PdfTextRun("שלום עולם 123", new PdfTextStyle("regular", 11))), 0, 0, format);
+        var document = new PdfDocument(new PdfPage(300, 200, new PdfMargins(20, 20, 20, 20)), List.of(paragraph));
+        try (var pdf = Loader.loadPDF(new PdfEngine().render(document, List.of(new PdfFont("regular", font))))) {
+            assertEquals("שלום עולם 123", new PDFTextStripper().getText(pdf).trim());
         }
     }
 

@@ -137,6 +137,8 @@ data class PdfParagraphFormat @JvmOverloads constructor(
     val outlineLevel: Int? = null,
     val tabs: PdfTabSettings? = null,
     val automaticLineSpacing: PdfAutomaticLineSpacing? = null,
+    /** Explicit bidi base direction; null preserves the original simple-text profile. */
+    val textDirection: PdfTextDirection? = null,
 ) {
     init {
         require(exactLineHeight == null || automaticLineSpacing == null) { "Conflicting line policies" }

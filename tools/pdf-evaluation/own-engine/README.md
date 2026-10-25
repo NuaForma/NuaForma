@@ -74,4 +74,4 @@ The [tabs and leaders trial](TABS.md) adds two actual Word-exported pages, 49 in
 
 The [style and spacing trial](STYLES.md) qualifies effective run/paragraph/table styles, Latin theme fonts, explicit overrides and automatic line/contextual paragraph spacing.
 
-The [first international increment](INTERNATIONAL.md) compares Russian, Ukrainian and Greek paragraphs, tables and lists with Word, plus independent PDFium extraction/search. Arabic/Hebrew shaping remains unqualified research.
+The [first international increment](INTERNATIONAL.md) compares Russian, Ukrainian and Greek paragraphs, tables and lists with Word, plus independent PDFium extraction/search. The [bounded Hebrew increment](HEBREW.md) adds unpointed RTL text and numbers in paragraphs, tables and page bands. Mixed strong directions, Hebrew marks and Arabic shaping remain unqualified.
