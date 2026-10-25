@@ -6,6 +6,22 @@ plugins {
 
 description = "NuaForma DOCX/PDF provider with an optional isolated LibreOffice runtime"
 
+tasks.register<JavaExec>("qualifyOwnEngineProfiles") {
+    group = "verification"
+    description = "Qualifies explicit trusted DOCX cases against the four own-engine alpha output profiles."
+    dependsOn(tasks.testClasses, ":nuaforma-pdf:prepareOwnEngineValidation")
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("dev.nuaforma.docx.pdf.ownengine.OwnEngineProfileProof")
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+    doFirst {
+        args(providers.gradleProperty("ownEngineProfileCases").get(),
+            rootProject.layout.buildDirectory.dir("own-engine-proof/fonts").get().asFile.absolutePath,
+            project(":nuaforma-pdf").layout.buildDirectory.dir("pdfa-validation").get().asFile.absolutePath,
+            javaLauncher.get().executablePath.asFile.absolutePath,
+            providers.gradleProperty("ownEngineProfileOutput").get())
+    }
+}
+
 dependencies {
     api(project(":nuaforma-contracts"))
     api(project(":nuaforma-template"))

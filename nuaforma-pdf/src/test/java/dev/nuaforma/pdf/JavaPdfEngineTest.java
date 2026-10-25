@@ -10,6 +10,28 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class JavaPdfEngineTest {
     @Test
+    void javaCallerCanSelectValidatedArchivalOutputAndFullFontEmbedding(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path scratch) throws IOException {
+        byte[] bytes;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            bytes = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        List<java.nio.file.Path> jars;
+        try (var paths = java.nio.file.Files.list(java.nio.file.Path.of(System.getProperty("nuaforma.pdf.validation")))) {
+            jars = paths.filter(path -> path.toString().endsWith(".jar")).toList();
+        }
+        var validator = new PdfProcessValidator(java.nio.file.Path.of(System.getProperty("nuaforma.pdf.validation.java")), jars, scratch);
+        var paragraph = new PdfParagraph(List.of(new PdfTextRun("Java archival café", new PdfTextStyle("regular", 11))));
+        var document = new PdfDocument(new PdfPage(300, 200, new PdfMargins(20, 20, 20, 20)), List.of(paragraph));
+        var options = new PdfOutputOptions(PdfOutputProfile.PDFA_3B, "Java report");
+        var font = new PdfFont("regular", bytes, PdfFontEmbedding.FULL);
+        try (var pdf = Loader.loadPDF(new PdfEngine(validator).render(document, List.of(font), options))) {
+            assertEquals("Java report", pdf.getDocumentInformation().getTitle());
+            assertEquals("Java archival café", new PDFTextStripper().getText(pdf).trim());
+        }
+    }
+
+    @Test
     void javaCallerCanRenderExplicitCellBorders() throws IOException {
         var edge = new PdfEdgeStroke(new PdfBorder(2, new PdfColor(0, 81, 140)), 7);
         var borders = new PdfCellBorders(edge, null, edge, edge);

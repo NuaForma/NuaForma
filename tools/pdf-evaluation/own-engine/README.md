@@ -61,12 +61,12 @@ Measured on 2026-10-24 against Microsoft Word 16.0, build `16.0.20430`, using it
 | Line-start displacement | Maximum 0.093 pt horizontally |
 | Baseline displacement from page top | Maximum 0.110 pt vertically |
 | Independent word rectangles | Same 90 words; maximum word-start displacement 0.167 pt, word-end displacement 0.216 pt and word-box top displacement 0.075 pt |
-| Logo physical size/location | Both 54 × 54 pt at x = 56.7 pt; page-size rounding accounts for approximately 0.02 pt in the PDF y coordinate |
-| Page dimensions | Word 595.32 × 841.92 pt; engine 595.30 × 841.90 pt from the DOCX twips |
+| Logo physical size/location | Both 54 Ã— 54 pt at x = 56.7 pt; page-size rounding accounts for approximately 0.02 pt in the PDF y coordinate |
+| Page dimensions | Word 595.32 Ã— 841.92 pt; engine 595.30 Ã— 841.90 pt from the DOCX twips |
 | Pixel difference | 18,720 pixels above the threshold at 144 dpi, about 0.933% of the full page; not a quality score |
 | Visual inspection | Side-by-side, overlay and difference inspected: logo, alignment, indentation, colors, bold/italic and spacing retained, without clipping, overlap or missing content |
 
-The outputs are close, not pixel-identical. Word exports the 11-point body as 11.04-point PDF text and rounds glyph positioning; the engine uses the DOCX's 11 points and measured cmap advances. Word resamples the logo to 149 × 149 pixels; the engine retains the 1254 × 1254 source image at the same physical size. These differences remain visible in the amplified difference image; the engine does not degrade the source logo to match Word's resampling. The line-start/baseline measurements are anchor measurements, not a bound on every glyph's horizontal displacement.
+The outputs are close, not pixel-identical. Word exports the 11-point body as 11.04-point PDF text and rounds glyph positioning; the engine uses the DOCX's 11 points and measured cmap advances. Word resamples the logo to 149 Ã— 149 pixels; the engine retains the 1254 Ã— 1254 source image at the same physical size. These differences remain visible in the amplified difference image; the engine does not degrade the source logo to match Word's resampling. The line-start/baseline measurements are anchor measurements, not a bound on every glyph's horizontal displacement.
 
 This proves the end-to-end path for this controlled letter only. It does not establish fidelity for arbitrary existing DOCX files, justify replacing the current converter or qualify any PDF/A profile. Playground, REST/provider behavior, release workflows and website remain unchanged.
 
@@ -87,3 +87,65 @@ The [page-field trial](FIELDS.md) resolves PAGE/NUMPAGES against the final docum
 The [sequence-numbering trial](NUMBERING.md) adds decimal restarts/continuation, SECTIONPAGES, displayed-number band parity and explicit padding policies verified against Word with both shared and different even/odd bands.
 
 The [cell-alignment trials](CELL_ALIGNMENT.md) cover top/center/bottom alignment with natural row heights, spans and atomic nested tables. The [natural-width trials](NATURAL_WIDTHS.md) add bounded content-based column sizing, including later wide cells, styles and A4/Letter pagination; general AutoFit redistribution remains planned. The [solid cell-border qualification](CELL_BORDERS.md) adds per-side solid strokes/removal with one resolved style per source table. The [table-combination proof](BORDER_COMBINATIONS.md) additionally covers spans, one nested level, whole-row pagination and Letter. The [row-fragment proof](BORDER_FRAGMENTATION.md) extends this to explicitly splittable TOP-aligned rows with horizontal spans on A4 and Letter. Conflicting styles and oversized non-splitting custom-border rows remain unqualified.
+
+## Alpha output profile qualification
+
+Roadmap part 15 adds standard PDF 1.7 and independently validated PDF/A-1b, 2b and 3b to the shared engine. Earlier proof sections describe their original ordinary-PDF scope. This does not switch the production DOCX provider or publish an alpha.
+
+After preparing the existing trusted source/font corpus, create a TSV with four tab-separated columns: a safe case name, absolute source DOCX path, `true`/`false` for expected PDF/A-1b transparency rejection, and `SUBSET`/`FULL` font embedding. Use a fresh output directory:
+
+```sh
+./gradlew :nuaforma-docx-pdf:qualifyOwnEngineProfiles \
+  -PownEngineProfileCases=/absolute/path/cases.tsv \
+  -PownEngineProfileOutput=/absolute/path/new-output
+python3 tools/pdf-evaluation/own-engine/audit_output_profiles.py \
+  /absolute/path/new-output /absolute/path/profile-audit.json --baseline-root build
+```
+
+The test-only adapter renders each case through the same neutral model and all four explicit profiles. Every successful archival output must pass the real isolated Java-17 veraPDF validator before writing. `validation.tsv` records the SHA-256 and size of those exact bytes; expected 1b transparency rejections leave no PDF. The independent audit rechecks hashes, headers, metadata, ICC, font streams, Unicode extraction and page geometry. PDFium renders every page at 144 dpi and requires exact pixel equality with that case's standard PDF: no masks, alignment or tolerance.
+
+`build_profile_fixture.py source.docx opaque-source.docx` produces a separate controlled test source with white-backed RGB PNGs. It is a fixture-authoring tool, **never** converter behavior: obtain fresh genuine Word exports for these changed sources using `export_word.ps1`, preserving source/PDF provenance receipts. Do not compare changed source bytes against the original source's Word receipt. Original transparent sources, their Word exports and all reviewed comparison images remain intact. Opaque sources establish positive 1b behavior; original sources establish 2b/3b transparency and explicit 1b rejection. Do not silently flatten images to obtain a passing file.
+
+The profile audit uses the existing manual QA environment's Pillow (fixture authoring), pypdf, PDFium and numpy; these do not enter product dependencies. Independently render and review the new Word comparisons using `compare.py`; the profile-pixel audit supplements that layout evidence. Run the full build, independent consumer/publication checks and previous Word corpus after changes. No profile qualification licenses a release, a production-provider switch or a PDF/UA claim.
+
+### Recorded alpha qualification (2026-10-25)
+
+Fifty cases produce 155 PDFs / 591 pages: the original 44-document corpus, four separately authored opaque-image variants and two full-font variants. Every one of the 105 archival files passed the real explicit-flavour Java-17 veraPDF check. Independent inspection rechecked their exact recorded hashes, metadata, output intents, font streams, extracted text and physical page sizes. All 398 archival pages are pixel-identical to their corresponding standard PDF at 144 dpi in PDFium, without masks or tolerance. The original 179 standard pages also match their previous engine output pixel for pixel.
+
+| Profile | Successful files | Pages | Expected transparency rejection |
+|---|---:|---:|---:|
+| Standard PDF | 50 | 193 | 0 |
+| PDF/A-1b | 5 | 12 | 45 |
+| PDF/A-2b | 50 | 193 | 0 |
+| PDF/A-3b | 50 | 193 | 0 |
+
+Four new genuine Word exports (build `16.0.20527`) cover 11 opaque-source pages. Every page has the same normalized text; all side-by-side, overlay and difference views were reviewed at original render size. The report's 5,023 visible glyphs preserve order, face, size and color, with unchanged source inventories; its last page correctly has no repeated table header. The Letter-landscape proof retains the previously documented single adjacent-line word-wrap difference on page 1, with unchanged page text and line positions. Its independent paper/source/search/geometry audit passes the existing explicit one-word-wrap check. No new layout exceptions, masks or image alignment are introduced. Fifty-five reviewed PNG hashes are retained alongside the local evaluation receipts.
+
+| Opaque source | Page | Word/engine pixels differing by more than 24/255 | Observation |
+|---|---:|---:|---|
+| Confirmation letter | 1 | 0.933% | Existing small glyph/logo raster differences |
+| Report | 1 | 2.212% | Preserved layout, table and page bands |
+| Report | 2 | 2.601% | Preserved rows and repeated header |
+| Report | 3 | 1.428% | Preserved final paragraphs and footer |
+| Images in both page bands | 1 | 7.313% | Dense text retains order and positions; both logos present |
+| Images in both page bands | 2 | 7.643% | Dense text retains order and positions; both logos present |
+| Images in both page bands | 3 | 1.422% | Correct short final page and both logos |
+| Letter landscape | 1 | 1.552% | Existing one-word line-wrap difference |
+| Letter landscape | 2 | 1.517% | Preserved rows, header and footer |
+| Letter landscape | 3 | 1.578% | Preserved pagination and table end |
+| Letter landscape | 4 | 1.658% | Preserved closing paragraphs |
+
+The percentages describe raw Word-versus-engine raster differences, including font antialiasing; they are not the profile-versus-standard results, which are exactly equal. There is no clipping, overlap, missing text or changed pagination in these new comparisons.
+
+| Opaque fixture | Source SHA-256 | Word PDF SHA-256 |
+|---|---|---|
+| own-engine-frames/bands | 4bbc832a864a3f2f2482168d4c9404783003c40bb97206c051ea0041a0200423 | bd2f3372210ddbd2e32b50e53eaf632cdbe55c5561c573be8f29795d5c5de225 |
+| own-engine-page-formats/letter-landscape | 8b0c9b8fee2a4a04bb0ce8d82a0b32dabbce4dd973b0be18cf77a218b32a694a | eac534cd1be119898ea8291c10519d08eff24394714ac9b100e0eec6b28f0ecb |
+| own-engine-proof | 00a7092c2ecad84b15d55d473a82f2a9defff743c016aa948208ac1415cc55eb | 8d61ae856c188aacefc187678335163128f91c269fed04ab23b2ec4ff7abb0af |
+| own-engine-report | d4cd9292967cec7b445e5229c003a20f4a44ea82d266af5f841bfac21f9272ee | f1724a79b0fa569a93d9f9be8a3dc74ddc1be7f48ebfb290d69d6f2918be3649 |
+
+A separate full-font audit confirms that all seven full-embedding PDFs contain byte-identical original caller font programs for the used regular, bold and italic faces. Their font names have no subset prefix. The full-font confirmation letter and two-page Hebrew proof also render pixel-identically to their corresponding subset-font standard PDFs, establishing the same appearance across embedding modes.
+
+The final local `build verifyLibraryPublication` succeeds with 736 JVM tests and zero failures/errors/skips, together with the separately completed five independent Java/Kotlin consumer checks. The architecture policy permits veraPDF only in its assigned DOCX/PDF or shared-PDF adapters; three added negative fixtures continue to reject direct, wrong-adapter and public-API access. A workstation startup timing failure was investigated with unchanged tests and resolved using checksum-verified, byte-identical compiled outputs on native storage; no deadlines or assertions were relaxed. Java 17 library/validator and Java 25 server boundaries are preserved. Playground, existing provider defaults, public releases, website and Sonar/workflow settings are unchanged.
+
+Final source/content/font/geometry/barcode/border audits pass for the original 44 documents / 179 Word page pairs. All 895 previously reviewed PNGs remain unchanged after regenerating every original standard-PDF proof; the 55 newly reviewed opaque-source comparison PNGs also retain their frozen hashes. Together this retains 48 Word-reference documents / 190 page pairs / 950 reviewed comparison images. No reference bytes, comparison gates or accepted-difference policies were changed to obtain this result.

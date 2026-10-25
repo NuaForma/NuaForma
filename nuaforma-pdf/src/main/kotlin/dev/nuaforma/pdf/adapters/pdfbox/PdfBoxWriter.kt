@@ -20,19 +20,21 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import org.apache.pdfbox.pdfwriter.compress.CompressParameters
 
 internal object PdfBoxWriter {
-    fun render(document: PdfDocument, suppliedFonts: List<PdfFont>): ByteArray {
+    fun render(document: PdfDocument, suppliedFonts: List<PdfFont>, options: PdfOutputOptions): ByteArray {
         PageLayouter.checkCancellation()
         PDDocument().use { pdf ->
-            pdf.version = 1.7f
+            pdf.version = if (options.profile == PdfOutputProfile.PDFA_1B) 1.4f else 1.7f
+            ArchivalMetadata.apply(pdf, options)
             val lineMetrics = mutableMapOf<String, FloatArray>()
             val fonts = suppliedFonts.associate { resource ->
                 val bytes = resource.bytes()
-                validateFontPermissions(bytes)
+                validateFontPermissions(bytes, resource.embedding)
                 naturalMetrics(bytes)?.let { lineMetrics[resource.id] = it }
                 val font = try {
-                    PDType0Font.load(pdf, ByteArrayInputStream(bytes), true)
+                    PDType0Font.load(pdf, ByteArrayInputStream(bytes), resource.embedding == PdfFontEmbedding.SUBSET)
                 } catch (_: IOException) {
                     fail(PdfFailureCode.INVALID_RESOURCE, "Cannot load the supplied TrueType font")
                 }
@@ -142,7 +144,7 @@ internal object PdfBoxWriter {
                                     val color = element.style.color
                                     val font = fonts.getValue(element.style.fontId)
                                     usedFonts += element.style.fontId
-                                    element.text.codePoints().forEach { font.addToSubset(it) }
+                                    if (font.willBeSubset()) element.text.codePoints().forEach { font.addToSubset(it) }
                                     command("BT")
                                     command("Tf", page.resources.add(font), number(element.style.size))
                                     command("rg", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
@@ -157,6 +159,7 @@ internal object PdfBoxWriter {
                                     val image = images.getOrPut(element.image) {
                                         val bytes = element.image.bytes()
                                         validatePng(bytes)
+                                        if (options.profile == PdfOutputProfile.PDFA_1B && pngHasTransparency(bytes)) fail(PdfFailureCode.UNSUPPORTED_OUTPUT, "PDF/A-1b does not support transparent PNG resources")
                                         try { PDImageXObject.createFromByteArray(pdf, bytes, "image") }
                                         catch (_: IOException) { fail(PdfFailureCode.INVALID_RESOURCE, "Cannot decode the supplied PNG") }
                                     }
@@ -174,15 +177,15 @@ internal object PdfBoxWriter {
                     paint(layout.elements, layout.page.height, layout.page.width)
                 }
             }
-            usedFonts.forEach { fonts.getValue(it).subset() }
+            usedFonts.map { fonts.getValue(it) }.filter { it.willBeSubset() }.forEach { it.subset() }
             val output = BoundedOutput()
-            pdf.save(output)
+            if (options.profile == PdfOutputProfile.PDFA_1B) pdf.save(output, CompressParameters.NO_COMPRESSION) else pdf.save(output)
             PageLayouter.checkCancellation()
             return output.toByteArray()
         }
     }
 
-    private fun validateFontPermissions(bytes: ByteArray) {
+    private fun validateFontPermissions(bytes: ByteArray, embedding: PdfFontEmbedding) {
         val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN)
         if (bytes.size < 12 || buffer.getInt(0) != 0x00010000) fail(PdfFailureCode.INVALID_RESOURCE, "Only standalone TrueType outlines are supported")
         val count = buffer.getShort(4).toInt() and 65535
@@ -199,9 +202,23 @@ internal object PdfBoxWriter {
             }
         }
         val flags = permissions ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no embedding-permissions table")
-        if ((flags and 15) !in setOf(0, 4, 8) || flags and 0x0300 != 0) {
-            fail(PdfFailureCode.FONT_EMBEDDING_FORBIDDEN, "Font permission flags do not allow the foundation's subset outline embedding")
+        if ((flags and 15) !in setOf(0, 4, 8) || flags and 0x0200 != 0 || flags and 0x0100 != 0 && embedding == PdfFontEmbedding.SUBSET) {
+            fail(PdfFailureCode.FONT_EMBEDDING_FORBIDDEN, "Font permission flags do not allow the requested outline embedding")
         }
+    }
+
+    private fun pngHasTransparency(bytes: ByteArray): Boolean {
+        if (bytes.size < 33) fail(PdfFailureCode.INVALID_RESOURCE, "Invalid PNG header")
+        if ((bytes[25].toInt() and 255) in setOf(4, 6)) return true
+        val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN)
+        var offset = 8L
+        while (offset + 12 <= bytes.size) {
+            val length = buffer.getInt(offset.toInt()).toLong() and 0xFFFFFFFFL
+            if (offset + length + 12 > bytes.size) fail(PdfFailureCode.INVALID_RESOURCE, "Invalid PNG chunk bounds")
+            if (buffer.getInt(offset.toInt() + 4) == 0x74524E53) return true
+            offset += length + 12
+        }
+        return false
     }
 
     private fun naturalMetrics(bytes: ByteArray): FloatArray? {

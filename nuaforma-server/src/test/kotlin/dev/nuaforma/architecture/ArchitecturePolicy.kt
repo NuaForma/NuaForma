@@ -52,7 +52,8 @@ internal class ArchitecturePolicy {
             "adapters" -> dependencyCondition("access external types only through their assigned adapter") { source, target, dependency ->
                 if (component(target) != null || platform(target) || compilerAnnotation(target, dependency)) true
                 else integrations.entries.any { (namespace, owner) -> inside(target.packageName, namespace) && inside(source.packageName, owner) } ||
-                    inside(target.packageName, "org.apache.pdfbox") && inside(source.packageName, "dev.nuaforma.pdf.adapters.pdfbox")
+                    inside(target.packageName, "org.apache.pdfbox") && inside(source.packageName, "dev.nuaforma.pdf.adapters.pdfbox") ||
+                    inside(target.packageName, "org.verapdf") && inside(source.packageName, "dev.nuaforma.pdf.adapters.verapdf")
             }
             "api-leaks" -> apiCondition()
             "cycles" -> cycleCondition()

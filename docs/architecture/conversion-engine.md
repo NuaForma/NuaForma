@@ -170,11 +170,11 @@ Page-count fields require a consistent width reservation and bounded relayout, i
 
 The shared backend translates positioned top-left layout coordinates to PDF coordinates. First deliver ordinary PDF 1.7 with searchable text, permissible font subsets, images, paths, hyperlinks and bookmarks. SVG, EMF/WMF, charts and complex shapes require separate capabilities. Do not fetch resources or embed fonts without appropriate permission.
 
-| Own-engine output | Planned qualification |
+| Own-engine output | Qualification status |
 |---|---|
-| Standard PDF | First vertical slice; structure, extracted content and visual checks |
-| PDF/A-2b | First archival candidate, subject to requirements confirmation and independent exact-file validation |
-| PDF/A-1b / PDF/A-3b | Existing product expectations to assess explicitly before replacement; not automatically inherited by the own engine |
+| Standard PDF | Qualified bounded source profile: PDF 1.7, extracted content, fonts, geometry and raster checks |
+| PDF/A-2b | Qualified bounded alpha source profile; independent exact-file validation required for every delivery |
+| PDF/A-1b / PDF/A-3b | Independently qualified bounded alpha source profiles; transparent resources remain unavailable for 1b |
 | Other PDF/A, tagged PDF, PDF/UA | Separate milestones and evidence; PDF/UA also requires human accessibility review |
 | PDF/X | Outside the first roadmap |
 
@@ -183,6 +183,9 @@ The current provider defaults and profile contract are not changed by this docum
 PDF/A requires appropriate font embedding, color/ICC handling, metadata and all other profile rules; labels alone are insufficient. Preserve the approved independent bounded validator boundary and the existing explicitly configured operator conformance policy. Default validation remains enabled. When an approved opt-out applies, retain mandatory structural/font/security checks and accurately report that conformance was not checked; no fabricated attestation. Missing validation when required or failed exact-file validation prevents delivery.
 
 Validation orchestration belongs inside `nuaforma-pdf`, with upstream validator components retaining their reviewed licenses and process isolation. Do not create a separate validation publication or assume that an old runtime qualification covers the new engine.
+
+For a later tagged-PDF/PDF/A level-A increment (including 3a), the maintainer approved caller-owned document language, meaningful-image descriptions and manual semantic/accessibility review. NuaForma must preserve these inputs, produce the correct structure tree and logical reading order, validate technical conformance and report missing required information. Caller responsibility does not replace the renderer's tagging work or make a PDF/A-3a file automatically PDF/UA compliant. Keep this future work in the shared neutral model so DOCX and later ODT can reuse it; it is outside the four alpha profiles.
+
 
 ## 8. Interfaces, execution and diagnostics
 

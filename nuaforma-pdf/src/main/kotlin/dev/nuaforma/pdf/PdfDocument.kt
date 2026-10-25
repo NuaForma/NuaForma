@@ -255,7 +255,9 @@ data class PdfTextRun(val text: String, val style: PdfTextStyle) : PdfInline {
 }
 
 /** Caller-supplied standalone TrueType font. No filesystem or system-font lookup. */
-class PdfFont(val id: String, bytes: ByteArray) {
+enum class PdfFontEmbedding { SUBSET, FULL }
+
+class PdfFont @JvmOverloads constructor(val id: String, bytes: ByteArray, val embedding: PdfFontEmbedding = PdfFontEmbedding.SUBSET) {
     private val content: ByteArray
     init {
         require(id.matches(Regex("[A-Za-z0-9_-]{1,64}"))) { "Invalid font ID" }
