@@ -1170,6 +1170,50 @@
     },
     {
       "coordinates": [
+        "dev.nuaforma",
+        "image-comparison",
+        "5.0.0",
+        "image-comparison-5.0.0.jar"
+      ],
+      "sha256": "e675b6615f55751e2f38b56fd4974ca39bf8261aad01dcab42cd854e26d9e978",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/dev/nuaforma/image-comparison/5.0.0/image-comparison-5.0.0.jar",
+      "bytes": 28644
+    },
+    {
+      "coordinates": [
+        "dev.nuaforma",
+        "image-comparison",
+        "5.0.0",
+        "image-comparison-5.0.0.pom"
+      ],
+      "sha256": "ee9d371be4ead5075ee6734998c6db192059f5cc4d52acea0bad899aa7528c59",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/dev/nuaforma/image-comparison/5.0.0/image-comparison-5.0.0.pom",
+      "bytes": 1937
+    },
+    {
+      "coordinates": [
+        "dev.nuaforma",
+        "image-comparison-kotlin",
+        "5.0.0",
+        "image-comparison-kotlin-5.0.0.jar"
+      ],
+      "sha256": "b7a303fd90a44bb3e859e5254e429fbd031d4d5f1b4299d54a56890e6167b61d",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/dev/nuaforma/image-comparison-kotlin/5.0.0/image-comparison-kotlin-5.0.0.jar",
+      "bytes": 18766
+    },
+    {
+      "coordinates": [
+        "dev.nuaforma",
+        "image-comparison-kotlin",
+        "5.0.0",
+        "image-comparison-kotlin-5.0.0.pom"
+      ],
+      "sha256": "692c77c11e6cb13b01e544c17be546d3faa3f7080e7e7a1264ed7e04ffcccb8a",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/dev/nuaforma/image-comparison-kotlin/5.0.0/image-comparison-kotlin-5.0.0.pom",
+      "bytes": 2519
+    },
+    {
+      "coordinates": [
         "io.ktor",
         "ktor-client-apache5",
         "3.6.0",

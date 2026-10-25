@@ -45,6 +45,7 @@ This review began with the build scaffold for issue #1 on 2026-10-11 and records
 | JUnit Jupiter | 6.1.3 | Tests only | [EPL-2.0](https://github.com/junit-team/junit-framework/blob/r6.1.3/LICENSE.md) |
 | MockK | 1.14.11 | Tests only | [Apache-2.0](https://github.com/mockk/mockk/blob/v1.14.11/LICENSE) |
 | ArchUnit | 1.5.1 | Tests only | [Apache-2.0 with bundled dependency notices](https://github.com/TNG/ArchUnit/blob/v1.5.1/LICENSE) |
+| NuaForma Image Comparison core and Kotlin DSL | 5.0.0 | PDF-engine golden-image tests only | [Apache-2.0](https://github.com/NuaForma/image-comparison/blob/v5.0.0/LICENSE), [original authorship and notices](https://github.com/NuaForma/image-comparison/blob/v5.0.0/NOTICE) |
 | docx4j core + JAXB ReferenceImpl | 17.3.2 | DOCX implementation/runtime | [Apache-2.0 and bundled notices](https://github.com/plutext/docx4j/blob/VERSION_17_3_2/legals/NOTICE); reference JAXB/Activation use permissive EDL/BSD terms |
 | Apache PDFBox | 3.0.8 | Optional PDF module implementation and isolated output-validation JVM only | [Apache-2.0 and bundled third-party terms](https://github.com/apache/pdfbox/blob/3.0.8/LICENSE.txt), [upstream notice](https://github.com/apache/pdfbox/blob/3.0.8/NOTICE.txt) |
 
@@ -55,6 +56,8 @@ Java 17 remains the embedded-library compilation/test baseline; current server/P
 The [Kotlin release history](https://kotlinlang.org/docs/releases.html), [MockK releases](https://github.com/mockk/mockk/releases), [ArchUnit releases](https://github.com/TNG/ArchUnit/releases) and repository activity were reviewed. None of these upstream repositories is archived. A recent release alone does not establish security or compatibility: rerun the actual scaffold tests and review upstream changes when updating versions.
 
 ## Distribution boundaries
+
+The PDF-engine golden-image tests declare only `dev.nuaforma:image-comparison-kotlin:5.0.0`; the Java core arrives transitively. The Java-17 baseline and Apache-2.0 license/notices were reviewed against the maintained fork and its published Maven Central POMs/JARs. Existing Kotlin 2.4.21 and annotations 26.1.0 remain aligned; no new production dependency or test framework is introduced. Four new artifact/POM checksums are independently matched to fresh Central bytes in the existing review receipts. The tests use fixed bounded RGB images, exact pixel comparison, no exclusions and no rectangle fills; the fork's fill/resource-limit follow-ups are not advertised as resolved. The shared renderer's runtime classpath, published POMs and containers must not include either image-comparison artifact.
 
 The PDF/A integration uses unmodified veraPDF 1.30.3 library JARs in a separate child-JVM distribution under the approved MPL-2.0 choice. The maintained [release/security notes](https://github.com/veraPDF/veraPDF-library/blob/v1.30.3/RELEASENOTES.md) and official signed CLI were reviewed. The legacy `stax-utils:20070216` is explicitly excluded: the native adapter invokes the fixed vendor validator API, never XML report formatting. An independent exclusion experiment confirmed equivalent rule/check outcomes through the official JSON reporting path with the StAX classes physically absent. The original vendor CLI is retained for research, not shipped or modified in production.
 

@@ -74,6 +74,7 @@ Gradle with Kotlin DSL is the selected build system. Install JDK 17 and JDK 25: 
 - Test concurrent generation, resource-limit enforcement, failure cleanup and prevention of cross-request data leakage.
 - Test the Java-facing API as well as Kotlin use. Test REST-to-engine parity so transport wrappers cannot change semantics.
 - For reference or golden outputs, investigate unexpected differences before regeneration. Use a deliberate regeneration procedure, review the full diff and keep regeneration mode disabled by default.
+- Existing PDF-engine reference images are golden files. Replacing or deleting them requires a concrete, documented reason, review of the old/new visual differences and explicit maintainer approval. A failing test or changed renderer output alone is not justification. Never refresh goldens automatically during tests; initial fixture creation is distinct from later baseline replacement.
 - Never hand-edit generated reference output to hide a failure. Source templates and fixture data may be deliberately edited; regenerate their expected output through the documented workflow.
 - Binary fixture changes must have a reproducible builder or a documented authoring procedure and an explanation of the intended change. Do not commit build output, temporary renders or document previews unless deliberately maintained as fixtures.
 

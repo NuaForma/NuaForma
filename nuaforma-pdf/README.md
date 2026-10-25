@@ -113,6 +113,8 @@ Frames accept 1–128 paragraphs each and participate in the existing aggregate 
 
 ## Reproduce and verify the letter
 
+Engine-only visual baselines and their strict replacement policy are documented in the [golden-image guide](src/test/resources/visual-goldens/README.md). Candidate generation does not overwrite references. Tests compare all seventeen pages of eleven neutral-model fixtures with the published Image Comparison 5.0.0 Kotlin DSL, using exact pixel equality alongside inventory/content/geometry/font checks. Failure diagnostics retain the actual PDF and expected/actual/difference images; the library is a test-only dependency and adds no production runtime or Playground behavior.
+
 ```sh
 ./gradlew :nuaforma-pdf:test
 ./gradlew :nuaforma-pdf:renderFoundationLetter

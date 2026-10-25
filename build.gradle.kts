@@ -339,6 +339,10 @@ tasks.register("verifyBuildStructure") {
             check(components.none { it.moduleVersion?.group in testGroups }) {
                 "Test dependencies leaked into ${module.path} runtimeClasspath"
             }
+            check(components.none { it.moduleVersion?.group == "dev.nuaforma" &&
+                it.moduleVersion?.name in setOf("image-comparison", "image-comparison-kotlin") }) {
+                "Visual regression test tooling leaked into ${module.path} runtimeClasspath"
+            }
             check(components.none { it.moduleVersion?.group?.startsWith("io.swagger") == true }) {
                 "OpenAPI test tooling leaked into ${module.path} runtimeClasspath"
             }
