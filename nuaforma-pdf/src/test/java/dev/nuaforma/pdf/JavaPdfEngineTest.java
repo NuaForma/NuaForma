@@ -166,4 +166,24 @@ class JavaPdfEngineTest {
             org.junit.jupiter.api.Assertions.assertTrue(text.contains("1/2") && text.contains("2/2"));
         }
     }
+
+    @Test
+    void javaCallerCanRestartNumberingAndReadSequenceTotals() throws IOException {
+        byte[] font;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            font = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        var style = new PdfTextStyle("regular", 10);
+        var format = new PdfParagraphFormat(PdfAlignment.LEFT, 0, 0, 0, 14f);
+        var field = new PdfParagraph(List.of(new PdfPageNumber(style), new PdfTextRun("/", style), new PdfSequencePageCount(style), new PdfTextRun("/", style), new PdfPageCount(style)), 0, 0, format);
+        var body = new PdfParagraph(List.of(new PdfTextRun("Body", style)), 0, 0, format);
+        var page = new PdfPage(240, 180, new PdfMargins(30, 20, 30, 20));
+        var flow = new PdfFlow(new PdfPageBand(8, 20, List.of(field)));
+        var sequences = List.of(new PdfPageSequence(page, List.of(body), flow, new PdfPageNumbering(0, true)), new PdfPageSequence(page, List.of(body), flow));
+        try (var pdf = Loader.loadPDF(new PdfEngine().render(new PdfDocument(sequences), List.of(new PdfFont("regular", font))))) {
+            assertEquals(2, pdf.getNumberOfPages());
+            var text = new PDFTextStripper().getText(pdf);
+            org.junit.jupiter.api.Assertions.assertTrue(text.contains("0/1/2") && text.contains("1/1/2"));
+        }
+    }
 }

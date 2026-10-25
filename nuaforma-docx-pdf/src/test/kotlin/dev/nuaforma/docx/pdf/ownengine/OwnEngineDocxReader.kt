@@ -53,7 +53,8 @@ internal class OwnEngineDocxReader {
         check(ranges.size <= 32, "Section budget exceeded")
         fun readGeometry(section: XmlElement): Pair<PdfPage, XmlElement> {
             attributes(section, emptySet())
-            children(section, setOf("pgSz", "pgMar", "headerReference", "footerReference", "type", "titlePg"))
+            children(section, setOf("pgSz", "pgMar", "headerReference", "footerReference", "type", "titlePg", "pgNumType"))
+            pageNumbering(section)
             section.one("titlePg")?.let(::pageToggle)
             for (kind in listOf("headerReference", "footerReference")) {
                 val types = section.elements().filter { it.name.localPart == kind }.map { it.value("type") }
@@ -197,7 +198,7 @@ internal class OwnEngineDocxReader {
                 if (run.name.localPart == "fldSimple") {
                     attributes(run, setOf("instr"))
                     val instruction = run.value("instr")?.trim()
-                    check(fields && instruction in setOf("PAGE", "NUMPAGES"), "Only PAGE and NUMPAGES fields in page bands are supported")
+                    check(fields && instruction in setOf("PAGE", "NUMPAGES", "SECTIONPAGES"), "Only decimal page fields in page bands are supported")
                     children(run, setOf("r"))
                     val cached = run.elements().singleOrNull() ?: reject("Invalid page field")
                     children(cached, setOf("rPr", "t"))
@@ -205,7 +206,7 @@ internal class OwnEngineDocxReader {
                     check(face.rtl != true, "Forced complex-script page fields are not qualified")
                     check(face.copy(languageTag = base.languageTag, rtl = base.rtl) == base, "Page-field cache formatting must match its paragraph style")
                     val style = PdfTextStyle(face.id(), face.size ?: reject("Missing font size"), face.color, face.languageTag)
-                    return@flatMap listOf(if (instruction == "PAGE") PdfPageNumber(style) else PdfPageCount(style))
+                    return@flatMap listOf(when (instruction) { "PAGE" -> PdfPageNumber(style); "NUMPAGES" -> PdfPageCount(style); else -> PdfSequencePageCount(style) })
                 }
                 children(run, setOf("rPr", "t", "tab", "drawing"))
                 val face = faceFor(run.one("rPr"))
@@ -494,9 +495,10 @@ internal class OwnEngineDocxReader {
                 PdfPageBands(band("header", headerReferences["even"]), band("footer", footerReferences["even"])) else null
             val flow = if (ranges.size > 1 || header != null || footer != null || first != null || even != null || blocks.any { it is PdfTable || it is PdfTextBox || it is PdfParagraph &&
                 (it.format.textDirection != null || it.runs.any { run -> run is PdfTab } || it.listLabel != null || it.format.keepWithNext || it.format.keepLines || it.format.widowControl || it.format.pageBreakBefore) }) PdfFlow(header, footer, firstPageBands = first, evenPageBands = even) else null
-            PdfPageSequence(page, blocks, flow)
+            val numbering = pageNumbering(section)
+            PdfPageSequence(page, blocks, flow, numbering.copy(alignParity = evenAndOddHeaders && numbering.start != null))
         }
-        return if (sequences.size == 1) sequences.single().let { PdfDocument(it.page, it.blocks, it.flow) } else PdfDocument(sequences)
+        return PdfDocument(sequences, if (sequences.size == 1) sequences.single().flow?.maxPages ?: 1 else 32)
     }
 
     private data class Face(val family: String? = null, val size: Float? = null, val bold: Boolean = false,
@@ -675,6 +677,14 @@ internal class OwnEngineDocxReader {
         check(root.elements().all { it.name.namespaceURI == relationships && it.name.localPart == "Relationship" &&
             it.attribute("", "TargetMode") == null }, "External or invalid relationships are unsupported")
     }
+    private fun pageNumbering(section: XmlElement): PdfPageNumbering {
+        val node = section.one("pgNumType") ?: return PdfPageNumbering()
+        attributes(node, setOf("start", "fmt")); children(node, emptySet())
+        check(node.value("fmt") in setOf(null, "decimal"), "Only decimal page numbering is qualified")
+        val start = node.value("start")?.let { value -> value.toIntOrNull()?.takeIf { it in 0..9_999 } ?: reject("Invalid page-number start") }
+        return PdfPageNumbering(start)
+    }
+
     private fun pageToggle(node: XmlElement): Boolean {
         attributes(node, setOf("val")); children(node, emptySet())
         return when (node.value("val")) { null, "1", "true", "on" -> true; "0", "false", "off" -> false; else -> reject("Invalid page-policy toggle") }

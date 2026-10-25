@@ -21,7 +21,7 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
     init {
         require(maxPages in 1..32 && this.pageSequences.size <= maxPages) { "Invalid document page budget" }
         require(this.pageSequences.sumOf { it.blocks.size } <= 1_000) { "Document block budget exceeded" }
-        require(allParagraphs().sumOf { it.runs.sumOf { run -> when (run) { is PdfTextRun -> run.text.length.toLong(); is PdfPageField -> 2L; else -> 0L } } + (it.listLabel?.value?.text?.length ?: 0) } <= 100_000) {
+        require(allParagraphs().sumOf { it.runs.sumOf { run -> when (run) { is PdfTextRun -> run.text.length.toLong(); is PdfPageNumber -> 4L; is PdfPageField -> 2L; else -> 0L } } + (it.listLabel?.value?.text?.length ?: 0) } <= 100_000) {
             "Document text exceeds the foundation limit"
         }
         require(allParagraphs().sumOf { it.runs.count { run -> run is PdfTab } } <= 2_000) { "Tab control budget exceeded" }
@@ -47,9 +47,22 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
 /** A resolved physical page policy over a content range. Every sequence starts on a fresh page.
  * Adapters resolve source section/master inheritance before constructing these immutable ranges.
  */
-class PdfPageSequence @JvmOverloads constructor(val page: PdfPage, blocks: List<PdfBlock>, val flow: PdfFlow? = null) {
+class PdfPageSequence @JvmOverloads constructor(
+    val page: PdfPage, blocks: List<PdfBlock>, val flow: PdfFlow? = null,
+    val numbering: PdfPageNumbering = PdfPageNumbering(),
+) {
     val blocks: List<PdfBlock> = Collections.unmodifiableList(ArrayList(blocks))
     init { require(this.blocks.size in 1..1_000) { "A page sequence needs 1 to 1000 blocks" } }
+}
+
+/** Null start continues preceding display numbers. Optional padding matches the preceding numbering parity.
+ * Padding uses the new sequence's page geometry and has no bands or sequence-page contribution.
+ */
+data class PdfPageNumbering @JvmOverloads constructor(val start: Int? = null, val alignParity: Boolean = false) {
+    init {
+        require(start == null || start in 0..9_999) { "Invalid page-number start" }
+        require(!alignParity || start != null) { "Parity alignment requires an explicit start" }
+    }
 }
 
 /** Optional bounded pagination; omitting this retains the original single-page overflow behavior. */
@@ -184,6 +197,7 @@ data class PdfImageRun(val image: PdfImage) : PdfInline
 sealed interface PdfPageField : PdfInline { val style: PdfTextStyle }
 data class PdfPageNumber(override val style: PdfTextStyle) : PdfPageField
 data class PdfPageCount(override val style: PdfTextStyle) : PdfPageField
+data class PdfSequencePageCount(override val style: PdfTextStyle) : PdfPageField
 
 class PdfParagraph @JvmOverloads constructor(
     runs: List<PdfInline>,

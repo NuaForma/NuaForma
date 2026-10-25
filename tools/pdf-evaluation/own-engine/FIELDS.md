@@ -1,14 +1,14 @@
 # Global page-number and page-count field proof
 
-Date: 2026-10-25. Parent: [#57](https://github.com/NuaForma/NuaForma/issues/57). This is the global decimal PAGE/NUMPAGES increment of roadmap part 8, over the [page-band variants](PAGE_MASTERS.md). Section-local totals/restarts and general field expressions remain open.
+Date: 2026-10-25. Parent: [#57](https://github.com/NuaForma/NuaForma/issues/57). This is the global decimal PAGE/NUMPAGES increment of roadmap part 8, over the [page-band variants](PAGE_MASTERS.md). The subsequent [sequence-numbering trial](NUMBERING.md) adds bounded decimal starts, continuation and section totals. General field expressions remain open.
 
 ## Resolution and bounded layout
 
 The neutral model adds `PdfPageCount(style)` alongside `PdfPageNumber(style)` under `PdfPageField`. Body pagination completes for every physical range before selected first/even/odd bands are resolved. The total includes single-page ranges without flow. A second bounded pass measures actual field values and paints bands before existing body elements. Because margins reserve fixed areas, there is no circular body relayout or provisional total. An overflowing resolved band fails without publishing output bytes. Existing page/body positions and output ordering are preserved.
 
-Fields are allowed in band paragraphs and table cells; body, body-table and frame uses reject explicitly. Each reserves two text-budget units under the unchanged 32-page ceiling, preventing field-only documents from bypassing the aggregate text budget. State, fonts, totals and selection remain request-local. JVM checks reopen actual PDFs for mixed-size ranges, first/even/odd/table bands, single-page range contributions, two-digit totals, final-value overflow, invalid contexts/fonts, Java use and concurrent requests with different counts.
+Fields are allowed in band paragraphs and table cells; body, body-table and frame uses reject explicitly. This increment reserved two text-budget units per field under the 32-page ceiling; the numbering follow-up reserves four for PAGE to accommodate starts through 9999, while totals retain two. Field-only documents cannot bypass the aggregate budget. State, fonts, totals and selection remain request-local. JVM checks reopen actual PDFs for mixed-size ranges, first/even/odd/table bands, single-page range contributions, two-digit totals, final-value overflow, invalid contexts/fonts, Java use and concurrent requests with different counts.
 
-The test-only DOCX reader accepts plain `w:fldSimple` PAGE and NUMPAGES instructions in bands and ignores stale cached values. Cached visual result formatting must match the resolved paragraph style; language metadata and explicit simple-number direction remain preserved independently, including the existing Hebrew proof. Instruction switches, SECTIONPAGES, INCLUDETEXT and body fields remain rejected. The shared model still accepts any resolved caller-supplied field style.
+This trial uses plain `w:fldSimple` PAGE and NUMPAGES instructions in bands and ignores stale cached values. Cached visual result formatting must match the resolved paragraph style; language metadata and explicit simple-number direction remain preserved independently, including the existing Hebrew proof. The follow-up adds SECTIONPAGES. Instruction switches, INCLUDETEXT and body fields remain rejected. The shared model still accepts any resolved caller-supplied field style.
 
 That formatting bound is deliberate: the first experiment had a 9-pt cached header-field result in an 11-pt paragraph. Word refreshed the field to approximately 11 pt during export, retaining adjacent 9-pt literals. The initial engine therefore differed by approximately 3.3 pt at the right-aligned line start. The retained first source/reference document that observation. The qualified source uses the paragraph's 11-pt header field style and 9-pt Footer style. A regression test rejects the inconsistent cache style rather than silently promising preservation. Reference PDF bytes are never patched.
 
@@ -30,7 +30,7 @@ python3 tools/pdf-evaluation/own-engine/compare.py build/own-engine-fields/word-
 python3 tools/pdf-evaluation/own-engine/audit_page_masters.py build/own-engine-fields/source.docx build/own-engine-fields/word-reference-v2.pdf build/own-engine-fields/own-engine.pdf build/own-engine-fields/audit.json
 ```
 
-The prior builder exposes its entries without changing its default DOCX bytes. This remains bounded source qualification, with no new module/dependency, production DOCX/ODT provider, REST/Playground change, publication, release workflow or PDF/A/UA claim. Broad field formatting, cross-references, contents and section-specific numbering require separate source semantics and verification.
+The prior builder exposes its entries without changing its default DOCX bytes. This remains bounded source qualification, with no new module/dependency, production DOCX/ODT provider, REST/Playground change, publication, release workflow or PDF/A/UA claim. Broad field formatting, cross-references and contents require separate source semantics and verification; the [numbering follow-up](NUMBERING.md) supplies the bounded decimal section-specific profile.
 
 ## Measured page evidence
 

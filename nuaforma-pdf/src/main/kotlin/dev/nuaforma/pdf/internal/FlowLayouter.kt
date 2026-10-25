@@ -170,20 +170,20 @@ internal object FlowLayouter {
         return pages.map { PageLayout(page, it.toList()) }
     }
 
-    fun decorate(layouts: List<PageLayout>, policy: PdfFlow, pageNumberOffset: Int, totalPages: Int, measurer: TextMeasurer): List<PageLayout> {
-        require(totalPages in 1..32 && pageNumberOffset >= 0 && pageNumberOffset + layouts.size <= totalPages)
+    fun decorate(layouts: List<PageLayout>, policy: PdfFlow, firstPageNumber: Int, totalPages: Int, measurer: TextMeasurer): List<PageLayout> {
+        require(totalPages in 1..32 && firstPageNumber >= 0 && firstPageNumber + layouts.size - 1 <= 9_999 && layouts.size <= totalPages)
         return layouts.mapIndexed { index, layout ->
             PageLayouter.checkCancellation()
             val page = layout.page
             val decorated = mutableListOf<PositionedElement>()
-            val number = pageNumberOffset + index + 1
+            val number = firstPageNumber + index
             val selected = when {
                 index == 0 && policy.firstPageBands != null -> policy.firstPageBands
                 number % 2 == 0 && policy.evenPageBands != null -> policy.evenPageBands
                 else -> PdfPageBands(policy.header, policy.footer)
             }
-            selected.header?.let { band(it, false, page, number, totalPages, measurer, decorated) }
-            selected.footer?.let { band(it, true, page, number, totalPages, measurer, decorated) }
+            selected.header?.let { band(it, false, page, number, totalPages, layouts.size, measurer, decorated) }
+            selected.footer?.let { band(it, true, page, number, totalPages, layouts.size, measurer, decorated) }
             decorated += layout.elements
             PageLayout(page, decorated.toList())
         }
@@ -202,7 +202,7 @@ internal object FlowLayouter {
         return MeasuredParagraph(p, lines, height)
     }
 
-    private fun band(band: PdfPageBand, footer: Boolean, page: PdfPage, number: Int, totalPages: Int, measurer: TextMeasurer, target: MutableList<PositionedElement>) {
+    private fun band(band: PdfPageBand, footer: Boolean, page: PdfPage, number: Int, totalPages: Int, sequencePages: Int, measurer: TextMeasurer, target: MutableList<PositionedElement>) {
         val margin = if (footer) page.margins.bottom else page.margins.top
         if (band.offset + band.maxHeight > margin + 0.001f) overflow()
         val width = page.width - page.margins.left - page.margins.right
@@ -212,6 +212,7 @@ internal object FlowLayouter {
         fun resolve(p: PdfParagraph) = PdfParagraph(p.runs.map { when (it) {
             is PdfPageNumber -> PdfTextRun(number.toString(), it.style)
             is PdfPageCount -> PdfTextRun(totalPages.toString(), it.style)
+            is PdfSequencePageCount -> PdfTextRun(sequencePages.toString(), it.style)
             else -> it
         } }, p.spaceBefore, p.spaceAfter, p.format, p.listLabel)
         fun resolveTable(t: PdfTable): PdfTable = PdfTable(t.columnWidths, t.rows.map { row -> PdfTableRow(row.cells.map { cell ->

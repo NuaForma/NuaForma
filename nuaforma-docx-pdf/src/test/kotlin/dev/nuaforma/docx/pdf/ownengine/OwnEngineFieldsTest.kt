@@ -32,8 +32,8 @@ class OwnEngineFieldsTest {
         }
     }
 
-    @Test fun `unsupported total field switches and section fields reject explicitly`() {
-        for (instruction in listOf("NUMPAGES \\* ROMAN", "SECTIONPAGES", "INCLUDETEXT https://invalid.example/")) {
+    @Test fun `unsupported total field switches and section index fields reject explicitly`() {
+        for (instruction in listOf("NUMPAGES \\* ROMAN", "SECTION", "INCLUDETEXT https://invalid.example/")) {
             assertThrows(IllegalArgumentException::class.java) { OwnEngineDocxReader().read(change(instruction)) }
         }
     }

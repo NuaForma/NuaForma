@@ -4,6 +4,8 @@ Date: 2026-10-25. Parent: [#57](https://github.com/NuaForma/NuaForma/issues/57).
 
 ## Model and source semantics
 
+This trial uses continuous numbering without padding. The later [sequence-numbering trial](NUMBERING.md) qualifies displayed-number parity after explicit restarts, SECTIONPAGES and optional parity padding; [global field evidence](FIELDS.md) separately covers page X of Y.
+
 `PdfFlow.firstPageBands` and `evenPageBands` contain resolved `PdfPageBands(header, footer)` pairs. An absent pair retains the shared `header`/`footer` behavior. An explicit empty pair suppresses both bands; either member can also be individually absent. The first-page pair applies to the first physical page of each sequence and takes precedence over an even-page pair. Subsequent selection uses the continuous global page number, so the second page of a sequence beginning on page 4 is odd page 5. The existing constructors and defaults remain source-compatible. No source-format types enter the shared model.
 
 The DOCX fixture reader resolves `w:titlePg`, document-level `w:evenAndOddHeaders`, and distinct default/first/even references. Each story type inherits independently across source ranges. Missing first/even stories in the first range become explicit blank variants when enabled, rather than borrowing the default story. A false first-page switch resets per range; it does not inherit the preceding range's true flag. False document-level even/odd selection ignores retained even references. The adapter resolves inheritance before constructing neutral ranges.

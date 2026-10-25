@@ -83,3 +83,5 @@ The [mixed-size trial](SECTIONS.md) adds one document with A4/Letter-landscape/A
 The [first/even/odd band trial](PAGE_MASTERS.md) adds two Word reports with resolved variant stories, header logos, independent inheritance, intentional blank bands and explicit switch resets.
 
 The [page-field trial](FIELDS.md) resolves PAGE/NUMPAGES against the final document-wide total, with a 13-page Word report and explicit cache-format/overflow limits.
+
+The [sequence-numbering trial](NUMBERING.md) adds decimal restarts/continuation, SECTIONPAGES, displayed-number band parity and explicit padding policies verified against Word with both shared and different even/odd bands.
