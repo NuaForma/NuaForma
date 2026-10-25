@@ -135,6 +135,32 @@ tasks.register<JavaExec>("renderOwnEngineInternational") {
         rootProject.layout.buildDirectory.dir("own-engine-proof/fonts").get().asFile.absolutePath)
 }
 
+val generateOwnEnginePageFormats = tasks.register<Exec>("generateOwnEnginePageFormats") {
+    val folder = rootProject.file("tools/pdf-evaluation/own-engine")
+    val output = layout.buildDirectory.dir("own-engine-page-formats")
+    inputs.files(folder.resolve("build_page_format_fixtures.py"), folder.resolve("build_report_fixture.py"), folder.resolve("build_fixture.py"), rootProject.file("assets/branding/nuaforma-icon-transparent.png"))
+    outputs.dir(output)
+    commandLine("python3", folder.resolve("build_page_format_fixtures.py").absolutePath, output.get().asFile.absolutePath)
+}
+tasks.processTestResources {
+    dependsOn(generateOwnEnginePageFormats)
+    from(layout.buildDirectory.dir("own-engine-page-formats")) { into("own-engine-page-formats") }
+}
+val pageFormatRenders = listOf("a4", "a3", "letter", "legal").flatMap { size -> listOf("portrait", "landscape").map { "$size-$it" } }.map { kind ->
+    val suffix = kind.split('-').joinToString("") { it.replaceFirstChar { character -> character.uppercase() } }
+    tasks.register<JavaExec>("renderOwnEngine$suffix") {
+        group = "verification"
+        dependsOn(tasks.testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass.set("dev.nuaforma.docx.pdf.ownengine.OwnEngineProof")
+        javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+        args(rootProject.layout.buildDirectory.file("own-engine-page-formats/$kind/source.docx").get().asFile.absolutePath,
+            rootProject.layout.buildDirectory.file("own-engine-page-formats/$kind/own-engine.pdf").get().asFile.absolutePath,
+            rootProject.layout.buildDirectory.dir("own-engine-proof/fonts").get().asFile.absolutePath)
+    }
+}
+tasks.register("renderOwnEnginePageFormats") { group = "verification"; dependsOn(pageFormatRenders) }
+
 val generateOwnEngineHebrew = tasks.register<Exec>("generateOwnEngineHebrew") {
     val folder = rootProject.file("tools/pdf-evaluation/own-engine")
     val output = layout.buildDirectory.file("own-engine-hebrew/source.docx")

@@ -38,11 +38,19 @@ internal class OwnEngineDocxReader {
         check(body.elements().last() === section && body.elements().count { it.name.localPart == "sectPr" } == 1, "Multiple sections are unsupported")
         children(section, setOf("pgSz", "pgMar", "headerReference", "footerReference"))
         val size = section.one("pgSz") ?: reject("Missing page size")
-        attributes(size, setOf("w", "h"))
+        attributes(size, setOf("w", "h", "orient"))
+        val pageWidth = twips(size.value("w"))
+        val pageHeight = twips(size.value("h"))
+        when (size.value("orient")) {
+            null -> Unit
+            "portrait" -> check(pageWidth <= pageHeight, "Page orientation conflicts with physical dimensions")
+            "landscape" -> check(pageWidth >= pageHeight, "Page orientation conflicts with physical dimensions")
+            else -> reject("Unsupported page orientation")
+        }
         val margins = section.one("pgMar") ?: reject("Missing page margins")
         attributes(margins, setOf("top", "right", "bottom", "left", "header", "footer", "gutter"))
         check((margins.value("gutter") ?: "0") == "0", "Page gutters are unsupported")
-        val page = PdfPage(twips(size.value("w")), twips(size.value("h")),
+        val page = PdfPage(pageWidth, pageHeight,
             PdfMargins(twips(margins.value("top")), twips(margins.value("right")), twips(margins.value("bottom")), twips(margins.value("left"))))
         val relationRoot = part("word/_rels/document.xml.rels")
         requireRelationships(relationRoot)
