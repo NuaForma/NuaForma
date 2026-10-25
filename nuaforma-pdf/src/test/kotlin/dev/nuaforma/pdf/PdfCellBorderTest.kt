@@ -111,12 +111,14 @@ class PdfCellBorderTest {
         }
     }
 
-    @Test fun `unqualified merged fragmented and multiple page custom tables reject without changing uniform pagination`() {
+    @Test fun `unqualified fragmented or conflicting advanced borders reject without changing uniform pagination`() {
         val policy=all(PdfEdgeStroke(PdfBorder(1f,red)));val engine=PdfEngine();val fonts=FoundationLetter.fonts()
-        val merged=PdfTable(listOf(90f,90f),listOf(PdfTableRow(listOf(PdfTableCell(listOf(p("A")),columnSpan=2,borders=policy)))))
         val long=PdfTable(listOf(180f),listOf(PdfTableRow(listOf(PdfTableCell(List(50) {p("A")},borders=policy)),allowSplit=true)))
-        val nested=PdfTable(listOf(180f),listOf(PdfTableRow(listOf(PdfTableCell(listOf(PdfTable(listOf(150f),rows(1,null))),borders=policy)))))
-        for(table in listOf(merged,long,nested,PdfTable(listOf(180f),rows(20,policy)))) {
+        val conflict=policy.copy(top=PdfEdgeStroke(PdfBorder(1f,blue)))
+        val badMerged=PdfTable(listOf(90f,90f),listOf(PdfTableRow(listOf(PdfTableCell(listOf(p("A")),columnSpan=2,borders=conflict)))))
+        val badNested=PdfTable(listOf(180f),listOf(PdfTableRow(listOf(PdfTableCell(listOf(PdfTable(listOf(150f),rows(1,null))),borders=conflict)))))
+        val badPages=PdfTable(listOf(180f),rows(20,conflict))
+        for(table in listOf(long,badMerged,badNested,badPages)) {
             assertEquals(PdfFailureCode.UNSUPPORTED_TEXT,assertThrows(PdfRenderException::class.java) {engine.render(PdfDocument(page,listOf(table),PdfFlow()),fonts)}.code)
         }
         Loader.loadPDF(engine.render(PdfDocument(page,listOf(PdfTable(listOf(180f),rows(20,null))),PdfFlow()),fonts)).use {assertTrue(it.numberOfPages>1)}

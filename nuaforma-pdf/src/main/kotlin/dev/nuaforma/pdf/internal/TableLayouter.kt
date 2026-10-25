@@ -5,9 +5,8 @@ import dev.nuaforma.pdf.*
 internal object TableLayouter {
     data class Piece(val top: Float, val height: Float, val elements: List<PositionedElement>)
     data class Cell(val placement: TablePlacement, val pieces: List<Piece>, val contentHeight: Float)
-    data class Measured(val table: PdfTable, val cells: List<Cell>, val heights: List<Float>, val offsets: List<Float>, val topInsets: List<Float>, val customBorders: Boolean, val borderGroup: Any = Any()) {
+    data class Measured(val table: PdfTable, val cells: List<Cell>, val heights: List<Float>, val offsets: List<Float>, val topInsets: List<Float>, val customBorders: Boolean, val consistentBorders: Boolean, val closing: Float, val borderGroup: Any = Any()) {
         val contentEnd: Float get() = offsets.last()
-        val closing: Float get() = if (customBorders) maxOf(table.border?.width ?: 0f, table.rows.last().cells.maxOfOrNull { it.borders?.bottom?.border?.width ?: 0f } ?: 0f) else table.border?.width ?: 0f
         val height: Float get() = contentEnd + closing
         val frame: Float get() = table.cellMargins.top + table.cellMargins.bottom + if (customBorders) topInsets.max() else closing
         fun frameAt(row: Int) = if (customBorders) table.cellMargins.top + table.cellMargins.bottom + topInsets[row] else frame
@@ -17,11 +16,13 @@ internal object TableLayouter {
     fun measure(table: PdfTable, measurer: TextMeasurer, depth: Int = 0): Measured {
         require(depth <= 1) { "Only one nested table level is supported" }
         val customBorders = table.rows.any { row -> row.cells.any { it.borders != null } }
-        if (customBorders && table.rows.any { row -> row.cells.any { it.columnSpan != 1 || it.rowSpan != 1 } }) {
-            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Custom borders with merged cells are not qualified")
-        }
-        if (customBorders && (depth > 0 || table.rows.any { row -> row.cells.any { cell -> cell.blocks.any { it is PdfTable } } })) {
-            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Custom borders with nested tables are not qualified")
+        val styles = table.rows.flatMap { it.cells }.flatMap { cell ->
+            cell.borders?.let { listOfNotNull(it.top, it.right, it.bottom, it.left).map { it.border } } ?: listOfNotNull(table.border)
+        }.toSet()
+        val consistentBorders = styles.size <= 1
+        val complex = depth > 0 || table.rows.any { row -> row.cells.any { cell -> cell.columnSpan != 1 || cell.rowSpan != 1 || cell.blocks.any { it is PdfTable } } }
+        if (customBorders && complex && !consistentBorders) {
+            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Conflicting custom borders with merged or nested cells are not qualified")
         }
         val topInsets = table.rows.map { row -> maxOf(table.border?.width ?: 0f, row.cells.maxOfOrNull { it.borders?.top?.border?.width ?: 0f } ?: 0f) }
         val heights = MutableList(table.rows.size) { 0f }
@@ -66,18 +67,22 @@ internal object TableLayouter {
             if (placement.cell.rowSpan == 1) heights[placement.row] = maxOf(heights[placement.row], top + cellFrame)
             Cell(placement, pieces, top)
         }
-        heights.indices.forEach { if (heights[it] == 0f) heights[it] = frame }
+        heights.indices.forEach { if (heights[it] == 0f) heights[it] = if (customBorders) table.cellMargins.top + table.cellMargins.bottom + topInsets[it] else frame }
         for (cell in cells.filter { it.placement.cell.rowSpan > 1 }) {
             val end = cell.placement.row + cell.placement.cell.rowSpan
-            val deficit = cell.contentHeight + frame - heights.subList(cell.placement.row, end).sum()
+            val cellFrame = if (customBorders) table.cellMargins.top + table.cellMargins.bottom + topInsets[cell.placement.row] else frame
+            val deficit = cell.contentHeight + cellFrame - heights.subList(cell.placement.row, end).sum()
             if (deficit > 0f) heights[end - 1] += deficit
         }
         val offsets = mutableListOf(0f)
         heights.forEach { offsets += offsets.last() + it }
-        return Measured(table, cells, heights, offsets, topInsets, customBorders)
+        val closing = if (customBorders) maxOf(table.border?.width ?: 0f, cells.filter { it.placement.row + it.placement.cell.rowSpan == table.rows.size }.maxOfOrNull { cell ->
+            cell.placement.cell.borders?.bottom?.border?.width ?: if (cell.placement.cell.borders == null) table.border?.width ?: 0f else 0f
+        } ?: 0f) else table.border?.width ?: 0f
+        return Measured(table, cells, heights, offsets, topInsets, customBorders, consistentBorders, closing)
     }
 
-    fun slice(layout: Measured, from: Float, until: Float, x: Float, top: Float, target: MutableList<PositionedElement>) {
+    fun slice(layout: Measured, from: Float, until: Float, x: Float, top: Float, target: MutableList<PositionedElement>, closeStart: Boolean = false, closeEnd: Boolean = false) {
         val table = layout.table
         for (cell in layout.cells) {
             val start = layout.offsets[cell.placement.row]
@@ -100,9 +105,9 @@ internal object TableLayouter {
                 fun edge(stroke: PdfEdgeStroke?, x: Float, y: Float, length: Float, horizontal: Boolean) {
                     if (stroke != null) target += PositionedTableBorder(x, y, length, horizontal, stroke, layout.borderGroup)
                 }
-                if (a == start) edge(policy.top, left, top + a - from, width, true)
-                if (b == end) edge(policy.bottom, left, top + b - from, width, true)
-                val verticalLength = b - a + if (b == layout.contentEnd) layout.closing else 0f
+                if (a == start || closeStart && a == from) edge(policy.top, left, top + a - from, width, true)
+                if (b == end || closeEnd && b == until) edge(policy.bottom, left, top + b - from, width, true)
+                val verticalLength = b - a + if (b == layout.contentEnd || closeEnd && b == until) layout.closing else 0f
                 edge(policy.left, left, top + a - from, verticalLength, false)
                 edge(policy.right, left + width, top + a - from, verticalLength, false)
             } else target += PositionedRectangle(left, top + a - from + layout.closing / 2, width, b - a, cell.placement.cell.background, table.border)

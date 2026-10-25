@@ -21,7 +21,7 @@ def inspect(path,top,bottom):
    result.append(dict(width=page.width,height=page.height,chars=chars,body=''.join(c['text'] for c in chars if top<=c['top']<page.height-bottom),images=page.images))
  return result
 
-def audit(source,reference,candidate):
+def audit(source,reference,candidate,*,all_table_headers=False):
  receipt=json.loads(Path(str(reference)+'.provenance.json').read_text(encoding='utf-8-sig'))
  assert receipt['sourceSha256']==digest(source) and receipt['pdfSha256']==digest(reference),'Reference provenance mismatch'
  with ZipFile(source) as z:body=ET.fromstring(z.read('word/document.xml')).find(W+'body')
@@ -30,11 +30,25 @@ def audit(source,reference,candidate):
  expected=inventory(''.join(t.text or '' for t in body.iter(W+'t')))
  header=body.find(W+'tbl/'+W+'tr')
  repeated=inventory(''.join(t.text or '' for t in header.iter(W+'t')))
+ if all_table_headers:
+  leading=[]
+  for row in body.find(W+'tbl').findall(W+'tr'):
+   if row.find(W+'trPr/'+W+'tblHeader') is None:break
+   leading.extend(row.iter(W+'t'))
+  repeated=inventory(''.join(t.text or '' for t in leading))
  left=inspect(reference,top,bottom);right=inspect(candidate,top,bottom)
  assert len(left)==len(right)
+ repeats=len(left)-1
+ if all_table_headers:
+  header_text=''.join(t.text or '' for t in leading)
+  header_key=''.join(ch for ch in header_text if not ch.isspace())
+  assert header_key and ''.join(ch for t in body.iter(W+'t') for ch in (t.text or '') if not ch.isspace()).count(header_key)==1,'Ambiguous source table header'
+  counts=[p['body'].count(header_key) for p in left]
+  assert all(n<=1 for n in counts) and sum(counts)>=1,'Ambiguous Word header repetitions'
+  repeats=sum(counts)-1
  for pages in [left,right]:
   actual=inventory(''.join(p['body'] for p in pages))
-  assert actual==expected+Counter({ch:n*(len(pages)-1) for ch,n in repeated.items()}),'Source content lost or duplicated'
+  assert actual==expected+Counter({ch:n*repeats for ch,n in repeated.items()}),'Source content lost or duplicated'
  results=[]
  for number,(r,c) in enumerate(zip(left,right),1):
   assert abs(r['width']-c['width'])<.05 and abs(r['height']-c['height'])<.05

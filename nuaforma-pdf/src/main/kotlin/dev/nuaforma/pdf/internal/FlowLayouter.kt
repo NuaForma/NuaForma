@@ -140,7 +140,7 @@ internal object FlowLayouter {
                                 sum += measured.heights[index]
                                 index++
                             }
-                            TableLayouter.slice(measured, measured.offsets[start], measured.offsets[index], left, top, pages.last())
+                            TableLayouter.slice(measured, measured.offsets[start], measured.offsets[index], left, top, pages.last(), closeStart = start > block.repeatedHeaderRows, closeEnd = index < block.rows.size)
                             top += sum
                             continue
                         }
@@ -164,7 +164,7 @@ internal object FlowLayouter {
                         index++
                     }
                     top += measured.closing
-                    if (measured.customBorders && pages.size != tableStartPage) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Custom table borders across pages are not qualified")
+                    if (measured.customBorders && !measured.consistentBorders && pages.size != tableStartPage) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Conflicting custom table borders across pages are not qualified")
                     after = 0f
                 }
             }

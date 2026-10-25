@@ -21,9 +21,12 @@ def stroke_audit(reference,candidate,palette,output):
   for number,(r,c) in enumerate(zip(left.pages,right.pages),1):
    for page in [r,c]:
     assert not any((shape.get('fill') and color(shape['non_stroking_color']) in palette) or (shape.get('stroke') and color(shape['stroking_color']) in palette) for shape in page.curves+page.lines),'Unqualified border primitive in exported PDF'
+    assert not any(shape.get('stroke') and color(shape['stroking_color']) in palette for shape in page.rects),'Unqualified stroked border rectangle'
    pages=[p.rects for p in [r,c]]
    borders=[rect for rects in pages for rect in rects if rect.get('fill') and color(rect['non_stroking_color']) in palette]
-   assert borders,'No border vectors found'
+   if not borders:
+    results.append(dict(page=number,scalePixelsPerPoint=SCALE,tolerancePoints=.25,bothPagesWithoutBorders=True,colors=[]))
+    continue
    x0=min(rect['x0'] for rect in borders)-2;y0=min(rect['top'] for rect in borders)-2
    x1=max(rect['x1'] for rect in borders)+2;y1=max(rect['bottom'] for rect in borders)+2
    size=(math.ceil((x1-x0)*SCALE),math.ceil((y1-y0)*SCALE))
