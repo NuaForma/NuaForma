@@ -13,8 +13,10 @@ internal object TableLayouter {
         fun rowCells(index: Int) = cells.filter { it.placement.row == index }
     }
 
-    fun measure(table: PdfTable, measurer: TextMeasurer, depth: Int = 0): Measured {
+    fun measure(source: PdfTable, measurer: TextMeasurer, depth: Int = 0): Measured {
         require(depth <= 1) { "Only one nested table level is supported" }
+        if (depth > 0 && source.widthPolicy != PdfTableWidthPolicy.FIXED) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Natural widths in nested tables are not qualified")
+        val table = TableWidthResolver.resolve(source, measurer)
         val customBorders = table.rows.any { row -> row.cells.any { it.borders != null } }
         val styles = table.rows.flatMap { it.cells }.flatMap { cell ->
             cell.borders?.let { listOfNotNull(it.top, it.right, it.bottom, it.left).map { it.border } } ?: listOfNotNull(table.border)
@@ -49,6 +51,7 @@ internal object TableLayouter {
                         after = block.spaceAfter
                     }
                     is PdfTable -> {
+                        if (block.widthPolicy != PdfTableWidthPolicy.FIXED) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Natural widths in nested tables are not qualified")
                         // A nested table's explicit indentation can consume the parent's right
                         // padding, but its border must remain inside the parent cell.
                         checkWidth(block, width + table.cellMargins.right, 0f)

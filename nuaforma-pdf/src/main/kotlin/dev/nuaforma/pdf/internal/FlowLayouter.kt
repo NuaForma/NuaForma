@@ -112,8 +112,9 @@ internal object FlowLayouter {
                 }
                 is PdfTable -> {
                     if (exclusions.isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Combining wrapped frames with body tables is not qualified")
-                    TableLayouter.checkWidth(block, width, page.margins.left)
+                    if (block.widthPolicy == PdfTableWidthPolicy.FIXED) TableLayouter.checkWidth(block, width, page.margins.left)
                     val measured = TableLayouter.measure(block, measurer)
+                    if (block.widthPolicy != PdfTableWidthPolicy.FIXED) TableLayouter.checkWidth(measured.table, width, page.margins.left)
                     val headerHeight = measured.offsets[block.repeatedHeaderRows]
                     val freshData = freshHeight() - headerHeight
                     if (freshData <= measured.frame + measured.closing) overflow()
@@ -221,7 +222,7 @@ internal object FlowLayouter {
         } }, p.spaceBefore, p.spaceAfter, p.format, p.listLabel)
         fun resolveTable(t: PdfTable): PdfTable = PdfTable(t.columnWidths, t.rows.map { row -> PdfTableRow(row.cells.map { cell ->
             PdfTableCell(cell.blocks.map { when (it) { is PdfParagraph -> resolve(it); is PdfTable -> resolveTable(it); is PdfImage -> it; is PdfTextBox -> error("Frame in table") } }, cell.background, cell.columnSpan, cell.rowSpan, cell.verticalAlignment, cell.borders)
-        }, row.allowSplit, row.splitOversized) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent)
+        }, row.allowSplit, row.splitOversized) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent, t.widthPolicy)
         for (block in band.blocks) {
             when (block) {
                 is PdfTextBox -> overflow()
@@ -234,8 +235,9 @@ internal object FlowLayouter {
                     after = block.spaceAfter
                 }
                 is PdfTable -> {
-                    TableLayouter.checkWidth(block, width, page.margins.left)
+                    if (block.widthPolicy == PdfTableWidthPolicy.FIXED) TableLayouter.checkWidth(block, width, page.margins.left)
                     val measured = TableLayouter.measure(resolveTable(block), measurer)
+                    if (block.widthPolicy != PdfTableWidthPolicy.FIXED) TableLayouter.checkWidth(measured.table, width, page.margins.left)
                     TableLayouter.slice(measured, 0f, measured.contentEnd, page.margins.left + block.leftIndent, top, elements)
                     top += measured.height
                     after = 0f

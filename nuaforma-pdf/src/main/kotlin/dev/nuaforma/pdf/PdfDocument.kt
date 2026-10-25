@@ -119,11 +119,15 @@ class PdfTableRow @JvmOverloads constructor(cells: List<PdfTableCell>, val allow
     init { require(this.cells.size in 0..16) { "Invalid column count" } }
 }
 
+/** FIT_CONTENTS replaces preferred grid widths with natural, unwrapped text widths. */
+enum class PdfTableWidthPolicy { FIXED, FIT_CONTENTS }
+
 class PdfTable @JvmOverloads constructor(
     columnWidths: List<Float>, rows: List<PdfTableRow>,
     val cellMargins: PdfMargins = PdfMargins(4f, 6f, 4f, 6f),
     val border: PdfBorder? = PdfBorder(0.5f, PdfColor(184, 197, 204)),
     val repeatedHeaderRows: Int = 0, val leftIndent: Float = 0f,
+    val widthPolicy: PdfTableWidthPolicy = PdfTableWidthPolicy.FIXED,
 ) : PdfBlock {
     val columnWidths: List<Float> = Collections.unmodifiableList(ArrayList(columnWidths))
     val rows: List<PdfTableRow> = Collections.unmodifiableList(ArrayList(rows))

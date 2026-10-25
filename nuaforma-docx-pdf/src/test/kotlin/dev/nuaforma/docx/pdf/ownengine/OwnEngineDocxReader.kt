@@ -255,7 +255,10 @@ internal class OwnEngineDocxReader {
             val properties = table.one("tblPr") ?: reject("Explicit table properties required")
             children(properties, setOf("tblStyle", "tblW", "tblInd", "tblLayout", "tblBorders", "tblCellMar"))
             val tableStyles = properties.one("tblStyle")?.let { chain(it.value("val") ?: reject("Missing table style"), "table") } ?: emptyList()
-            check(properties.one("tblLayout")?.value("type") == "fixed", "Only fixed table layout is supported")
+            val layout = properties.one("tblLayout")?.value("type")
+            check(layout in setOf("fixed", "autofit"), "Explicit qualified table layout required")
+            val naturalWidths = layout == "autofit"
+            check(!naturalWidths || depth == 0, "Natural widths in nested tables are not qualified")
             val grid = table.one("tblGrid") ?: reject("Missing table grid")
             check(grid.elements().all { it.name.namespaceURI == word && it.name.localPart == "gridCol" }, "Unsupported table grid")
             val widths = grid.elements().map { twips(it.value("w")) }
@@ -265,8 +268,13 @@ internal class OwnEngineDocxReader {
                 check(node.value("type") == "dxa", "Only physical table dimensions are supported")
                 return twips(node.value("w"))
             }
-            val tableWidth = dimension(properties.one("tblW") ?: reject("Missing table width"))
-            check(kotlin.math.abs(widths.sum() - tableWidth) < 0.01f, "Table width differs from grid")
+            fun automaticDimension(node: XmlElement) {
+                attributes(node, setOf("w", "type")); children(node, emptySet())
+                check(node.value("type") == "auto" && node.value("w") == "0", "Natural widths require automatic table and cell dimensions")
+            }
+            val tableWidth = properties.one("tblW") ?: reject("Missing table width")
+            if (naturalWidths) automaticDimension(tableWidth)
+            else check(kotlin.math.abs(widths.sum() - dimension(tableWidth)) < 0.01f, "Table width differs from grid")
             val cellMargins = properties.one("tblCellMar") ?: reject("Explicit cell margins required")
             children(cellMargins, setOf("top", "right", "bottom", "left"))
             fun edge(name: String) = dimension(cellMargins.one(name) ?: reject("Missing cell margin"))
@@ -335,8 +343,9 @@ internal class OwnEngineDocxReader {
                     } ?: PdfVerticalAlignment.TOP
                     val span = cp.one("gridSpan")?.let { attributes(it, setOf("val")); number(it.value("val")).toInt() } ?: 1
                     check(span in 1..16 && column + span <= widths.size, "Invalid grid span")
-                    val actualWidth = dimension(cp.one("tcW") ?: reject("Missing cell width"))
-                    check(kotlin.math.abs(actualWidth - widths.subList(column, column + span).sum()) < 0.01f, "Inconsistent cell width")
+                    val cellWidth = cp.one("tcW") ?: reject("Missing cell width")
+                    if (naturalWidths) automaticDimension(cellWidth)
+                    else check(kotlin.math.abs(dimension(cellWidth) - widths.subList(column, column + span).sum()) < 0.01f, "Inconsistent cell width")
                     val background = cp.one("shd")?.let {
                         attributes(it, setOf("val", "color", "fill"))
                         check(it.value("val") == "clear" && it.value("color") == "auto", "Unsupported cell shading")
@@ -385,7 +394,7 @@ internal class OwnEngineDocxReader {
             check(headerFlags.drop(count).none { it }, "Table headers must be leading rows")
             val indent = properties.one("tblInd")?.let(::dimension) ?: reject("Explicit table indent required")
             val physicalIndent = if (depth == 0) indent - padding.left else indent + (border?.width ?: 0f) / 2
-            return PdfTable(widths, rows, padding, border, count, physicalIndent)
+            return PdfTable(widths, rows, padding, border, count, physicalIndent, if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else PdfTableWidthPolicy.FIXED)
         }
         fun readBox(pict: XmlElement, partRelations: Map<String, String>): PdfTextBox {
             val vml = "urn:schemas-microsoft-com:vml"

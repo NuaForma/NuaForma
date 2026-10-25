@@ -195,6 +195,15 @@ internal object PageLayouter {
         return height to (ascent + gap)
     }
 
+    internal fun unwrappedTextWidth(runs: List<PdfTextRun>, measurer: TextMeasurer): Float {
+        var width = 0f
+        for (group in words(runs, measurer, false)) {
+            checkCancellation()
+            width += group.sumOf { it.metrics.width.toDouble() }.toFloat()
+        }
+        return width
+    }
+
     private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null, val tab: PdfTab? = null, val paintOffset: Float = 0f, val decoration: Boolean = false, val sourceStart: Int = 0)
 
     private fun words(runs: List<PdfInline>, measurer: TextMeasurer, bidi: Boolean): List<List<Fragment>> {
