@@ -189,6 +189,9 @@ val verifyCoverageInputs = tasks.register("verifyCoverageInputs") {
                 "Missing JVM coverage data for ${it.name}"
             }
         }
+        check(fileTree(project(":nuaforma-pdf").layout.buildDirectory.dir("jacoco/validator")) {
+            include("*.exec")
+        }.files.any { it.length() > 0 }) { "Missing forked PDF validator coverage data" }
     }
 }
 val coverageReport = tasks.register<JacocoReport>("coverageReport") {
@@ -196,6 +199,7 @@ val coverageReport = tasks.register<JacocoReport>("coverageReport") {
     description = "Merges JVM tests against all production modules; requires -Pcoverage=true."
     dependsOn(verifyCoverageInputs)
     executionData.from(modulesWithJvmTests.map { modules -> modules.map { it.layout.buildDirectory.file("jacoco/test.exec") } })
+    executionData.from(fileTree(project(":nuaforma-pdf").layout.buildDirectory.dir("jacoco/validator")) { include("*.exec") })
     classDirectories.from(provider {
         subprojects.map { it.extensions.getByType<SourceSetContainer>()["main"].output.classesDirs }
     })
