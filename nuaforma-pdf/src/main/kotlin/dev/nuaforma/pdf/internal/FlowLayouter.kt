@@ -6,7 +6,7 @@ import dev.nuaforma.pdf.*
 internal object FlowLayouter {
     internal data class MeasuredParagraph(val paragraph: PdfParagraph, val lines: List<List<PositionedElement>>, val lineHeight: Float)
 
-    fun layout(document: PdfDocument, measurer: TextMeasurer, pageNumberOffset: Int = 0, pageBudget: Int = document.maxPages): List<PageLayout> {
+    fun layout(document: PdfDocument, measurer: TextMeasurer, pageBudget: Int = document.maxPages): List<PageLayout> {
         val policy = requireNotNull(document.flow)
         val page = document.page
         val width = page.width - page.margins.left - page.margins.right
@@ -50,7 +50,7 @@ internal object FlowLayouter {
                     if (block.wrap == PdfBoxWrap.TOP_BOTTOM) exclusions.getOrPut(pages.lastIndex) { mutableListOf() } += placed.top to placed.top + block.height
                 }
                 is PdfParagraph -> {
-                    if (block.runs.any { it is PdfPageNumber }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields are supported only in page bands")
+                    if (block.runs.any { it is PdfPageField }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields are supported only in page bands")
                     val format = block.format
                     if (format.pageBreakBefore && top > page.margins.top + .001f) nextPage()
                     if (exclusions[pages.lastIndex].orEmpty().isNotEmpty() && (format.keepWithNext || format.keepLines || format.widowControl)) {
@@ -167,7 +167,14 @@ internal object FlowLayouter {
                 }
             }
         }
-        return pages.mapIndexed { index, elements ->
+        return pages.map { PageLayout(page, it.toList()) }
+    }
+
+    fun decorate(layouts: List<PageLayout>, policy: PdfFlow, pageNumberOffset: Int, totalPages: Int, measurer: TextMeasurer): List<PageLayout> {
+        require(totalPages in 1..32 && pageNumberOffset >= 0 && pageNumberOffset + layouts.size <= totalPages)
+        return layouts.mapIndexed { index, layout ->
+            PageLayouter.checkCancellation()
+            val page = layout.page
             val decorated = mutableListOf<PositionedElement>()
             val number = pageNumberOffset + index + 1
             val selected = when {
@@ -175,9 +182,9 @@ internal object FlowLayouter {
                 number % 2 == 0 && policy.evenPageBands != null -> policy.evenPageBands
                 else -> PdfPageBands(policy.header, policy.footer)
             }
-            selected.header?.let { band(it, false, page, number, measurer, decorated) }
-            selected.footer?.let { band(it, true, page, number, measurer, decorated) }
-            decorated += elements
+            selected.header?.let { band(it, false, page, number, totalPages, measurer, decorated) }
+            selected.footer?.let { band(it, true, page, number, totalPages, measurer, decorated) }
+            decorated += layout.elements
             PageLayout(page, decorated.toList())
         }
     }
@@ -195,14 +202,18 @@ internal object FlowLayouter {
         return MeasuredParagraph(p, lines, height)
     }
 
-    private fun band(band: PdfPageBand, footer: Boolean, page: PdfPage, number: Int, measurer: TextMeasurer, target: MutableList<PositionedElement>) {
+    private fun band(band: PdfPageBand, footer: Boolean, page: PdfPage, number: Int, totalPages: Int, measurer: TextMeasurer, target: MutableList<PositionedElement>) {
         val margin = if (footer) page.margins.bottom else page.margins.top
         if (band.offset + band.maxHeight > margin + 0.001f) overflow()
         val width = page.width - page.margins.left - page.margins.right
         val elements = mutableListOf<PositionedElement>()
         var top = 0f
         var after = 0f
-        fun resolve(p: PdfParagraph) = PdfParagraph(p.runs.map { if (it is PdfPageNumber) PdfTextRun(number.toString(), it.style) else it }, p.spaceBefore, p.spaceAfter, p.format, p.listLabel)
+        fun resolve(p: PdfParagraph) = PdfParagraph(p.runs.map { when (it) {
+            is PdfPageNumber -> PdfTextRun(number.toString(), it.style)
+            is PdfPageCount -> PdfTextRun(totalPages.toString(), it.style)
+            else -> it
+        } }, p.spaceBefore, p.spaceAfter, p.format, p.listLabel)
         fun resolveTable(t: PdfTable): PdfTable = PdfTable(t.columnWidths, t.rows.map { row -> PdfTableRow(row.cells.map { cell ->
             PdfTableCell(cell.blocks.map { when (it) { is PdfParagraph -> resolve(it); is PdfTable -> resolveTable(it); is PdfImage -> it; is PdfTextBox -> error("Frame in table") } }, cell.background, cell.columnSpan, cell.rowSpan)
         }, row.allowSplit, row.splitOversized) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent)

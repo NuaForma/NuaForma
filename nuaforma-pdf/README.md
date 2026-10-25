@@ -26,6 +26,12 @@ The model includes page/margins, paragraphs with inline text/image items and bef
 
 `PdfFlow.firstPageBands` and `evenPageBands` accept resolved `PdfPageBands(header, footer)` pairs. Null retains the shared bands; an explicit empty pair suppresses them. First-page selection restarts at each sequence and wins over even-page selection; even/odd parity uses continuous global page numbering. All variant resources join the document budgets. The [page-band trial](../tools/pdf-evaluation/own-engine/PAGE_MASTERS.md) covers actual Word first/even/odd/blank/inherited stories, logos, explicit false switches, Java callers and concurrent renders. Page bands must fit reserved margins; page-number restarts remain unsupported.
 
+## Page fields
+
+`PdfPageNumber(style)` and `PdfPageCount(style)` implement typed decimal `PdfPageField` controls in reserved page bands, including band-table cells. The writer first paginates all body ranges, then resolves and measures selected bands against the final document-wide page count. Non-flowing single-page ranges also contribute to that count. Actual values must fit the fixed reserved areas; overflow rejects rather than growing margins, changing the body or emitting a guessed total. Field resolution occurs before output bytes are returned and remains request-local.
+
+Each field reserves two UTF-16 units in the aggregate text budget under the existing 32-page maximum. Body/frame fields, section-local totals, numbering restarts, formatted/Roman values and general field expressions remain unsupported. The [field proof](../tools/pdf-evaluation/own-engine/FIELDS.md) records the qualified source profile and two-digit/concurrency/overflow checks.
+
 ## Lists and numbering
 
 `PdfNumbering.resolve` is a pure batch resolver over immutable `PdfListDefinition`/`PdfListLevel` rules and source-ordered `PdfListStep` values. Each call owns its counters. Independent instances can use separate sequences or share a `sequenceId`, with explicit restarts. Decimal/leading-zero, repeated Latin letters (A…Z, AA, BB…), Roman and bullet formats, ancestor placeholders and legal decimal labels are bounded. Latin letter formats intentionally follow Word's repeated-letter sequence, not spreadsheet column names. Unsupported formats, missing ancestors and counter/label budgets fail explicitly.

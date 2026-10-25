@@ -4,6 +4,8 @@ Date: 2026-10-24. Status: package and branch direction approved; the first [foun
 
 The [paper-format proof](../../tools/pdf-evaluation/own-engine/PAGE_FORMATS.md) additionally qualifies standalone A4, A3, US Letter and Legal reports in portrait/landscape, including asymmetric margins and Greek/Cyrillic text. The [mixed-size proof](../../tools/pdf-evaluation/own-engine/SECTIONS.md) adds resolved neutral `PdfPageSequence` ranges, each starting on a fresh page, with continuous PAGE numbering and inherited default source bands. The [page-band variants](../../tools/pdf-evaluation/own-engine/PAGE_MASTERS.md) add first/even/odd and explicit blank stories with source inheritance. Numbering restarts, dynamic margins and continuous/odd/even/column transitions remain planned.
 
+The [page-field proof](../../tools/pdf-evaluation/own-engine/FIELDS.md) adds global decimal PAGE/NUMPAGES in fixed reserved bands after all body ranges have been paginated. Section-local numbering and general field evaluation remain unqualified.
+
 ## 1. Baseline, scope and constraints
 
 This work starts from the existing NuaForma product on `develop`, not from an empty repository. DOCX generation, provider contracts, the REST service, Playground, and the qualified LibreOffice-backed PDF provider already exist. Their current behavior is documented in the module guides. The own engine is future work and does not retrospectively change published artifacts or their supported profiles.

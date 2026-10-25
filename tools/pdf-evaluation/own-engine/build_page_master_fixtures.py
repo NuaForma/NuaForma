@@ -7,7 +7,7 @@ from build_sections_fixture import build as sections, Q, W
 
 R='http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 
-def build(root,output,blank_initial=False):
+def build(root,output,blank_initial=False,entries_only=False):
     entries=sections(root,output,entries_only=True)
     original_header=entries['word/header1.xml'];original_footer=entries['word/footer1.xml']
     for n,label in [(1,'ODD'),(2,'FIRST'),(3,'EVEN')]:
@@ -34,6 +34,7 @@ def build(root,output,blank_initial=False):
         order={Q+tag:n for n,tag in enumerate(['headerReference','footerReference','type','pgSz','pgMar','titlePg'])}
         node[:]=sorted(node,key=lambda child:order[child.tag])
     entries['word/document.xml']=ET.tostring(document,encoding='utf-8',xml_declaration=True)
+    if entries_only:return entries
     output.parent.mkdir(parents=True,exist_ok=True)
     with ZipFile(output,'w') as archive:
         for name,value in sorted(entries.items()):

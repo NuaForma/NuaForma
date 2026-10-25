@@ -196,13 +196,16 @@ internal class OwnEngineDocxReader {
             val runs = paragraph.elements().filter { it.name.localPart != "pPr" }.flatMap { run ->
                 if (run.name.localPart == "fldSimple") {
                     attributes(run, setOf("instr"))
-                    check(run.value("instr")?.trim() == "PAGE", "Only PAGE fields in page bands are supported")
+                    val instruction = run.value("instr")?.trim()
+                    check(fields && instruction in setOf("PAGE", "NUMPAGES"), "Only PAGE and NUMPAGES fields in page bands are supported")
                     children(run, setOf("r"))
-                    val cached = run.elements().singleOrNull() ?: reject("Invalid PAGE field")
+                    val cached = run.elements().singleOrNull() ?: reject("Invalid page field")
                     children(cached, setOf("rPr", "t"))
                     val face = faceFor(cached.one("rPr"))
                     check(face.rtl != true, "Forced complex-script page fields are not qualified")
-                    return@flatMap listOf(PdfPageNumber(PdfTextStyle(face.id(), face.size ?: reject("Missing font size"), face.color, face.languageTag)))
+                    check(face.copy(languageTag = base.languageTag, rtl = base.rtl) == base, "Page-field cache formatting must match its paragraph style")
+                    val style = PdfTextStyle(face.id(), face.size ?: reject("Missing font size"), face.color, face.languageTag)
+                    return@flatMap listOf(if (instruction == "PAGE") PdfPageNumber(style) else PdfPageCount(style))
                 }
                 children(run, setOf("rPr", "t", "tab", "drawing"))
                 val face = faceFor(run.one("rPr"))

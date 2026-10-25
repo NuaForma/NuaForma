@@ -21,7 +21,7 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
     init {
         require(maxPages in 1..32 && this.pageSequences.size <= maxPages) { "Invalid document page budget" }
         require(this.pageSequences.sumOf { it.blocks.size } <= 1_000) { "Document block budget exceeded" }
-        require(allParagraphs().sumOf { it.runs.filterIsInstance<PdfTextRun>().sumOf { run -> run.text.length.toLong() } + (it.listLabel?.value?.text?.length ?: 0) } <= 100_000) {
+        require(allParagraphs().sumOf { it.runs.sumOf { run -> when (run) { is PdfTextRun -> run.text.length.toLong(); is PdfPageField -> 2L; else -> 0L } } + (it.listLabel?.value?.text?.length ?: 0) } <= 100_000) {
             "Document text exceeds the foundation limit"
         }
         require(allParagraphs().sumOf { it.runs.count { run -> run is PdfTab } } <= 2_000) { "Tab control budget exceeded" }
@@ -180,7 +180,10 @@ data class PdfParagraphFormat @JvmOverloads constructor(
 
 sealed interface PdfInline
 data class PdfImageRun(val image: PdfImage) : PdfInline
-data class PdfPageNumber(val style: PdfTextStyle) : PdfInline
+/** Decimal fields resolved after body pagination, within fixed reserved page bands. */
+sealed interface PdfPageField : PdfInline { val style: PdfTextStyle }
+data class PdfPageNumber(override val style: PdfTextStyle) : PdfPageField
+data class PdfPageCount(override val style: PdfTextStyle) : PdfPageField
 
 class PdfParagraph @JvmOverloads constructor(
     runs: List<PdfInline>,

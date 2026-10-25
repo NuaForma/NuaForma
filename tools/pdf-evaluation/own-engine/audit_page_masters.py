@@ -27,12 +27,13 @@ def profiles(path):
         result.append(dict(first=enabled(section.find(W+'titlePg')),even=even,stories=stories))
     return result
 
-def band_text(story,number):
+def band_text(story,number,total):
     if story is None:return ''
     def visit(node):
         if node.tag==W+'fldSimple':
-            assert node.get(W+'instr').strip()=='PAGE'
-            return str(number)
+            instruction=node.get(W+'instr').strip()
+            assert instruction in ['PAGE','NUMPAGES']
+            return str(number if instruction=='PAGE' else total)
         if node.tag==W+'t':return node.text or ''
         return ''.join(visit(child) for child in node)
     return ' '.join(visit(paragraph) for paragraph in story.iter(W+'p'))
@@ -51,8 +52,8 @@ def inspect(path,ranges,policies):
                 inventory[n]+=words(text.get_text_bounded(left=0,bottom=r['bottom'],right=page.get_width(),top=page.get_height()-r['top']))
                 actual_header=text.get_text_bounded(left=0,bottom=page.get_height()-r['top'],right=page.get_width(),top=page.get_height())
                 actual_footer=text.get_text_bounded(left=0,bottom=0,right=page.get_width(),top=r['bottom'])
-                assert words(actual_header)==words(band_text(header,i+1)),f'Page {i+1}: wrong, missing or nonblank header'
-                assert words(actual_footer)==words(band_text(footer,i+1)),f'Page {i+1}: wrong footer or page numbering'
+                assert words(actual_header)==words(band_text(header,i+1,len(pdf))),f'Page {i+1}: wrong, missing or nonblank header'
+                assert words(actual_footer)==words(band_text(footer,i+1,len(pdf))),f'Page {i+1}: wrong footer or page numbering'
                 images=sum(len(list(story.iter(W+'drawing'))) for story in [header,footer] if story is not None)
                 selected.append(dict(kind=kind,header=header is not None,footer=footer is not None,images=images))
             finally:text.close();page.close()
@@ -86,6 +87,18 @@ def main():
         assert dx<1 and dy<1,(n,dx,dy)
         assert all(abs(x[k]-y[k])<.1 for x,y in zip(ri[n-1],ci[n-1]) for k in x),'Logo physical geometry differs'
         pages.append(dict(page=n,range=c[n-1]+1,**cs[n-1],lines=len(left),maxLineStartDeltaPoints=dx,maxBaselineDeltaPoints=dy))
+    with pdfplumber.open(a.reference) as reference,pdfplumber.open(a.candidate) as candidate:
+        for n,(left,right) in enumerate(zip(reference.pages,candidate.pages)):
+            policy=ranges[c[n]];delta=0
+            for header in [True,False]:
+                def chars(page):return [ch for ch in page.chars if ch['text'].strip() and (ch['bottom']<=policy['top'] if header else ch['top']>=page.height-policy['bottom'])]
+                expected,actual=chars(left),chars(right)
+                assert ''.join(ch['text'] for ch in expected)==''.join(ch['text'] for ch in actual),'Page-band character sequence differs'
+                for x,y in zip(expected,actual):
+                    assert x['fontname'].split('+')[-1]==y['fontname'].split('+')[-1],'Page-band font face differs'
+                    difference=abs(x['size']-y['size']);delta=max(delta,difference)
+                    assert difference<.05,'Page-band font size differs'
+            pages[n]['maxBandFontSizeDeltaPoints']=delta
     result=dict(sourceSha256=receipt['sourceSha256'],referenceSha256=receipt['pdfSha256'],candidateSha256=hashlib.sha256(a.candidate.read_bytes()).hexdigest(),wordBuild=receipt['build'],pageCount=len(c),pages=pages)
     a.output.write_text(json.dumps(result,indent=2),encoding='utf-8');print(json.dumps(result))
 

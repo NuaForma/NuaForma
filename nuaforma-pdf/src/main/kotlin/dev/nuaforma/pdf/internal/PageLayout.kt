@@ -180,7 +180,7 @@ internal object PageLayouter {
     internal fun automaticBox(p: PdfParagraph, measurer: TextMeasurer): Pair<Float, Float>? {
         val policy = p.format.automaticLineSpacing ?: return null
         val styles = p.runs.map { when (it) {
-            is PdfTextRun -> it.style; is PdfTab -> it.style; is PdfPageNumber -> it.style
+            is PdfTextRun -> it.style; is PdfTab -> it.style; is PdfPageField -> it.style
             else -> throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Automatic inline image spacing is not qualified")
         } } + listOfNotNull(p.listLabel?.style)
         val metrics = styles.map { measurer.measure(" ", it) }
@@ -201,7 +201,7 @@ internal object PageLayouter {
         var sourceOffset = 0
         var previousSpace: Boolean? = null
         for (run in runs) {
-            if (run is PdfPageNumber) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields require page-band resolution")
+            if (run is PdfPageField) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields require page-band resolution")
             if (run is PdfTab) {
                 groups += mutableListOf(Fragment("\t", run.style, TextMetrics(0f, 0f, 0f), tab = run))
                 previousSpace = null
