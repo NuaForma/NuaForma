@@ -279,9 +279,39 @@ internal class OwnEngineDocxReader {
                 PdfBorder(number(it.value("sz")) / 8, color(it.value("color")))
             }
             check(borders.isEmpty() || borders.size == 6 && borders.distinct().size == 1, "Only uniform table borders are supported")
+            val border = borders.firstOrNull()
+            fun ranked(value: PdfBorder): PdfEdgeStroke {
+                val units = value.width * 8
+                check(units == units.toInt().toFloat(), "Cell-border fallback must use integral eighth points")
+                val c = value.color
+                val priority = (units.toLong() shl 32) or ((1020 - c.red - c.blue - 2 * c.green).toLong() shl 22) or
+                    ((765 - c.blue - 2 * c.green).toLong() shl 12) or (255 - c.green).toLong()
+                return PdfEdgeStroke(value, priority)
+            }
+            val fallbackStroke by lazy { border?.let(::ranked) }
+            val fallbackBorders by lazy { PdfCellBorders(fallbackStroke, fallbackStroke, fallbackStroke, fallbackStroke) }
+            fun readCellBorders(node: XmlElement): PdfCellBorders {
+                attributes(node, emptySet()); children(node, setOf("top", "right", "bottom", "left"))
+                fun stroke(name: String): PdfEdgeStroke? {
+                    val edge = node.one(name) ?: return fallbackStroke
+                    attributes(edge, setOf("val", "sz", "color")); children(edge, emptySet())
+                    edge.value("sz")?.let { value -> val size = value.toIntOrNull(); check(size != null && size in 1..32, "Invalid cell border width") }
+                    edge.value("color")?.let(::color)
+                    return when (edge.value("val")) {
+                        "none" -> fallbackStroke
+                        "nil" -> null
+                        "single" -> {
+                            val size = edge.value("sz")?.toIntOrNull()?.takeIf { it in 1..32 } ?: reject("Invalid cell border width")
+                            ranked(PdfBorder(size / 8f, color(edge.value("color"))))
+                        }
+                        else -> reject("Only solid cell borders are qualified")
+                    }
+                }
+                return PdfCellBorders(stroke("top"), stroke("right"), stroke("bottom"), stroke("left"))
+            }
             val rowNodes = table.elements().filter { it.name.localPart == "tr" }
             val headerFlags = mutableListOf<Boolean>()
-            data class CellSpec(val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment, var rows: Int = 1)
+            data class CellSpec(val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment, val borders: PdfCellBorders?, var rows: Int = 1)
             val specs = mutableListOf<Pair<List<CellSpec>, Boolean>>()
             var previous = mapOf<Int, CellSpec>()
             for (row in rowNodes) {
@@ -297,7 +327,8 @@ internal class OwnEngineDocxReader {
                 for (cell in row.elements().filter { it.name.localPart == "tc" }) {
                     children(cell, setOf("tcPr", "p", "tbl"))
                     val cp = cell.one("tcPr") ?: reject("Explicit cell properties required")
-                    children(cp, setOf("tcW", "shd", "gridSpan", "vMerge", "vAlign"))
+                    children(cp, setOf("tcW", "shd", "gridSpan", "vMerge", "vAlign", "tcBorders"))
+                    val cellBorders = cp.one("tcBorders")?.let(::readCellBorders)
                     val alignment = cp.one("vAlign")?.let { node ->
                         attributes(node, setOf("val")); children(node, emptySet())
                         when (node.value("val")) { "top" -> PdfVerticalAlignment.TOP; "center" -> PdfVerticalAlignment.CENTER; "bottom" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported cell vertical alignment") }
@@ -326,12 +357,13 @@ internal class OwnEngineDocxReader {
                             val origin = previous[column] ?: reject("Vertical continuation has no origin")
                             check(origin.span == span && origin.background == background, "Inconsistent vertical continuation")
                             check(cp.one("vAlign") == null || origin.alignment == alignment, "Inconsistent vertical continuation alignment")
+                            check(cellBorders == null || origin.borders == cellBorders, "Inconsistent vertical continuation borders")
                             check(blocks.all { it is PdfParagraph && it.runs.all { run -> run is PdfTextRun && run.text.isBlank() } }, "Continuation cells must not contain additional content")
                             origin.rows++
                             active[column] = origin
                         }
                         null, "restart" -> {
-                            val spec = CellSpec(blocks, background, span, alignment)
+                            val spec = CellSpec(blocks, background, span, alignment, cellBorders)
                             cells += spec
                             if (merge == "restart") active[column] = spec
                         }
@@ -343,11 +375,15 @@ internal class OwnEngineDocxReader {
                 specs += cells to allowSplit
                 previous = active
             }
-            val rows = specs.map { (cells, allow) -> PdfTableRow(cells.map { PdfTableCell(it.blocks, it.background, it.span, it.rows, it.alignment) }, allow, splitOversized = true) }
+            val customBorders = specs.any { (cells, _) -> cells.any { it.borders != null } }
+            val rows = specs.map { (cells, allow) -> PdfTableRow(cells.map { PdfTableCell(it.blocks, it.background, it.span, it.rows, it.alignment, if (customBorders) it.borders ?: fallbackBorders else null) }, allow, splitOversized = true) }
+            if (customBorders) {
+                val styles = rows.flatMap { it.cells }.flatMap { cell -> cell.borders!!.let { listOfNotNull(it.top, it.right, it.bottom, it.left) } }.map { it.border }.distinct()
+                check(styles.size <= 1, "Conflicting cell-border colors and widths are not qualified")
+            }
             val count = headerFlags.takeWhile { it }.size
             check(headerFlags.drop(count).none { it }, "Table headers must be leading rows")
             val indent = properties.one("tblInd")?.let(::dimension) ?: reject("Explicit table indent required")
-            val border = borders.firstOrNull()
             val physicalIndent = if (depth == 0) indent - padding.left else indent + (border?.width ?: 0f) / 2
             return PdfTable(widths, rows, padding, border, count, physicalIndent)
         }

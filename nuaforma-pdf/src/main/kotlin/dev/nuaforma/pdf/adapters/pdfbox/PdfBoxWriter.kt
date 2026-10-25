@@ -84,6 +84,8 @@ internal object PdfBoxWriter {
                 else -> 0L
             } }
             if (layouts.sumOf { decorationSize(it.elements) } > 100_000) fail(PdfFailureCode.RESOURCE_LIMIT, "Generated leader budget exceeded")
+            fun borderSize(elements: List<PositionedElement>): Int = elements.sumOf { when (it) { is PositionedTableBorder -> 1; is PositionedBox -> borderSize(it.elements); else -> 0 } }
+            if (layouts.sumOf { borderSize(it.elements) } > 20_000) fail(PdfFailureCode.RESOURCE_LIMIT, "Table border budget exceeded")
             val usedFonts = linkedSetOf<String>()
             val images = java.util.IdentityHashMap<PdfImage, PDImageXObject>()
             for (layout in layouts) {
@@ -98,7 +100,7 @@ internal object PdfBoxWriter {
                         writer.writeTokens(operands.toList() + Operator.getOperator(name))
                     }
                     fun number(value: Float) = COSFloat(value)
-                    fun paint(elements: List<PositionedElement>, canvasHeight: Float) {
+                    fun paint(elements: List<PositionedElement>, canvasHeight: Float, canvasWidth: Float) {
                         for (element in elements) {
                             PageLayouter.checkCancellation()
                             when (element) {
@@ -112,7 +114,7 @@ internal object PdfBoxWriter {
                                     command("cm", number(c), number(-s), number(s), number(c),
                                         number(element.x + cx - c * cx - s * cy),
                                         number(canvasHeight - element.top - cy + s * cx - c * cy))
-                                    paint(element.elements, element.box.height)
+                                    paint(element.elements, element.box.height, element.box.width)
                                     command("Q")
                                 }
                                 is PositionedRectangle -> {
@@ -130,6 +132,7 @@ internal object PdfBoxWriter {
                                     }
                                     command("Q")
                                 }
+                                is PositionedTableBorder -> Unit
                                 is PositionedText -> {
                                     if (element.decoration) command("BMC", COSName.ARTIFACT)
                                     element.style.languageTag?.let { language ->
@@ -165,8 +168,10 @@ internal object PdfBoxWriter {
                                 }
                             }
                         }
+                        val tableBorders = TableBorderLayouter.rectangles(elements, canvasWidth, canvasHeight)
+                        if (tableBorders.isNotEmpty()) paint(tableBorders, canvasHeight, canvasWidth)
                     }
-                    paint(layout.elements, layout.page.height)
+                    paint(layout.elements, layout.page.height, layout.page.width)
                 }
             }
             usedFonts.forEach { fonts.getValue(it).subset() }

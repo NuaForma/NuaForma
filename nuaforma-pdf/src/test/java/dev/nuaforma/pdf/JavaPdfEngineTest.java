@@ -10,6 +10,27 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class JavaPdfEngineTest {
     @Test
+    void javaCallerCanRenderExplicitCellBorders() throws IOException {
+        var edge = new PdfEdgeStroke(new PdfBorder(2, new PdfColor(0, 81, 140)), 7);
+        var borders = new PdfCellBorders(edge, null, edge, edge);
+        var paragraph = new PdfParagraph(List.of(new PdfTextRun("Java cell borders", new PdfTextStyle("regular", 10))),
+            0, 0, new PdfParagraphFormat(PdfAlignment.LEFT, 0, 0, 0, 14f));
+        var cell = new PdfTableCell(List.of(paragraph), null, 1, 1, PdfVerticalAlignment.TOP, borders);
+        var table = new PdfTable(List.of(200f), List.of(new PdfTableRow(List.of(cell))));
+        byte[] font;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            font = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        var document = new PdfDocument(new PdfPage(300, 200, new PdfMargins(20, 20, 20, 20)), List.of(table), new PdfFlow());
+        try (var pdf = Loader.loadPDF(new PdfEngine().render(document, List.of(new PdfFont("regular", font))))) {
+            assertEquals(1, pdf.getNumberOfPages());
+            assertTrue(new PDFTextStripper().getText(pdf).contains("Java cell borders"));
+        }
+        assertEquals(7, cell.getBorders().getTop().getPriority());
+        assertEquals(null, cell.getBorders().getRight());
+    }
+
+    @Test
     void javaCallerCanRenderCyrillicWithLanguageMetadata() throws IOException {
         var style = new PdfTextStyle("regular", 11, new PdfColor(0, 0, 0), "uk-UA");
         var paragraph = new PdfParagraph(List.of(new PdfTextRun("Київ, Україна", style)));

@@ -90,9 +90,21 @@ data class PdfBorder(val width: Float, val color: PdfColor) {
     init { require(width.isFinite() && width in 0.1f..4f) { "Invalid border width" } }
 }
 
+/** Adapters supply a neutral precedence; larger priorities win at a shared table edge. */
+data class PdfEdgeStroke @JvmOverloads constructor(val border: PdfBorder, val priority: Long = 0) {
+    init { require(priority >= 0) { "Invalid edge priority" } }
+}
+
+/** Resolved cell edges. Null edges have no stroke; a null cell policy inherits the table border. */
+data class PdfCellBorders @JvmOverloads constructor(
+    val top: PdfEdgeStroke? = null, val right: PdfEdgeStroke? = null,
+    val bottom: PdfEdgeStroke? = null, val left: PdfEdgeStroke? = null,
+)
+
 class PdfTableCell @JvmOverloads constructor(
     blocks: List<PdfBlock>, val background: PdfColor? = null, val columnSpan: Int = 1, val rowSpan: Int = 1,
     val verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP,
+    val borders: PdfCellBorders? = null,
 ) {
     val blocks: List<PdfBlock> = Collections.unmodifiableList(ArrayList(blocks))
     val paragraphs: List<PdfParagraph> get() = blocks.filterIsInstance<PdfParagraph>()

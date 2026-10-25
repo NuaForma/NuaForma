@@ -128,6 +128,7 @@ internal object FlowLayouter {
                     if (!fits(headerHeight + minOf(first, freshData - measured.closing) + measured.closing) ||
                         !firstRow.allowSplit && first > freshData && top > page.margins.top + 0.001f) nextPage()
                     headers()
+                    val tableStartPage = pages.size
                     while (index < block.rows.size) {
                         PageLayouter.checkCancellation()
                         val row = block.rows[index]
@@ -163,6 +164,7 @@ internal object FlowLayouter {
                         index++
                     }
                     top += measured.closing
+                    if (measured.customBorders && pages.size != tableStartPage) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Custom table borders across pages are not qualified")
                     after = 0f
                 }
             }
@@ -197,6 +199,7 @@ internal object FlowLayouter {
             is PositionedText -> element.baseline
             is PositionedImage -> element.top + element.image.height
             is PositionedRectangle -> error("Unexpected paragraph rectangle")
+            is PositionedTableBorder -> error("Unexpected paragraph table border")
             is PositionedBox -> error("Unexpected paragraph frame")
         } }.values.mapIndexed { index, line -> line.map { translate(it, 0f, -index * height) } }
         return MeasuredParagraph(p, lines, height)
@@ -216,7 +219,7 @@ internal object FlowLayouter {
             else -> it
         } }, p.spaceBefore, p.spaceAfter, p.format, p.listLabel)
         fun resolveTable(t: PdfTable): PdfTable = PdfTable(t.columnWidths, t.rows.map { row -> PdfTableRow(row.cells.map { cell ->
-            PdfTableCell(cell.blocks.map { when (it) { is PdfParagraph -> resolve(it); is PdfTable -> resolveTable(it); is PdfImage -> it; is PdfTextBox -> error("Frame in table") } }, cell.background, cell.columnSpan, cell.rowSpan, cell.verticalAlignment)
+            PdfTableCell(cell.blocks.map { when (it) { is PdfParagraph -> resolve(it); is PdfTable -> resolveTable(it); is PdfImage -> it; is PdfTextBox -> error("Frame in table") } }, cell.background, cell.columnSpan, cell.rowSpan, cell.verticalAlignment, cell.borders)
         }, row.allowSplit, row.splitOversized) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent)
         for (block in band.blocks) {
             when (block) {
@@ -255,6 +258,7 @@ internal object FlowLayouter {
         is PositionedText -> element.copy(x = element.x + x, baseline = element.baseline + y)
         is PositionedImage -> element.copy(x = element.x + x, top = element.top + y)
         is PositionedRectangle -> element.copy(x = element.x + x, top = element.top + y)
+        is PositionedTableBorder -> element.copy(x = element.x + x, top = element.top + y)
         is PositionedBox -> element.copy(x = element.x + x, top = element.top + y)
     }
 

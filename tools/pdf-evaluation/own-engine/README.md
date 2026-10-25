@@ -86,4 +86,4 @@ The [page-field trial](FIELDS.md) resolves PAGE/NUMPAGES against the final docum
 
 The [sequence-numbering trial](NUMBERING.md) adds decimal restarts/continuation, SECTIONPAGES, displayed-number band parity and explicit padding policies verified against Word with both shared and different even/odd bands.
 
-The [cell-alignment trials](CELL_ALIGNMENT.md) cover top/center/bottom alignment with natural row heights, spans and atomic nested tables. Automatic widths and per-cell borders remain planned.
+The [cell-alignment trials](CELL_ALIGNMENT.md) cover top/center/bottom alignment with natural row heights, spans and atomic nested tables. Automatic widths remain planned. The [solid cell-border qualification](CELL_BORDERS.md) adds per-side solid strokes/removal in fixed unmerged single-page tables with one resolved style per source table; conflicting styles and merged/nested/paginated custom-border combinations remain unqualified.

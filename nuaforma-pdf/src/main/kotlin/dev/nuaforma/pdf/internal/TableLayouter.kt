@@ -5,16 +5,25 @@ import dev.nuaforma.pdf.*
 internal object TableLayouter {
     data class Piece(val top: Float, val height: Float, val elements: List<PositionedElement>)
     data class Cell(val placement: TablePlacement, val pieces: List<Piece>, val contentHeight: Float)
-    data class Measured(val table: PdfTable, val cells: List<Cell>, val heights: List<Float>, val offsets: List<Float>) {
+    data class Measured(val table: PdfTable, val cells: List<Cell>, val heights: List<Float>, val offsets: List<Float>, val topInsets: List<Float>, val customBorders: Boolean, val borderGroup: Any = Any()) {
         val contentEnd: Float get() = offsets.last()
-        val closing: Float get() = table.border?.width ?: 0f
+        val closing: Float get() = if (customBorders) maxOf(table.border?.width ?: 0f, table.rows.last().cells.maxOfOrNull { it.borders?.bottom?.border?.width ?: 0f } ?: 0f) else table.border?.width ?: 0f
         val height: Float get() = contentEnd + closing
-        val frame: Float get() = table.cellMargins.top + table.cellMargins.bottom + closing
+        val frame: Float get() = table.cellMargins.top + table.cellMargins.bottom + if (customBorders) topInsets.max() else closing
+        fun frameAt(row: Int) = if (customBorders) table.cellMargins.top + table.cellMargins.bottom + topInsets[row] else frame
         fun rowCells(index: Int) = cells.filter { it.placement.row == index }
     }
 
     fun measure(table: PdfTable, measurer: TextMeasurer, depth: Int = 0): Measured {
         require(depth <= 1) { "Only one nested table level is supported" }
+        val customBorders = table.rows.any { row -> row.cells.any { it.borders != null } }
+        if (customBorders && table.rows.any { row -> row.cells.any { it.columnSpan != 1 || it.rowSpan != 1 } }) {
+            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Custom borders with merged cells are not qualified")
+        }
+        if (customBorders && (depth > 0 || table.rows.any { row -> row.cells.any { cell -> cell.blocks.any { it is PdfTable } } })) {
+            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Custom borders with nested tables are not qualified")
+        }
+        val topInsets = table.rows.map { row -> maxOf(table.border?.width ?: 0f, row.cells.maxOfOrNull { it.borders?.top?.border?.width ?: 0f } ?: 0f) }
         val heights = MutableList(table.rows.size) { 0f }
         val frame = table.cellMargins.top + table.cellMargins.bottom + (table.border?.width ?: 0f)
         val cells = table.placements().map { placement ->
@@ -53,7 +62,8 @@ internal object TableLayouter {
                     is PdfTextBox -> error("Frames cannot be table cell blocks")
                 }
             }
-            if (placement.cell.rowSpan == 1) heights[placement.row] = maxOf(heights[placement.row], top + frame)
+            val cellFrame = if (customBorders) table.cellMargins.top + table.cellMargins.bottom + topInsets[placement.row] else frame
+            if (placement.cell.rowSpan == 1) heights[placement.row] = maxOf(heights[placement.row], top + cellFrame)
             Cell(placement, pieces, top)
         }
         heights.indices.forEach { if (heights[it] == 0f) heights[it] = frame }
@@ -64,7 +74,7 @@ internal object TableLayouter {
         }
         val offsets = mutableListOf(0f)
         heights.forEach { offsets += offsets.last() + it }
-        return Measured(table, cells, heights, offsets)
+        return Measured(table, cells, heights, offsets, topInsets, customBorders)
     }
 
     fun slice(layout: Measured, from: Float, until: Float, x: Float, top: Float, target: MutableList<PositionedElement>) {
@@ -79,13 +89,26 @@ internal object TableLayouter {
             if (alignment != PdfVerticalAlignment.TOP && (start < from - 0.001f || end > until + 0.001f)) {
                 throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Vertical alignment across page fragments is not qualified")
             }
-            val spare = maxOf(0f, end - start - layout.frame - cell.contentHeight)
+            val spare = maxOf(0f, end - start - layout.frameAt(cell.placement.row) - cell.contentHeight)
             val shift = when (alignment) { PdfVerticalAlignment.TOP -> 0f; PdfVerticalAlignment.CENTER -> spare / 2; PdfVerticalAlignment.BOTTOM -> spare }
             val left = x + table.columnWidths.take(cell.placement.column).sum()
             val width = table.columnWidths.subList(cell.placement.column, cell.placement.column + cell.placement.cell.columnSpan).sum()
-            target += PositionedRectangle(left, top + a - from + layout.closing / 2, width, b - a, cell.placement.cell.background, table.border)
+            if (layout.customBorders) {
+                target += PositionedRectangle(left, top + a - from, width, b - a, cell.placement.cell.background, null)
+                val uniform = table.border?.let { PdfEdgeStroke(it) }
+                val policy = cell.placement.cell.borders ?: PdfCellBorders(uniform, uniform, uniform, uniform)
+                fun edge(stroke: PdfEdgeStroke?, x: Float, y: Float, length: Float, horizontal: Boolean) {
+                    if (stroke != null) target += PositionedTableBorder(x, y, length, horizontal, stroke, layout.borderGroup)
+                }
+                if (a == start) edge(policy.top, left, top + a - from, width, true)
+                if (b == end) edge(policy.bottom, left, top + b - from, width, true)
+                val verticalLength = b - a + if (b == layout.contentEnd) layout.closing else 0f
+                edge(policy.left, left, top + a - from, verticalLength, false)
+                edge(policy.right, left + width, top + a - from, verticalLength, false)
+            } else target += PositionedRectangle(left, top + a - from + layout.closing / 2, width, b - a, cell.placement.cell.background, table.border)
             for (piece in cell.pieces) {
-                val y = start + layout.closing + table.cellMargins.top + shift + piece.top
+                val inset = if (layout.customBorders) layout.topInsets[cell.placement.row] else layout.closing
+                val y = start + inset + table.cellMargins.top + shift + piece.top
                 if (y + piece.height <= from + 0.001f || y >= until - 0.001f) continue
                 if (y < from - 0.001f || y + piece.height > until + 0.001f) overflow("Merged cell content crosses an unsupported row boundary")
                 target += piece.elements.map { translate(it, left + table.cellMargins.left, top + y - from) }
@@ -94,6 +117,7 @@ internal object TableLayouter {
     }
 
     fun cut(layout: Measured, row: Int, from: Float, limit: Float): Float {
+        if (layout.customBorders) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Custom borders in fragmented rows are not qualified")
         if (layout.rowCells(row).any { it.placement.cell.verticalAlignment != PdfVerticalAlignment.TOP }) {
             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Vertical alignment across fragmented rows is not qualified")
         }
@@ -132,6 +156,7 @@ internal object TableLayouter {
         is PositionedText -> element.copy(x = element.x + x, baseline = element.baseline + y)
         is PositionedImage -> element.copy(x = element.x + x, top = element.top + y)
         is PositionedRectangle -> element.copy(x = element.x + x, top = element.top + y)
+        is PositionedTableBorder -> element.copy(x = element.x + x, top = element.top + y)
         is PositionedBox -> element.copy(x = element.x + x, top = element.top + y)
     }
 

@@ -210,6 +210,39 @@ val cellAlignmentRenders = listOf("ordinary", "merged", "nested").map { kind ->
 }
 tasks.register("renderOwnEngineCellAlignment") { group = "verification"; dependsOn(cellAlignmentRenders) }
 
+val generateOwnEngineCellBorders = tasks.register<Exec>("generateOwnEngineCellBorders") {
+    val folder = rootProject.file("tools/pdf-evaluation/own-engine")
+    val output = layout.buildDirectory.dir("own-engine-cell-borders")
+    inputs.files(listOf("build_border_fixtures.py", "build_advanced_fixtures.py", "build_report_fixture.py", "build_fixture.py").map { folder.resolve(it) }, rootProject.file("assets/branding/nuaforma-icon-transparent.png"))
+    outputs.dir(output)
+    commandLine("python3", folder.resolve("build_border_fixtures.py").absolutePath, output.get().asFile.absolutePath)
+}
+val generateOwnEngineBorderConflicts = tasks.register<Exec>("generateOwnEngineBorderConflicts") {
+    val folder = rootProject.file("tools/pdf-evaluation/own-engine")
+    val output = layout.buildDirectory.dir("own-engine-border-conflicts")
+    inputs.files(listOf("build_border_fixtures.py", "build_advanced_fixtures.py", "build_report_fixture.py", "build_fixture.py").map { folder.resolve(it) }, rootProject.file("assets/branding/nuaforma-icon-transparent.png"))
+    outputs.dir(output)
+    commandLine("python3", folder.resolve("build_border_fixtures.py").absolutePath, output.get().asFile.absolutePath, "--conflicting")
+}
+tasks.processTestResources {
+    dependsOn(generateOwnEngineCellBorders, generateOwnEngineBorderConflicts)
+    from(layout.buildDirectory.dir("own-engine-cell-borders")) { into("own-engine-cell-borders") }
+    from(layout.buildDirectory.dir("own-engine-border-conflicts")) { into("own-engine-border-conflicts") }
+}
+val cellBorderRenders = listOf("colors", "weights", "outline").map { kind ->
+    tasks.register<JavaExec>("renderOwnEngineCellBorders${kind.replaceFirstChar { it.uppercase() }}") {
+        group = "verification"
+        dependsOn(tasks.testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass.set("dev.nuaforma.docx.pdf.ownengine.OwnEngineProof")
+        javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+        args(rootProject.layout.buildDirectory.file("own-engine-cell-borders/consistent/$kind/source.docx").get().asFile.absolutePath,
+            rootProject.layout.buildDirectory.file("own-engine-cell-borders/consistent/$kind/own-engine.pdf").get().asFile.absolutePath,
+            rootProject.layout.buildDirectory.dir("own-engine-proof/fonts").get().asFile.absolutePath)
+    }
+}
+tasks.register("renderOwnEngineCellBorders") { group = "verification"; dependsOn(cellBorderRenders) }
+
 val generateOwnEngineFields = tasks.register<Exec>("generateOwnEngineFields") {
     val folder = rootProject.file("tools/pdf-evaluation/own-engine")
     val output = layout.buildDirectory.file("own-engine-fields/source.docx")
