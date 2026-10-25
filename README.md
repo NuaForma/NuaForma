@@ -21,6 +21,8 @@ Visit [nuaforma.dev](https://nuaforma.dev) for deployment examples and downloada
 
 ## Why NuaForma?
 
+> **Own-engine development branch:** roadmap part 14 replaces the source PDF backend with the shared `nuaforma-pdf` engine and a bounded native DOCX reader. LibreOffice is absent from the production provider and candidate container. Integration qualification is in progress; this does not change published releases or their download kits. See the [native profile and migration guide](nuaforma-docx-pdf/README.md). The release overview below describes the published alpha.
+
 - **Keep your Word layout:** replace placeholders and expand paragraphs/table rows while preserving supported formatting, headers, footers, images and text boxes.
 - **Use your own data:** nested objects, lists and null values, with inline conditions, nested repetitions and explicit number/date formatting.
 - **Choose the output:** DOCX, standard PDF or PDF/A-1b, PDF/A-2b and PDF/A-3b, with independent conformance validation enabled by default. PDF defaults to PDF/A-3b.

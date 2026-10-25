@@ -1,6 +1,8 @@
 # On-premise service container
 
-The `service` source target packages the Java 25 REST application, separately pinned Java 17 PDF validators and LibreOffice in one native Linux AMD64/ARM64 container. It needs no Office desktop, cloud account, worker container or Docker socket. Runtime generation does not fetch dependencies, templates or fonts; there is no application telemetry. Building requires access to the pinned artifacts. Published containers through `0.1.0-alpha.3` remain unchanged Java 17 releases; a local build does not publish a new image. See [runtime compatibility](../../docs/java-runtime-compatibility.md).
+On the own-engine branch, the `service` target packages the Java 25 REST application, native PDF engine, Liberation fonts and separately pinned Java 17 PDF validators. LibreOffice is absent. Runtime generation needs no Office desktop, cloud account, worker container, Docker socket or dependency downloads. This candidate is under qualification; published releases remain unchanged. See the [native profile](../../nuaforma-docx-pdf/README.md) and [runtime compatibility](../../docs/java-runtime-compatibility.md).
+
+The build/transport/operator instructions below remain applicable, with these native changes: `NUAFORMA_PDF_VALIDATOR_LAUNCHER` selects the trusted validator launcher, bundled fonts are captured from `/usr/share/fonts`, and occupied PDF slots reject immediately rather than queueing. Rendering executes inside the application JVM; only validation uses a private process. Existing published-backend performance/isolation results do not qualify this candidate. PDF watermarks, `paragraphDefaults`, mixed image/text paragraphs and unqualified source constructs explicitly reject; use the native profile as the source of truth over historical examples below. No PDF/A claim follows from disabling conformance validation.
 
 ## Build and start
 

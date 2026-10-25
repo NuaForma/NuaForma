@@ -10,19 +10,24 @@ class PdfRenderException(val code: PdfFailureCode, message: String) : RuntimeExc
 /** Source-only PDF writer. Archival delivery requires an independent exact-byte validator. */
 class PdfEngine @JvmOverloads constructor(private val validator: PdfConformanceValidator? = null) {
     @JvmOverloads fun render(document: PdfDocument, fonts: List<PdfFont>, options: PdfOutputOptions = PdfOutputOptions()): ByteArray {
-        if (options.profile != PdfOutputProfile.STANDARD && validator == null) throw PdfRenderException(PdfFailureCode.VALIDATION_UNAVAILABLE, "Archival output requires an independent validator")
+        return render(document, fonts, options, PdfRenderControl())
+    }
+
+    fun render(document: PdfDocument, fonts: List<PdfFont>, options: PdfOutputOptions, control: PdfRenderControl): ByteArray {
+        control.checkActive()
+        if (options.profile != PdfOutputProfile.STANDARD && options.validationEnabled && validator == null) throw PdfRenderException(PdfFailureCode.VALIDATION_UNAVAILABLE, "Archival output requires an independent validator")
         val snapshot = ArrayList(fonts)
-        require(snapshot.size in 1..16 && snapshot.map { it.id }.toSet().size == snapshot.size) { "Provide 1 to 16 uniquely named fonts" }
+        require(snapshot.size <= 16 && snapshot.map { it.id }.toSet().size == snapshot.size) { "Provide at most 16 uniquely named fonts; text must reference a supplied face" }
         require(snapshot.sumOf { it.byteSize.toLong() } <= 33_554_432) { "Font resources exceed the foundation limit" }
         val images = document.allParagraphs().flatMap { it.runs.filterIsInstance<PdfImageRun>().map { run -> run.image } } +
             document.pageSequences.flatMap { sequence ->
                 sequence.blocks + sequence.flow?.bands.orEmpty().flatMap { it.blocks }
             }.filterIsInstance<PdfImage>()
         require(images.sumOf { it.byteSize.toLong() } <= 16_777_216) { "Images exceed the foundation limit" }
-        val bytes = PdfBoxWriter.render(document, snapshot, options)
-        if (options.profile != PdfOutputProfile.STANDARD) {
+        val bytes = PdfBoxWriter.render(document, snapshot, options, control)
+        if (options.profile != PdfOutputProfile.STANDARD && options.validationEnabled) {
             val copy = bytes.copyOf()
-            try { requireNotNull(validator).validate(copy, options.profile) }
+            try { requireNotNull(validator).validate(copy, options.profile, control) }
             catch (_: InterruptedException) {
                 Thread.currentThread().interrupt()
                 throw PdfRenderException(PdfFailureCode.CANCELLED, "PDF validation interrupted")
@@ -32,6 +37,7 @@ class PdfEngine @JvmOverloads constructor(private val validator: PdfConformanceV
             if (!copy.contentEquals(bytes)) throw PdfRenderException(PdfFailureCode.VALIDATION_FAILED, "Validation changed the PDF bytes")
             if (Thread.currentThread().isInterrupted) throw PdfRenderException(PdfFailureCode.CANCELLED, "PDF rendering interrupted")
         }
+        control.checkActive()
         return bytes
     }
 }

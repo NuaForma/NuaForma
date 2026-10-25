@@ -48,7 +48,7 @@ object RuntimeQualification {
         }
         val request = GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.PDF,
             options + mapOf("fontMode" to "validate", "fonts" to declarations)))
-        val provider = DocxPdfProvider(LibreOfficeConfiguration(Path.of("/opt/nuaforma/bin/render-pdf")))
+        val provider = LegacyDocxPdfProvider(LibreOfficeConfiguration(Path.of("/opt/nuaforma/bin/render-pdf")))
         Files.newInputStream(source).use { input -> Files.newOutputStream(output).use { destination ->
             provider.generate(GenerationRequest(input, request,
                 mapOf("customer" to mapOf("name" to "Ada"), "name" to "Ada", "reference" to "NF001"), resources), destination, GenerationContext())

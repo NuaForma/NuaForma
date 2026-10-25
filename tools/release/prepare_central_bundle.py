@@ -31,7 +31,7 @@ def prepare(repository, version, fingerprint, public_key, output):
                 assert not file.is_symlink() and file.resolve().is_relative_to(repository)
                 assert file.is_file() and 0 < file.stat().st_size <= 128 * 1024 * 1024
                 selected.append(file)
-    assert len(selected) == 120 and sum(file.stat().st_size for file in selected) <= 512 * 1024 * 1024
+    assert len(selected) == 144 and sum(file.stat().st_size for file in selected) <= 512 * 1024 * 1024
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output, "x", compression=zipfile.ZIP_DEFLATED) as bundle:
         for file in sorted(selected):

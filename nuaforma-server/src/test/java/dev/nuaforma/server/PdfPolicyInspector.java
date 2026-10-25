@@ -21,6 +21,16 @@ public final class PdfPolicyInspector {
             int pages = (int) documentType.getMethod("getNumberOfPages").invoke(document);
             if (pages != 1) throw new AssertionError("Unexpected pagination");
             Object page = documentType.getMethod("getPage", int.class).invoke(document, 0);
+            Object resources = page.getClass().getMethod("getResources").invoke(page);
+            Class<?> cosName = Class.forName("org.apache.pdfbox.cos.COSName");
+            boolean barcodeFont = false;
+            for (Object name : (Iterable<?>) resources.getClass().getMethod("getFontNames").invoke(resources)) {
+                Object font = resources.getClass().getMethod("getFont", cosName).invoke(resources, name);
+                String family = (String) font.getClass().getMethod("getName").invoke(font);
+                if (family.contains("LibreBarcode39")) barcodeFont = true;
+                if (!(boolean) font.getClass().getMethod("isEmbedded").invoke(font)) throw new AssertionError("Unembedded font");
+            }
+            if (!barcodeFont) throw new AssertionError("Mounted barcode font missing");
             Object box = page.getClass().getMethod("getMediaBox").invoke(page);
             float width = (float) box.getClass().getMethod("getWidth").invoke(box);
             float height = (float) box.getClass().getMethod("getHeight").invoke(box);

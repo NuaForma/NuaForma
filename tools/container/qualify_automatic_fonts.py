@@ -34,7 +34,7 @@ def embedded(document):
     return result
 
 
-def qualify(base, catalog, output):
+def qualify(base, catalog, output, runtime):
     image = {}
     for font in catalog:
         if font["source"] == "bundled" and font.get("resource"):
@@ -51,7 +51,7 @@ def qualify(base, catalog, output):
         paragraphs.append('<w:p><w:r><w:rPr><w:rFonts w:ascii="' + escape(family, {'"': '&quot;'}) + '" w:hAnsi="' +
                           escape(family, {'"': '&quot;'}) + '"/>' + formatting + '</w:rPr><w:t>' + text + '</w:t></w:r></w:p>')
     source = io.BytesIO()
-    with zipfile.ZipFile(io.BytesIO(template())) as incoming, zipfile.ZipFile(source, "w", zipfile.ZIP_DEFLATED) as outgoing:
+    with zipfile.ZipFile(io.BytesIO(template(line_twips=400))) as incoming, zipfile.ZipFile(source, "w", zipfile.ZIP_DEFLATED) as outgoing:
         for name in incoming.namelist():
             data = incoming.read(name)
             if name == "word/styles.xml":
@@ -75,8 +75,13 @@ def qualify(base, catalog, output):
     assert status == 200
     with zipfile.ZipFile(io.BytesIO(preserved)) as archive:
         assert not any(name.endswith(".odttf") for name in archive.namelist())
-    status, _, pdf = generate(base, "pdf", document, {})
-    assert status == 200 and pdf.startswith(b"%PDF-1.7"), (status, pdf[:1024])
+    # Source-font packages are not yet qualified by the native DOCX reader.
+    # Keep DOCX embedding preservation above; PDF must reject that package explicitly.
+    assert generate(base, "pdf", document, {})[0] == 422
+    status, _, pdf = generate(base, "pdf", source.getvalue(), {})
+    assert status == 200 and pdf.startswith(b"%PDF-"), (status, pdf[:1024])
     (output / "automatic-fonts.pdf").write_bytes(pdf)
+    from qualify_service import verify_pdf_profile
+    verify_pdf_profile(runtime, output / "automatic-fonts.pdf", 'pdfa-3b')
     (output / "automatic-fonts.json").write_text(json.dumps({"families": families, "faces": sorted(wanted),
-        "checks": ["exact-deobfuscated-SHA256-and-relationships", "used-faces-only", "IMAGE-and-MOUNT", "embedded-preservation", "default-preserve", "actual-validated-PDF-render"]}, indent=2))
+        "checks": ["exact-deobfuscated-SHA256-and-relationships", "used-faces-only", "IMAGE-and-MOUNT", "embedded-preservation", "default-preserve", "embedded-source-PDF-explicitly-unqualified", "actual-validated-PDF-render-from-deployment-fonts"]}, indent=2))

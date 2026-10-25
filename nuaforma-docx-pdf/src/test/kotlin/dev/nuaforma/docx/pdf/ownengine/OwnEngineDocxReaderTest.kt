@@ -85,7 +85,7 @@ class OwnEngineDocxReaderTest {
 
     @Test fun `malformed XML and excessive archive content fail before rendering`() {
         assertThrows(GenerationException::class.java) { OwnEngineDocxReader().read(mutate("word/document.xml") { "<!DOCTYPE a [<!ENTITY x SYSTEM 'file:///never-read'>]><a>&x;</a>" }) }
-        assertThrows(IllegalArgumentException::class.java) { OwnEngineDocxReader().read(mutate("word/document.xml") { " ".repeat(4_194_305) }) }
+        assertThrows(GenerationException::class.java) { OwnEngineDocxReader().read(mutate("word/document.xml") { " ".repeat(4_194_305) }) }
         assertThrows(IllegalArgumentException::class.java) { OwnEngineDocxReader().read(byteArrayOf(1, 2, 3)) }
     }
 
