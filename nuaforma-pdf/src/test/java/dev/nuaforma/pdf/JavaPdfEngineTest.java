@@ -130,4 +130,21 @@ class JavaPdfEngineTest {
             assertEquals(200f, pdf.getPage(1).getMediaBox().getWidth());
         }
     }
+
+    @Test
+    void javaCallerCanSelectFirstPageBandsAndExplicitBlankVariants() throws IOException {
+        byte[] font;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            font = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        var paragraph = new PdfParagraph(List.of(new PdfTextRun("FIRST JAVA", new PdfTextStyle("regular", 10))), 0, 0,
+            new PdfParagraphFormat(PdfAlignment.LEFT, 0, 0, 0, 14f));
+        var first = new PdfPageBands(new PdfPageBand(8, 20, List.of(paragraph)), null);
+        var flow = new PdfFlow(null, null, 32, first, new PdfPageBands());
+        var sequence = new PdfPageSequence(new PdfPage(240, 180, new PdfMargins(30, 20, 30, 20)), List.of(paragraph), flow);
+        try (var pdf = Loader.loadPDF(new PdfEngine().render(new PdfDocument(List.of(sequence, sequence)), List.of(new PdfFont("regular", font))))) {
+            assertEquals(2, pdf.getNumberOfPages());
+            assertEquals(4, new PDFTextStripper().getText(pdf).split("FIRST JAVA", -1).length - 1);
+        }
+    }
 }

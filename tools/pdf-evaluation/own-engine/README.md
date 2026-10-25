@@ -79,3 +79,5 @@ The [first international increment](INTERNATIONAL.md) compares Russian, Ukrainia
 The [paper-format matrix](PAGE_FORMATS.md) adds eight genuine Word reports: A4, A3, US Letter and Legal, each in portrait and landscape, including asymmetric margins and Cyrillic/Greek text.
 
 The [mixed-size trial](SECTIONS.md) adds one document with A4/Letter-landscape/A3 content ranges, inherited default page bands and continuous PAGE numbering over the neutral page-sequence model.
+
+The [first/even/odd band trial](PAGE_MASTERS.md) adds two Word reports with resolved variant stories, header logos, independent inheritance, intentional blank bands and explicit switch resets.

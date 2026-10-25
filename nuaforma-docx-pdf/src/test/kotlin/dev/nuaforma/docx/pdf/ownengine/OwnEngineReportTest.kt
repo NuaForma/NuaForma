@@ -49,11 +49,11 @@ class OwnEngineReportTest {
         }
     }
 
-    @Test fun `inconsistent spans invalid toggles nondefault bands and unsafe fields fail explicitly`() {
+    @Test fun `inconsistent spans invalid toggles invalid band types and unsafe fields fail explicitly`() {
         for ((part, change) in listOf(
             "word/document.xml" to { value: String -> value.replace("<w:tcPr>", "<w:tcPr><w:gridSpan w:val=\"2\"/>") },
             "word/document.xml" to { value: String -> value.replace("<w:cantSplit/>", "<w:cantSplit w:val=\"invalid\"/>") },
-            "word/document.xml" to { value: String -> value.replace("w:type=\"default\"", "w:type=\"first\"") },
+            "word/document.xml" to { value: String -> value.replace("w:type=\"default\"", "w:type=\"invalid\"") },
             "word/footer1.xml" to { value: String -> value.replace(" PAGE ", " INCLUDETEXT https://invalid.example/ ") },
         )) assertThrows(IllegalArgumentException::class.java) { OwnEngineDocxReader().read(mutate(part, change)) }
     }

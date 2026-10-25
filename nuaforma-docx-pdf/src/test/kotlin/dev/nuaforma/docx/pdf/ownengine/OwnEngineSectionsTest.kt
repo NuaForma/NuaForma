@@ -55,7 +55,7 @@ class OwnEngineSectionsTest {
             OwnEngineDocxReader().read(change { it.replace(Regex("<w:pgSz[^>]*/>"), "") })
         }
         assertThrows(IllegalArgumentException::class.java) {
-            OwnEngineDocxReader().read(change { it.replace("<w:sectPr>", "<w:sectPr><w:titlePg />") })
+            OwnEngineDocxReader().read(change { it.replace("<w:sectPr>", "<w:sectPr><w:cols />") })
         }
     }
 

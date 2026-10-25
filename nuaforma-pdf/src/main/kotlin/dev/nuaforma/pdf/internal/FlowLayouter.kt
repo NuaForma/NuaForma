@@ -169,8 +169,14 @@ internal object FlowLayouter {
         }
         return pages.mapIndexed { index, elements ->
             val decorated = mutableListOf<PositionedElement>()
-            policy.header?.let { band(it, false, page, pageNumberOffset + index + 1, measurer, decorated) }
-            policy.footer?.let { band(it, true, page, pageNumberOffset + index + 1, measurer, decorated) }
+            val number = pageNumberOffset + index + 1
+            val selected = when {
+                index == 0 && policy.firstPageBands != null -> policy.firstPageBands
+                number % 2 == 0 && policy.evenPageBands != null -> policy.evenPageBands
+                else -> PdfPageBands(policy.header, policy.footer)
+            }
+            selected.header?.let { band(it, false, page, number, measurer, decorated) }
+            selected.footer?.let { band(it, true, page, number, measurer, decorated) }
             decorated += elements
             PageLayout(page, decorated.toList())
         }

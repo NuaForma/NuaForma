@@ -135,6 +135,31 @@ tasks.register<JavaExec>("renderOwnEngineInternational") {
         rootProject.layout.buildDirectory.dir("own-engine-proof/fonts").get().asFile.absolutePath)
 }
 
+val generateOwnEnginePageMasters = tasks.register<Exec>("generateOwnEnginePageMasters") {
+    val folder = rootProject.file("tools/pdf-evaluation/own-engine")
+    val output = layout.buildDirectory.dir("own-engine-page-masters")
+    inputs.files(listOf("build_page_master_fixtures.py", "build_sections_fixture.py", "build_report_fixture.py", "build_fixture.py").map { folder.resolve(it) }, rootProject.file("assets/branding/nuaforma-icon-transparent.png"))
+    outputs.dir(output)
+    commandLine("python3", folder.resolve("build_page_master_fixtures.py").absolutePath, output.get().asFile.absolutePath)
+}
+tasks.processTestResources {
+    dependsOn(generateOwnEnginePageMasters)
+    from(layout.buildDirectory.dir("own-engine-page-masters")) { into("own-engine-page-masters") }
+}
+val pageMasterRenders = listOf("variants", "blank").map { kind ->
+    tasks.register<JavaExec>("renderOwnEnginePageMaster${kind.replaceFirstChar { it.uppercase() }}") {
+        group = "verification"
+        dependsOn(tasks.testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass.set("dev.nuaforma.docx.pdf.ownengine.OwnEngineProof")
+        javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+        args(rootProject.layout.buildDirectory.file("own-engine-page-masters/$kind/source.docx").get().asFile.absolutePath,
+            rootProject.layout.buildDirectory.file("own-engine-page-masters/$kind/own-engine.pdf").get().asFile.absolutePath,
+            rootProject.layout.buildDirectory.dir("own-engine-proof/fonts").get().asFile.absolutePath)
+    }
+}
+tasks.register("renderOwnEnginePageMasters") { group = "verification"; dependsOn(pageMasterRenders) }
+
 val generateOwnEngineSections = tasks.register<Exec>("generateOwnEngineSections") {
     val folder = rootProject.file("tools/pdf-evaluation/own-engine")
     val output = layout.buildDirectory.file("own-engine-sections/source.docx")

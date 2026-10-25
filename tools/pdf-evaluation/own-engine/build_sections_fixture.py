@@ -11,7 +11,7 @@ W='http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 for prefix,uri in [('w',W),('r','http://schemas.openxmlformats.org/officeDocument/2006/relationships'),('wp','http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing'),('a','http://schemas.openxmlformats.org/drawingml/2006/main'),('pic','http://schemas.openxmlformats.org/drawingml/2006/picture')]:ET.register_namespace(prefix,uri)
 Q='{'+W+'}'
 
-def build(root, output):
+def build(root, output, entries_only=False):
     entries=report(root,output,entries_only=True)
     document=ET.fromstring(entries['word/document.xml']);body=document.find(Q+'body')
     original=list(body);master=original[-1];body.clear()
@@ -40,6 +40,7 @@ def build(root, output):
         body.extend(content)
         if i==2:body.append(geometry)
     entries['word/document.xml']=ET.tostring(document,encoding='utf-8',xml_declaration=True)
+    if entries_only:return entries
     output.parent.mkdir(parents=True,exist_ok=True)
     with ZipFile(output,'w') as z:
         for name,value in sorted(entries.items()):

@@ -38,7 +38,7 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
             }
         }
         return pageSequences.asSequence().flatMap { sequence ->
-            (sequence.blocks + (sequence.flow?.header?.blocks ?: emptyList()) + (sequence.flow?.footer?.blocks ?: emptyList())).asSequence()
+            (sequence.blocks + sequence.flow?.bands.orEmpty().flatMap { it.blocks }).asSequence()
         }
             .flatMap { collect(it, 0) }.take(2_001).toList().also { require(it.size <= 2_000) { "Paragraph budget exceeded" } }
     }
@@ -53,9 +53,16 @@ class PdfPageSequence @JvmOverloads constructor(val page: PdfPage, blocks: List<
 }
 
 /** Optional bounded pagination; omitting this retains the original single-page overflow behavior. */
-data class PdfFlow @JvmOverloads constructor(val header: PdfPageBand? = null, val footer: PdfPageBand? = null, val maxPages: Int = 32) {
+data class PdfFlow @JvmOverloads constructor(
+    val header: PdfPageBand? = null, val footer: PdfPageBand? = null, val maxPages: Int = 32,
+    val firstPageBands: PdfPageBands? = null, val evenPageBands: PdfPageBands? = null,
+) {
     init { require(maxPages in 1..32) { "Invalid page budget" } }
+    internal val bands: List<PdfPageBand> get() = listOfNotNull(header, footer, firstPageBands?.header, firstPageBands?.footer, evenPageBands?.header, evenPageBands?.footer)
 }
+
+/** Null policy means shared bands; an explicit empty pair means no header/footer on that variant. */
+data class PdfPageBands @JvmOverloads constructor(val header: PdfPageBand? = null, val footer: PdfPageBand? = null)
 
 /** Header offset is from page top; footer offset is from page bottom. */
 class PdfPageBand(val offset: Float, val maxHeight: Float, blocks: List<PdfBlock>) {

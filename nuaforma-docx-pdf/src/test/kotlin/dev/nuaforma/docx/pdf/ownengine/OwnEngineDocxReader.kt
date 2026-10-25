@@ -53,7 +53,12 @@ internal class OwnEngineDocxReader {
         check(ranges.size <= 32, "Section budget exceeded")
         fun readGeometry(section: XmlElement): Pair<PdfPage, XmlElement> {
             attributes(section, emptySet())
-            children(section, setOf("pgSz", "pgMar", "headerReference", "footerReference", "type"))
+            children(section, setOf("pgSz", "pgMar", "headerReference", "footerReference", "type", "titlePg"))
+            section.one("titlePg")?.let(::pageToggle)
+            for (kind in listOf("headerReference", "footerReference")) {
+                val types = section.elements().filter { it.name.localPart == kind }.map { it.value("type") }
+                check(types.all { it in setOf("default", "first", "even") } && types.toSet().size == types.size, "Invalid or duplicate page-band type")
+            }
             section.one("type")?.let { type ->
                 attributes(type, setOf("val")); children(type, emptySet())
                 check(type.value("val") == "nextPage", "Only next-page section transitions are qualified")
@@ -83,10 +88,10 @@ internal class OwnEngineDocxReader {
         val result = root.elements().associate { element ->
             val id = element.attribute("", "Id") ?: reject("Missing relationship ID")
             val target = element.attribute("", "Target") ?: reject("Missing relationship target")
-            check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.png|styles\\.xml|numbering\\.xml|settings\\.xml|theme/theme1\\.xml|header1\\.xml|footer1\\.xml)")), "Unsupported relationship target")
+            check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.png|styles\\.xml|numbering\\.xml|settings\\.xml|theme/theme1\\.xml|(?:header|footer)[1-9][0-9]?\\.xml)")), "Unsupported relationship target")
             val type = element.attribute("", "Type")
             check(type == "$rel/image" && target.startsWith("media/") || type == "$rel/styles" && target == "styles.xml" || type == "$rel/numbering" && target == "numbering.xml" || type == "$rel/settings" && target == "settings.xml" ||
-                type == "$rel/theme" && target == "theme/theme1.xml" || type == "$rel/header" && target == "header1.xml" || type == "$rel/footer" && target == "footer1.xml", "Unsupported relationship type")
+                type == "$rel/theme" && target == "theme/theme1.xml" || type == "$rel/header" && target.matches(Regex("header[1-9][0-9]?\\.xml")) || type == "$rel/footer" && target.matches(Regex("footer[1-9][0-9]?\\.xml")), "Unsupported relationship type")
             id to target
         }
         check(result.size == root.elements().size, "Duplicate relationship ID")
@@ -126,10 +131,12 @@ internal class OwnEngineDocxReader {
             neighbors[first]?.let { neighbors[first] = null to it.second }
         }
         var decimalSeparator = "."
+        var evenAndOddHeaders = false
         val defaultTabInterval = parts["word/settings.xml"]?.let { bytes ->
             val settings = xml.read(bytes)
             check(settings.name.namespaceURI == word && settings.name.localPart == "settings", "Invalid settings root")
-            attributes(settings, emptySet()); children(settings, setOf("defaultTabStop", "decimalSymbol"))
+            attributes(settings, emptySet()); children(settings, setOf("defaultTabStop", "decimalSymbol", "evenAndOddHeaders"))
+            evenAndOddHeaders = settings.one("evenAndOddHeaders")?.let(::pageToggle) ?: false
             settings.one("decimalSymbol")?.let { node -> attributes(node, setOf("val")); decimalSeparator = node.value("val") ?: reject("Missing decimal symbol"); check(decimalSeparator in setOf(".", ","), "Unsupported decimal symbol") }
             settings.one("defaultTabStop")?.let { node -> attributes(node, setOf("val")); twips(node.value("val")) }
         } ?: 36f
@@ -453,9 +460,9 @@ internal class OwnEngineDocxReader {
             if (reference == null) return null
             check(reference.attributes.keys.all { it.namespaceURI == word && it.localPart == "type" || it.namespaceURI == rel && it.localPart == "id" }, "Unsupported page-band reference attribute")
             children(reference, emptySet())
-            check(reference.value("type") == "default", "Only shared default page bands are supported")
+            check(reference.value("type") in setOf("default", "first", "even"), "Unsupported page-band type")
             val target = relations[reference.attribute(rel, "id")] ?: reject("Missing page-band relationship")
-            check(target == "${name}1.xml", "Wrong page-band relationship")
+            check(target.matches(Regex("${name}[1-9][0-9]?\\.xml")), "Wrong page-band relationship")
             val bandRoot = part("word/$target")
             registerNeighbors(bandRoot)
             check(bandRoot.name.namespaceURI == word && bandRoot.name.localPart == if (name == "header") "hdr" else "ftr", "Invalid page band")
@@ -465,18 +472,25 @@ internal class OwnEngineDocxReader {
             val extent = (if (name == "header") page.margins.top else page.margins.bottom) - offset
             return PdfPageBand(offset, extent, readBlocks(bandRoot, ownRelations, true))
         }
-        var headerReference: XmlElement? = null
-        var footerReference: XmlElement? = null
+        val headerReferences = mutableMapOf<String, XmlElement>()
+        val footerReferences = mutableMapOf<String, XmlElement>()
         val sequences = ranges.map { (section, content) ->
             val geometry = readGeometry(section); page = geometry.first; margins = geometry.second
-            headerReference = section.one("headerReference") ?: headerReference
-            footerReference = section.one("footerReference") ?: footerReference
+            for ((name, references) in listOf("header" to headerReferences, "footer" to footerReferences)) {
+                for (reference in section.elements().filter { it.name.localPart == name + "Reference" }) {
+                    references[reference.value("type")!!] = reference
+                }
+            }
             val range = XmlElement(body.name, body.attributes, body.namespaces).also { it.children += content }
             val blocks = readBlocks(range, relations, false)
-            val header = band("header", headerReference)
-            val footer = band("footer", footerReference)
-            val flow = if (ranges.size > 1 || header != null || footer != null || blocks.any { it is PdfTable || it is PdfTextBox || it is PdfParagraph &&
-                (it.format.textDirection != null || it.runs.any { run -> run is PdfTab } || it.listLabel != null || it.format.keepWithNext || it.format.keepLines || it.format.widowControl || it.format.pageBreakBefore) }) PdfFlow(header, footer) else null
+            val header = band("header", headerReferences["default"])
+            val footer = band("footer", footerReferences["default"])
+            val first = if (section.one("titlePg")?.let(::pageToggle) == true)
+                PdfPageBands(band("header", headerReferences["first"]), band("footer", footerReferences["first"])) else null
+            val even = if (evenAndOddHeaders)
+                PdfPageBands(band("header", headerReferences["even"]), band("footer", footerReferences["even"])) else null
+            val flow = if (ranges.size > 1 || header != null || footer != null || first != null || even != null || blocks.any { it is PdfTable || it is PdfTextBox || it is PdfParagraph &&
+                (it.format.textDirection != null || it.runs.any { run -> run is PdfTab } || it.listLabel != null || it.format.keepWithNext || it.format.keepLines || it.format.widowControl || it.format.pageBreakBefore) }) PdfFlow(header, footer, firstPageBands = first, evenPageBands = even) else null
             PdfPageSequence(page, blocks, flow)
         }
         return if (sequences.size == 1) sequences.single().let { PdfDocument(it.page, it.blocks, it.flow) } else PdfDocument(sequences)
@@ -634,7 +648,7 @@ internal class OwnEngineDocxReader {
                     context.checkActive()
                     val entry = zip.nextEntry ?: break
                     check(parts.size < 64 && entry.name !in parts && !entry.isDirectory, "Invalid or excessive ZIP entries")
-                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|word/(?:(?:document|styles|numbering|settings|header1|footer1)\\.xml|theme/theme1\\.xml|_rels/(?:document|header1|footer1)\\.xml\\.rels|media/[A-Za-z0-9_.-]+\\.png))")), "Unsupported package part")
+                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|word/(?:(?:document|styles|numbering|settings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|_rels/(?:document|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|media/[A-Za-z0-9_.-]+\\.png))")), "Unsupported package part")
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(8192)
                     while (true) {
@@ -658,9 +672,13 @@ internal class OwnEngineDocxReader {
         check(root.elements().all { it.name.namespaceURI == relationships && it.name.localPart == "Relationship" &&
             it.attribute("", "TargetMode") == null }, "External or invalid relationships are unsupported")
     }
+    private fun pageToggle(node: XmlElement): Boolean {
+        attributes(node, setOf("val")); children(node, emptySet())
+        return when (node.value("val")) { null, "1", "true", "on" -> true; "0", "false", "off" -> false; else -> reject("Invalid page-policy toggle") }
+    }
     private fun children(node: XmlElement, allowed: Set<String>) {
         check(node.elements().all { it.name.namespaceURI == word && it.name.localPart in allowed }, "Unsupported document feature")
-        check(node.elements().groupBy { it.name.localPart }.all { (name, values) -> name in setOf("r", "p", "style", "tbl", "tr", "tc", "fldSimple", "t", "tab") || values.size == 1 }, "Duplicate property")
+        check(node.elements().groupBy { it.name.localPart }.all { (name, values) -> name in setOf("r", "p", "style", "tbl", "tr", "tc", "fldSimple", "t", "tab", "headerReference", "footerReference") || values.size == 1 }, "Duplicate property")
     }
     private fun attributes(node: XmlElement, allowed: Set<String>) {
         check(node.attributes.keys.all { it.namespaceURI == word && it.localPart in allowed }, "Unsupported formatting attribute")

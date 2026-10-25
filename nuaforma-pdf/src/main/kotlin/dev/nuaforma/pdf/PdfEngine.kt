@@ -15,7 +15,7 @@ class PdfEngine {
         require(snapshot.sumOf { it.byteSize.toLong() } <= 33_554_432) { "Font resources exceed the foundation limit" }
         val images = document.allParagraphs().flatMap { it.runs.filterIsInstance<PdfImageRun>().map { run -> run.image } } +
             document.pageSequences.flatMap { sequence ->
-                sequence.blocks + (sequence.flow?.header?.blocks ?: emptyList()) + (sequence.flow?.footer?.blocks ?: emptyList())
+                sequence.blocks + sequence.flow?.bands.orEmpty().flatMap { it.blocks }
             }.filterIsInstance<PdfImage>()
         require(images.sumOf { it.byteSize.toLong() } <= 16_777_216) { "Images exceed the foundation limit" }
         return PdfBoxWriter.render(document, snapshot)
