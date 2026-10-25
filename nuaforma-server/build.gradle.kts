@@ -170,6 +170,7 @@ dependencies {
     }
     // Already present through MockK at test runtime; compile the Kotlin visibility checks explicitly.
     testImplementation(libs.kotlin.reflect)
+    testImplementation(project(":nuaforma-pdf"))
     testRuntimeOnly(project(":nuaforma-playground"))
     implementation(project(":nuaforma-core"))
     runtimeOnly(project(":nuaforma-docx"))

@@ -28,6 +28,7 @@ This compiles/runs the independent Maven reactor under `maven/` and independent 
 | Maven core | core, plus the example provider | Discovery and explicit registration both generate `Company: Ada`; no document/conversion/server implementation is installed |
 | Maven DOCX | core, docx | Actual DOCX generation, formatted content and the restricted string language |
 | Maven PDF | core, docx-pdf | Explicit trusted runtime configuration; missing conversion leaves PDF unavailable and DOCX selectable |
+| Maven own PDF engine (source-only M0) | pdf | Independent Java 17 caller renders a simple neutral model with supplied font bytes; no DOCX, server or LibreOffice |
 | Gradle Kotlin DOCX | core, docx | Actual generation through the same public contracts and runtime dependency isolation |
 
 The examples' parent POM accepts `-Dnuaforma.repository=<local-file-repository-URL>` and `-Dnuaforma.version=<version>`. The Gradle example accepts `-PnuaformaRepository=<URL>` and `-PnuaformaVersion=<version>`. Published libraries are available as `0.2.0-alpha.2`. For manual consumer builds, pass `-Dnuaforma.version=0.2.0-alpha.2` or `-PnuaformaVersion=0.2.0-alpha.2` explicitly; the example projects retain their historical alpha.1 default coordinate. These verification commands deliberately consume the exclusive local staging repository rather than silently substituting Central's immutable release. There are no project substitutions, composite builds or dependencies on the service.

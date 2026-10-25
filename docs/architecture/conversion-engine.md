@@ -1,6 +1,12 @@
 # Own PDF conversion engine: technical design and implementation plan
 
-Date: 2026-10-24. Status: approved package and branch direction; detailed algorithms and milestones remain a design proposal. No own-engine implementation is introduced by this document.
+Date: 2026-10-24. Status: package and branch direction approved; the first [foundation slice](../../nuaforma-pdf/README.md) exists in source with a single-page default and opt-in bounded table/page flow. A test-only DOCX adapter connects a [strict letter](../../tools/pdf-evaluation/own-engine/README.md) and a [three-page report](../../tools/pdf-evaluation/own-engine/REPORT.md), compared with actual Word exports. The report trial adds fixed tables, repeated table headers and shared header/footer bands with PAGE fields. The [advanced table trials](../../tools/pdf-evaluation/own-engine/ADVANCED.md) add bounded spans, one-level nesting and row fragmentation, with an explicit opt-in relaxation for oversized atomic rows to preserve content that Word clips. The [frame trials](../../tools/pdf-evaluation/own-engine/FRAMES.md) add images in both page bands, positioned text frames, bounded top/bottom wrapping and rotated text/images, with shared-engine concurrency checks. The [paragraph trial](../../tools/pdf-evaluation/own-engine/PAGINATION.md) adds body keeps, widow/orphan control and explicit page breaks; the [ordered roadmap](own-engine-roadmap.md) owns subsequent increments. The [lists trial](../../tools/pdf-evaluation/own-engine/LISTS.md) adds body numbering, style-linked chapters and hanging indentation over a pure neutral resolver. The [tabs trial](../../tools/pdf-evaluation/own-engine/TABS.md) adds typed physical tab stops, decimal alignment and decorative leaders, including inherited and cleared source stops. The [style trial](../../tools/pdf-evaluation/own-engine/STYLES.md) adds resolved source style/theme inheritance, automatic natural-font line boxes and contextual paragraph spacing. The [first international proof](../../tools/pdf-evaluation/own-engine/INTERNATIONAL.md) extends the qualified cmap route to Greek/Cyrillic and retains language metadata; A [bounded Hebrew increment](../../tools/pdf-evaluation/own-engine/HEBREW.md) additionally qualifies explicit RTL paragraphs with numbers, wrapping, fixed cells and page bands; mixed strong directions, marks and Arabic shaping remain unqualified. These controlled proofs do not complete every milestone item below or expose a production DOCX conversion route. Production DOCX/ODT adapters, broader layout and release qualification remain future work. This document describes the target design, not a claim that all stages exist.
+
+The [paper-format proof](../../tools/pdf-evaluation/own-engine/PAGE_FORMATS.md) additionally qualifies standalone A4, A3, US Letter and Legal reports in portrait/landscape, including asymmetric margins and Greek/Cyrillic text. The [mixed-size proof](../../tools/pdf-evaluation/own-engine/SECTIONS.md) adds resolved neutral `PdfPageSequence` ranges, each starting on a fresh page, with continuous PAGE numbering and inherited default source bands. The [page-band variants](../../tools/pdf-evaluation/own-engine/PAGE_MASTERS.md) add first/even/odd and explicit blank stories with source inheritance. Dynamic margins and continuous/explicit odd/even/column transitions remain planned.
+
+The [page-field proof](../../tools/pdf-evaluation/own-engine/FIELDS.md) adds global decimal PAGE/NUMPAGES in fixed reserved bands after all body ranges have been paginated. The [sequence-numbering follow-up](../../tools/pdf-evaluation/own-engine/NUMBERING.md) adds bounded decimal restarts/continuation, SECTIONPAGES and explicit parity padding. General field evaluation and other numbering formats remain unqualified.
+
+The [cell-alignment trials](../../tools/pdf-evaluation/own-engine/CELL_ALIGNMENT.md) add neutral top/center/bottom policies over naturally measured fixed table rows, including bounded spans, nested tables and page-band copying. Non-TOP cells crossing physical page fragments reject explicitly. The [natural-width trials](../../tools/pdf-evaluation/own-engine/NATURAL_WIDTHS.md) add bounded unwrapped text sizing over the neutral table-width policy. General AutoFit redistribution and broader combinations remain planned. The [solid cell-border qualification](../../tools/pdf-evaluation/own-engine/CELL_BORDERS.md) adds per-side solid strokes/removal with one resolved style per source table. The [table-combination proof](../../tools/pdf-evaluation/own-engine/BORDER_COMBINATIONS.md) additionally covers spans, one nested level, whole-row pagination and Letter. The [row-fragment proof](../../tools/pdf-evaluation/own-engine/BORDER_FRAGMENTATION.md) extends this to explicitly splittable TOP-aligned rows with horizontal spans on A4 and Letter. Conflicting styles and oversized non-splitting custom-border rows remain unqualified.
 
 ## 1. Baseline, scope and constraints
 
@@ -14,7 +20,7 @@ The engine will read DOCX first and ODT later, preserve supported styling, and g
 - Preserve the existing provider contracts, template language and DOCX generation responsibilities. A different backend does not authorize incompatible public API changes or silent output-profile changes.
 - First prove ordinary PDF. Qualify individual archival profiles separately; an implementation option or metadata label is not evidence of conformance.
 - Unsupported layout features require explicit diagnostics or rejection. Never silently switch to an external converter.
-- Keep the product in the existing Gradle multi-project repository. This change does not create modules, dependencies, source code, workflows, tags or publications.
+- Keep the product in the existing Gradle multi-project repository. The M0 source change adds only the agreed shared artifact and its verification/example integration; it does not add a new conversion provider, workflow, tag or public release.
 
 [ARCHITECTURE.md](../../ARCHITECTURE.md) owns architectural decisions. [Branch workflow](../branch-workflow.md#own-pdf-engine-integration-branch) owns the branch/release agreement. This document elaborates the own-engine design rather than replacing current module guides.
 
@@ -164,11 +170,11 @@ Page-count fields require a consistent width reservation and bounded relayout, i
 
 The shared backend translates positioned top-left layout coordinates to PDF coordinates. First deliver ordinary PDF 1.7 with searchable text, permissible font subsets, images, paths, hyperlinks and bookmarks. SVG, EMF/WMF, charts and complex shapes require separate capabilities. Do not fetch resources or embed fonts without appropriate permission.
 
-| Own-engine output | Planned qualification |
+| Own-engine output | Qualification status |
 |---|---|
-| Standard PDF | First vertical slice; structure, extracted content and visual checks |
-| PDF/A-2b | First archival candidate, subject to requirements confirmation and independent exact-file validation |
-| PDF/A-1b / PDF/A-3b | Existing product expectations to assess explicitly before replacement; not automatically inherited by the own engine |
+| Standard PDF | Qualified bounded source profile: PDF 1.7, extracted content, fonts, geometry and raster checks |
+| PDF/A-2b | Qualified bounded alpha source profile; independent exact-file validation required for every delivery |
+| PDF/A-1b / PDF/A-3b | Independently qualified bounded alpha source profiles; transparent resources remain unavailable for 1b |
 | Other PDF/A, tagged PDF, PDF/UA | Separate milestones and evidence; PDF/UA also requires human accessibility review |
 | PDF/X | Outside the first roadmap |
 
@@ -177,6 +183,9 @@ The current provider defaults and profile contract are not changed by this docum
 PDF/A requires appropriate font embedding, color/ICC handling, metadata and all other profile rules; labels alone are insufficient. Preserve the approved independent bounded validator boundary and the existing explicitly configured operator conformance policy. Default validation remains enabled. When an approved opt-out applies, retain mandatory structural/font/security checks and accurately report that conformance was not checked; no fabricated attestation. Missing validation when required or failed exact-file validation prevents delivery.
 
 Validation orchestration belongs inside `nuaforma-pdf`, with upstream validator components retaining their reviewed licenses and process isolation. Do not create a separate validation publication or assume that an old runtime qualification covers the new engine.
+
+For a later tagged-PDF/PDF/A level-A increment (including 3a), the maintainer approved caller-owned document language, meaningful-image descriptions and manual semantic/accessibility review. NuaForma must preserve these inputs, produce the correct structure tree and logical reading order, validate technical conformance and report missing required information. Caller responsibility does not replace the renderer's tagging work or make a PDF/A-3a file automatically PDF/UA compliant. Keep this future work in the shared neutral model so DOCX and later ODT can reuse it; it is outside the four alpha profiles.
+
 
 ## 8. Interfaces, execution and diagnostics
 
@@ -207,9 +216,9 @@ Strict rendering is the own-engine design default. An explicit lenient policy mu
 
 Use an internal CLI/worker entry point for qualification. Stage output privately until checks succeed; atomic file publication is possible for engine-owned paths, but caller-owned streams cannot promise rollback after arbitrary writes. Document stream ownership and staging limits. HTTP and queue behavior belongs to `nuaforma-server`; do not create another REST service module.
 
-## 9. Isolation, resources and capacity
+## 9. Execution, resources and capacity
 
-For hosted execution, use bounded request-private child processes, one job per worker execution, cancellation, deadlines and OS-level memory/process/network boundaries. Thread deadlines alone cannot stop a hung parser/font decoder. Any future process pooling requires explicit evidence for cleanup and cross-request isolation; do not weaken the current request-private execution policy merely to increase throughput.
+The maintainer approved in-process execution for the own renderer on 2026-10-24. Each conversion owns its parser, layout and PDF-writing state inside the hosting JVM; a fresh child process per document is not required. Reuse the existing server admission boundary with bounded concurrency/queues, cumulative resource budgets, deadlines and cooperative cancellation. A thread deadline does not forcibly stop a hung decoder, and in-process jobs have no separate OS memory boundary. Capacity qualification must establish aggregate limits before production integration. Current LibreOffice execution and separately isolated PDF validators retain their qualified controls; this decision does not change them. The foundation itself remains a source-only library with a test-only DOCX reader, not a hosted production integration.
 
 Prototype limits are starting proposals, not changes to existing qualified production settings:
 
@@ -222,7 +231,7 @@ Prototype limits are starting proposals, not changes to existing qualified produ
 | Decoded image | 40 megapixels each, plus a cumulative budget |
 | Output | 500 pages / 100 MiB |
 | Total job deadline | 120 seconds including required validation |
-| Child heap | 768 MiB plus a separate native/OS memory cap |
+| Host memory | Qualify aggregate JVM/native memory and admitted jobs; no per-job child heap |
 
 Count during decompression/decoding; reject path traversal, duplicate normalized paths, DTD/XXE, encrypted packages and external resource retrieval. Also bound nodes, cells, glyphs and layout iterations. Hyperlinks may survive as inert PDF links without being visited by the engine.
 
@@ -249,7 +258,8 @@ Prefer Apache/MIT/BSD/appropriate Unicode licenses for direct engine dependencie
 | Tables, merges and repeated headers | M4 | Release only tested combinations |
 | Rectangular wrapping and bookmarks | M5 | Reject unsupported wrap variants |
 | ODT | Small proof at M2 | Full adapter and support claim later |
-| Charts/SmartArt/metafiles, notes/columns, complex scripts | After first release | Explicit diagnosis until qualified |
+| International text, including Cyrillic, Arabic/Hebrew and mixed RTL/LTR | Before broad production support claims | Script/font-specific shaping, bidi, extraction and visual Word qualification; see the [international matrix](own-engine-roadmap.md#international-acceptance-requirements) |
+| Charts/SmartArt/metafiles, notes/columns | Later qualification | Explicit diagnosis until qualified |
 
 Start with five synthetic document families: branded letter, report/headings/lists, multipage table, mixed page sizes and anchored-logo document. Maintain at least twenty focused fixtures and five integrated examples, adding a minimal regression case for each defect.
 
@@ -279,14 +289,14 @@ Estimates are engineering effort for one sustained development stream with revie
 | M2 | Styles, numbering, tabs, paragraphs and a small ODT contract proof | 4–6 weeks | Equivalent DOCX/ODT model fixtures without splitting shared responsibilities into new artifacts |
 | M3 | Page masters, headers/footers, breaks, numbering and anchored logos | 4–6 weeks | Mixed-page report, first/odd/even policies and stable fields |
 | M4 | Table sizing, merges, repeated headers and bounded row continuation | 4–6 weeks | Multipage tables preserve content; unsupported combinations rejected |
-| M5 | Wrapping subset, links/bookmarks, process isolation, integration and measured capacity | 4–6 weeks | Five document families pass declared scope; explicit preview limitations |
+| M5 | Wrapping subset, links/bookmarks, bounded in-process integration and measured capacity | 4–6 weeks | Five document families pass declared scope; explicit preview limitations |
 | M6 | Archival-profile gate, compatibility/release review, native packaging and documentation | 3–5 weeks | Qualified own-engine candidate; ordinary/PDF-A capabilities accurately disclosed |
 
 Total: **24–36 engineering weeks** before large redesigns and full ODT import. A tentative calendar envelope is **6–12 months** with sustained work and feedback. Major uncertainties are searchable glyph emission, source-style fidelity and tables. Failure of a gate changes scope or the estimate, not acceptance criteria silently.
 
 Plan an additional **4–8 engineering weeks provisionally** for ODT support at the same subset after shared-engine stabilization; re-estimate after M2. ODT-specific frames/sections/page styles may cost more. DOCX/ODT output generation is distinct from this PDF conversion work.
 
-First implementation backlog, **not authorized by this documentation task**:
+The initial M0 backlog below is historical: the bounded foundation and later approved table/frame proofs have now been implemented. The [prioritized incremental roadmap](own-engine-roadmap.md) owns the current execution order and delivery status. The estimates above remain the original planning envelope, not a claim that production integration or the remaining format features are complete.
 
 1. Agree on synthetic document fixtures and their exact required features.
 2. Review the proposed `nuaforma-pdf` facade, existing adapter boundary and Java 17 dependencies.

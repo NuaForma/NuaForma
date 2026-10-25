@@ -63,7 +63,7 @@ Supply the corresponding `data` object in the generation request. Conditions req
 
 - [Documentation index](docs/README.md): templates, API, deployment, fonts, security and known limitations.
 - [Development guide](docs/development.md): build from source, tests and module overview.
-- [Own PDF engine design](docs/architecture/conversion-engine.md): planned shared `nuaforma-pdf` engine for DOCX and later ODT, developed on `feature/own-pdf-engine`; not implemented yet.
+- [Own PDF engine design](docs/architecture/conversion-engine.md), [source-only foundation](nuaforma-pdf/README.md) and [DOCX fidelity proofs](tools/pdf-evaluation/own-engine/README.md): a neutral engine on `feature/own-pdf-engine`, with a single-page default and opt-in tables/page flow. Test-only letter, [three-page report](tools/pdf-evaluation/own-engine/REPORT.md), [advanced table](tools/pdf-evaluation/own-engine/ADVANCED.md) and [text-frame](tools/pdf-evaluation/own-engine/FRAMES.md) readers are compared with real Word exports. Production DOCX/ODT conversion is not connected and existing releases/providers remain unchanged.
 - [Extension guide](docs/extensions.md): custom providers, value pipes, content pipes and installation.
 - [Contributing](CONTRIBUTING.md): issues, changes, signed commits and pull requests.
 - [Roadmap](https://github.com/NuaForma/NuaForma/issues?q=is%3Aissue%20is%3Aopen): planned formats and capabilities; open issues are not implemented support.

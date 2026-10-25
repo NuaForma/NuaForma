@@ -28,7 +28,15 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [Build and test](development.md).
 - [Code quality and coverage](code-quality.md): SonarQube Cloud, JVM coverage and safe CI setup.
 - [Branches, releases and the separate website](branch-workflow.md).
-- [Own PDF engine design](architecture/conversion-engine.md): agreed shared `nuaforma-pdf` package, DOCX/ODT adapter boundaries, milestones and the dedicated integration/release track; implementation is future work.
+- [Own PDF engine design](architecture/conversion-engine.md): shared `nuaforma-pdf`, planned production DOCX/ODT adapters, milestones and dedicated integration/release track; source-only foundation and a test-only DOCX proof exist so far.
+- [Own PDF engine foundation](../nuaforma-pdf/README.md): neutral model with a single-page default and opt-in exact-line pagination/tables/page bands; no replacement of the current PDF provider.
+- [Own-engine DOCX fidelity proof](../tools/pdf-evaluation/own-engine/README.md): strict synthetic DOCX-to-neutral-model adapter, real Word-exported reference, reproducible overlay/difference and measured scope/limitations.
+- [Own-engine report fidelity trial](../tools/pdf-evaluation/own-engine/REPORT.md): fixed tables, repeated column headers, header/footer bands and flowing pagination, with a Word comparison recorded per page.
+- [Own-engine advanced table trials](../tools/pdf-evaluation/own-engine/ADVANCED.md): horizontal/vertical merges, nested tables and split rows, with actual Word references and per-page differences including Word's oversized-row clipping.
+- [Own-engine frame trials](../tools/pdf-evaluation/own-engine/FRAMES.md): images in both page bands, text frames, wrapping, rotations and full-page barcode decoding, plus concurrent shared-engine verification.
+- [Own-engine roadmap](architecture/own-engine-roadmap.md): prioritized increments, delivery gates and current scope.
+- [Own-engine paragraph pagination](../tools/pdf-evaluation/own-engine/PAGINATION.md): keeps, widow/orphan control and explicit page breaks compared with a real Word export.
+- [Own-engine lists and numbering](../tools/pdf-evaluation/own-engine/LISTS.md): bullets, multiple levels, shared sequences/restarts, styled labels and chapter numbering compared per page with Word.
 - [Create/install extensions](extensions.md) and the [independent value-pipe example](../examples/value-pipes/README.md).
 - [Contribution guidelines](../CONTRIBUTING.md).
 - [Architecture decisions](../ARCHITECTURE.md), [provider contracts](../nuaforma-contracts/README.md) and [provider discovery/core](../nuaforma-core/README.md).
@@ -70,3 +78,9 @@ Preparation, publication and website deployment are separate actions. These guid
 - [Endpoint/Playground delivery and impact review](endpoint-integration.md).
 
 Research records describe the measured baseline, not current supported features or uncompleted release requirements. Follow the current module guides for actual behavior.
+
+- [Own-engine tabs and leaders](../tools/pdf-evaluation/own-engine/TABS.md): physical stops, decimal alignment, inherited overrides and actual Word evidence.
+
+- [Own-engine styles and spacing](../tools/pdf-evaluation/own-engine/STYLES.md): effective styles, theme fonts, automatic line boxes and contextual paragraph spacing compared with Word.
+
+- [Own-engine international text](../tools/pdf-evaluation/own-engine/INTERNATIONAL.md): qualified Russian/Ukrainian/Greek text and language metadata; shaping/RTL research remains separate.

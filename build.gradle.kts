@@ -193,7 +193,7 @@ val verifyCoverageInputs = tasks.register("verifyCoverageInputs") {
 }
 val coverageReport = tasks.register<JacocoReport>("coverageReport") {
     group = "verification"
-    description = "Merges JVM tests against all seven production modules; requires -Pcoverage=true."
+    description = "Merges JVM tests against all production modules; requires -Pcoverage=true."
     dependsOn(verifyCoverageInputs)
     executionData.from(modulesWithJvmTests.map { modules -> modules.map { it.layout.buildDirectory.file("jacoco/test.exec") } })
     classDirectories.from(provider {
@@ -226,7 +226,7 @@ tasks.register("verifySonarConfiguration") {
         val reportPaths = properties.filterKeys { it.endsWith(".sonar.coverage.jacoco.xmlReportPaths") }
         check(reportPaths.size == subprojects.size) { "Every module must import the aggregate coverage report" }
         check(reportPaths.values.toSet() == setOf(layout.buildDirectory.file("reports/jacoco/coverageReport/coverageReport.xml").get().asFile.absolutePath))
-        logger.lifecycle("Sonar identity and seven-module coverage mapping verified without upload")
+        logger.lifecycle("Sonar identity and per-module coverage mapping verified without upload")
     }
 }
 
@@ -247,7 +247,7 @@ tasks.register("writeLibraryRuntimeInventory") {
 }
 tasks.register("stageLibraries") {
     group = "publishing"
-    description = "Publishes the five libraries only to the ignored local staging repository; never uploads."
+    description = "Publishes the libraries only to the ignored local staging repository; never uploads."
     dependsOn(libraryModules.map { "${it.path}:publishMavenJavaPublicationToStagingRepository" })
     dependsOn("writeLibraryRuntimeInventory")
 }
@@ -255,7 +255,7 @@ tasks.register("stageLibraries") {
 tasks.register<Exec>("verifyLibraryPublication") {
     group = "verification"
     dependsOn("stageLibraries")
-    commandLine("python3", "tools/release/verify_libraries.py", "build/library-repository", "--version", project.version.toString())
+    commandLine("python3", "tools/release/verify_libraries.py", "build/library-repository", "--version", project.version.toString(), "--include-experimental-pdf-engine")
 }
 
 tasks.register<Exec>("verifyReleaseTooling") {
@@ -310,8 +310,9 @@ tasks.register("verifyBuildStructure") {
             ":nuaforma-template" to setOf(":nuaforma-template", ":nuaforma-contracts"),
             ":nuaforma-docx" to setOf(":nuaforma-docx", ":nuaforma-contracts", ":nuaforma-template"),
             ":nuaforma-docx-pdf" to setOf(":nuaforma-docx-pdf", ":nuaforma-docx", ":nuaforma-contracts", ":nuaforma-template"),
-            ":nuaforma-server" to subprojects.filter { it.name != "nuaforma-playground" }.map { it.path }.toSet(),
-            ":nuaforma-playground" to subprojects.map { it.path }.toSet(),
+            ":nuaforma-pdf" to setOf(":nuaforma-pdf"),
+            ":nuaforma-server" to subprojects.filter { it.name !in setOf("nuaforma-playground", "nuaforma-pdf") }.map { it.path }.toSet(),
+            ":nuaforma-playground" to subprojects.filter { it.name != "nuaforma-pdf" }.map { it.path }.toSet(),
         )
         subprojects.forEach { module ->
             val requiredPublicationDependencies = if (module.path == ":nuaforma-docx") docxRuntimeUpgrades + annotations.get() else listOf(annotations.get())
@@ -344,7 +345,7 @@ tasks.register("verifyBuildStructure") {
             check(components.none { it.moduleVersion?.name in setOf("ktor-server-test-host-jvm", "ktor-test-dispatcher-jvm", "kotlinx-coroutines-test-jvm", "kotlinx-coroutines-debug") }) {
                 "HTTP test tooling leaked into ${module.path} runtimeClasspath"
             }
-            if (module.path !in setOf(":nuaforma-docx-pdf", ":nuaforma-server", ":nuaforma-playground")) {
+            if (module.path !in setOf(":nuaforma-docx-pdf", ":nuaforma-pdf", ":nuaforma-server", ":nuaforma-playground")) {
                 check(components.none { it.moduleVersion?.group == "org.apache.pdfbox" && it.moduleVersion?.name == "pdfbox" }) {
                     "PDF output validation leaked into ${module.path} runtimeClasspath"
                 }
