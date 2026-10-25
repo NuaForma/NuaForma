@@ -99,17 +99,10 @@ internal object TableLayouter {
             val left = x + table.columnWidths.take(cell.placement.column).sum()
             val width = table.columnWidths.subList(cell.placement.column, cell.placement.column + cell.placement.cell.columnSpan).sum()
             if (layout.customBorders) {
-                target += PositionedRectangle(left, top + a - from, width, b - a, cell.placement.cell.background, null)
-                val uniform = table.border?.let { PdfEdgeStroke(it) }
-                val policy = cell.placement.cell.borders ?: PdfCellBorders(uniform, uniform, uniform, uniform)
-                fun edge(stroke: PdfEdgeStroke?, x: Float, y: Float, length: Float, horizontal: Boolean) {
-                    if (stroke != null) target += PositionedTableBorder(x, y, length, horizontal, stroke, layout.borderGroup)
-                }
-                if (a == start || closeStart && a == from) edge(policy.top, left, top + a - from, width, true)
-                if (b == end || closeEnd && b == until) edge(policy.bottom, left, top + b - from, width, true)
-                val verticalLength = b - a + if (b == layout.contentEnd || closeEnd && b == until) layout.closing else 0f
-                edge(policy.left, left, top + a - from, verticalLength, false)
-                edge(policy.right, left + width, top + a - from, verticalLength, false)
+                strokeFrame(layout, cell.placement.cell,
+                    PositionedRectangle(left, top + a - from, width, b - a, cell.placement.cell.background, null), top + b - from,
+                    a == start || closeStart && a == from, b == end || closeEnd && b == until,
+                    if (b == layout.contentEnd || closeEnd && b == until) layout.closing else 0f, target)
             } else target += PositionedRectangle(left, top + a - from + layout.closing / 2, width, b - a, cell.placement.cell.background, table.border)
             for (piece in cell.pieces) {
                 val inset = if (layout.customBorders) layout.topInsets[cell.placement.row] else layout.closing
@@ -122,7 +115,7 @@ internal object TableLayouter {
     }
 
     fun cut(layout: Measured, row: Int, from: Float, limit: Float): Float {
-        if (layout.customBorders) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Custom borders in fragmented rows are not qualified")
+        if (layout.customBorders && !layout.consistentBorders) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Conflicting borders in fragmented rows are not qualified")
         if (layout.rowCells(row).any { it.placement.cell.verticalAlignment != PdfVerticalAlignment.TOP }) {
             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Vertical alignment across fragmented rows is not qualified")
         }
@@ -140,17 +133,35 @@ internal object TableLayouter {
 
     fun fragment(layout: Measured, row: Int, from: Float, until: Float, x: Float, top: Float, target: MutableList<PositionedElement>): Float {
         val table = layout.table
-        val height = until - from + layout.frame
+        val height = until - from + layout.frameAt(row)
         for (cell in layout.rowCells(row)) {
             val left = x + table.columnWidths.take(cell.placement.column).sum()
             val width = table.columnWidths.subList(cell.placement.column, cell.placement.column + cell.placement.cell.columnSpan).sum()
-            target += PositionedRectangle(left, top + layout.closing / 2, width, height, cell.placement.cell.background, table.border)
+            if (layout.customBorders) strokeFrame(layout, cell.placement.cell,
+                PositionedRectangle(left, top, width, height, cell.placement.cell.background, null), top + height,
+                true, true, layout.closing, target)
+            else target += PositionedRectangle(left, top + layout.closing / 2, width, height, cell.placement.cell.background, table.border)
             for (piece in cell.pieces) {
                 if (piece.top < from - 0.001f || piece.top + piece.height > until + 0.001f) continue
-                target += piece.elements.map { translate(it, left + table.cellMargins.left, top + layout.closing + table.cellMargins.top + piece.top - from) }
+                val inset = if (layout.customBorders) layout.topInsets[row] else layout.closing
+                target += piece.elements.map { translate(it, left + table.cellMargins.left, top + inset + table.cellMargins.top + piece.top - from) }
             }
         }
         return height
+    }
+
+    private fun strokeFrame(layout: Measured, cell: PdfTableCell, frame: PositionedRectangle, bottom: Float,
+                            drawTop: Boolean, drawBottom: Boolean, verticalExtra: Float, target: MutableList<PositionedElement>) {
+        target += frame
+        val uniform = layout.table.border?.let { PdfEdgeStroke(it) }
+        val policy = cell.borders ?: PdfCellBorders(uniform, uniform, uniform, uniform)
+        fun edge(stroke: PdfEdgeStroke?, x: Float, y: Float, length: Float, horizontal: Boolean) {
+            if (stroke != null) target += PositionedTableBorder(x, y, length, horizontal, stroke, layout.borderGroup)
+        }
+        if (drawTop) edge(policy.top, frame.x, frame.top, frame.width, true)
+        if (drawBottom) edge(policy.bottom, frame.x, bottom, frame.width, true)
+        edge(policy.left, frame.x, frame.top, frame.height + verticalExtra, false)
+        edge(policy.right, frame.x + frame.width, frame.top, frame.height + verticalExtra, false)
     }
 
     fun checkWidth(table: PdfTable, available: Float, left: Float) {

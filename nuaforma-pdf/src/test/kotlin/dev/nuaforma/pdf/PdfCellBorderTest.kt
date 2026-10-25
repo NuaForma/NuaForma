@@ -113,7 +113,7 @@ class PdfCellBorderTest {
 
     @Test fun `unqualified fragmented or conflicting advanced borders reject without changing uniform pagination`() {
         val policy=all(PdfEdgeStroke(PdfBorder(1f,red)));val engine=PdfEngine();val fonts=FoundationLetter.fonts()
-        val long=PdfTable(listOf(180f),listOf(PdfTableRow(listOf(PdfTableCell(List(50) {p("A")},borders=policy)),allowSplit=true)))
+        val long=PdfTable(listOf(180f),listOf(PdfTableRow(listOf(PdfTableCell(List(50) {p("A")},borders=policy)),splitOversized=true)))
         val conflict=policy.copy(top=PdfEdgeStroke(PdfBorder(1f,blue)))
         val badMerged=PdfTable(listOf(90f,90f),listOf(PdfTableRow(listOf(PdfTableCell(listOf(p("A")),columnSpan=2,borders=conflict)))))
         val badNested=PdfTable(listOf(180f),listOf(PdfTableRow(listOf(PdfTableCell(listOf(PdfTable(listOf(150f),rows(1,null))),borders=conflict)))))

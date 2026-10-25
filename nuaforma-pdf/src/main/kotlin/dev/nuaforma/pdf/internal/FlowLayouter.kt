@@ -145,13 +145,14 @@ internal object FlowLayouter {
                             continue
                         }
                         if (!row.allowSplit && height + measured.closing <= freshData) { nextPage(); headers(); continue }
+                        if (measured.customBorders && !row.allowSplit) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Oversized non-splitting custom-border rows are not qualified")
                         if (!row.allowSplit && !row.splitOversized) overflow()
                         if (measured.cells.any { it.placement.cell.rowSpan > 1 }) overflow()
                         if (!row.allowSplit && top > page.margins.top + headerHeight + 0.001f) { nextPage(); headers() }
                         val end = measured.rowCells(index).maxOf { it.contentHeight }
                         var consumed = 0f
                         while (consumed < end - 0.001f) {
-                            val capacity = bottom - top - measured.frame - measured.closing
+                            val capacity = bottom - top - measured.frameAt(index) - measured.closing
                             val cut = TableLayouter.cut(measured, index, consumed, consumed + maxOf(0f, capacity))
                             if (cut <= consumed + 0.001f) {
                                 if (top <= page.margins.top + headerHeight + 0.001f) overflow()

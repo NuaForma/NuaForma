@@ -268,6 +268,31 @@ val borderCombinationRenders = listOf("merged", "nested", "pages", "letter").map
 }
 tasks.register("renderOwnEngineBorderCombinations") { group = "verification"; dependsOn(borderCombinationRenders) }
 
+val generateOwnEngineBorderFragmentation = tasks.register<Exec>("generateOwnEngineBorderFragmentation") {
+    val folder = rootProject.file("tools/pdf-evaluation/own-engine")
+    val output = layout.buildDirectory.dir("own-engine-border-fragmentation")
+    inputs.files(listOf("build_border_fragmentation_fixtures.py", "build_advanced_fixtures.py", "build_report_fixture.py", "build_fixture.py").map { folder.resolve(it) }, rootProject.file("assets/branding/nuaforma-icon-transparent.png"))
+    outputs.dir(output)
+    commandLine("python3", folder.resolve("build_border_fragmentation_fixtures.py").absolutePath, output.get().asFile.absolutePath)
+}
+tasks.processTestResources {
+    dependsOn(generateOwnEngineBorderFragmentation)
+    from(layout.buildDirectory.dir("own-engine-border-fragmentation")) { into("own-engine-border-fragmentation") }
+}
+val borderFragmentationRenders = listOf("a4", "letter").map { kind ->
+    tasks.register<JavaExec>("renderOwnEngineBorderFragmentation${kind.replaceFirstChar { it.uppercase() }}") {
+        group = "verification"
+        dependsOn(tasks.testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass.set("dev.nuaforma.docx.pdf.ownengine.OwnEngineProof")
+        javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+        args(rootProject.layout.buildDirectory.file("own-engine-border-fragmentation/$kind/source.docx").get().asFile.absolutePath,
+            rootProject.layout.buildDirectory.file("own-engine-border-fragmentation/$kind/own-engine.pdf").get().asFile.absolutePath,
+            rootProject.layout.buildDirectory.dir("own-engine-proof/fonts").get().asFile.absolutePath)
+    }
+}
+tasks.register("renderOwnEngineBorderFragmentation") { group = "verification"; dependsOn(borderFragmentationRenders) }
+
 val generateOwnEngineFields = tasks.register<Exec>("generateOwnEngineFields") {
     val folder = rootProject.file("tools/pdf-evaluation/own-engine")
     val output = layout.buildDirectory.file("own-engine-fields/source.docx")

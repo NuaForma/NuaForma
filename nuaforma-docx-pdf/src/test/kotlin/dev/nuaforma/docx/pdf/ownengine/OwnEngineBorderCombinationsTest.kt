@@ -42,7 +42,7 @@ class OwnEngineBorderCombinationsTest {
         }
     }
 
-    @Test fun `custom row fragmentation stays explicitly unqualified`() {
+    @Test fun `oversized non-splitting custom rows stay explicitly unqualified`() {
         val document=OwnEngineDocxReader().read(source("split"))
         assertEquals(PdfFailureCode.UNSUPPORTED_TEXT,assertThrows(PdfRenderException::class.java) {PdfEngine().render(document,fonts())}.code)
     }
