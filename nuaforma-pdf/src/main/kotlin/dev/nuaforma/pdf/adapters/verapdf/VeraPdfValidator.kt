@@ -1,5 +1,7 @@
 package dev.nuaforma.pdf.adapters.verapdf
 
+import dev.nuaforma.pdf.PdfRenderControl
+import dev.nuaforma.pdf.adapters.pdfbox.PdfStaticValidator
 import org.verapdf.pdfa.Foundries
 import org.verapdf.gf.foundry.VeraGreenfieldFoundryProvider
 import org.verapdf.pdfa.flavours.PDFAFlavour
@@ -13,14 +15,31 @@ internal object VeraPdfValidator {
     @JvmStatic fun main(arguments: Array<String>) {
         require(Runtime.version().feature() == 17) { "Validator requires Java 17" }
         check(runCatching { Class.forName("javanet.staxutils.IndentingXMLStreamWriter") }.exceptionOrNull() is ClassNotFoundException)
-        require(arguments.size == 2)
+        if (arguments.contentEquals(arrayOf("--version"))) {
+            VeraGreenfieldFoundryProvider.initialise()
+            Foundries.defaultInstance()
+            println("NuaForma PDF validator ready 17")
+            return
+        }
+        require(arguments.size in 2..3 && (arguments.size == 2 || arguments[2] == "structure"))
+        val file = Path.of(arguments[0]); val before = digest(file)
+        PdfStaticValidator.validate(file, 67_108_864, PdfRenderControl(), if (arguments[1] == "pdfa-1b") "1.4" else "1.7")
+        if (arguments.size == 3) {
+            check(before == digest(file)) { "PDF changed during validation" }
+            println("NuaForma PDF structure valid ${arguments[1]} $before")
+            return
+        }
+        if (arguments[1] == "standard") {
+            check(before == digest(file)) { "PDF changed during validation" }
+            println("NuaForma PDF valid standard $before")
+            return
+        }
         val flavour = when (arguments[1]) {
             "pdfa-1b" -> PDFAFlavour.PDFA_1_B
             "pdfa-2b" -> PDFAFlavour.PDFA_2_B
             "pdfa-3b" -> PDFAFlavour.PDFA_3_B
             else -> error("Unsupported PDF/A profile")
         }
-        val file = Path.of(arguments[0]); val before = digest(file)
         VeraGreenfieldFoundryProvider.initialise()
         val foundry = Foundries.defaultInstance()
         foundry.createParser(file.toFile(), flavour).use { parser ->

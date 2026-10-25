@@ -8,6 +8,7 @@ description = "Experimental format-neutral NuaForma PDF engine; qualified Latin,
 
 dependencies {
     implementation(libs.pdfbox)
+    testImplementation(libs.image.comparison.kotlin)
 }
 
 val veraPdfRuntime = configurations.create("veraPdfRuntime") {
@@ -28,6 +29,7 @@ val prepareOwnEngineValidation = tasks.register<Sync>("prepareOwnEngineValidatio
     into(layout.buildDirectory.dir("pdfa-validation"))
 }
 tasks.test {
+    systemProperty("java.awt.headless", "true")
     dependsOn(prepareOwnEngineValidation)
     doFirst {
         systemProperty("nuaforma.pdf.validation", layout.buildDirectory.dir("pdfa-validation").get().asFile.absolutePath)
@@ -49,4 +51,16 @@ tasks.register<JavaExec>("renderFoundationLetter") {
     mainClass.set("dev.nuaforma.pdf.FoundationLetter")
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
     args(layout.buildDirectory.file("foundation/foundation-letter.pdf").get().asFile.absolutePath)
+}
+
+tasks.register<JavaExec>("renderVisualFixtures") {
+    group = "verification"
+    description = "Generates candidate engine-only golden images in a fresh build directory; never updates resources."
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("dev.nuaforma.pdf.RenderPdfVisualFixtures")
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+    workingDir(projectDir)
+    systemProperty("java.awt.headless", "true")
+    args(providers.gradleProperty("visualOutput").orElse(layout.buildDirectory.dir("visual-candidate").map { it.asFile.absolutePath }).get())
 }

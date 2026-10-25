@@ -31,7 +31,7 @@ class OwnEngineInternationalTest {
         }
     }
     @Test fun `invalid and unqualified language source attributes fail explicitly`() {
-        for(change in listOf<(String)->String>({it.replace("w:val=\"ru-RU\"","w:val=\"ru RU\"")},{it.replace("w:val=\"ru-RU\"","w:val=\"ru-RU\" w:bidi=\"ar-SA\"")}))assertThrows(IllegalArgumentException::class.java) {OwnEngineDocxReader().read(mutate("word/document.xml",change))}
+        for(change in listOf<(String)->String>({it.replace("w:val=\"ru-RU\"","w:val=\"ru RU\"")},{it.replace("w:val=\"ru-RU\"","w:val=\"ru-RU\" w:unqualified=\"ar-SA\"")}))assertThrows(IllegalArgumentException::class.java) {OwnEngineDocxReader().read(mutate("word/document.xml",change))}
     }
     private fun mutate(part:String,change:(String)->String):ByteArray {
         val result=ByteArrayOutputStream()

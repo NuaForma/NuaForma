@@ -59,7 +59,7 @@ def main():
     for module, entrypoint, own in (
         ("core", "CoreExample", {"nuaforma-contracts", "nuaforma-core"}),
         ("docx", "DocxExample", {"nuaforma-contracts", "nuaforma-core", "nuaforma-template", "nuaforma-docx"}),
-        ("pdf", "PdfExample", {"nuaforma-contracts", "nuaforma-core", "nuaforma-template", "nuaforma-docx", "nuaforma-docx-pdf"}),
+        ("pdf", "PdfExample", {"nuaforma-contracts", "nuaforma-core", "nuaforma-template", "nuaforma-docx", "nuaforma-docx-pdf", "nuaforma-pdf"}),
         ("pdf-engine", "PdfEngineExample", {"nuaforma-pdf"}),
     ):
         target = root / "examples/embedded/maven" / module / "target"

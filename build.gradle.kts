@@ -309,10 +309,10 @@ tasks.register("verifyBuildStructure") {
             ":nuaforma-core" to setOf(":nuaforma-core", ":nuaforma-contracts"),
             ":nuaforma-template" to setOf(":nuaforma-template", ":nuaforma-contracts"),
             ":nuaforma-docx" to setOf(":nuaforma-docx", ":nuaforma-contracts", ":nuaforma-template"),
-            ":nuaforma-docx-pdf" to setOf(":nuaforma-docx-pdf", ":nuaforma-docx", ":nuaforma-contracts", ":nuaforma-template"),
+            ":nuaforma-docx-pdf" to setOf(":nuaforma-docx-pdf", ":nuaforma-pdf", ":nuaforma-docx", ":nuaforma-contracts", ":nuaforma-template"),
             ":nuaforma-pdf" to setOf(":nuaforma-pdf"),
-            ":nuaforma-server" to subprojects.filter { it.name !in setOf("nuaforma-playground", "nuaforma-pdf") }.map { it.path }.toSet(),
-            ":nuaforma-playground" to subprojects.filter { it.name != "nuaforma-pdf" }.map { it.path }.toSet(),
+            ":nuaforma-server" to subprojects.filter { it.name != "nuaforma-playground" }.map { it.path }.toSet(),
+            ":nuaforma-playground" to subprojects.map { it.path }.toSet(),
         )
         subprojects.forEach { module ->
             val requiredPublicationDependencies = if (module.path == ":nuaforma-docx") docxRuntimeUpgrades + annotations.get() else listOf(annotations.get())
@@ -338,6 +338,10 @@ tasks.register("verifyBuildStructure") {
             val testGroups = setOf("org.junit", "org.junit.jupiter", "org.junit.platform", "io.mockk", "com.tngtech.archunit")
             check(components.none { it.moduleVersion?.group in testGroups }) {
                 "Test dependencies leaked into ${module.path} runtimeClasspath"
+            }
+            check(components.none { it.moduleVersion?.group == "dev.nuaforma" &&
+                it.moduleVersion?.name in setOf("image-comparison", "image-comparison-kotlin") }) {
+                "Visual regression test tooling leaked into ${module.path} runtimeClasspath"
             }
             check(components.none { it.moduleVersion?.group?.startsWith("io.swagger") == true }) {
                 "OpenAPI test tooling leaked into ${module.path} runtimeClasspath"

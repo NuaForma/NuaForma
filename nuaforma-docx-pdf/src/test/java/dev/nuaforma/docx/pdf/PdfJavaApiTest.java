@@ -11,7 +11,7 @@ class PdfJavaApiTest {
     @Test
     void javaConsumersCanConfigureAndAssessWithoutRendererTypes() {
         Path absent = Path.of(System.getProperty("java.io.tmpdir")).resolve("nf-absent-" + java.util.UUID.randomUUID()).toAbsolutePath();
-        DocumentProvider provider = new DocxPdfProvider(new LibreOfficeConfiguration(absent, 2));
+        DocumentProvider provider = new LegacyDocxPdfProvider(new LibreOfficeConfiguration(absent, 2));
         assertEquals(Set.of(DocumentFormat.DOCX, DocumentFormat.PDF), provider.capabilities().getWriteFormats());
         assertEquals(Set.of(DocumentFormat.DOCX), provider.availability().getWriteFormats());
         GenerationRequirements request = new GenerationRequirements(new FormatRequest(DocumentFormat.DOCX),

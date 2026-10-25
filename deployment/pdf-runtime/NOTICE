@@ -8,7 +8,7 @@ Changes permit the exact amd64 namespace setup operations required by Bubblewrap
 renderer-seccomp.c applies additional restrictions after sandbox setup.
 Preserve Moby's license when redistributing this adapted profile.
 
-LibreOffice, Bubblewrap, Temurin, Debian packages, bundled fonts and Java
+Bubblewrap, Temurin, Debian packages, bundled fonts and Java
 dependencies retain their own licenses. This notice does not replace them.
 See README.md and the retained upstream license/source materials in the image.
 

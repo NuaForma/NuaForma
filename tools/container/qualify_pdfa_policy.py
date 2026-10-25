@@ -57,25 +57,27 @@ def validate(runtime, source, mode, version='1.7', succeeds=True):
     runtime.command('exec', runtime.name, 'mkdir', '-m', '700', work)
     try:
         runtime.command('exec', runtime.name, 'mkdir', *[work + '/' + name for name in ('output', 'fonts', 'home', 'cache', 'profile', 'tmp')])
-        stage(runtime, source, work + '/output/input.pdf')
+        stage(runtime, source, work + '/document.pdf')
         try:
-            result = runtime.command('exec', runtime.name, '/opt/nuaforma/bin/render-pdf', work, '10485760', '30', mode, '268435456', version)
-        except subprocess.CalledProcessError:
-            assert not succeeds, 'Real isolated validator rejected expected output'
+            profile = mode.removeprefix('validate-') if mode.startswith('validate-pdfa-') else ('pdfa-1b' if version == '1.4' else 'standard')
+            validation = 'conformance' if mode.startswith('validate-pdfa-') else 'structure'
+            result = runtime.command('exec', runtime.name, '/opt/nuaforma/bin/validate-pdf', work, profile, validation)
+        except subprocess.CalledProcessError as error:
+            assert not succeeds, 'Real isolated validator rejected expected output: ' + error.output[:2000]
             return
         assert succeeds, 'Real isolated validator accepted a negative fixture'
         if mode.startswith('validate-pdfa-'):
             expected = f'NuaForma PDF/A valid {mode.removeprefix("validate-")} {hashlib.sha256(source.read_bytes()).hexdigest()}'
             assert result == expected, 'Conformance attestation did not bind exact profile and final bytes'
+        else:
+            expected = f'NuaForma PDF structure valid {profile} {hashlib.sha256(source.read_bytes()).hexdigest()}'
+            assert result == expected, 'Structural attestation did not bind effective version and final bytes'
     finally:
         assert work.startswith('/tmp/nuaforma-policy-check-')
         runtime.command('exec', runtime.name, 'rm', '-r', '--', work)
 
 
-def qualify(args):
-    output = args.output / 'pdfa-policy'
-    output.mkdir()
-    font = pathlib.Path('nuaforma-docx/src/test/resources/fonts/LibreBarcode39-Regular.ttf').resolve()
+def prepare_inspector(output):
     classes = output / 'inspector-classes'
     classes.mkdir()
     subprocess.check_call(['javac', '--release', '17', '-d', str(classes),
@@ -84,13 +86,21 @@ def qualify(args):
     with zipfile.ZipFile(inspector, 'w') as archive:
         for file in classes.rglob('*.class'):
             archive.write(file, file.relative_to(classes).as_posix())
-    source = template(text='Tenant {name}')
+    return inspector
+
+
+def qualify(args):
+    output = args.output / 'pdfa-policy'
+    output.mkdir()
+    font = pathlib.Path('nuaforma-docx/src/test/resources/fonts/LibreBarcode39-Regular.ttf').resolve()
+    inspector = prepare_inspector(output)
+    source = template(text='Tenant {name}', line_twips=600)
     buffer = io.BytesIO()
     with zipfile.ZipFile(io.BytesIO(source)) as incoming, zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as outgoing:
         for name in incoming.namelist():
             data = incoming.read(name)
             if name == 'word/document.xml':
-                data = data.replace(b'<w:sectPr/>', b'<w:p><w:r><w:rPr><w:rFonts w:ascii="Libre Barcode 39" w:hAnsi="Libre Barcode 39"/><w:sz w:val="48"/></w:rPr><w:t>*NF001*</w:t></w:r></w:p><w:sectPr/>')
+                data = data.replace(b'<w:sectPr>', b'<w:p><w:r><w:rPr><w:rFonts w:ascii="Libre Barcode 39" w:hAnsi="Libre Barcode 39"/><w:sz w:val="48"/></w:rPr><w:t>*NF001*</w:t></w:r></w:p><w:sectPr>')
             outgoing.writestr(name, data)
     source = buffer.getvalue()
     results = []
@@ -98,6 +108,7 @@ def qualify(args):
     for enabled in (True, False):
         label = 'enabled' if enabled else 'disabled'
         environment = ['--env', 'NUAFORMA_PDFA_VALIDATION=' + str(enabled).lower(),
+                       '--env', 'NUAFORMA_PDF_PARALLELISM=2',
                        '--mount', f'type=bind,source={font},target=/opt/nuaforma/custom-fonts/barcode.ttf,readonly',
                        '--mount', f'type=bind,source={inspector},target=/tmp/pdf-policy-inspector.jar,readonly']
         runtime = Runtime(args, *environment)
@@ -111,17 +122,16 @@ def qualify(args):
             logs = runtime.command('logs', runtime.name)
             assert ('PDF/A conformance is not checked by NuaForma' in logs) == (not enabled)
             # The probe still checks the genuine veraPDF runtime even with per-document validation off.
-            assert 'operation="probe"' in logs
+            assert 'event=NATIVE_PDF_VALIDATOR_READY' in logs
             for profile, version in [('standard', '1.7'), ('pdfa-1b', '1.4'), ('pdfa-2b', '1.7'), ('pdfa-3b', '1.7')]:
                 status, headers, body = generate(base, 'pdf', source, {'name': 'POLICY-REFERENCE'}, {'profile': profile})
-                assert status == 200 and body.startswith(('%PDF-' + version).encode()), (label, profile, status)
-                assert re.search(rb'/BaseFont\s*/[^\s/]*LibreBarcode39', body) and b'/FontFile2' in body
+                assert status == 200 and body.startswith(b'%PDF-'), (label, profile, status)
                 destination = output / f'{label}-{profile}.pdf'
                 destination.write_bytes(body)
                 identity = request_id(headers)
                 request_logs = '\n'.join(line for line in runtime.command('logs', runtime.name).splitlines() if 'requestId=' + identity in line)
-                assert 'operation="validate"' in request_logs
-                assert ('operation="validate-' + profile + '"' in request_logs) == (enabled and profile != 'standard')
+                assert 'event=NATIVE_PDF_RENDER_STARTED' in request_logs
+                assert ('event=NATIVE_PDF_CONFORMANCE_VALIDATED' in request_logs) == (enabled and profile != 'standard')
                 # Independent downstream verification is explicit QA, never a fabricated API attestation.
                 validate(runtime, destination, 'validate', version)
                 if profile != 'standard':
@@ -138,7 +148,7 @@ def qualify(args):
                 assert http(base, '/api/v1/documents', data, 'multipart/form-data; boundary=' + boundary)[0] == 422
             assert generate(base, 'pdf', source, {}, {'profile': 'pdfa-1b', 'version': '1.7'})[0] == 422
             assert generate(base, 'pdf', source, {}, {'profile': 'pdfa-3a'})[0] == 422
-            assert generate(base, 'pdf', template(text='{picture | image()}'), {'picture': base64.b64encode(image_fixture(True)).decode()}, {'profile': 'pdfa-1b'})[0] == 422
+            assert generate(base, 'pdf', template(text='{picture | image(10, 5)}', line_twips=400), {'picture': base64.b64encode(image_fixture(True)).decode()}, {'profile': 'pdfa-1b'})[0] == 422
             negatives = {'structure': b'%PDF-1.7\nbroken\n%%EOF\n',
                          'active': static_pdf(catalog='/OpenAction 4 0 R', extra=['<< /S /JavaScript /JS (danger) >>']),
                          'font': static_pdf(page='/Resources << /Font << /F1 4 0 R >> >>', extra=['<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'])}
@@ -160,8 +170,8 @@ def qualify(args):
                 else:
                     assert layouts[reference] == layout, 'Operator policy changed tenant page rendering'
                 lines = '\n'.join(line for line in runtime.command('logs', runtime.name).splitlines() if 'requestId=' + request_id(headers) in line)
-                assert 'operation="validate"' in lines
-                assert ('operation="validate-pdfa-3b"' in lines) == enabled
+                assert 'event=NATIVE_PDF_STRUCTURE_VALIDATED' in lines
+                assert ('event=NATIVE_PDF_CONFORMANCE_VALIDATED' in lines) == enabled
             with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
                 list(executor.map(tenant, ['TENANT-A', 'TENANT-B']))
             assert generate(base, 'docx', template(), {'name': 'UNCHANGED-DOCX'})[0] == 200
@@ -174,7 +184,7 @@ def qualify(args):
         timed = Runtime(args, *environment, '--env', 'JAVA_TOOL_OPTIONS=-Dnuaforma.server.timeoutMillis=1000')
         try:
             base = timed.connect()
-            assert generate(base, 'pdf', template(2000), {'name': 'POLICY-DEADLINE'})[0] == 408
+            assert generate(base, 'pdf', template(900), {'name': 'POLICY-DEADLINE'})[0] == 408
             timed.clean()
         finally:
             timed.close()

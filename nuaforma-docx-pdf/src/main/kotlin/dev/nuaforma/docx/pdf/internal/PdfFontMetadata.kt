@@ -6,7 +6,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.charset.StandardCharsets
 
-/** Bounded SFNT metadata only; outline parsing is confined to the renderer sandbox. */
+/** Bounded SFNT metadata only; native outline parsing belongs to the shared PDF engine. */
 internal class PdfFontMetadata(val families: Set<String>, val face: String, val permissions: Int, val version: Int) {
     fun requirePrintEmbedding() {
         val usage = permissions and 15

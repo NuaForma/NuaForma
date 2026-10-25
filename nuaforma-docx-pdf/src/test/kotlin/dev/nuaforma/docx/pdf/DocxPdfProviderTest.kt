@@ -20,7 +20,7 @@ class DocxPdfProviderTest {
                 assertSame(context, firstArg<GenerationContext>())
                 throw GenerationException(listOf(Diagnostic(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, "Synthetic deadline")))
             }
-            val error = assertThrows(GenerationException::class.java) { DocxPdfProvider().availability(context) }
+            val error = assertThrows(GenerationException::class.java) { LegacyDocxPdfProvider().availability(context) }
             assertEquals(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, error.diagnostics.single().code)
         } finally { unmockkConstructor(LibreOfficeProcesses::class) }
     }
@@ -49,7 +49,7 @@ class DocxPdfProviderTest {
                 assertFalse(transformed.getValue("word/document.xml").decodeToString().contains("| image"))
                 Files.write(files.pdf, StaticPdfFixture.bytes().decodeToString().replace("%PDF-1.7", "%PDF-${files.profile.version}").toByteArray())
             }
-            val provider = DocxPdfProvider()
+            val provider = LegacyDocxPdfProvider()
             assertEquals(setOf("standard", "pdfa-1b", "pdfa-2b", "pdfa-3b"), provider.contentPipes().single().support.single { it.output == DocumentFormat.PDF }.profiles)
             for (profile in listOf("standard", "pdfa-1b", "pdfa-2b", "pdfa-3b")) {
                 val output = ByteArrayOutputStream()
@@ -91,7 +91,7 @@ class DocxPdfProviderTest {
                 assertTrue(document.contains("Ada")); assertFalse(document.contains("company()"))
                 Files.write(files.pdf, StaticPdfFixture.bytes())
             }
-            val provider = DocxPdfProvider(null, listOf(pipe))
+            val provider = LegacyDocxPdfProvider(null, listOf(pipe))
             val output = ByteArrayOutputStream()
             provider.generate(GenerationRequest(PdfFixture.zip(parts).inputStream(),
                 requirements(DocumentFormat.PDF, mapOf("profile" to "standard")), mapOf("name" to "Ada")), output, GenerationContext())
@@ -109,7 +109,7 @@ class DocxPdfProviderTest {
     @Test
     fun `missing converter keeps DOCX output available and PDF unsupported requests distinct`() {
         val absent = java.nio.file.Path.of(System.getProperty("java.io.tmpdir")).resolve("nf-absent-${java.util.UUID.randomUUID()}").toAbsolutePath()
-        val provider = DocxPdfProvider(LibreOfficeConfiguration(absent))
+        val provider = LegacyDocxPdfProvider(LibreOfficeConfiguration(absent))
         assertEquals(setOf(DocumentFormat.DOCX, DocumentFormat.PDF), provider.capabilities().writeFormats)
         assertEquals(setOf(DocumentFormat.DOCX), provider.availability().writeFormats)
         assertEquals(AssessmentStatus.SUPPORTED, provider.assess(requirements(DocumentFormat.DOCX)).status)
@@ -143,7 +143,7 @@ class DocxPdfProviderTest {
                 Files.write(files.pdf, StaticPdfFixture.bytes())
             }
             val output = object : ByteArrayOutputStream() { var closed = false; override fun close() { closed = true } }
-            val result = DocxPdfProvider().generate(GenerationRequest(PdfFixture.zip(PdfFixture.parts()).inputStream(),
+            val result = LegacyDocxPdfProvider().generate(GenerationRequest(PdfFixture.zip(PdfFixture.parts()).inputStream(),
                 requirements(DocumentFormat.PDF), mapOf("name" to "Ada")), output, GenerationContext())
             assertEquals("1.7", result.output.options["version"])
             assertFalse(output.closed)

@@ -71,7 +71,7 @@ class PublicationTest(unittest.TestCase):
                     pathlib.Path(str(file) + "." + algorithm).write_text(hashlib.new(algorithm, file.read_bytes()).hexdigest(), encoding="ascii")
 
     def test_complete_fixture_passes(self):
-        self.assertEqual(5, len(verify(self.repository, "0.1.0")))
+        self.assertEqual(6, len(verify(self.repository, "0.1.0")))
 
     def test_bad_coordinates_missing_metadata_and_leaked_dependencies_fail(self):
         path = self.repository / "dev/nuaforma/nuaforma-contracts/0.1.0/nuaforma-contracts-0.1.0.pom"

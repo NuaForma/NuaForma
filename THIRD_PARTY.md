@@ -38,6 +38,10 @@ The optional code-quality build uses unmodified [SonarScanner for Gradle 7.5.0.8
 
 The upgraded MockK/Ktor test graph includes Apache-2.0 Byte Buddy/agent 1.18.14, Objenesis 3.6, JSpecify 1.0.1 and Apache HTTP components 5.6.5/5.4.4. JNA/platform 5.19.1 remain test-only; use the explicit Apache-2.0 alternative of their [Apache-2.0 OR LGPL-2.1-or-later license](https://github.com/java-native-access/jna/blob/5.19.1/LICENSE), retaining original artifact/native subcomponent notices when redistributing test tooling. These tools are not added to service/library distributions.
 
+## Image comparison test tooling
+
+The own PDF engine's visual regression tests use `dev.nuaforma:image-comparison-kotlin:5.0.0` and its transitive Java core under Apache-2.0. Preserve the [fork's LICENSE](https://github.com/NuaForma/image-comparison/blob/v5.0.0/LICENSE) and [NOTICE](https://github.com/NuaForma/image-comparison/blob/v5.0.0/NOTICE), including original authorship by Roman Beskrovnyi and upstream contributors, when redistributing this test tooling. Existing Kotlin/JetBrains annotation terms remain applicable. These artifacts are test-only, unshaded and absent from production library/runtime distributions.
+
 ## Barcode verification assets and tools
 
 The experimental `nuaforma-pdf` foundation reuses the already reviewed PDFBox 3.0.8/FontBox/IO runtime stack (including its Apache and bundled subcomponent notices); no PDFBox classes or fonts are shaded into its JAR. Its test-only Liberation Sans Regular, Bold and Italic 2.1.5 fixtures are unmodified SIL Open Font License 1.1 assets, with copyright/license text, source package and checksums in `nuaforma-pdf/src/test/resources/fonts`. Preserve those terms when sharing the test assets or proof PDF. They are not production runtime fonts and do not change the project's Apache-2.0 license. See the [foundation guide](nuaforma-pdf/README.md) for exact scope.

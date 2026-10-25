@@ -23,13 +23,14 @@ import java.nio.ByteOrder
 import org.apache.pdfbox.pdfwriter.compress.CompressParameters
 
 internal object PdfBoxWriter {
-    fun render(document: PdfDocument, suppliedFonts: List<PdfFont>, options: PdfOutputOptions): ByteArray {
-        PageLayouter.checkCancellation()
+    fun render(document: PdfDocument, suppliedFonts: List<PdfFont>, options: PdfOutputOptions, control: PdfRenderControl): ByteArray {
+        control.checkActive()
         PDDocument().use { pdf ->
             pdf.version = if (options.profile == PdfOutputProfile.PDFA_1B) 1.4f else 1.7f
             ArchivalMetadata.apply(pdf, options)
             val lineMetrics = mutableMapOf<String, FloatArray>()
             val fonts = suppliedFonts.associate { resource ->
+                control.checkActive()
                 val bytes = resource.bytes()
                 validateFontPermissions(bytes, resource.embedding)
                 naturalMetrics(bytes)?.let { lineMetrics[resource.id] = it }
@@ -41,6 +42,7 @@ internal object PdfBoxWriter {
                 resource.id to font
             }
             val measurer = TextMeasurer { text, style ->
+                control.checkActive()
                 val font = fonts[style.fontId] ?: fail(PdfFailureCode.FONT_UNAVAILABLE, "Referenced font is not supplied")
                 val width = try {
                     font.getStringWidth(text) * style.size / 1000f
@@ -58,7 +60,7 @@ internal object PdfBoxWriter {
             val sequencePages = mutableListOf<Triple<Int, Int, Int>>()
             var nextPageNumber = 1
             for (sequence in document.pageSequences) {
-                PageLayouter.checkCancellation()
+                control.checkActive()
                 val start = sequence.numbering.start ?: nextPageNumber
                 if (sequencePages.isNotEmpty() && sequence.numbering.alignParity && start % 2 != nextPageNumber % 2) {
                     layouts += PageLayout(sequence.page, emptyList())
@@ -90,6 +92,7 @@ internal object PdfBoxWriter {
             if (layouts.sumOf { borderSize(it.elements) } > 20_000) fail(PdfFailureCode.RESOURCE_LIMIT, "Table border budget exceeded")
             val usedFonts = linkedSetOf<String>()
             val images = java.util.IdentityHashMap<PdfImage, PDImageXObject>()
+            var decodedImageBytes = 0L
             for (layout in layouts) {
                 val page = PDPage(PDRectangle(layout.page.width, layout.page.height))
                 page.resources = PDResources()
@@ -104,7 +107,7 @@ internal object PdfBoxWriter {
                     fun number(value: Float) = COSFloat(value)
                     fun paint(elements: List<PositionedElement>, canvasHeight: Float, canvasWidth: Float) {
                         for (element in elements) {
-                            PageLayouter.checkCancellation()
+                            control.checkActive()
                             when (element) {
                                 is PositionedBox -> {
                                     val angle = Math.toRadians(element.box.rotation.toDouble())
@@ -159,6 +162,11 @@ internal object PdfBoxWriter {
                                     val image = images.getOrPut(element.image) {
                                         val bytes = element.image.bytes()
                                         validatePng(bytes)
+                                        val dimensions = ByteBuffer.wrap(bytes, 16, 8).order(ByteOrder.BIG_ENDIAN)
+                                        val bytesPerPixel = if ((bytes[24].toInt() and 255) > 8) 8 else 4
+                                        val decoded = dimensions.int.toLong() * dimensions.int.toLong() * bytesPerPixel
+                                        if (decoded > control.maxDecodedImageBytes - decodedImageBytes) fail(PdfFailureCode.RESOURCE_LIMIT, "Decoded image budget exceeded")
+                                        decodedImageBytes += decoded
                                         if (options.profile == PdfOutputProfile.PDFA_1B && pngHasTransparency(bytes)) fail(PdfFailureCode.UNSUPPORTED_OUTPUT, "PDF/A-1b does not support transparent PNG resources")
                                         try { PDImageXObject.createFromByteArray(pdf, bytes, "image") }
                                         catch (_: IOException) { fail(PdfFailureCode.INVALID_RESOURCE, "Cannot decode the supplied PNG") }
@@ -178,9 +186,9 @@ internal object PdfBoxWriter {
                 }
             }
             usedFonts.map { fonts.getValue(it) }.filter { it.willBeSubset() }.forEach { it.subset() }
-            val output = BoundedOutput()
+            val output = BoundedOutput(control)
             if (options.profile == PdfOutputProfile.PDFA_1B) pdf.save(output, CompressParameters.NO_COMPRESSION) else pdf.save(output)
-            PageLayouter.checkCancellation()
+            control.checkActive()
             return output.toByteArray()
         }
     }
@@ -250,13 +258,15 @@ internal object PdfBoxWriter {
         if (width !in 1..8192 || height !in 1..8192 || width.toLong() * height > 16_000_000) {
             fail(PdfFailureCode.RESOURCE_LIMIT, "PNG decoded dimensions exceed the foundation limit")
         }
+        if (bytes.size < 33) fail(PdfFailureCode.INVALID_RESOURCE, "Incomplete PNG image header")
     }
 
-    private class BoundedOutput : ByteArrayOutputStream() {
+    private class BoundedOutput(private val control: PdfRenderControl) : ByteArrayOutputStream() {
         override fun write(value: Int) { limit(1); super.write(value) }
         override fun write(bytes: ByteArray, offset: Int, length: Int) { limit(length); super.write(bytes, offset, length) }
         private fun limit(length: Int) {
-            if (length < 0 || count.toLong() + length > 16_777_216) fail(PdfFailureCode.RESOURCE_LIMIT, "PDF output exceeds the foundation limit")
+            control.checkActive()
+            if (length < 0 || length.toLong() > minOf(16_777_216L, control.maxOutputBytes) - count) fail(PdfFailureCode.RESOURCE_LIMIT, "PDF output byte budget exceeded")
         }
     }
 

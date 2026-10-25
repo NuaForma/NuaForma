@@ -13,7 +13,7 @@ class HeadlessDevicesTest(unittest.TestCase):
         for device in ("null", "zero", "full", "random", "urandom"):
             expected.extend(["--dev-bind", "/dev/" + device, "/dev/" + device])
         expected.extend(["--tmpfs", "/tmp"])
-        for relative in ("deployment/pdf-runtime/render-pdf.sh", "tools/pdf-evaluation/run_sandbox_probe.sh"):
+        for relative in ("deployment/pdf-runtime/validate-pdf.sh", "tools/pdf-evaluation/run_sandbox_probe.sh"):
             with self.subTest(launcher=relative):
                 source = (ROOT / relative).read_text().replace("\\\n", " ")
                 devices = re.search(r"--tmpfs /dev .*?--tmpfs /tmp", source)

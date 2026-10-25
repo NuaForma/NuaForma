@@ -2,6 +2,11 @@ package dev.nuaforma.contracts
 
 /** Application-owned explanations only; never create reasons from exception or extension text. */
 enum class RejectionReason(val message: String, private val advice: RejectionAdvice, val construct: String? = null) {
+    NATIVE_PDF_VALIDATOR_REQUIRED("Configure the qualified independent native PDF validator runtime; DOCX output remains available", RejectionAdvice.RUNTIME),
+    NATIVE_PDF_UNQUALIFIED_OPTION("Requested watermarks and paragraph fallbacks are not yet qualified for native PDF output", RejectionAdvice.OPTIONS),
+    NATIVE_PDF_CAPACITY_EXHAUSTED("Native PDF conversion capacity is exhausted; retry after active conversions finish", RejectionAdvice.LIMITS),
+    NATIVE_DOCX_PROFILE_UNSUPPORTED("DOCX content or formatting is outside the qualified native profile; simplify the indicated part and consult the native profile guide", RejectionAdvice.STRUCTURE),
+    NATIVE_PDF_RENDER_REJECTED("The native PDF engine rejected content, fonts or the requested output; check the supported profile and supplied resources", RejectionAdvice.STRUCTURE),
     INVALID_AUTOMATIC_FONT_SELECTION("fontSelection must be declared or used; used requires fontMode embed", RejectionAdvice.FONTS),
     USED_FONT_FACE_UNAVAILABLE("A used font family/face is unavailable; supply the exact face through fonts/resources or configure an IMAGE/MOUNT catalog", RejectionAdvice.FONTS),
     USED_FONT_IDENTITY_CONFLICT("Automatic font selection found conflicting case-insensitive family/face identities", RejectionAdvice.FONTS),

@@ -21,7 +21,7 @@ class LoggingStartupTest {
         for (mode in listOf(null, "production", "development")) for (policy in listOf(null, "true", "false")) {
             val port = ServerSocket(0).use { it.localPort }
             val output = ByteArrayOutputStream()
-            val builder = ProcessBuilder(java(), "-Dnuaforma.server.port=$port", "-Dnuaforma.pdf.launcher=/missing-logging-fixture",
+            val builder = ProcessBuilder(java(), "-Dnuaforma.server.port=$port", "-Dnuaforma.pdf.validator.launcher=/missing-logging-fixture",
                 "-Djava.io.tmpdir=$temporary", "-cp", classpath(), Main::class.java.name).redirectErrorStream(true)
             builder.environment().clear()
             if (mode != null) builder.environment()["NUAFORMA_MODE"] = mode
@@ -45,7 +45,7 @@ class LoggingStartupTest {
             assertEquals(policy == "false", logs.contains("PDF/A CONFORMANCE VALIDATION DISABLED"))
             assertEquals(policy == "false", logs.contains("PDF/A conformance is not checked by NuaForma"))
             if (policy == "false") assertTrue(logs.indexOf("CONFORMANCE VALIDATION DISABLED") < logs.indexOf("REQUEST_STARTED"))
-            assertTrue(logs.contains("PDF_LAUNCHER_UNAVAILABLE")); assertTrue(logs.contains("PROVIDER_READINESS"))
+            assertTrue(logs.contains("NATIVE_PDF_VALIDATOR_UNAVAILABLE")); assertTrue(logs.contains("PROVIDER_READINESS"))
             assertTrue(logs.contains("requestId=-")); assertFalse(logs.contains("/missing-logging-fixture"))
             if (mode == "development") assertTrue(logs.indexOf("DEVELOPMENT MODE") < logs.indexOf("REQUEST_STARTED"))
         }

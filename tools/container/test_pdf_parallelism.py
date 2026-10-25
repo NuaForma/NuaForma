@@ -1,5 +1,6 @@
 """Operator-only PDF concurrency parsing uses the real entry point without starting a JVM."""
 import os
+import hashlib
 from pathlib import Path
 import shlex
 import shutil
@@ -12,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 @unittest.skipUnless(os.name == 'posix' and shutil.which('sh'), 'Linux runtime entry point')
 class PdfParallelismTest(unittest.TestCase):
-    def launch(self, value=None, application='server'):
+    def launch(self, value=None, application='server', corrupt=False):
         with tempfile.TemporaryDirectory(prefix='nf-parallelism-') as directory:
             directory = Path(directory)
             java = directory / 'java'
@@ -20,8 +21,16 @@ class PdfParallelismTest(unittest.TestCase):
             java.chmod(0o700)
             script = (ROOT / 'deployment/pdf-runtime/start-server.sh').read_text()
             self.assertEqual(script.count('exec /opt/java/server/bin/java'), 1)
+            artifact = directory / 'artifact.jar'
+            artifact.write_bytes(b'synthetic runtime artifact')
+            digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
+            for name in ['application', 'validator', 'verapdf', 'java']:
+                (directory / (name + '-sha256.txt')).write_text(f'{digest}  {artifact}\n')
+            if corrupt:
+                artifact.write_bytes(b'changed runtime artifact')
             launcher = directory / 'entry.sh'
-            launcher.write_text(script.replace('/opt/java/server/bin/java', shlex.quote(str(java))))
+            launcher.write_text(script.replace('/opt/java/server/bin/java', shlex.quote(str(java)))
+                               .replace('/usr/share/nuaforma/', str(directory) + '/'))
             environment = {'PATH': '/usr/bin:/bin', 'NUAFORMA_APPLICATION': application}
             if value is not None:
                 environment['NUAFORMA_PDF_PARALLELISM'] = value
@@ -43,6 +52,11 @@ class PdfParallelismTest(unittest.TestCase):
             self.assertEqual(result.stdout, '')
             self.assertIn('Invalid NUAFORMA_PDF_PARALLELISM', result.stderr)
             self.assertNotIn('secret-setting', result.stderr)
+
+    def test_changed_runtime_artifact_prevents_application_start(self):
+        result = self.launch(corrupt=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(result.stdout, '')
 
 
 if __name__ == '__main__':

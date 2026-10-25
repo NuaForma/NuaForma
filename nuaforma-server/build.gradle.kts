@@ -44,6 +44,7 @@ val generateBuildInformation = tasks.register("generateBuildInformation") {
 sourceSets.main { resources.srcDir(buildInformationDirectory) }
 val rawSbom = layout.buildDirectory.file("reports/cyclonedx/runtime.json")
 tasks.named<CyclonedxDirectTask>("cyclonedxDirectBom") {
+    inputs.files(configurations.runtimeClasspath).withPropertyName("resolvedProductionArtifacts")
     includeConfigs = listOf("runtimeClasspath")
     skipConfigs = listOf("(?i).*test.*")
     testConfigs = emptyList()
@@ -171,11 +172,21 @@ dependencies {
     // Already present through MockK at test runtime; compile the Kotlin visibility checks explicitly.
     testImplementation(libs.kotlin.reflect)
     testImplementation(project(":nuaforma-pdf"))
+    testImplementation(project(":nuaforma-docx-pdf"))
+    testImplementation(libs.pdfbox)
     testRuntimeOnly(project(":nuaforma-playground"))
     implementation(project(":nuaforma-core"))
     runtimeOnly(project(":nuaforma-docx"))
     runtimeOnly(project(":nuaforma-docx-pdf"))
     runtimeOnly(project(":nuaforma-template"))
+}
+
+tasks.test {
+    dependsOn(":nuaforma-pdf:prepareOwnEngineValidation")
+    doFirst {
+        systemProperty("nuaforma.pdf.validation", project(":nuaforma-pdf").layout.buildDirectory.dir("pdfa-validation").get().asFile.absolutePath)
+        systemProperty("nuaforma.pdf.validation.java", javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) }.get().executablePath.asFile.absolutePath)
+    }
 }
 
 tasks.register<JavaExec>("generateOpenApi") {

@@ -18,13 +18,19 @@ case "${NUAFORMA_APPLICATION:-server}" in
     playground) application_main=dev.nuaforma.playground.Main ;;
     *) printf '%s\n' 'Unsupported NuaForma application.' >&2; exit 64 ;;
 esac
+for manifest in application-sha256.txt validator-sha256.txt verapdf-sha256.txt java-sha256.txt; do
+    test -s "/usr/share/nuaforma/$manifest"
+    /usr/bin/sha256sum --check --status "/usr/share/nuaforma/$manifest"
+done
 exec /opt/java/server/bin/java "-Xmx${heap}m" -Djava.awt.headless=true \
     "-Djava.io.tmpdir=${NUAFORMA_TEMP_DIRECTORY:-/tmp}" \
     "-Dnuaforma.server.host=${NUAFORMA_HOST:-0.0.0.0}" \
     "-Dnuaforma.server.port=${NUAFORMA_PORT:-8080}" \
-    "-Dnuaforma.pdf.launcher=${NUAFORMA_PDF_LAUNCHER:-/opt/nuaforma/bin/render-pdf}" \
+    "-Dnuaforma.pdf.validator.launcher=${NUAFORMA_PDF_VALIDATOR_LAUNCHER:-/opt/nuaforma/bin/validate-pdf}" \
+    "-Dnuaforma.pdf.validator.java=/opt/java/openjdk/bin/java" \
+    "-Dnuaforma.pdf.validator.directory=/opt/nuaforma/pdf-validation" \
     "-Dnuaforma.pdf.parallelism=$parallelism" \
     "-Dnuaforma.fonts.directory=${NUAFORMA_FONT_DIRECTORY:-/opt/nuaforma/custom-fonts}" \
-    "-Dnuaforma.fonts.bundledDirectories=${NUAFORMA_BUNDLED_FONT_DIRECTORIES:-/opt/nuaforma/renderer/usr/share/fonts:/opt/nuaforma/renderer/opt/libreoffice26.8/share/fonts/truetype}" \
+    "-Dnuaforma.fonts.bundledDirectories=${NUAFORMA_BUNDLED_FONT_DIRECTORIES:-/usr/share/fonts}" \
     "-Dnuaforma.extensions.directory=${NUAFORMA_EXTENSION_DIRECTORY:-/opt/nuaforma/extensions}" \
     -cp '/opt/nuaforma/application/lib/*' "$application_main"

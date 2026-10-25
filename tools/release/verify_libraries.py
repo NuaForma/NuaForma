@@ -11,12 +11,12 @@ import zipfile
 if not __debug__:
     raise RuntimeError("Release verification must run without Python optimization")
 
-MODULES = ("nuaforma-contracts", "nuaforma-core", "nuaforma-template", "nuaforma-docx", "nuaforma-docx-pdf")
-SOURCE_MODULES = MODULES + ("nuaforma-pdf",)
+MODULES = ("nuaforma-contracts", "nuaforma-core", "nuaforma-template", "nuaforma-docx", "nuaforma-pdf", "nuaforma-docx-pdf")
+SOURCE_MODULES = MODULES
 DEPENDENCIES = {
     "nuaforma-contracts": set(), "nuaforma-core": {"nuaforma-contracts"},
     "nuaforma-template": {"nuaforma-contracts"}, "nuaforma-docx": {"nuaforma-contracts", "nuaforma-template"},
-    "nuaforma-docx-pdf": {"nuaforma-contracts", "nuaforma-docx", "nuaforma-template"},
+    "nuaforma-docx-pdf": {"nuaforma-contracts", "nuaforma-docx", "nuaforma-template", "nuaforma-pdf"},
     "nuaforma-pdf": set(),
 }
 NS = {"m": "http://maven.apache.org/POM/4.0.0"}
@@ -94,6 +94,8 @@ def verify(repository, version, modules=MODULES):
                         if name.endswith(".class"):
                             data = archive.read(name)
                             assert data[:4] == b"\xca\xfe\xba\xbe" and struct.unpack(">H", data[6:8])[0] <= 61, name
+                    if module == "nuaforma-docx-pdf":
+                        assert not any("/adapters/libreoffice/" in name or name.endswith(("/LibreOfficeConfiguration.class", "/LegacyDocxPdfProvider.class")) for name in names), "Retired renderer code leaked into native production artifact"
                     if module in ("nuaforma-docx", "nuaforma-docx-pdf"):
                         assert "META-INF/services/dev.nuaforma.contracts.DocumentProvider" in names
         records.append({"module": module, "version": version, "files": [

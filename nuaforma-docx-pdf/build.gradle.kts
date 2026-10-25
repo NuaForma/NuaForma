@@ -4,7 +4,9 @@ plugins {
     `maven-publish`
 }
 
-description = "NuaForma DOCX/PDF provider with an optional isolated LibreOffice runtime"
+description = "NuaForma DOCX/PDF provider using the shared native engine and isolated output validation"
+
+tasks.withType<Jar>().configureEach { includeEmptyDirs = false }
 
 tasks.register<JavaExec>("qualifyOwnEngineProfiles") {
     group = "verification"
@@ -27,7 +29,25 @@ dependencies {
     api(project(":nuaforma-template"))
     implementation(project(":nuaforma-docx"))
     implementation(libs.pdfbox)
-    testImplementation(project(":nuaforma-pdf"))
+    api(project(":nuaforma-pdf"))
+}
+
+tasks.test {
+    dependsOn(":nuaforma-pdf:prepareOwnEngineValidation")
+    systemProperty("java.awt.headless", "true")
+    doFirst {
+        systemProperty("nuaforma.pdf.validation", project(":nuaforma-pdf").layout.buildDirectory.dir("pdfa-validation").get().asFile.absolutePath)
+        systemProperty("nuaforma.pdf.validation.java", javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) }.get().executablePath.asFile.absolutePath)
+    }
+}
+
+tasks.register<JavaExec>("renderNativeDocxProof") {
+    group = "verification"
+    description = "Runs the registered native provider on explicit trusted inputs; never overwrites reference PDFs."
+    dependsOn(tasks.testClasses, ":nuaforma-pdf:prepareOwnEngineValidation")
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("dev.nuaforma.docx.pdf.ownengine.NativeDocxProof")
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
 }
 
 val generateOwnEngineFixture = tasks.register<Exec>("generateOwnEngineFixture") {
@@ -40,6 +60,7 @@ val generateOwnEngineFixture = tasks.register<Exec>("generateOwnEngineFixture") 
 }
 
 tasks.processTestResources {
+    from(rootProject.file("tools/container/fixtures/image-jpeg.base64")) { into("native-profile") }
     dependsOn(generateOwnEngineFixture)
     from(layout.buildDirectory.dir("own-engine-fixture")) { into("own-engine") }
     from(rootProject.file("nuaforma-pdf/src/test/resources/fonts")) { into("own-engine-fonts") }
@@ -559,16 +580,14 @@ val pdfValidationRuntime = configurations.create("pdfValidationRuntime") {
     isCanBeResolved = true
 }
 dependencies {
-    add(pdfValidationRuntime.name, project(":nuaforma-contracts"))
-    add(pdfValidationRuntime.name, libs.pdfbox)
+    add(pdfValidationRuntime.name, project(":nuaforma-pdf"))
     add(pdfValidationRuntime.name, platform(libs.kotlin.bom))
 }
 tasks.register<Sync>("preparePdfValidation") {
     group = "verification"
     description = "Stages the bounded validator JVM without DOCX, core, server or test dependencies."
-    dependsOn(tasks.named("jar"))
+    dependsOn(":nuaforma-pdf:jar")
     from(pdfValidationRuntime)
-    from(tasks.named("jar"))
     into(layout.buildDirectory.dir("pdf-validation"))
 }
 

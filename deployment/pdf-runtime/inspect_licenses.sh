@@ -1,8 +1,8 @@
 #!/bin/sh
 # SPDX-License-Identifier: Apache-2.0
 set -eu
-test -s /opt/nuaforma/renderer/opt/libreoffice26.8/LICENSE
-test -s /opt/nuaforma/renderer/opt/libreoffice26.8/NOTICE
+test ! -d /opt/nuaforma/renderer/opt/libreoffice26.8
+test -s /usr/share/doc/fonts-liberation/copyright
 test -s /usr/share/nuaforma/licenses/bubblewrap/COPYING
 test -s /usr/share/nuaforma/licenses/bubblewrap/COPYING.LIB
 test -d /opt/java/openjdk/legal
