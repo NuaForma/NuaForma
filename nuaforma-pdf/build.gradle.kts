@@ -32,6 +32,7 @@ tasks.test {
     systemProperty("java.awt.headless", "true")
     dependsOn(prepareOwnEngineValidation)
     val validatorCoverage = layout.buildDirectory.dir("jacoco/validator")
+    val instrumentation = extensions.getByType<org.gradle.testing.jacoco.plugins.JacocoTaskExtension>()
     outputs.dir(validatorCoverage)
     doFirst {
         systemProperty("nuaforma.pdf.validation", layout.buildDirectory.dir("pdfa-validation").get().asFile.absolutePath)
@@ -39,7 +40,6 @@ tasks.test {
         val coverageDirectory = validatorCoverage.get().asFile
         check(!coverageDirectory.exists() || coverageDirectory.deleteRecursively()) { "Cannot clear validator test coverage" }
         check(coverageDirectory.mkdirs()) { "Cannot create validator test coverage directory" }
-        val instrumentation = extensions.getByType<org.gradle.testing.jacoco.plugins.JacocoTaskExtension>()
         if (instrumentation.isEnabled) {
             systemProperty("nuaforma.pdf.validation.coverageAgent", instrumentation.asJvmArg.substringBefore("=destfile="))
             systemProperty("nuaforma.pdf.validation.coverageDirectory", coverageDirectory.absolutePath)
