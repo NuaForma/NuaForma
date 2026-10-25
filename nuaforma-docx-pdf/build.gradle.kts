@@ -135,6 +135,28 @@ tasks.register<JavaExec>("renderOwnEngineInternational") {
         rootProject.layout.buildDirectory.dir("own-engine-proof/fonts").get().asFile.absolutePath)
 }
 
+val generateOwnEngineSections = tasks.register<Exec>("generateOwnEngineSections") {
+    val folder = rootProject.file("tools/pdf-evaluation/own-engine")
+    val output = layout.buildDirectory.file("own-engine-sections/source.docx")
+    inputs.files(folder.resolve("build_sections_fixture.py"), folder.resolve("build_report_fixture.py"), folder.resolve("build_fixture.py"), rootProject.file("assets/branding/nuaforma-icon-transparent.png"))
+    outputs.file(output)
+    commandLine("python3", folder.resolve("build_sections_fixture.py").absolutePath, output.get().asFile.absolutePath)
+}
+tasks.processTestResources {
+    dependsOn(generateOwnEngineSections)
+    from(layout.buildDirectory.dir("own-engine-sections")) { into("own-engine-sections") }
+}
+tasks.register<JavaExec>("renderOwnEngineSections") {
+    group = "verification"
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("dev.nuaforma.docx.pdf.ownengine.OwnEngineProof")
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+    args(rootProject.layout.buildDirectory.file("own-engine-sections/source.docx").get().asFile.absolutePath,
+        rootProject.layout.buildDirectory.file("own-engine-sections/own-engine.pdf").get().asFile.absolutePath,
+        rootProject.layout.buildDirectory.dir("own-engine-proof/fonts").get().asFile.absolutePath)
+}
+
 val generateOwnEnginePageFormats = tasks.register<Exec>("generateOwnEnginePageFormats") {
     val folder = rootProject.file("tools/pdf-evaluation/own-engine")
     val output = layout.buildDirectory.dir("own-engine-page-formats")

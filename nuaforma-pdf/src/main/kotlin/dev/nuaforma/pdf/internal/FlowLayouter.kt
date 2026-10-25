@@ -6,7 +6,7 @@ import dev.nuaforma.pdf.*
 internal object FlowLayouter {
     internal data class MeasuredParagraph(val paragraph: PdfParagraph, val lines: List<List<PositionedElement>>, val lineHeight: Float)
 
-    fun layout(document: PdfDocument, measurer: TextMeasurer): List<PageLayout> {
+    fun layout(document: PdfDocument, measurer: TextMeasurer, pageNumberOffset: Int = 0, pageBudget: Int = document.maxPages): List<PageLayout> {
         val policy = requireNotNull(document.flow)
         val page = document.page
         val width = page.width - page.margins.left - page.margins.right
@@ -19,7 +19,7 @@ internal object FlowLayouter {
         fun measuredAt(index: Int) = paragraphCache.getOrPut(index) { paragraph(document.blocks[index] as PdfParagraph, width, measurer) }
         var protectedThrough = -1
         fun nextPage() {
-            if (pages.size >= policy.maxPages) fail(PdfFailureCode.RESOURCE_LIMIT, "Page budget exceeded")
+            if (pages.size >= minOf(policy.maxPages, pageBudget)) fail(PdfFailureCode.RESOURCE_LIMIT, "Page budget exceeded")
             pages += mutableListOf<PositionedElement>()
             top = page.margins.top
             after = 0f
@@ -169,8 +169,8 @@ internal object FlowLayouter {
         }
         return pages.mapIndexed { index, elements ->
             val decorated = mutableListOf<PositionedElement>()
-            policy.header?.let { band(it, false, page, index + 1, measurer, decorated) }
-            policy.footer?.let { band(it, true, page, index + 1, measurer, decorated) }
+            policy.header?.let { band(it, false, page, pageNumberOffset + index + 1, measurer, decorated) }
+            policy.footer?.let { band(it, true, page, pageNumberOffset + index + 1, measurer, decorated) }
             decorated += elements
             PageLayout(page, decorated.toList())
         }

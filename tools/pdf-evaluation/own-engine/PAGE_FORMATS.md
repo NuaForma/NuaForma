@@ -1,6 +1,6 @@
 # International page format proof
 
-Date: 2026-10-25. Parent: [#57](https://github.com/NuaForma/NuaForma/issues/57). This is the standalone-size increment of roadmap part 6; mixed-size sections remain unimplemented.
+Date: 2026-10-25. Parent: [#57](https://github.com/NuaForma/NuaForma/issues/57). This records the standalone-size increment of roadmap part 6; the subsequent [mixed-size trial](SECTIONS.md) covers next-page ranges separately.
 
 ## Coverage and model
 
@@ -27,7 +27,7 @@ python3 tools/pdf-evaluation/own-engine/compare.py build/own-engine-page-formats
 python3 tools/pdf-evaluation/own-engine/audit_page_formats.py build/own-engine-page-formats/a4-portrait/source.docx build/own-engine-page-formats/a4-portrait/word-reference.pdf build/own-engine-page-formats/a4-portrait/own-engine.pdf build/own-engine-page-formats/a4-portrait/audit.json
 ```
 
-Word is an external QA oracle; normal JVM builds generate their own source fixtures without Word. This proof does not qualify mixed-size sections, first/even/odd page masters, every feature/script combination on every size, production DOCX/ODT import or any archival/accessibility profile. Complex/mixed RTL work remains open independently in part 5. One physical page policy still applies to each `PdfDocument`.
+Word is an external QA oracle; normal JVM builds generate their own source fixtures without Word. This proof does not qualify mixed-size sections, first/even/odd page masters, every feature/script combination on every size, production DOCX/ODT import or any archival/accessibility profile. Complex/mixed RTL work remains open independently in part 5. Each report in this standalone trial uses one physical page policy; the later mixed-size proof uses multiple neutral page sequences.
 
 The full repository build and local publication checks passed with 634 JVM tests and zero failures/errors/skips. All five independent Java/Kotlin consumers passed against the unchanged five-library publication set. Playground, REST, the production converter, release workflows and the website have no behavior or dependency changes in this source/test-only increment.
 

@@ -76,4 +76,6 @@ The [style and spacing trial](STYLES.md) qualifies effective run/paragraph/table
 
 The [first international increment](INTERNATIONAL.md) compares Russian, Ukrainian and Greek paragraphs, tables and lists with Word, plus independent PDFium extraction/search. The [bounded Hebrew increment](HEBREW.md) adds unpointed RTL text and numbers in paragraphs, tables and page bands. Mixed strong directions, Hebrew marks and Arabic shaping remain unqualified.
 
-The [paper-format matrix](PAGE_FORMATS.md) adds eight genuine Word reports: A4, A3, US Letter and Legal, each in portrait and landscape, including asymmetric margins and Cyrillic/Greek text. Mixed-size sections remain future work.
+The [paper-format matrix](PAGE_FORMATS.md) adds eight genuine Word reports: A4, A3, US Letter and Legal, each in portrait and landscape, including asymmetric margins and Cyrillic/Greek text.
+
+The [mixed-size trial](SECTIONS.md) adds one document with A4/Letter-landscape/A3 content ranges, inherited default page bands and continuous PAGE numbering over the neutral page-sequence model.

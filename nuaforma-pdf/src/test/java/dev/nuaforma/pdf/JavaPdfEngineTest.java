@@ -113,4 +113,21 @@ class JavaPdfEngineTest {
             assertTrue(new PDFTextStripper().getText(pdf).contains("Java 17 café €"));
         }
     }
+
+    @Test
+    void javaCallerCanRenderResolvedPageSequences() throws IOException {
+        byte[] font;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            font = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        var blocks = List.<PdfBlock>of(new PdfParagraph(List.of(new PdfTextRun("Sequence", new PdfTextStyle("regular", 11)))));
+        var margins = new PdfMargins(20, 20, 20, 20);
+        var document = new PdfDocument(List.of(new PdfPageSequence(new PdfPage(300, 200, margins), blocks),
+            new PdfPageSequence(new PdfPage(200, 300, margins), blocks)), 2);
+        try (var pdf = Loader.loadPDF(new PdfEngine().render(document, List.of(new PdfFont("regular", font))))) {
+            assertEquals(2, pdf.getNumberOfPages());
+            assertEquals(300f, pdf.getPage(0).getMediaBox().getWidth());
+            assertEquals(200f, pdf.getPage(1).getMediaBox().getWidth());
+        }
+    }
 }

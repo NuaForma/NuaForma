@@ -14,7 +14,9 @@ class PdfEngine {
         require(snapshot.size in 1..16 && snapshot.map { it.id }.toSet().size == snapshot.size) { "Provide 1 to 16 uniquely named fonts" }
         require(snapshot.sumOf { it.byteSize.toLong() } <= 33_554_432) { "Font resources exceed the foundation limit" }
         val images = document.allParagraphs().flatMap { it.runs.filterIsInstance<PdfImageRun>().map { run -> run.image } } +
-            (document.blocks + (document.flow?.header?.blocks ?: emptyList()) + (document.flow?.footer?.blocks ?: emptyList())).filterIsInstance<PdfImage>()
+            document.pageSequences.flatMap { sequence ->
+                sequence.blocks + (sequence.flow?.header?.blocks ?: emptyList()) + (sequence.flow?.footer?.blocks ?: emptyList())
+            }.filterIsInstance<PdfImage>()
         require(images.sumOf { it.byteSize.toLong() } <= 16_777_216) { "Images exceed the foundation limit" }
         return PdfBoxWriter.render(document, snapshot)
     }

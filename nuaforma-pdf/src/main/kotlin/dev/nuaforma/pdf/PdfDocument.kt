@@ -4,11 +4,23 @@ import java.util.Collections
 import dev.nuaforma.pdf.internal.placements
 
 /** Bounded document model. Parsers and source-format semantics belong to format adapters. */
-class PdfDocument @JvmOverloads constructor(val page: PdfPage, blocks: List<PdfBlock>, val flow: PdfFlow? = null) {
-    val blocks: List<PdfBlock> = Collections.unmodifiableList(ArrayList(blocks))
+class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>, val maxPages: Int = 32) {
+    val pageSequences: List<PdfPageSequence> = Collections.unmodifiableList(ArrayList(pageSequences)).also {
+        require(it.size in 1..32) { "A document needs 1 to 32 page sequences" }
+    }
+
+    /** Existing single-policy construction retains its original page budget and layout path. */
+    @JvmOverloads constructor(page: PdfPage, blocks: List<PdfBlock>, flow: PdfFlow? = null) :
+        this(listOf(PdfPageSequence(page, blocks, flow)), flow?.maxPages ?: 1)
+
+    /** First-sequence views retained for existing callers; use pageSequences for the whole document. */
+    val page: PdfPage get() = pageSequences.first().page
+    val blocks: List<PdfBlock> get() = pageSequences.first().blocks
+    val flow: PdfFlow? get() = pageSequences.first().flow
 
     init {
-        require(this.blocks.size in 1..1_000) { "A document needs 1 to 1000 blocks" }
+        require(maxPages in 1..32 && this.pageSequences.size <= maxPages) { "Invalid document page budget" }
+        require(this.pageSequences.sumOf { it.blocks.size } <= 1_000) { "Document block budget exceeded" }
         require(allParagraphs().sumOf { it.runs.filterIsInstance<PdfTextRun>().sumOf { run -> run.text.length.toLong() } + (it.listLabel?.value?.text?.length ?: 0) } <= 100_000) {
             "Document text exceeds the foundation limit"
         }
@@ -25,9 +37,19 @@ class PdfDocument @JvmOverloads constructor(val page: PdfPage, blocks: List<PdfB
                 block.rows.asSequence().flatMap { row -> row.cells.asSequence().flatMap { cell -> cell.blocks.asSequence().flatMap { collect(it, depth + 1) } } }
             }
         }
-        return (blocks + (flow?.header?.blocks ?: emptyList()) + (flow?.footer?.blocks ?: emptyList())).asSequence()
+        return pageSequences.asSequence().flatMap { sequence ->
+            (sequence.blocks + (sequence.flow?.header?.blocks ?: emptyList()) + (sequence.flow?.footer?.blocks ?: emptyList())).asSequence()
+        }
             .flatMap { collect(it, 0) }.take(2_001).toList().also { require(it.size <= 2_000) { "Paragraph budget exceeded" } }
     }
+}
+
+/** A resolved physical page policy over a content range. Every sequence starts on a fresh page.
+ * Adapters resolve source section/master inheritance before constructing these immutable ranges.
+ */
+class PdfPageSequence @JvmOverloads constructor(val page: PdfPage, blocks: List<PdfBlock>, val flow: PdfFlow? = null) {
+    val blocks: List<PdfBlock> = Collections.unmodifiableList(ArrayList(blocks))
+    init { require(this.blocks.size in 1..1_000) { "A page sequence needs 1 to 1000 blocks" } }
 }
 
 /** Optional bounded pagination; omitting this retains the original single-page overflow behavior. */

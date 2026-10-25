@@ -52,7 +52,15 @@ internal object PdfBoxWriter {
                     lineMetrics[style.fontId]?.get(1)?.times(style.size) ?: Float.NaN,
                     lineMetrics[style.fontId]?.get(2)?.times(style.size) ?: Float.NaN)
             }
-            val layouts = if (document.flow == null) listOf(PageLayouter.layout(document, measurer)) else FlowLayouter.layout(document, measurer)
+            val layouts = mutableListOf<PageLayout>()
+            for (sequence in document.pageSequences) {
+                PageLayouter.checkCancellation()
+                val remaining = document.maxPages - layouts.size
+                if (remaining <= 0) fail(PdfFailureCode.RESOURCE_LIMIT, "Document page budget exceeded")
+                val single = PdfDocument(sequence.page, sequence.blocks, sequence.flow)
+                layouts += if (sequence.flow == null) listOf(PageLayouter.layout(single, measurer))
+                    else FlowLayouter.layout(single, measurer, layouts.size, remaining)
+            }
             fun decorationSize(elements: List<PositionedElement>): Long = elements.sumOf { element -> when (element) {
                 is PositionedText -> if (element.decoration) element.text.length.toLong() else 0L
                 is PositionedBox -> decorationSize(element.elements)

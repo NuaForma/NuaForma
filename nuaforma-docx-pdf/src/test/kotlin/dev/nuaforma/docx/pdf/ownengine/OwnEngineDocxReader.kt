@@ -34,24 +34,48 @@ internal class OwnEngineDocxReader {
         children(document, setOf("body"))
         val body = document.one("body") ?: reject("Missing document body")
         children(body, setOf("p", "tbl", "sectPr"))
-        val section = body.one("sectPr") ?: reject("Explicit section geometry is required")
-        check(body.elements().last() === section && body.elements().count { it.name.localPart == "sectPr" } == 1, "Multiple sections are unsupported")
-        children(section, setOf("pgSz", "pgMar", "headerReference", "footerReference"))
-        val size = section.one("pgSz") ?: reject("Missing page size")
-        attributes(size, setOf("w", "h", "orient"))
-        val pageWidth = twips(size.value("w"))
-        val pageHeight = twips(size.value("h"))
-        when (size.value("orient")) {
-            null -> Unit
-            "portrait" -> check(pageWidth <= pageHeight, "Page orientation conflicts with physical dimensions")
-            "landscape" -> check(pageWidth >= pageHeight, "Page orientation conflicts with physical dimensions")
-            else -> reject("Unsupported page orientation")
+        val finalSection = body.one("sectPr") ?: reject("Explicit section geometry is required")
+        check(body.elements().last() === finalSection, "Final section properties must end the body")
+        val ranges = mutableListOf<Pair<XmlElement, List<XmlElement>>>()
+        val sectionEnds = java.util.Collections.newSetFromMap(java.util.IdentityHashMap<XmlElement, Boolean>())
+        var pending = mutableListOf<XmlElement>()
+        for (block in body.elements().dropLast(1)) {
+            pending += block
+            if (block.name.localPart == "p") block.one("pPr")?.one("sectPr")?.let { properties ->
+                check(block.one("pPr")!!.elements().count { it.name.localPart == "sectPr" } == 1, "Duplicate section properties")
+                sectionEnds += block
+                ranges += properties to pending.toList()
+                pending = mutableListOf()
+            }
         }
-        val margins = section.one("pgMar") ?: reject("Missing page margins")
-        attributes(margins, setOf("top", "right", "bottom", "left", "header", "footer", "gutter"))
-        check((margins.value("gutter") ?: "0") == "0", "Page gutters are unsupported")
-        val page = PdfPage(pageWidth, pageHeight,
-            PdfMargins(twips(margins.value("top")), twips(margins.value("right")), twips(margins.value("bottom")), twips(margins.value("left"))))
+        check(pending.isNotEmpty(), "Empty final sections are outside this profile")
+        ranges += finalSection to pending.toList()
+        check(ranges.size <= 32, "Section budget exceeded")
+        fun readGeometry(section: XmlElement): Pair<PdfPage, XmlElement> {
+            attributes(section, emptySet())
+            children(section, setOf("pgSz", "pgMar", "headerReference", "footerReference", "type"))
+            section.one("type")?.let { type ->
+                attributes(type, setOf("val")); children(type, emptySet())
+                check(type.value("val") == "nextPage", "Only next-page section transitions are qualified")
+            }
+            val size = section.one("pgSz") ?: reject("Missing page size")
+            attributes(size, setOf("w", "h", "orient"))
+            val pageWidth = twips(size.value("w"))
+            val pageHeight = twips(size.value("h"))
+            when (size.value("orient")) {
+                null -> Unit
+                "portrait" -> check(pageWidth <= pageHeight, "Page orientation conflicts with physical dimensions")
+                "landscape" -> check(pageWidth >= pageHeight, "Page orientation conflicts with physical dimensions")
+                else -> reject("Unsupported page orientation")
+            }
+            val margins = section.one("pgMar") ?: reject("Missing page margins")
+            attributes(margins, setOf("top", "right", "bottom", "left", "header", "footer", "gutter"))
+            check((margins.value("gutter") ?: "0") == "0", "Page gutters are unsupported")
+            val resolved = PdfPage(pageWidth, pageHeight,
+                PdfMargins(twips(margins.value("top")), twips(margins.value("right")), twips(margins.value("bottom")), twips(margins.value("left"))))
+            return resolved to margins
+        }
+        var (page, margins) = readGeometry(ranges.first().first)
         val relationRoot = part("word/_rels/document.xml.rels")
         requireRelationships(relationRoot)
         fun readRelations(root: XmlElement): Map<String, String> {
@@ -95,6 +119,12 @@ internal class OwnEngineDocxReader {
             }
         }
         registerNeighbors(document)
+        for (i in 0 until ranges.lastIndex) {
+            val last = ranges[i].second.last()
+            val first = ranges[i + 1].second.first()
+            neighbors[last]?.let { neighbors[last] = it.first to null }
+            neighbors[first]?.let { neighbors[first] = null to it.second }
+        }
         var decimalSeparator = "."
         val defaultTabInterval = parts["word/settings.xml"]?.let { bytes ->
             val settings = xml.read(bytes)
@@ -405,7 +435,9 @@ internal class OwnEngineDocxReader {
                     check(frames.isEmpty() || !fields, "Frames in page bands are outside this profile")
                     val plain = XmlElement(block.name, block.attributes, block.namespaces)
                     plain.children += block.children.mapNotNull { child ->
-                        if (child is XmlElement && child.name.localPart == "r" && child.elements().any { it in frames }) {
+                        if (child is XmlElement && child.name.localPart == "pPr" && block in sectionEnds) {
+                            XmlElement(child.name, child.attributes, child.namespaces).also { copy -> copy.children += child.children.filterNot { it is XmlElement && it.name.namespaceURI == word && it.name.localPart == "sectPr" } }
+                        } else if (child is XmlElement && child.name.localPart == "r" && child.elements().any { it in frames }) {
                             check(child.elements().all { it in frames || it.name.localPart == "rPr" }, "Mixed frame/text runs are unsupported"); null
                         } else child
                     }
@@ -417,8 +449,10 @@ internal class OwnEngineDocxReader {
                 else -> reject("Unsupported block")
             }
         }
-        fun band(name: String): PdfPageBand? {
-            val reference = section.one("${name}Reference") ?: return null
+        fun band(name: String, reference: XmlElement?): PdfPageBand? {
+            if (reference == null) return null
+            check(reference.attributes.keys.all { it.namespaceURI == word && it.localPart == "type" || it.namespaceURI == rel && it.localPart == "id" }, "Unsupported page-band reference attribute")
+            children(reference, emptySet())
             check(reference.value("type") == "default", "Only shared default page bands are supported")
             val target = relations[reference.attribute(rel, "id")] ?: reject("Missing page-band relationship")
             check(target == "${name}1.xml", "Wrong page-band relationship")
@@ -431,12 +465,21 @@ internal class OwnEngineDocxReader {
             val extent = (if (name == "header") page.margins.top else page.margins.bottom) - offset
             return PdfPageBand(offset, extent, readBlocks(bandRoot, ownRelations, true))
         }
-        val blocks = readBlocks(body, relations, false)
-        val header = band("header")
-        val footer = band("footer")
-        val flow = if (header != null || footer != null || blocks.any { it is PdfTable || it is PdfTextBox || it is PdfParagraph &&
-            (it.format.textDirection != null || it.runs.any { run -> run is PdfTab } || it.listLabel != null || it.format.keepWithNext || it.format.keepLines || it.format.widowControl || it.format.pageBreakBefore) }) PdfFlow(header, footer) else null
-        return PdfDocument(page, blocks, flow)
+        var headerReference: XmlElement? = null
+        var footerReference: XmlElement? = null
+        val sequences = ranges.map { (section, content) ->
+            val geometry = readGeometry(section); page = geometry.first; margins = geometry.second
+            headerReference = section.one("headerReference") ?: headerReference
+            footerReference = section.one("footerReference") ?: footerReference
+            val range = XmlElement(body.name, body.attributes, body.namespaces).also { it.children += content }
+            val blocks = readBlocks(range, relations, false)
+            val header = band("header", headerReference)
+            val footer = band("footer", footerReference)
+            val flow = if (ranges.size > 1 || header != null || footer != null || blocks.any { it is PdfTable || it is PdfTextBox || it is PdfParagraph &&
+                (it.format.textDirection != null || it.runs.any { run -> run is PdfTab } || it.listLabel != null || it.format.keepWithNext || it.format.keepLines || it.format.widowControl || it.format.pageBreakBefore) }) PdfFlow(header, footer) else null
+            PdfPageSequence(page, blocks, flow)
+        }
+        return if (sequences.size == 1) sequences.single().let { PdfDocument(it.page, it.blocks, it.flow) } else PdfDocument(sequences)
     }
 
     private data class Face(val family: String? = null, val size: Float? = null, val bold: Boolean = false,
