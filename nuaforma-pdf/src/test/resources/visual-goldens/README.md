@@ -63,3 +63,15 @@ On mismatch, diagnostics under `nuaforma-pdf/build/visual-regression/<run>/<case
 `PdfGoldenImagesTest` verifies that identical images pass without diagnostics, one changed pixel fails while preserving the original inputs and writing all diagnostics, and different dimensions fail. These negative controls establish the failure path; the eleven real engine fixtures establish regression coverage. This remains engine-only and does not replace the independent Word-reference trials, PDF/A validation, content or concurrency tests. Run the suite with `./gradlew :nuaforma-pdf:test`.
 
 There is no production, Playground, publication or website behavior change.
+
+## Initial watermark references — 2026-10-26
+
+Four new pages extend the reviewed inventory to 20 cases / 30 pages. The existing 26 PNGs and font/logo inputs remain byte-identical. Only new watermark rows are appended to the page inventory; no previous golden is replaced. Both PDFBox and independent Poppler outputs were inspected for these initial references.
+
+| Fixture | Pages | Coverage |
+| --- | ---: | --- |
+| `watermark-mixed-pages` | 2 | A4 and Letter landscape, transparent rotated background text, logo/page bands and table preservation |
+| `watermark-opaque-rotation` | 1 | Fully opaque clockwise decoration with restored body graphics state |
+| `watermark-hebrew` | 1 | Bounded Hebrew/numbers, visual order, rotation and explicit logical Unicode |
+
+Independent genuine Word comparisons use separate DOCX-provider proofs, not these golden inputs; see [watermark qualification](../../../../../tools/pdf-evaluation/own-engine/WATERMARKS.md). Golden comparisons retain zero pixel tolerance and zero allowed changed pixels, with no masks.

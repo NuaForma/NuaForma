@@ -88,7 +88,7 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
         if (requirements.output.format != DocumentFormat.PDF) return unsupported(DiagnosticCodes.UNSUPPORTED_OUTPUT, RejectionReason.THIS_PROVIDER_WRITES_DOCX_AND_PDF_ONLY)
         return try {
             val options = PdfOptions.read(requirements.output.options)
-            if (options.paragraphDefaults != null || requirements.options.watermark != null) {
+            if (options.paragraphDefaults != null || options.profile.id == "pdfa-1b" && requirements.options.watermark != null) {
                 return unsupported(DiagnosticCodes.UNSUPPORTED_OPTION, RejectionReason.NATIVE_PDF_UNQUALIFIED_OPTION)
             }
             val delegate = docx.assess(GenerationRequirements(requirements.input, FormatRequest(DocumentFormat.DOCX, options.docxOptions), requirements.options))
@@ -115,24 +115,32 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
                 FormatRequest(DocumentFormat.DOCX), request.requirements.options), request.data)
             val applicable = pipes.filter { pipe -> pipe.definition.support.any { support -> support.input == DocumentFormat.DOCX && support.output == DocumentFormat.PDF &&
                 (support.profiles.isEmpty() || options.profile.id in support.profiles) } }
-            DocxProvider(deploymentFonts, applicable, valuePipes).generate(intermediate, filled, context)
-            val reader = NativeDocxReader(context) { family, bold, italic ->
+            val prepared = DocxProvider(deploymentFonts, applicable, valuePipes).generateForConversion(intermediate, filled, context)
+            val intermediateSize = filled.size()
+            fun fontReference(family: String, bold: Boolean, italic: Boolean): String {
                 val face = when { bold && italic -> "boldItalic"; bold -> "bold"; italic -> "italic"; else -> "regular" }
                 val identity = family.lowercase(Locale.ROOT) to face
                 val font = availableFonts[identity] ?: fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE)
                 usedFonts.putIfAbsent(identity, font)
-                if (usedFonts.size > 16 || usedFonts.values.sumOf { it.byteSize.toLong() } > minOf(33_554_432L, context.limits.maxExpandedBytes - filled.size())) {
+                if (usedFonts.size > 16 || usedFonts.values.sumOf { it.byteSize.toLong() } > minOf(33_554_432L, context.limits.maxExpandedBytes - intermediateSize)) {
                     fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.PDF_CONVERSION_BYTE_BUDGET_WAS_EXCEEDED)
                 }
-                "font${usedFonts.keys.indexOf(identity)}"
+                return "font${usedFonts.keys.indexOf(identity)}"
             }
+            val reader = NativeDocxReader(context, ::fontReference)
             val document = reader.read(filled.toByteArray())
+            val watermark = prepared.watermark?.let { resolved ->
+                val text = resolved.text.replace("\r\n", " ").replace('\r', ' ').replace('\n', ' ').replace('\t', ' ')
+                val rgb = resolved.color.removePrefix("#").toInt(16)
+                PdfWatermark(text, fontReference(requireNotNull(prepared.watermarkFontFamily), false, false),
+                    PdfColor(rgb shr 16, rgb shr 8 and 255, rgb and 255), resolved.opacity.toFloat(), resolved.rotation.toFloat())
+            }
             val profile = PdfOutputProfile.entries.single { it.id == options.profile.id }
             val control = PdfRenderControl(minOf(16_777_216L, context.limits.maxOutputBytes), Runnable { context.checkActive() },
                 minOf(67_108_864L, context.limits.maxExpandedBytes - filled.size() - usedFonts.values.sumOf { it.byteSize.toLong() }))
             context.logging.operation("NATIVE_PDF_RENDER_STARTED", mapOf("profile" to profile.id))
             val bytes = PdfEngine(configuration.validator).render(document,
-                usedFonts.values.mapIndexed { index, font -> font.resource("font$index") }, PdfOutputOptions(profile, validationEnabled = configuration.pdfaValidation), control)
+                usedFonts.values.mapIndexed { index, font -> font.resource("font$index") }, PdfOutputOptions(profile, validationEnabled = configuration.pdfaValidation), control, watermark)
             if (profile == PdfOutputProfile.STANDARD || !configuration.pdfaValidation) {
                 val copy = bytes.copyOf()
                 if (profile == PdfOutputProfile.STANDARD) requireNotNull(configuration.validator).validate(copy, profile, control)
