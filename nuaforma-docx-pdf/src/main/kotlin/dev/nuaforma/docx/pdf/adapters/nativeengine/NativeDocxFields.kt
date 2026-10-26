@@ -105,7 +105,7 @@ internal object NativeDocxFields {
             val field = XmlElement(QName(W, "fldSimple", "w"), linkedMapOf(QName(W, "instr", "w") to code)).also { it.children.addAll(runs) }
             return if (contents) listOf(field) else bookmarks.filter { local(it, "bookmarkStart") } + field + bookmarks.filter { local(it, "bookmarkEnd") }
         }
-        for (container in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart in setOf("body", "tc", "hdr", "ftr", "txbxContent") }.toList()) {
+        for (container in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart in setOf("body", "tc", "hdr", "ftr", "txbxContent", "footnote", "endnote") }.toList()) {
             var beginning: XmlElement? = null
             var depth = 0
             var separated = false

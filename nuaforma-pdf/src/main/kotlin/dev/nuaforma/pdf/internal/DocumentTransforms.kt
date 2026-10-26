@@ -4,7 +4,7 @@ import dev.nuaforma.pdf.*
 
 /** Pure immutable reconstruction; traversal order and identities do not depend on physical pages. */
 internal object DocumentTransforms {
-    enum class Scope { BODY, CELL, FRAME, BAND }
+    enum class Scope { BODY, CELL, FRAME, BAND, NOTE }
 
     fun map(document: PdfDocument, normalize: Boolean = false,
         paragraph: (PdfParagraph, String, Scope) -> List<PdfParagraph>,
@@ -59,7 +59,9 @@ internal object DocumentTransforms {
             val flow = sequence.flow?.let { PdfFlow(band(it.header, "$key-header"), band(it.footer, "$key-footer"), it.maxPages,
                 pair(it.firstPageBands, "$key-first"), pair(it.evenPageBands, "$key-even")) }
             PdfPageSequence(sequence.page, blocks(sequence.blocks, key, Scope.BODY), flow, sequence.numbering)
-        }, document.maxPages, document.referenceTargets)
+        }, document.maxPages, document.referenceTargets, document.notes.mapIndexed { index, note ->
+            PdfNote(note.id, note.kind, note.number, blocks(note.paragraphs, "note$index", Scope.NOTE).map { it as PdfParagraph }, note.separator)
+        })
     }
 
     fun normalized(document: PdfDocument): PdfDocument = map(document, true) { p, _, _ -> listOf(p) }

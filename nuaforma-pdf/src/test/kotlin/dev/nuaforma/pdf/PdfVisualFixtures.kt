@@ -26,7 +26,39 @@ internal object PdfVisualFixtures {
     }
 
     fun cases(): List<Case> = listOf(letter(), report(), merged(), splitRows(), lists(), frames(), international(),
-        formats(), keeps(), tableEdges(), automaticSpacing(), anchoredImages(), croppedImage(), navigation(), contentsReferences())
+        formats(), keeps(), tableEdges(), automaticSpacing(), anchoredImages(), croppedImage(), navigation(), contentsReferences(), notes(), continuedNote())
+
+    private fun notes(): Case {
+        val raised = body.copy(size = 7f, baselineShift = 4f)
+        val noteStyle = body.copy(size = 9f)
+        fun definition(id: String, kind: PdfNoteKind, value: String) = PdfNote(id, kind,
+            PdfListValue("notes", 0, 1, "1"), listOf(PdfParagraph(listOf(PdfNoteLabel(noteStyle.copy(size = 6f, baselineShift = 3f)),
+                PdfTextRun(" $value", noteStyle)), format = PdfParagraphFormat(exactLineHeight = 12f))))
+        val foot = definition("visual-foot", PdfNoteKind.FOOTNOTE, "Footnote: café, coördinatie, Сведения και στοιχεία.")
+        val end = definition("visual-end", PdfNoteKind.ENDNOTE, "Endnote: a source recorded after the main text.")
+        val blocks = listOf(heading("Footnotes and endnotes"),
+            PdfParagraph(listOf(PdfTextRun("A raised footnote reference", body), PdfNoteCall("visual-foot-call", foot.id, raised),
+                PdfTextRun(" keeps the body on its own baseline.", body)), spaceAfter = 12f, format = PdfParagraphFormat(exactLineHeight = 16f)),
+            PdfParagraph(listOf(PdfTextRun("An endnote reference", body), PdfNoteCall("visual-end-call", end.id, raised)),
+                spaceAfter = 12f, format = PdfParagraphFormat(exactLineHeight = 16f)),
+            p("The footnote belongs at the page bottom; the endnote follows this text."))
+        return Case("document-notes", PdfDocument(a4, blocks, bands(), notes = listOf(foot, end)), 1,
+            listOf("Footnotes and endnotes", "Footnote: café", "Endnote: a source"))
+    }
+
+    private fun continuedNote(): Case {
+        val style = body.copy(size = 9f)
+        val note = PdfNote("visual-long-note", PdfNoteKind.FOOTNOTE, PdfListValue("notes", 0, 1, "1"),
+            listOf(PdfParagraph(listOf(PdfNoteLabel(style.copy(size = 6f, baselineShift = 3f)), PdfTextRun(" A continuing note.", style)),
+                format = PdfParagraphFormat(exactLineHeight = 12f))) + (1..24).map {
+                PdfParagraph(listOf(PdfTextRun("Note line $it — preserved exactly once.", style)), format = PdfParagraphFormat(exactLineHeight = 12f))
+            })
+        val small = PdfPage(360f, 280f, PdfMargins(28f, 24f, 28f, 24f))
+        val blocks = listOf(PdfParagraph(listOf(PdfTextRun("Body reference", body),
+            PdfNoteCall("visual-long-call", note.id, body.copy(size = 7f, baselineShift = 4f))), format = PdfParagraphFormat(exactLineHeight = 16f)), p("Last body paragraph."))
+        return Case("continued-footnote", PdfDocument(small, blocks, PdfFlow(), notes = listOf(note)), 3,
+            listOf("A continuing note.", "Note line 24", "Last body paragraph."))
+    }
 
     private fun contentsReferences(): Case {
         val format = PdfParagraphFormat(exactLineHeight = 16f)

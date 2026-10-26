@@ -29,6 +29,10 @@ Initial review on 2026-10-25 covered all 17 pages for legibility, wrapping, alig
 | `cropped-image-wrap` | 1 | Asymmetric source crop, explicit non-square output dimensions, rectangular wrapping on US Letter |
 | `navigation-links` | 1 | Wrapped external links, run underlining/color, internal named target, flat outline and mailto link with existing page bands |
 | `contents-references` | 2 | Two-level clickable contents, forward text/page references, caption/figure association, body page counts, header/footer images and preserved logical identities |
+| `document-notes` | 1 | Raised owning references, page-bottom footnote, document-end endnote, multilingual note text, header/footer images and final page counts |
+| `continued-footnote` | 3 | Page-bottom allocation, continued full-width rules, a single label, preserved note paragraphs and a note-only final page |
+
+The note increment adds four initially reviewed pages (2026-10-26), bringing the inventory to seventeen fixtures / twenty-six pages. PDFBox and independent Poppler renderings were visually inspected. All twenty-two earlier PNGs and their inventory rows, plus font/logo inputs, remain byte-identical. New note references do not assert identical Word pagination; see the [independent source comparison](../../../../../tools/pdf-evaluation/own-engine/NOTES.md).
 
 The contents/reference increment adds two initially reviewed pages (2026-10-26), bringing the inventory to fifteen fixtures / twenty-two pages. PDFBox and independent Poppler renderings were visually inspected. All twenty pre-existing PNGs, their manifest rows and the font/logo input inventory remain byte-identical; none was replaced.
 

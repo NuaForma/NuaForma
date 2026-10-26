@@ -254,4 +254,24 @@ class JavaPdfEngineTest {
             org.junit.jupiter.api.Assertions.assertTrue(text.contains("0/1/2") && text.contains("1/1/2"));
         }
     }
+
+    @Test
+    void javaCallerCanSupplyNumberedNotesWithRaisedMarkers() throws IOException {
+        byte[] font;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            font = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        var style = new PdfTextStyle("regular", 10);
+        var raised = new PdfTextStyle("regular", 6, new PdfColor(0, 0, 0), null, false, 4);
+        var format = new PdfParagraphFormat(PdfAlignment.LEFT, 0, 0, 0, 14f);
+        var definition = new PdfParagraph(List.of(new PdfNoteLabel(raised), new PdfTextRun(" Java note", style)), 0, 0, format);
+        var note = new PdfNote("java-note", PdfNoteKind.FOOTNOTE, new PdfListValue("notes", 0, 1, "1"), List.of(definition));
+        var body = new PdfParagraph(List.of(new PdfTextRun("Java body", style), new PdfNoteCall("java-call", note.getId(), raised)), 0, 0, format);
+        var document = new PdfDocument(new PdfPage(300, 240, new PdfMargins(24, 24, 24, 24)), List.of(body), new PdfFlow(), List.of(), List.of(note));
+        try (var pdf = Loader.loadPDF(new PdfEngine().render(document, List.of(new PdfFont("regular", font))))) {
+            assertEquals(1, pdf.getNumberOfPages());
+            org.junit.jupiter.api.Assertions.assertTrue(new PDFTextStripper().getText(pdf).contains("Java note"));
+            assertEquals(0, pdf.getDocumentCatalog().getNames().getDests().getNames().get("java-note").retrievePageNumber());
+        }
+    }
 }

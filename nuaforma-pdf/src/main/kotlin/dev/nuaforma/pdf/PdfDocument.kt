@@ -4,15 +4,16 @@ import java.util.Collections
 import dev.nuaforma.pdf.internal.placements
 
 /** Bounded document model. Parsers and source-format semantics belong to format adapters. */
-class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>, val maxPages: Int = 32, referenceTargets: List<PdfReferenceTarget> = emptyList()) {
+class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>, val maxPages: Int = 32, referenceTargets: List<PdfReferenceTarget> = emptyList(), notes: List<PdfNote> = emptyList()) {
+    val notes: List<PdfNote> = Collections.unmodifiableList(ArrayList(notes))
     val referenceTargets: List<PdfReferenceTarget> = Collections.unmodifiableList(ArrayList(referenceTargets))
     val pageSequences: List<PdfPageSequence> = Collections.unmodifiableList(ArrayList(pageSequences)).also {
         require(it.size in 1..32) { "A document needs 1 to 32 page sequences" }
     }
 
     /** Existing single-policy construction retains its original page budget and layout path. */
-    @JvmOverloads constructor(page: PdfPage, blocks: List<PdfBlock>, flow: PdfFlow? = null, referenceTargets: List<PdfReferenceTarget> = emptyList()) :
-        this(listOf(PdfPageSequence(page, blocks, flow)), flow?.maxPages ?: 1, referenceTargets)
+    @JvmOverloads constructor(page: PdfPage, blocks: List<PdfBlock>, flow: PdfFlow? = null, referenceTargets: List<PdfReferenceTarget> = emptyList(), notes: List<PdfNote> = emptyList()) :
+        this(listOf(PdfPageSequence(page, blocks, flow)), flow?.maxPages ?: 1, referenceTargets, notes)
 
     /** First-sequence views retained for existing callers; use pageSequences for the whole document. */
     val page: PdfPage get() = pageSequences.first().page
@@ -28,13 +29,15 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
         require(allParagraphs().sumOf { it.runs.count { run -> run is PdfTab } } <= 2_000) { "Tab control budget exceeded" }
         require(this.referenceTargets.size <= 1_000 && this.referenceTargets.map { it.name }.distinct().size == this.referenceTargets.size) { "Duplicate or excessive reference targets" }
         require(this.referenceTargets.sumOf { it.runs.size } <= 10_000 && this.referenceTargets.sumOf { it.runs.filterIsInstance<PdfTextRun>().sumOf { run -> run.text.length.toLong() } } <= 100_000) { "Reference-range budget exceeded" }
-        val fields = allParagraphs().flatMap { it.runs }.mapNotNull { when (it) { is PdfReferenceField -> it.id; is PdfSequenceField -> it.id; else -> null } }
+        require(this.notes.size <= 500 && this.notes.map { it.id }.distinct().size == this.notes.size) { "Duplicate or excessive notes" }
+        require(this.notes.groupBy { it.kind }.values.all { group -> group.map { it.separator }.distinct().size == 1 }) { "A note kind needs one separator policy" }
+        val fields = allParagraphs().flatMap { it.runs }.mapNotNull { when (it) { is PdfReferenceField -> it.id; is PdfSequenceField -> it.id; is PdfNoteCall -> it.id; else -> null } }
         require(fields.size <= 1_000 && fields.distinct().size == fields.size) { "Duplicate or excessive field identities" }
     }
 
     internal fun validateNavigation(allowUnresolved: Boolean = false) {
         val navigation = allParagraphs().flatMap { it.runs }.mapNotNull { when (it) {
-            is PdfTextRun -> it.navigation; is PdfReferenceField -> it.navigation; is PdfSequenceField -> it.navigation; else -> null
+            is PdfTextRun -> it.navigation; is PdfReferenceField -> it.navigation; is PdfSequenceField -> it.navigation; is PdfNoteCall -> it.navigation; is PdfNoteLabel -> it.navigation; else -> null
         } }
         require(navigation.size <= 2_000) { "Navigation budget exceeded" }
         val destinations = navigation.flatMap { it.destinations }.map { it.name }
@@ -53,10 +56,11 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
                 block.rows.asSequence().flatMap { row -> row.cells.asSequence().flatMap { cell -> cell.blocks.asSequence().flatMap { collect(it, depth + 1) } } }
             }
         }
-        return pageSequences.asSequence().flatMap { sequence ->
+        val main = pageSequences.asSequence().flatMap { sequence ->
             (sequence.blocks + sequence.flow?.bands.orEmpty().flatMap { it.blocks }).asSequence()
         }
-            .flatMap { collect(it, 0) }.take(2_001).toList().also { require(it.size <= 2_000) { "Paragraph budget exceeded" } }
+            .flatMap { collect(it, 0) }
+        return (main + notes.asSequence().flatMap { it.paragraphs.asSequence() }).take(2_001).toList().also { require(it.size <= 2_000) { "Paragraph budget exceeded" } }
     }
 }
 
@@ -269,11 +273,14 @@ data class PdfTextStyle @JvmOverloads constructor(
     val color: PdfColor = PdfColor(0, 0, 0),
     val languageTag: String? = null,
     val underline: Boolean = false,
+    /** Positive values raise glyphs relative to the paragraph baseline; units are PDF points. */
+    val baselineShift: Float = 0f,
 ) {
     init {
         require(languageTag == null || languageTag.length <= 64 && languageTag.matches(Regex("[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*"))) { "Invalid text language tag" }
         require(fontId.matches(Regex("[A-Za-z0-9_-]{1,64}"))) { "Invalid font ID" }
         require(size.isFinite() && size in 1f..200f) { "Invalid font size" }
+        require(baselineShift.isFinite() && baselineShift in -200f..200f) { "Invalid baseline shift" }
     }
 }
 

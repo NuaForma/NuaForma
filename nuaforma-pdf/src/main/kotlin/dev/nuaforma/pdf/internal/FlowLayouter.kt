@@ -265,11 +265,11 @@ internal object FlowLayouter {
         target += elements.map { translate(it, 0f, offset) }
     }
 
-    private fun placeLine(line: List<PositionedElement>, x: Float, top: Float, target: MutableList<PositionedElement>) {
+    internal fun placeLine(line: List<PositionedElement>, x: Float, top: Float, target: MutableList<PositionedElement>) {
         target += line.map { translate(it, x, top) }
     }
 
-    private fun translate(element: PositionedElement, x: Float, y: Float): PositionedElement = when (element) {
+    internal fun translate(element: PositionedElement, x: Float, y: Float): PositionedElement = when (element) {
         is PositionedText -> element.copy(x = element.x + x, baseline = element.baseline + y)
         is PositionedImage -> element.copy(x = element.x + x, top = element.top + y)
         is PositionedRectangle -> element.copy(x = element.x + x, top = element.top + y)

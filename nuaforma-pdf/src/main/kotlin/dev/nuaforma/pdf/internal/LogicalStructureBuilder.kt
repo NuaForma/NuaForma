@@ -124,6 +124,10 @@ internal object LogicalStructureBuilder {
                 band(flow.evenPageBands?.header, "$id-even-header", id, PdfSemanticRole.HEADER); band(flow.evenPageBands?.footer, "$id-even-footer", id, PdfSemanticRole.FOOTER)
             }
         }
+        for (note in document.notes) {
+            add(PdfSemanticNode(note.id, PdfSemanticRole.NOTE, "_document"))
+            note.paragraphs.forEach { paragraph(it, note.id) }
+        }
         // A multi-run bookmark describes the containing range, not only its first numbered label.
         for (target in document.referenceTargets) if (target.runs.size > 1) aliases[target.name]?.let { first ->
             val node = nodes.getValue(first)
@@ -137,9 +141,9 @@ internal object LogicalStructureBuilder {
         return PdfLogicalStructure(nodes.values.toList())
     }
 
-    fun paragraphText(p: PdfParagraph): String? {
+    fun paragraphText(p: PdfParagraph, includeNoteCalls: Boolean = true): String? {
         if (p.runs.any { it is PdfPageField }) return null
         val label = p.listLabel?.let { it.value.text + if (it.suffix == PdfListSuffix.NOTHING) "" else if (it.suffix == PdfListSuffix.TAB) "\t" else " " }.orEmpty()
-        return label + p.runs.joinToString("") { when (it) { is PdfTextRun -> it.text; is PdfTab -> "\t"; is PdfImageRun -> "\uFFFC"; else -> "" } }
+        return label + p.runs.joinToString("") { when (it) { is PdfTextRun -> if (!includeNoteCalls && it.semantics?.role == PdfSemanticRole.NOTE_REFERENCE) "" else it.text; is PdfTab -> "\t"; is PdfImageRun -> "\uFFFC"; else -> "" } }
     }
 }
