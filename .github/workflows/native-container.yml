@@ -59,18 +59,12 @@ jobs:
             --build-context application=nuaforma-server/build/install/nuaforma-server \
             --build-context playgroundapplication=nuaforma-playground/build/install/nuaforma-playground \
             --target playground --tag nuaforma-playground:native-candidate deployment/pdf-runtime
-      - name: Check native platform, compiled filter and real service
+      - name: Check native platform, runtime default policies and real service
         run: |
-          sudo apparmor_parser --add --skip-cache deployment/pdf-runtime/nuaforma.apparmor
-          sudo grep -F 'nuaforma-runtime (enforce)' /sys/kernel/security/apparmor/profiles
-          docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile --build-context qualificationfixtures=tools/pdf-evaluation --target sandbox-probe-build --tag nuaforma:native-probe deployment/pdf-runtime
           python3 tools/container/verify_native_platform.py --image nuaforma:native-candidate --architecture ${{ matrix.architecture }}
-          python3 tools/container/check_renderer_filter.py --image nuaforma:native-candidate --architecture ${{ matrix.architecture }} --output build/native-container/renderer-seccomp.bpf
-          python3 tools/container/qualify_sandbox.py --image nuaforma:native-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --output build/native-container/isolation
-          python3 tools/container/qualify_sandbox.py --image nuaforma:native-candidate --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --exec-hint --output build/native-container/compatibility-isolation
-          python3 tools/container/qualify_service.py --image nuaforma:native-candidate --apparmor nuaforma-runtime --output build/native-container/qualification
-          python3 tools/container/qualify_endpoints.py --image nuaforma:native-candidate --architecture ${{ matrix.architecture }} --application server --apparmor nuaforma-runtime --output build/native-container/endpoints
-          python3 tools/container/qualify_endpoints.py --image nuaforma-playground:native-candidate --architecture ${{ matrix.architecture }} --application playground --apparmor nuaforma-runtime --output build/native-container/playground
+          python3 tools/container/qualify_service.py --image nuaforma:native-candidate --output build/native-container/qualification
+          python3 tools/container/qualify_endpoints.py --image nuaforma:native-candidate --architecture ${{ matrix.architecture }} --application server --output build/native-container/endpoints
+          python3 tools/container/qualify_endpoints.py --image nuaforma-playground:native-candidate --architecture ${{ matrix.architecture }} --application playground --output build/native-container/playground
           ./gradlew :nuaforma-server:validateSbomFile -PsbomFile=build/native-container/endpoints/sbom.json --warning-mode=fail
           ./gradlew :nuaforma-server:validateSbomFile -PsbomFile=build/native-container/playground/sbom.json --warning-mode=fail
       - name: Qualify fonts and trusted extension boundaries with existing native tools
@@ -78,15 +72,10 @@ jobs:
           mkdir -p build/native-container/fonts build/native-container/extensions
           cp nuaforma-server/build/mounted-provider-qualification/mounted-provider.jar build/native-container/extensions/
           cp nuaforma-docx/src/test/resources/fonts/LibreBarcode39-Regular.ttf build/native-container/fonts/
-          python3 tools/container/qualify_java_runtime.py --image nuaforma:native-candidate --architecture ${{ matrix.architecture }} --apparmor nuaforma-runtime --fonts build/native-container/fonts --extensions build/native-container/extensions --output build/native-container/java-runtime
-      - name: Show only matching synthetic policy denials on failure
-        if: failure()
-        run: sudo journalctl --dmesg --no-pager | grep 'profile="nuaforma-runtime"' | grep 'apparmor="DENIED"' || true
-      - name: Diagnose the already generated synthetic document without exposing request logs
-        if: failure()
+          python3 tools/container/qualify_java_runtime.py --image nuaforma:native-candidate --architecture ${{ matrix.architecture }} --fonts build/native-container/fonts --extensions build/native-container/extensions --output build/native-container/java-runtime
+      - name: Verify independent Java 17 consumer with runtime default policies
         run: |
-          if test -f build/native-container/qualification/document.docx; then
-            python3 tools/container/diagnose_synthetic_render.py --image nuaforma:native-candidate --apparmor nuaforma-runtime --document build/native-container/qualification/document.docx --output build/native-container/synthetic-diagnosis
-          fi
+          ./gradlew verifyEmbeddedConsumers --warning-mode=fail
+          python3 tools/release/verify_embedded_pdf.py --docker docker --image nuaforma:native-candidate --source build/native-container/qualification/document.docx --output build/native-container/embedded-pdf
 
 # No binary artifacts, registry writes, image push or security-policy bypass.

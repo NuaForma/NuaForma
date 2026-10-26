@@ -86,18 +86,12 @@ jobs:
             --target ${{ matrix.target }} --tag "$IMAGE_NAME:release-candidate" deployment/pdf-runtime
       - name: Qualify shipped HTTP entry point and shutdown
         run: |
-          sudo apparmor_parser --add --skip-cache deployment/pdf-runtime/nuaforma.apparmor
-          sudo grep -F 'nuaforma-runtime (enforce)' /sys/kernel/security/apparmor/profiles
-          docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile --build-context qualificationfixtures=tools/pdf-evaluation --target sandbox-probe-build --tag nuaforma:native-probe deployment/pdf-runtime
           python3 tools/container/test_native_platform.py
           python3 tools/container/verify_native_platform.py --image "$IMAGE_NAME:release-candidate" --architecture ${{ matrix.architecture }}
-          python3 tools/container/check_renderer_filter.py --image "$IMAGE_NAME:release-candidate" --architecture ${{ matrix.architecture }} --output build/container-release/renderer-seccomp.bpf
-          python3 tools/container/qualify_sandbox.py --image "$IMAGE_NAME:release-candidate" --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --output build/container-release/isolation
-          python3 tools/container/qualify_sandbox.py --image "$IMAGE_NAME:release-candidate" --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --exec-hint --output build/container-release/compatibility-isolation
           if test "$APPLICATION" = server; then
-            python3 tools/container/qualify_service.py --image "$IMAGE_NAME:release-candidate" --apparmor nuaforma-runtime --expected-version "$CONTAINER_VERSION" --output build/container-release/qualification
+            python3 tools/container/qualify_service.py --image "$IMAGE_NAME:release-candidate" --expected-version "$CONTAINER_VERSION" --output build/container-release/qualification
           fi
-          python3 tools/container/qualify_endpoints.py --image "$IMAGE_NAME:release-candidate" --architecture ${{ matrix.architecture }} --application "$APPLICATION" --expected-version "$CONTAINER_VERSION" --apparmor nuaforma-runtime --output build/container-release/endpoints
+          python3 tools/container/qualify_endpoints.py --image "$IMAGE_NAME:release-candidate" --architecture ${{ matrix.architecture }} --application "$APPLICATION" --expected-version "$CONTAINER_VERSION" --output build/container-release/endpoints
           ./gradlew :nuaforma-server:validateSbomFile -PsbomFile=build/container-release/endpoints/sbom.json --warning-mode=fail
       - name: Export exact inventory for distribution review
         run: |
@@ -111,7 +105,5 @@ jobs:
             build/container-release/inventory/
             build/container-release/endpoints/sbom.json
             build/container-release/qualification/qualification.json
-            build/container-release/isolation/isolation.txt
-            build/container-release/compatibility-isolation/isolation.txt
           if-no-files-found: error
           retention-days: 14

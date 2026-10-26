@@ -20,11 +20,9 @@ def main():
     parser.add_argument("--image", required=True)
     parser.add_argument("--architecture", required=True, choices=("amd64", "arm64"))
     parser.add_argument("--docker", default="docker")
-    parser.add_argument("--seccomp", type=pathlib.Path, default=pathlib.Path("deployment/pdf-runtime/seccomp.json"))
     parser.add_argument("--fonts", required=True, type=pathlib.Path)
     parser.add_argument("--extensions", required=True, type=pathlib.Path)
     parser.add_argument("--output", required=True, type=pathlib.Path)
-    parser.add_argument("--apparmor", choices=("nuaforma-runtime",))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     fonts = args.output / "mixed-fonts"

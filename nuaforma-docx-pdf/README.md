@@ -8,7 +8,7 @@ Standard PDF 1.7 and PDF/A-1b, 2b and 3b use the existing profile identifiers an
 
 Every delivered native PDF requires independent structural/font/active-content checks. Archival output additionally uses the exact requested veraPDF flavour unless the trusted operator explicitly disables conformance checking. The existing immutable, default-on operator policy remains separate from request options. Disabling conformance checking retains structural checks and does not establish PDF/A compliance. PDF/UA, PDF/A level A and attachments remain unsupported.
 
-The separate validator uses Java 17. Container validation retains a private directory, bounded JVM/process, read-only runtime/files, no inherited secrets, denied networking and cleanup. An unavailable or failed validator never causes unvalidated delivery or a renderer fallback. Standard DOCX output remains available without the PDF validator.
+The separate validator uses Java 17. Container validation retains a private directory, bounded JVM/process, read-only installations, a cleared inherited environment and cleanup. Server and validator share the ordinary container filesystem and network boundary under runtime default policies; Bubblewrap and a custom seccomp file are not required. Deployment-level egress controls remain the operator's responsibility. An unavailable or failed validator never causes unvalidated delivery or a renderer fallback. Standard DOCX output remains available without the PDF validator.
 
 ## Supported source profile
 

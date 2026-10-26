@@ -40,7 +40,7 @@ java -Dnuaforma.pdf.validator.java=/absolute/java17/bin/java \
 
 The module's `prepareOwnEngineValidation` task stages the validator distribution locally. Use an appropriate reviewed launcher/isolation boundary for hosted processing; no Office installation, document-renderer executable or server is required for embedded conversion. The [PDF guide](../../nuaforma-docx-pdf/README.md) and [runtime guide](../../deployment/pdf-runtime/README.md) define the qualified profile, fonts, limits and validation boundary.
 
-The `tools/release/verify_embedded_pdf.py` helper checks an independently compiled example inside an explicitly selected qualified container. It does not publish images, JARs or fonts and does not replace exact-candidate runtime qualification.
+The `tools/release/verify_embedded_pdf.py` helper checks an independently compiled example inside an explicitly selected qualified native container, with runtime default policies and separate bounded Java validation. Supply `--source <synthetic.docx>`, `--docker docker`, `--image <candidate>` and a fresh `--output` directory after `verifyEmbeddedConsumers`. It configures the image's supplied fonts and validator paths, publishes no artifacts and supplements exact-candidate runtime qualification.
 
 ## Third-party providers
 

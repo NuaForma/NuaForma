@@ -29,30 +29,22 @@ def package(args):
     assert re.fullmatch(r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?", args.version)
     args.output.mkdir(parents=True, exist_ok=False)
     sources = json.loads((args.sources / "collection.json").read_text())
-    externals = json.loads((args.externals / "collection.json").read_text())
     provenance = json.loads((args.provenance / "inventory.json").read_text())
     application = json.loads((args.application / "inventory.json").read_text())
-    assert not sources["errors"] and not externals["errors"]
-    groups = {name: {} for name in ("debian", "libreoffice", "java", "jvm")}
+    assert not sources["errors"]
+    groups = {name: {} for name in ("debian", "java", "jvm")}
     for source in sources["debian"]:
         assert source["descriptorChecksumsVerified"]
         for file in source["files"]:
             add_record(groups["debian"], args.sources, file["path"], file["sha256"], "sources")
     for file in sources["upstream"]:
-        name = "libreoffice" if file["path"].startswith("libreoffice/") else "java"
+        assert file["path"].startswith("temurin/"), "Unreviewed upstream runtime source"
+        name = "java"
         add_record(groups[name], args.sources, file["path"], file["sha256"], "sources")
         for suffix in (".asc", ".sig", ".json"):
             candidate = args.sources / (file["path"] + suffix)
             if candidate.is_file():
                 add_record(groups[name], args.sources, file["path"] + suffix, checksum(candidate), "sources")
-    excluded = []
-    for file in externals["files"]:
-        if file["file"].endswith(".nupkg"):
-            assert file["file"] == "python.3.12.8.nupkg"
-            excluded.append(dict(file=file["file"], reason="unused Windows-only bootstrap binary"))
-            continue
-        add_record(groups["libreoffice"], args.externals, file["file"], file["sha256"], "external-inputs")
-    add_record(groups["libreoffice"], args.externals, "download.lst", checksum(args.externals / "download.lst"), "external-inputs")
     for file in provenance["files"]:
         name = "java" if file["file"].startswith("temurin-build-") else "jvm"
         add_record(groups[name], args.provenance, file["file"], file["sha256"], "upstream-provenance")
@@ -74,7 +66,7 @@ def package(args):
                 with file.open("rb") as stream:
                     archive.addfile(info, stream)
             manifest = json.dumps(dict(files=[dict(path=path, sha256=digest) for path, (_, digest) in sorted(entries.items())],
-                                       excluded=excluded if name == "libreoffice" else []), indent=2).encode()
+                                       excluded=[]), indent=2).encode()
             import io
             info = tarfile.TarInfo("SOURCE-MANIFEST.json")
             info.size, info.mode, info.mtime = len(manifest), 0o644, 0
@@ -88,7 +80,7 @@ def package(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("sources", "externals", "provenance", "application", "validator", "output"):
+    for name in ("sources", "provenance", "application", "validator", "output"):
         parser.add_argument("--" + name, required=True, type=pathlib.Path)
     parser.add_argument("--version", required=True)
     package(parser.parse_args())

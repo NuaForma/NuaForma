@@ -21,7 +21,7 @@ docker compose -f deployment/pdf-runtime/compose.yaml -f deployment/pdf-runtime/
 docker compose -f deployment/pdf-runtime/compose.yaml -f deployment/pdf-runtime/compose.playground.yaml up -d
 ```
 
-Open `http://127.0.0.1:8080/playground/`. Compose's sample loopback publication is an example, not an application restriction. Operators can configure ingress or other host bindings; the application does not enforce local-only access. Do not weaken the existing process isolation, seccomp, user or resource settings. No public Playground image is implied by a local build.
+Open `http://127.0.0.1:8080/playground/`. Compose's sample loopback publication is an example, not an application restriction. Operators can configure ingress or other host bindings; the application does not enforce local-only access. Retain separate bounded validator JVMs, runtime default container policies, non-root execution and resource limits. No custom seccomp/AppArmor file is needed. A local build does not publish a Playground image.
 
 The Playground image defaults to `NUAFORMA_PLAYGROUND=true`, `NUAFORMA_MODE=development` and the Playground application entry point. Unknown/empty explicit switches fail startup; enabling the Playground in production mode, or without its module, fails. Setting the switch to `false` disables all UI routes/assets. Production defaults remain unchanged.
 

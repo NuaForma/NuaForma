@@ -11,7 +11,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--image", required=True)
     parser.add_argument("--docker", default="docker")
-    parser.add_argument("--seccomp", type=pathlib.Path, default=pathlib.Path("deployment/pdf-runtime/seccomp.json"))
     parser.add_argument("--fixtures", type=pathlib.Path, required=True)
     parser.add_argument("--fonts", type=pathlib.Path, required=True)
     parser.add_argument("--incompatible", type=pathlib.Path, required=True)

@@ -1,6 +1,6 @@
 # Registered native DOCX/PDF integration trials
 
-Roadmap part 14 promotes the bounded DOCX reader into the registered `DocxPdfProvider`, reuses `nuaforma-docx` for template processing and `nuaforma-pdf` for rendering, and removes the production LibreOffice backend. These are source-candidate trials, not a release or evidence of arbitrary Word compatibility. Final repository/runtime qualification is still in progress.
+Roadmap part 14 promotes the bounded DOCX reader into the registered `DocxPdfProvider`, reuses `nuaforma-docx` for template processing and `nuaforma-pdf` for rendering, and removes the production LibreOffice backend. These are source-candidate trials, not a release or evidence of arbitrary Word compatibility. Part 14 was subsequently delivered on the integration branch, with source qualification recorded in the [roadmap](../../../docs/architecture/own-engine-roadmap.md). The local measurements below retain their original baseline; the current [runtime guide](../../../deployment/pdf-runtime/README.md) defines the approved default-policy container boundary, which removes the historical Bubblewrap/filter setup. Native AMD64/ARM64 and strict Linux font-permission checks passed at the part-14 integration revision recorded in the roadmap. Each later container revision still requires its own native checks.
 
 ## Independent Word references
 

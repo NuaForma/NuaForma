@@ -28,16 +28,14 @@ class SourceMaterialsTest(unittest.TestCase):
     def test_versioned_source_packaging_accepts_new_alpha_and_rejects_unsafe_names(self):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
-            folders = {name: root / name for name in ("sources", "externals", "provenance", "application", "validator")}
+            folders = {name: root / name for name in ("sources", "provenance", "application", "validator")}
             for folder in folders.values(): folder.mkdir()
             (folders["sources"] / "collection.json").write_text(json.dumps(dict(errors=[], debian=[], upstream=[])))
-            (folders["externals"] / "collection.json").write_text(json.dumps(dict(errors=[], files=[])))
-            (folders["externals"] / "download.lst").write_text("synthetic inputs")
             (folders["provenance"] / "inventory.json").write_text(json.dumps(dict(files=[])))
             (folders["application"] / "inventory.json").write_text(json.dumps(dict(retained=[])))
             output = root / "output"
             package(SimpleNamespace(**folders, version="0.1.0-alpha.2", output=output))
-            self.assertEqual(4, len(list(output.glob("*-0.1.0-alpha.2.tar"))))
+            self.assertEqual({f"nuaforma-sources-{group}-0.1.0-alpha.2.tar" for group in ("debian", "java", "jvm")}, {file.name for file in output.glob("*.tar")})
             for version in ("../escape", "0.1.0/alpha.2", "0.1.0-alpha.2;exit", "01.1.0"):
                 with self.assertRaises(AssertionError):
                     package(SimpleNamespace(**folders, version=version, output=root / "unsafe"))

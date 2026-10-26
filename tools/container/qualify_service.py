@@ -90,13 +90,11 @@ class Runtime:
     def __init__(self, args, *environment):
         self.args = args
         self.name = "nuaforma-qualification-" + uuid.uuid4().hex
-        apparmor = getattr(args, "apparmor", None)
-        policy = ["--security-opt", "apparmor=" + apparmor] if apparmor else []
         self.command("run", "-d", "--init", "--name", self.name, "--label", "dev.nuaforma.qualification=" + self.name,
                      "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
-                     "--security-opt", "seccomp=" + str(args.seccomp.resolve()), "--pids-limit", "128",
+                     "--pids-limit", "128",
                      "--memory", "2g", "--cpus", "2", "--tmpfs", "/tmp:rw,size=512m,mode=1777",
-                     "--publish", "127.0.0.1::8080", *policy, *environment, args.image)
+                     "--publish", "127.0.0.1::8080", *environment, args.image)
 
     def command(self, *command, timeout=45):
         return subprocess.check_output([self.args.docker, *command], text=True, encoding="utf-8", stderr=subprocess.STDOUT, timeout=timeout).strip()
@@ -109,11 +107,24 @@ class Runtime:
             try:
                 status, _, _ = http(self.base, "/openapi.json", timeout=2)
                 if status == 200:
+                    self.verify_default_boundary()
                     return self.base
             except (OSError, TimeoutError):
                 pass
             time.sleep(0.2)
         raise AssertionError("Shipped server did not start: " + self.command("logs", self.name))
+
+    def verify_default_boundary(self):
+        config = json.loads(self.command("inspect", self.name))[0]
+        verify_isolation(config)
+        assert config["Config"].get("Labels", {}).get("dev.nuaforma.validation-boundary") == "container"
+        status = self.command("exec", self.name, "cat", "/proc/self/status")
+        fields = dict(line.split(":", 1) for line in status.splitlines() if ":" in line)
+        assert fields["Seccomp"].strip() == "2", "The ordinary runtime seccomp filter must remain active"
+        assert fields["NoNewPrivs"].strip() == "1" and int(fields["CapEff"].strip(), 16) == 0
+        absent = self.command("exec", self.name, "/bin/sh", "-c",
+                              "! command -v bwrap && test ! -e /usr/share/nuaforma/renderer-seccomp.bpf && test ! -d /opt/nuaforma/renderer && echo default-boundary")
+        assert absent == "default-boundary", "Removed namespace runtime must not remain in the image"
 
     def clean(self):
         paths = self.command("exec", self.name, "/bin/sh", "-c", "find /tmp -maxdepth 1 -name 'nuaforma-*' -print")
@@ -130,12 +141,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--image", required=True)
     parser.add_argument("--docker", default="docker")
-    parser.add_argument("--seccomp", type=pathlib.Path, default=pathlib.Path("deployment/pdf-runtime/seccomp.json"))
     parser.add_argument("--output", type=pathlib.Path, required=True)
     parser.add_argument("--fixtures", type=pathlib.Path)
     parser.add_argument("--fonts", type=pathlib.Path)
     parser.add_argument("--expected-version")
-    parser.add_argument("--apparmor", choices=("nuaforma-runtime",))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     checks = []
@@ -143,13 +152,13 @@ def main():
     try:
         base = runtime.connect()
         config = json.loads(runtime.command("inspect", runtime.name))[0]
-        verify_isolation(config, args.apparmor)
+        verify_isolation(config)
         assert config["Config"]["User"] == "1000:1000" and config["HostConfig"]["ReadonlyRootfs"]
         assert config["HostConfig"]["Init"] and not config["HostConfig"]["Privileged"]
         assert config["HostConfig"]["CapDrop"] == ["ALL"]
         assert runtime.command("exec", runtime.name, "id", "-u") == "1000"
-        assert runtime.command("exec", runtime.name, "/bin/sh", "-c", "test ! -w /opt/nuaforma/application && test ! -w /opt/nuaforma/renderer && echo immutable") == "immutable"
-        checks.append("non-root/read-only/capabilities/init")
+        assert runtime.command("exec", runtime.name, "/bin/sh", "-c", "test ! -w /opt/nuaforma/application && test ! -w /opt/nuaforma/pdf-validation && test ! -w /opt/java/openjdk && echo immutable") == "immutable"
+        checks.append("non-root/read-only/capabilities/init/default-seccomp/no-bubblewrap")
         assert config["Config"]["Healthcheck"]["Test"] == ["CMD", "/opt/nuaforma/bin/healthcheck"]
         assert http(base, "/health/live")[0] == 200
         ready_deadline = time.monotonic() + 10

@@ -10,12 +10,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--image", required=True)
     parser.add_argument("--docker", default="docker")
-    parser.add_argument("--seccomp", type=pathlib.Path, default=pathlib.Path("deployment/pdf-runtime/seccomp.json"))
     parser.add_argument("--fonts", type=pathlib.Path, required=True)
     parser.add_argument("--extensions", type=pathlib.Path, required=True)
     parser.add_argument("--fixtures", type=pathlib.Path, required=True)
     parser.add_argument("--output", type=pathlib.Path, required=True)
-    parser.add_argument("--apparmor", choices=("nuaforma-runtime",))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     runtime = Runtime(args, "--mount", "type=bind,source=" + str(args.fonts.resolve()) + ",target=/opt/nuaforma/custom-fonts,readonly",
