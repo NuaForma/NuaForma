@@ -1,6 +1,6 @@
 # NuaForma DOCX/PDF provider
 
-The `feature/own-pdf-engine` sources are being migrated under roadmap part 14. The registered `DocxPdfProvider` delegates template processing and DOCX output to `nuaforma-docx`, translates filled DOCX into the neutral model, and writes PDF through `nuaforma-pdf`. Rendering takes place in the hosting JVM with request-local state; there is no production LibreOffice backend or automatic external-renderer fallback. This is source work under qualification, not a published native release.
+The registered `DocxPdfProvider` reuses `nuaforma-docx` for template processing and DOCX output, translates supported filled DOCX into the neutral model, and writes PDF through `nuaforma-pdf`. Rendering takes place in the hosting JVM with request-local state. There is no LibreOffice backend or external document-renderer fallback. The native source profile is not yet published.
 
 ## Output and validation
 
@@ -26,7 +26,7 @@ Requested PDF watermarks and `paragraphDefaults` fallbacks are not yet qualified
 
 The default registered provider captures trusted JVM properties and deployment-font snapshots at construction. The container sets `nuaforma.pdf.validator.java`, `nuaforma.pdf.validator.directory` and `nuaforma.pdf.validator.launcher`; `nuaforma.pdf.parallelism` retains its bounded operator setting. Libraries do not read environment variables. `nuaforma.pdf.pdfaValidation` retains the existing strict `true`/`false`, default-on policy. The obsolete renderer launcher does not select another backend.
 
-This is a source/API migration: the former `LibreOfficeConfiguration` constructor is no longer part of the production artifact. Explicit consumers must supply `NativePdfConfiguration`; the zero-argument registered provider and content/value-pipe overloads remain available with the new configuration type. Default profile identifiers are preserved, but the accepted DOCX feature subset changes. Qualify actual templates against the native profile before adopting this branch; historical LibreOffice acceptance does not establish native compatibility.
+Explicit embedded composition uses `NativePdfConfiguration`; zero-argument discovery and content/value-pipe overloads capture the same native configuration. Default profile identifiers remain stable. Qualify actual templates against the supported source subset before adopting this evaluation version.
 
 ## Operator conformance policy (unreleased issue #93 source)
 
@@ -38,4 +38,4 @@ The engine's reviewed golden files and Word-export comparison documents remain p
 
 The [registered-provider integration trials](../tools/pdf-evaluation/own-engine/NATIVE-INTEGRATION.md) retain six new Word-matched pages, including an 80-row conditional report, with per-page content/geometry results and visual review.
 
-Final repository, independent Java 17 consumer, REST/Playground, container, isolation, load and corpus checks remain delivery gates for part 14. No native release, publication or tag is implied. See the [roadmap](../docs/architecture/own-engine-roadmap.md), [shared engine guide](../nuaforma-pdf/README.md), and [historical LibreOffice release reference](LEGACY.md).
+Full repository/consumer, Word/golden, REST/Playground and native AMD64/ARM64 checks qualify the bounded source profile. Each release still requires exact-candidate validation, signing, source/notices and website handoff. See the [roadmap](../docs/architecture/own-engine-roadmap.md) and [shared engine guide](../nuaforma-pdf/README.md).
