@@ -6,6 +6,8 @@ The registered `nuaforma-docx-pdf` provider and source server/container use this
 
 ## Minimal Java API
 
+Text may carry `PdfTextNavigation` independently of styling: `PdfLink.External` creates inert HTTP/HTTPS/mailto links, `PdfLink.Internal` refers to a unique `PdfDestination`, and an optional destination title creates a flat PDF outline entry. Final physical placements determine clickable rectangles and targets. See the [navigation profile and Word comparisons](../tools/pdf-evaluation/own-engine/NAVIGATION.md) for limits, including unsupported bidi/frame navigation and the bounded single-underline style.
+
 ```java
 var style = new PdfTextStyle("regular", 11);
 var paragraph = new PdfParagraph(List.of(new PdfTextRun("café €", style)));
@@ -119,7 +121,7 @@ Frames accept 1–128 paragraphs each and participate in the existing aggregate 
 
 ## Reproduce and verify the letter
 
-Engine-only visual baselines and their strict replacement policy are documented in the [golden-image guide](src/test/resources/visual-goldens/README.md). Candidate generation does not overwrite references. Tests compare all nineteen pages of thirteen neutral-model fixtures with the published Image Comparison 5.0.0 Kotlin DSL, using exact pixel equality alongside inventory/content/geometry/font checks. Failure diagnostics retain the actual PDF and expected/actual/difference images; the library is a test-only dependency and adds no production runtime or Playground behavior.
+Engine-only visual baselines and their strict replacement policy are documented in the [golden-image guide](src/test/resources/visual-goldens/README.md). Candidate generation does not overwrite references. Tests compare all twenty pages of fourteen neutral-model fixtures with the published Image Comparison 5.0.0 Kotlin DSL, using exact pixel equality alongside inventory/content/geometry/font checks. Failure diagnostics retain the actual PDF and expected/actual/difference images; the library is a test-only dependency and adds no production runtime or Playground behavior.
 
 ```sh
 ./gradlew :nuaforma-pdf:test

@@ -331,6 +331,31 @@ val borderFragmentationRenders = listOf("a4", "letter").map { kind ->
 tasks.register("renderOwnEngineBorderFragmentation") { group = "verification"; dependsOn(borderFragmentationRenders) }
 
 val anchoredImageKinds = listOf("left", "right", "largest", "top-bottom", "page", "boundary", "letter", "crop", "both-sides", "multipage")
+val generateOwnEngineNavigation = tasks.register<Exec>("generateOwnEngineNavigation") {
+    val folder = rootProject.file("tools/pdf-evaluation/own-engine")
+    val output = layout.buildDirectory.dir("own-engine-navigation")
+    inputs.files(folder.resolve("build_navigation_fixtures.py"), folder.resolve("build_fixture.py"), rootProject.file("assets/branding/nuaforma-icon-transparent.png"))
+    outputs.dir(output)
+    commandLine("python3", folder.resolve("build_navigation_fixtures.py").absolutePath, output.get().asFile.absolutePath)
+}
+tasks.processTestResources {
+    dependsOn(generateOwnEngineNavigation)
+    from(layout.buildDirectory.dir("own-engine-navigation")) { into("own-engine-navigation") }
+}
+val navigationRenders = listOf("a4", "letter", "table", "multipage").map { kind ->
+    tasks.register<JavaExec>("renderOwnEngineNavigation${kind.replaceFirstChar { it.uppercase() }}") {
+        group = "verification"
+        dependsOn(tasks.testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass.set("dev.nuaforma.docx.pdf.ownengine.OwnEngineProof")
+        javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+        args(layout.buildDirectory.file("own-engine-navigation/$kind/source.docx").get().asFile.absolutePath,
+            layout.buildDirectory.file("own-engine-navigation/$kind/own-engine.pdf").get().asFile.absolutePath,
+            rootProject.file("nuaforma-pdf/src/test/resources/fonts").absolutePath)
+    }
+}
+tasks.register("renderOwnEngineNavigation") { group = "verification"; dependsOn(navigationRenders) }
+
 val generateOwnEngineAnchoredImages = tasks.register<Exec>("generateOwnEngineAnchoredImages") {
     val folder = rootProject.file("tools/pdf-evaluation/own-engine")
     val output = layout.buildDirectory.dir("own-engine-anchored-images")

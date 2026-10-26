@@ -27,6 +27,9 @@ Initial review on 2026-10-25 covered all 17 pages for legibility, wrapping, alig
 | `natural-line-spacing` | 1 | Supplied-font natural line boxes at single, 1.5 and double spacing |
 | `anchored-image-wrap` | 1 | Paragraph-bound left/right images, two-sided rectangular wrapping around a central image, full-width resumption |
 | `cropped-image-wrap` | 1 | Asymmetric source crop, explicit non-square output dimensions, rectangular wrapping on US Letter |
+| `navigation-links` | 1 | Wrapped external links, run underlining/color, internal named target, flat outline and mailto link with existing page bands |
+
+The navigation baseline was first created and visually reviewed on 2026-10-26 with both the PDFBox candidate and an independent Poppler rendering. All 19 existing PNGs, their inventory rows and font/logo inputs remained byte-identical. Only the new page and its inventory entry were added.
 
 The two image-wrapping cases were added and visually reviewed on 2026-10-26 under the maintainer's authorization to implement and test roadmap part 10. All 17 existing reference PNGs retained their original hashes. These new references supplement the independent genuine Word comparisons; they do not replace them.
 

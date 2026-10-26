@@ -27,6 +27,15 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
         require(allParagraphs().sumOf { it.runs.count { run -> run is PdfTab } } <= 2_000) { "Tab control budget exceeded" }
     }
 
+    internal fun validateNavigation() {
+        val navigation = allParagraphs().flatMap { it.runs.filterIsInstance<PdfTextRun>() }.mapNotNull { it.navigation }
+        require(navigation.size <= 2_000) { "Navigation budget exceeded" }
+        val destinations = navigation.flatMap { it.destinations }.map { it.name }
+        require(destinations.size <= 1_000 && destinations.distinct().size == destinations.size) { "Duplicate or excessive destinations" }
+        val names = destinations.toSet()
+        require(navigation.mapNotNull { it.link as? PdfLink.Internal }.all { it.destination in names }) { "Missing internal destination" }
+    }
+
     internal fun allParagraphs(): List<PdfParagraph> {
         fun collect(block: PdfBlock, depth: Int): Sequence<PdfParagraph> = when (block) {
             is PdfParagraph -> sequenceOf(block)
@@ -245,6 +254,7 @@ data class PdfTextStyle @JvmOverloads constructor(
     val size: Float,
     val color: PdfColor = PdfColor(0, 0, 0),
     val languageTag: String? = null,
+    val underline: Boolean = false,
 ) {
     init {
         require(languageTag == null || languageTag.length <= 64 && languageTag.matches(Regex("[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*"))) { "Invalid text language tag" }
@@ -253,8 +263,11 @@ data class PdfTextStyle @JvmOverloads constructor(
     }
 }
 
-data class PdfTextRun(val text: String, val style: PdfTextStyle) : PdfInline {
-    init { require(text.isNotEmpty() && text.length <= 100_000) { "A text run must contain bounded nonempty text" } }
+data class PdfTextRun @JvmOverloads constructor(val text: String, val style: PdfTextStyle, val navigation: PdfTextNavigation? = null) : PdfInline {
+    init {
+        require(text.isNotEmpty() && text.length <= 100_000) { "A text run must contain bounded nonempty text" }
+        require(navigation?.destinations.isNullOrEmpty() || text.isNotBlank()) { "Destination requires visible text" }
+    }
 }
 
 /** Caller-supplied standalone TrueType font. No filesystem or system-font lookup. */

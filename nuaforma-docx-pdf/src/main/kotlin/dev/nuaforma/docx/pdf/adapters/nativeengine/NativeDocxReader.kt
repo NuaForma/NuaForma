@@ -111,6 +111,11 @@ internal class NativeDocxReader(
         val result = root.elements().associate { element ->
             val id = element.attribute("", "Id") ?: reject("Missing relationship ID")
             val target = element.attribute("", "Target") ?: reject("Missing relationship target")
+            if (element.attribute("", "Type") == "$rel/hyperlink") {
+                check(element.attribute("", "TargetMode") == "External", "Hyperlink relationships must be external")
+                PdfLink.External(target)
+                return@associate id to target
+            }
             check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.png|styles\\.xml|numbering\\.xml|settings\\.xml|fontTable\\.xml|webSettings\\.xml|theme/theme1\\.xml|(?:header|footer)[1-9][0-9]?\\.xml)")), "Unsupported relationship target")
             val type = element.attribute("", "Type")
             check(type == "$rel/image" && target.startsWith("media/") || type == "$rel/styles" && target == "styles.xml" || type == "$rel/numbering" && target == "numbering.xml" || type == "$rel/settings" && target == "settings.xml" ||
@@ -190,9 +195,11 @@ internal class NativeDocxReader(
         val numbering = NativeDocxNumbering(parts["word/numbering.xml"]?.let { parse(it, "word/numbering.xml") }, body) { paragraph ->
             chain(paragraph.one("pPr")?.one("pStyle")?.value("val") ?: normal, "paragraph")
         }
+        val openBookmarks = mutableSetOf<Pair<String, String>>()
+        val seenBookmarks = mutableSetOf<Pair<String, String>>()
         fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false, tableStyles: List<XmlElement> = emptyList()): PdfParagraph {
             context.checkActive()
-            children(paragraph, if (fields) setOf("pPr", "r", "fldSimple") else setOf("pPr", "r"))
+            children(paragraph, (if (fields) setOf("pPr", "r", "fldSimple") else setOf("pPr", "r")) + setOf("hyperlink", "bookmarkStart", "bookmarkEnd"))
             val direct = paragraph.one("pPr")
             val styleChain = chain(direct?.one("pStyle")?.value("val") ?: normal, "paragraph")
             val listEntry = numbering.entry(paragraph)
@@ -216,7 +223,8 @@ internal class NativeDocxReader(
                 } ?: base
                 return resolveRun(properties, inherited)
             }
-            val runs = paragraph.elements().filter { it.name.localPart != "pPr" }.flatMap { run ->
+            val pendingDestinations = mutableListOf<PdfDestination>()
+            fun readRun(run: XmlElement, link: PdfLink? = null): List<PdfInline> {
                 if (run.name.localPart == "fldSimple") {
                     attributes(run, setOf("instr"))
                     val instruction = run.value("instr")?.trim()
@@ -227,14 +235,15 @@ internal class NativeDocxReader(
                     val face = faceFor(cached.one("rPr"))
                     check(face.rtl != true, "Forced complex-script page fields are not qualified")
                     check(face.copy(languageTag = base.languageTag, rtl = base.rtl) == base, "Page-field cache formatting must match its paragraph style")
-                    val style = PdfTextStyle(face.id(fontId), face.size ?: reject("Missing font size"), face.color, face.languageTag)
-                    return@flatMap listOf(when (instruction) { "PAGE" -> PdfPageNumber(style); "NUMPAGES" -> PdfPageCount(style); else -> PdfSequencePageCount(style) })
+                    val style = PdfTextStyle(face.id(fontId), face.size ?: reject("Missing font size"), face.color, face.languageTag, face.underline)
+                    check(link == null && pendingDestinations.isEmpty(), "Navigation on page fields is not qualified")
+                    return listOf(when (instruction) { "PAGE" -> PdfPageNumber(style); "NUMPAGES" -> PdfPageCount(style); else -> PdfSequencePageCount(style) })
                 }
                 children(run, setOf("rPr", "t", "tab", "drawing"))
                 val face = faceFor(run.one("rPr"))
                 val contents = run.elements().filter { it.name.localPart != "rPr" }
                 check(contents.isNotEmpty(), "Each proof run needs content")
-                contents.map { item -> when (item.name.localPart) {
+                return contents.map { item -> when (item.name.localPart) {
                     "t" -> {
                         check(item.elements().isEmpty(), "Invalid text node")
                         val text = item.children.filterIsInstance<XmlText>().joinToString("") { it.text }
@@ -248,19 +257,53 @@ internal class NativeDocxReader(
                                 explicit.one("bCs") != null && explicit.one("iCs") != null, "Hebrew proof runs must pin all matching complex-script face properties")
                         }
                         check(text == text.trim() || item.attribute("http://www.w3.org/XML/1998/namespace", "space") == "preserve", "Significant edge whitespace requires explicit preservation")
-                        PdfTextRun(text.ifEmpty { " " }, PdfTextStyle(face.id(fontId), face.size ?: reject("Missing font size"), face.color, face.languageTag))
+                        val destinations = if (text.isNotBlank()) pendingDestinations.toList().also { pendingDestinations.clear() } else emptyList()
+                        val navigation = if (link != null || destinations.isNotEmpty()) PdfTextNavigation(link, destinations) else null
+                        PdfTextRun(text.ifEmpty { " " }, PdfTextStyle(face.id(fontId), face.size ?: reject("Missing font size"), face.color, face.languageTag, face.underline), navigation)
                     }
-                    "tab" -> { attributes(item, emptySet()); check(item.elements().isEmpty(), "Invalid tab control"); PdfTab(PdfTextStyle(face.id(fontId), face.size ?: reject("Missing font size"), face.color, face.languageTag)) }
-                    "drawing" -> PdfImageRun(image(item, partRelations, parts))
+                    "tab" -> { check(link == null, "Linked tabs are not qualified"); attributes(item, emptySet()); check(item.elements().isEmpty(), "Invalid tab control"); PdfTab(PdfTextStyle(face.id(fontId), face.size ?: reject("Missing font size"), face.color, face.languageTag, face.underline)) }
+                    "drawing" -> { check(link == null && pendingDestinations.isEmpty() && !face.underline, "Navigation or underlining on pictures is not qualified"); PdfImageRun(image(item, partRelations, parts)) }
                     else -> reject("Unsupported run content")
                 } }
             }
-            val content = runs.ifEmpty { listOf(PdfTextRun(" ", PdfTextStyle(base.id(fontId), base.size ?: reject("Missing font size"), base.color, base.languageTag))) }
+            val runs = paragraph.elements().flatMap { node -> when (node.name.localPart) {
+                "pPr" -> emptyList()
+                "bookmarkStart" -> {
+                    attributes(node, setOf("id", "name")); children(node, emptySet())
+                    val id = node.value("id")?.takeIf { it.matches(Regex("[0-9]{1,9}")) } ?: reject("Invalid bookmark ID")
+                    val key = activePart to id
+                    check(seenBookmarks.add(key) && seenBookmarks.size <= 1_000, "Duplicate or excessive bookmarks")
+                    openBookmarks += key
+                    val name = node.value("name") ?: reject("Missing bookmark name")
+                    pendingDestinations += PdfDestination(name, name.takeUnless { it.startsWith("_") })
+                    check(pendingDestinations.size <= 32, "Excessive adjacent bookmarks")
+                    emptyList()
+                }
+                "bookmarkEnd" -> {
+                    attributes(node, setOf("id")); children(node, emptySet())
+                    check(openBookmarks.remove(activePart to (node.value("id") ?: reject("Missing bookmark ID"))), "Unmatched bookmark end")
+                    emptyList()
+                }
+                "hyperlink" -> {
+                    check(node.attributes.keys.all { it.namespaceURI == rel && it.localPart == "id" || it.namespaceURI == word && it.localPart in setOf("anchor", "history") }, "Unsupported hyperlink attribute")
+                    node.value("history")?.let { check(it in setOf("0", "1", "true", "false", "on", "off"), "Invalid hyperlink history") }
+                    children(node, setOf("r"))
+                    val id = node.attribute(rel, "id")
+                    val anchor = node.value("anchor")
+                    check((id == null) != (anchor == null), "Hyperlinks require one target")
+                    val link = if (id == null) PdfLink.Internal(requireNotNull(anchor)) else PdfLink.External(partRelations[id] ?: reject("Missing hyperlink relationship"))
+                    check(node.elements().isNotEmpty(), "Empty hyperlink")
+                    node.elements().flatMap { readRun(it, link) }
+                }
+                else -> readRun(node)
+            } }
+            check(pendingDestinations.isEmpty(), "Bookmark requires following visible paragraph text")
+            val content = runs.ifEmpty { listOf(PdfTextRun(" ", PdfTextStyle(base.id(fontId), base.size ?: reject("Missing font size"), base.color, base.languageTag, base.underline))) }
             check(content.none { it is PdfImageRun } || content.size == 1, "Mixed image/text paragraphs are outside the proof profile")
             val label = listEntry?.let { entry ->
                 check(content.all { it is PdfTextRun }, "List images are outside the proof")
                 val markerFace = resolveRun(entry.level.one("rPr"), base)
-                PdfListLabel(entry.value, PdfTextStyle(markerFace.id(fontId), markerFace.size ?: reject("Missing marker size"), markerFace.color, markerFace.languageTag), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval)
+                PdfListLabel(entry.value, PdfTextStyle(markerFace.id(fontId), markerFace.size ?: reject("Missing marker size"), markerFace.color, markerFace.languageTag, markerFace.underline), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval)
             }
             val alignment = if (geometry.direction == PdfTextDirection.RIGHT_TO_LEFT) when (geometry.alignment) {
                 PdfAlignment.LEFT -> PdfAlignment.RIGHT; PdfAlignment.RIGHT -> PdfAlignment.LEFT; PdfAlignment.CENTER -> PdfAlignment.CENTER
@@ -637,18 +680,19 @@ internal class NativeDocxReader(
             val numbering = pageNumbering(section)
             PdfPageSequence(page, blocks, flow, numbering.copy(alignParity = evenAndOddHeaders && numbering.start != null))
         }
+        check(openBookmarks.isEmpty(), "Unclosed bookmarks")
         return PdfDocument(sequences, if (sequences.size == 1) sequences.single().flow?.maxPages ?: 1 else 32)
     }
 
     private data class Face(val family: String? = null, val size: Float? = null, val bold: Boolean = false,
-        val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null) {
+        val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null, val underline: Boolean = false) {
         fun id(resolve: (String, Boolean, Boolean) -> String): String = resolve(
             requireNotNull(family) { "An explicit font family is required" }, bold, italic)
     }
 
     private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>): Face {
         if (property == null) return initial
-        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl"))
+        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u"))
         var result = initial
         property.one("numPr")?.let { node ->
             attributes(node, emptySet()); children(node, setOf("numId", "ilvl")); check(node.elements().isNotEmpty(), "Empty numbering reference")
@@ -677,6 +721,11 @@ internal class NativeDocxReader(
         property.one("rtl")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty(), "Invalid run direction"); result = result.copy(rtl = enabled(it)) }
         property.one("b")?.let { result = result.copy(bold = enabled(it)) }
         property.one("i")?.let { result = result.copy(italic = enabled(it)) }
+        property.one("u")?.let {
+            attributes(it, setOf("val")); children(it, emptySet())
+            check(it.value("val") in setOf(null, "single", "none"), "Only single run underlining is qualified")
+            result = result.copy(underline = it.value("val") != "none")
+        }
         property.one("szCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && number(it.value("val")) / 2 == result.size, "Separate complex-script sizes are not qualified") }
         property.one("bCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && enabled(it) == result.bold, "Separate complex-script weight is not qualified") }
         property.one("iCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && enabled(it) == result.italic, "Separate complex-script slant is not qualified") }
@@ -826,7 +875,7 @@ internal class NativeDocxReader(
     private fun requireRelationships(root: XmlElement) {
         check(root.name.namespaceURI == relationships && root.name.localPart == "Relationships", "Invalid relationships")
         check(root.elements().all { it.name.namespaceURI == relationships && it.name.localPart == "Relationship" &&
-            it.attribute("", "TargetMode") == null }, "External or invalid relationships are unsupported")
+            (it.attribute("", "TargetMode") == null || it.attribute("", "TargetMode") == "External" && it.attribute("", "Type") == "$rel/hyperlink") }, "External or invalid relationships are unsupported")
     }
     private fun pageNumbering(section: XmlElement): PdfPageNumbering {
         val node = section.one("pgNumType") ?: return PdfPageNumbering()
@@ -843,7 +892,7 @@ internal class NativeDocxReader(
     private fun children(node: XmlElement, allowed: Set<String>) {
         activePart = provenance[node] ?: activePart
         check(node.elements().all { it.name.namespaceURI == word && it.name.localPart in allowed }, "Unsupported document feature")
-        check(node.elements().groupBy { it.name.localPart }.all { (name, values) -> name in setOf("r", "p", "style", "tbl", "tr", "tc", "fldSimple", "t", "tab", "headerReference", "footerReference") || values.size == 1 }, "Duplicate property")
+        check(node.elements().groupBy { it.name.localPart }.all { (name, values) -> name in setOf("r", "p", "style", "tbl", "tr", "tc", "fldSimple", "t", "tab", "headerReference", "footerReference", "hyperlink", "bookmarkStart", "bookmarkEnd") || values.size == 1 }, "Duplicate property")
     }
     private fun attributes(node: XmlElement, allowed: Set<String>) {
         activePart = provenance[node] ?: activePart

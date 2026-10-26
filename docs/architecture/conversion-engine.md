@@ -126,6 +126,10 @@ Represent absolute, percentage, automatic and relative lengths distinctly. Conve
 
 Preserve headings, list structure, table headers, language, alternate text and logical reading order. Positioned content retains semantic node IDs so future tagged PDF is possible. This preparation does not qualify PDF/UA or reconstruct missing author-provided meaning.
 
+For roadmap part 12, the maintainer explicitly requested preparation for PDF/A-1a, 2a and 3a. Keep heading levels, TOC/entry roles, caption labels and associations, reference text and link/target relationships in the shared source-neutral model. Give logical nodes stable identities that survive generated fields, bounded relayout, pagination and fragmentation. Each painted fragment must retain its logical owner; preserve reading order separately from drawing order. Generated TOC entries must retain their connection to actual headings, and captions must retain known figure/table associations rather than becoming indistinguishable plain text. Do not invent an association or meaning missing from the input. This also leaves the later ODT reader able to supply the same semantics.
+
+Part 12 tests must check semantic hierarchy, target relationships and identity/order stability through field iteration and page breaks alongside the existing visual/content tests. Version-appropriate PDF tags, marked-content/annotation associations, structure trees and independent level-A validation remain part 15b; existing B profiles and claims do not change. PDF/A level A and PDF/UA have separate acceptance criteria. The [PDF Association's tagged-PDF syntax guide](https://pdfa.org/resource/tagged-pdf-best-practice-guide-syntax/) provides implementation guidance for headings, contents, captions, links and references; it does not replace the normative profile checks.
+
 ## 5. Input adapters
 
 ### DOCX first

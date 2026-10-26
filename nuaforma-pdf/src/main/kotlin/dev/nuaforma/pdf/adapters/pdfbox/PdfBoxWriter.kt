@@ -28,6 +28,7 @@ internal object PdfBoxWriter {
         PDDocument().use { pdf ->
             pdf.version = if (options.profile == PdfOutputProfile.PDFA_1B) 1.4f else 1.7f
             ArchivalMetadata.apply(pdf, options)
+            val navigation = PdfNavigationWriter(pdf)
             val lineMetrics = mutableMapOf<String, FloatArray>()
             val fonts = suppliedFonts.associate { resource ->
                 control.checkActive()
@@ -139,6 +140,7 @@ internal object PdfBoxWriter {
                                 }
                                 is PositionedTableBorder -> Unit
                                 is PositionedText -> {
+                                    if (element.navigation != null) navigation.add(element, page, measurer.measure(element.text, element.style))
                                     if (element.decoration) command("BMC", COSName.ARTIFACT)
                                     element.style.languageTag?.let { language ->
                                         val properties = COSDictionary().apply { setString(COSName.LANG, language) }
@@ -155,6 +157,17 @@ internal object PdfBoxWriter {
                                     // Write the same qualified cmap glyphs used for measurement, without a second GSUB pass.
                                     command("Tj", COSString(font.encode(element.text)))
                                     command("ET")
+                                    if (element.style.underline) {
+                                        val metrics = lineMetrics[element.style.fontId]
+                                        val position = metrics?.getOrNull(3) ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified underline metrics")
+                                        val thickness = metrics.getOrNull(4) ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified underline thickness")
+                                        if (position - thickness < font.fontDescriptor.fontBoundingBox.lowerLeftY / 1000f)
+                                            fail(PdfFailureCode.UNSUPPORTED_TEXT, "Underline exceeds the qualified font bounds")
+                                        // OpenType post.underlinePosition denotes the top edge, unlike PostScript's center coordinate.
+                                        command("re", number(element.x), number(canvasHeight - element.baseline + (position - thickness) * element.style.size),
+                                            number(measurer.measure(element.text, element.style).width), number(thickness * element.style.size))
+                                        command("f")
+                                    }
                                     if (element.style.languageTag != null) command("EMC")
                                     if (element.decoration) command("EMC")
                                 }
@@ -192,6 +205,7 @@ internal object PdfBoxWriter {
                     paint(layout.elements, layout.page.height, layout.page.width)
                 }
             }
+            navigation.finish()
             usedFonts.map { fonts.getValue(it) }.filter { it.willBeSubset() }.forEach { it.subset() }
             val output = BoundedOutput(control)
             if (options.profile == PdfOutputProfile.PDFA_1B) pdf.save(output, CompressParameters.NO_COMPRESSION) else pdf.save(output)
@@ -252,7 +266,12 @@ internal object PdfBoxWriter {
         val descent = -buffer.getShort(hhea + 6).toInt()
         val gap = buffer.getShort(hhea + 8).toInt()
         if (units !in 16..16_384 || ascent <= 0 || descent < 0 || gap < 0) return null
-        return floatArrayOf(ascent.toFloat() / units, descent.toFloat() / units, gap.toFloat() / units)
+        val line = floatArrayOf(ascent.toFloat() / units, descent.toFloat() / units, gap.toFloat() / units)
+        val post = table(0x706F7374, 12) ?: return line
+        val underlinePosition = buffer.getShort(post + 8).toInt()
+        val underlineThickness = buffer.getShort(post + 10).toInt()
+        if (underlinePosition !in -units..0 || underlineThickness !in 1..units / 4) return line
+        return line + floatArrayOf(underlinePosition.toFloat() / units, underlineThickness.toFloat() / units)
     }
 
     private fun validatePng(bytes: ByteArray) {

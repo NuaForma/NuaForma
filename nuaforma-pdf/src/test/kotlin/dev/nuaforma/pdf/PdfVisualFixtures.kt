@@ -26,7 +26,30 @@ internal object PdfVisualFixtures {
     }
 
     fun cases(): List<Case> = listOf(letter(), report(), merged(), splitRows(), lists(), frames(), international(),
-        formats(), keeps(), tableEdges(), automaticSpacing(), anchoredImages(), croppedImage())
+        formats(), keeps(), tableEdges(), automaticSpacing(), anchoredImages(), croppedImage(), navigation())
+
+    private fun navigation(): Case {
+        val blue = body.copy(color = PdfColor(0, 80, 160), underline = true)
+        val external = PdfTextNavigation(PdfLink.External("https://nuaforma.dev/image-comparison/"))
+        val internal = PdfTextNavigation(PdfLink.Internal("Conclusion"))
+        val blocks = listOf(
+            heading("Links, underlining and named targets"),
+            PdfParagraph(listOf(PdfTextRun("External: ", body), PdfTextRun(
+                "Read the project documentation and explore image comparison. ".repeat(5), blue, external),
+                PdfTextRun(" Ordinary text resumes without underline.", body)), spaceAfter = 16f,
+                format = PdfParagraphFormat(exactLineHeight = 16f)),
+            PdfParagraph(listOf(PdfTextRun("Jump to the conclusion", blue, internal)), spaceAfter = 16f, format = PdfParagraphFormat(exactLineHeight = 16f)),
+            PdfParagraph(listOf(PdfTextRun("Bold ", bold), PdfTextRun("and italic ", body.copy(fontId = "italic")),
+                PdfTextRun("text keep their own geometry.", body)), spaceAfter = 8f, format = PdfParagraphFormat(exactLineHeight = 16f)),
+            PdfParagraph(listOf(PdfTextRun("Conclusion", bold.copy(size = 16f),
+                PdfTextNavigation(destinations = listOf(PdfDestination("Conclusion", "Conclusion"))))), spaceBefore = 16f, spaceAfter = 8f, format = PdfParagraphFormat(exactLineHeight = 26f)),
+            p("A named target affects navigation without changing text placement."),
+            PdfParagraph(listOf(PdfTextRun("Contact the example team", blue,
+                PdfTextNavigation(PdfLink.External("mailto:example@example.test")))), format = PdfParagraphFormat(exactLineHeight = 16f)),
+        )
+        return Case("navigation-links", PdfDocument(a4, blocks, bands()), 1,
+            listOf("Links, underlining and named targets", "Jump to the conclusion", "Conclusion", "Contact the example team"))
+    }
 
     private fun anchoredImages(): Case {
         val text = "The image remains associated with its paragraph. Text uses the available region alongside it and returns to the complete body width below it. "
