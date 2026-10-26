@@ -254,7 +254,7 @@ internal object PageLayouter {
         return groups
     }
 
-    private fun requireSupportedText(text: String, bidi: Boolean = false) {
+    fun requireSupportedText(text: String, bidi: Boolean = false) {
         text.codePoints().forEach { point ->
             val script = Character.UnicodeScript.of(point)
             val category = Character.getType(point)

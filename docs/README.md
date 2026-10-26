@@ -33,6 +33,7 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [Own-engine report fidelity trial](../tools/pdf-evaluation/own-engine/REPORT.md): fixed tables, repeated column headers, header/footer bands and flowing pagination, with a Word comparison recorded per page.
 - [Own-engine advanced table trials](../tools/pdf-evaluation/own-engine/ADVANCED.md): horizontal/vertical merges, nested tables and split rows, with actual Word references and per-page differences including Word's oversized-row clipping.
 - [Own-engine frame trials](../tools/pdf-evaluation/own-engine/FRAMES.md): images in both page bands, text frames, wrapping, rotations and full-page barcode decoding, plus concurrent shared-engine verification.
+- [Native requested-watermark qualification](../tools/pdf-evaluation/own-engine/WATERMARKS.md): original-scope restoration, profile restrictions, genuine Word references and protected visual regressions.
 - [Own-engine roadmap](architecture/own-engine-roadmap.md): prioritized increments, delivery gates and current scope.
 - [Own-engine paragraph pagination](../tools/pdf-evaluation/own-engine/PAGINATION.md): keeps, widow/orphan control and explicit page breaks compared with a real Word export.
 - [Own-engine lists and numbering](../tools/pdf-evaluation/own-engine/LISTS.md): bullets, multiple levels, shared sequences/restarts, styled labels and chapter numbering compared per page with Word.

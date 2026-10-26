@@ -3,7 +3,7 @@ package dev.nuaforma.contracts
 /** Application-owned explanations only; never create reasons from exception or extension text. */
 enum class RejectionReason(val message: String, private val advice: RejectionAdvice, val construct: String? = null) {
     NATIVE_PDF_VALIDATOR_REQUIRED("Configure the qualified independent native PDF validator runtime; DOCX output remains available", RejectionAdvice.RUNTIME),
-    NATIVE_PDF_UNQUALIFIED_OPTION("Requested watermarks and paragraph fallbacks are not yet qualified for native PDF output", RejectionAdvice.OPTIONS),
+    NATIVE_PDF_UNQUALIFIED_OPTION("Requested paragraph fallbacks are not qualified for native PDF output; requested watermarks require standard PDF, PDF/A-2b or PDF/A-3b", RejectionAdvice.OPTIONS),
     NATIVE_PDF_CAPACITY_EXHAUSTED("Native PDF conversion capacity is exhausted; retry after active conversions finish", RejectionAdvice.LIMITS),
     NATIVE_DOCX_PROFILE_UNSUPPORTED("DOCX content or formatting is outside the qualified native profile; simplify the indicated part and consult the native profile guide", RejectionAdvice.STRUCTURE),
     NATIVE_PDF_RENDER_REJECTED("The native PDF engine rejected content, fonts or the requested output; check the supported profile and supplied resources", RejectionAdvice.STRUCTURE),

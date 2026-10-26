@@ -40,7 +40,7 @@ object RenderPdfVisualFixtures {
         val manifest = mutableListOf("case\tpage\twidth\theight\tsha256")
         val fonts = FoundationLetter.fonts()
         for (case in PdfVisualFixtures.cases()) {
-            val bytes = PdfEngine().render(case.document, fonts)
+            val bytes = PdfEngine().render(case.document, fonts, PdfOutputOptions(), PdfRenderControl(), case.watermark)
             Files.write(output.resolve("${case.id}.pdf"), bytes)
             Loader.loadPDF(bytes).use { pdf ->
                 check(pdf.numberOfPages == case.pages) { "${case.id}: expected ${case.pages} pages, got ${pdf.numberOfPages}" }

@@ -6,6 +6,7 @@ import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.contracts.GenerationException
 import dev.nuaforma.contracts.GenerationRequest
 import dev.nuaforma.contracts.ContentPipe
+import dev.nuaforma.contracts.TextWatermark
 import dev.nuaforma.template.TemplatePipes
 import dev.nuaforma.docx.DocxDocument
 import dev.nuaforma.docx.DeploymentFonts
@@ -25,14 +26,17 @@ import javax.xml.stream.XMLInputFactory
 import javax.xml.stream.XMLStreamException
 
 internal object Docx4jDocuments {
-    fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext, pipes: List<ContentPipe> = emptyList(), valuePipes: TemplatePipes = TemplatePipes.discover(), deploymentFonts: DeploymentFonts = DeploymentFonts.configured()) {
+    fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext, pipes: List<ContentPipe> = emptyList(), valuePipes: TemplatePipes = TemplatePipes.discover(), deploymentFonts: DeploymentFonts = DeploymentFonts.configured(), detachWatermark: Boolean = false): Pair<TextWatermark?, String?> {
+        var decoration: Pair<TextWatermark?, String?> = null to null
         open(request.template, context) {
             if (request.requirements.output.options["fontSelection"] != "used") WordFonts.apply(it, request, context)
             val watermark = WordTemplates(request.data, request.requirements.options, context, pipes, valuePipes).apply(it)
-            WordWatermarks(context).apply(it, watermark)
+            decoration = watermark to watermark?.let { _ -> WordWatermarks.fontFamily(it) }
+            if (!detachWatermark) WordWatermarks(context).apply(it, watermark)
             if (request.requirements.output.options["fontSelection"] == "used") AutomaticWordFonts(it, request, context, deploymentFonts).apply()
         }
             .use { it.writeTo(output) }
+        return decoration
     }
 
     fun open(input: InputStream, context: GenerationContext, transform: (WordprocessingMLPackage) -> Unit = {}): DocxDocument {

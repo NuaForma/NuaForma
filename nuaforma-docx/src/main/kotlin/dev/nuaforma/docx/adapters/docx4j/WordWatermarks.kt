@@ -15,6 +15,11 @@ import java.util.UUID
 internal class WordWatermarks(private val context: GenerationContext) {
     private var visits = 0L
 
+    companion object {
+        fun fontFamily(document: WordprocessingMLPackage): String =
+            document.mainDocumentPart.styleDefinitionsPart?.jaxbElement?.docDefaults?.rPrDefault?.rPr?.rFonts?.let { it.ascii ?: it.hAnsi } ?: "Arial"
+    }
+
     fun apply(document: WordprocessingMLPackage, watermark: TextWatermark?) {
         if (watermark == null) return
         context.checkActive()
@@ -39,7 +44,7 @@ internal class WordWatermarks(private val context: GenerationContext) {
             smallest = minOf(smallest, pageWidth, pageHeight)
         }
         val width = minOf(400.0, smallest * 0.65)
-        val font = main.styleDefinitionsPart?.jaxbElement?.docDefaults?.rPrDefault?.rPr?.rFonts?.let { it.ascii ?: it.hAnsi } ?: "Arial"
+        val font = fontFamily(document)
         sections.forEach { section ->
             context.checkActive()
             val references = section.getEGHdrFtrReferences().filterIsInstance<HeaderReference>()

@@ -24,7 +24,9 @@ Word authoring metadata is interpreted separately from print properties. Known e
 
 Exact line boxes that would clip the supplied font bounds reject explicitly. The native smoke test qualifies 11-point Liberation Serif at a 16-point exact line; its former 13.2-point line remains a negative case. PDF version checks use the effective document/catalog version, together with independent structural and archival validation, rather than the header line alone.
 
-Requested PDF watermarks and `paragraphDefaults` fallbacks are not yet qualified for the native route and reject explicitly. Embedded source-font packages and arbitrary Word-saved documents are not universally supported. These are remaining compatibility gaps, not permissions to omit styling.
+Requested text watermarks use the existing `TextWatermark` options in standard PDF, PDF/A-2b and PDF/A-3b: text resolves once through the same bounded DOCX template session, then the native engine centers a background decoration on every physical page. RGB color, clockwise rotation and opacity are retained; decoration does not participate in pagination. Every requested watermark rejects for PDF/A-1b, including opacity 1 or text that would resolve empty. Blank resolved text suppresses the watermark in the other profiles. Tabs and line endings normalize to spaces, matching the existing DOCX shape representation. Fonts come from the explicit document-default family and the supplied deployment/request catalog; there is no ambient font substitution. The qualified script restrictions still apply; rotated RTL glyph extraction may follow physical order, while `ActualText` retains the original logical Unicode.
+
+`paragraphDefaults` fallbacks are not yet qualified for the native route and reject explicitly. Embedded source-font packages and arbitrary Word-saved documents are not universally supported. These are remaining compatibility gaps, not permissions to omit styling.
 
 ## Embedded configuration
 

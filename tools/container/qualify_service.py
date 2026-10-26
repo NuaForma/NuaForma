@@ -208,6 +208,23 @@ def main():
             assert status == 200 and body.startswith(b"%PDF-"), (profile, status, body[:2048])
             (args.output / (profile + ".pdf")).write_bytes(body)
             verify_pdf_profile(runtime, args.output / (profile + ".pdf"), profile)
+        for profile in ("standard", "pdfa-2b", "pdfa-3b", "pdfa-1b"):
+            for opacity in (0.25, 1.0):
+                envelope = {"input": {"format": "docx"}, "output": {"format": "pdf", "options": {"profile": profile}},
+                            "data": {"name": "SYNTHETIC-WATERMARK-BODY", "reference": "NF-057"},
+                            "options": {"watermark": {"text": "{#if true}CONCEPT {reference}{#else}FINAL{/if}",
+                                                       "color": "#127F87", "opacity": opacity, "rotation": -45}}}
+                boundary, payload = multipart(envelope, template())
+                status, _, value = http(base, "/api/v1/documents", payload, "multipart/form-data; boundary=" + boundary)
+                if profile == "pdfa-1b":
+                    assert status == 422 and not value.startswith(b"%PDF-"), (profile, opacity, status)
+                else:
+                    assert status == 200 and value.startswith(b"%PDF-"), (profile, opacity, status, value[:2048])
+                    file = args.output / ("watermark-" + profile + ("-opaque.pdf" if opacity == 1 else "-transparent.pdf"))
+                    file.write_bytes(value)
+                    verify_pdf_profile(runtime, file, profile)
+                runtime.clean()
+        checks.append("dynamic-native-watermarks/all-supported-profiles/opaque-and-transparent/one-b-always-rejects")
         tight_source = template(line_twips=264)
         assert generate(base, "docx", tight_source, {"name": "TIGHT-LINE"})[0] == 200
         assert generate(base, "pdf", tight_source, {"name": "TIGHT-LINE"})[0] == 422
@@ -272,14 +289,14 @@ def main():
             boundary, body = multipart(envelope, (args.fixtures / "watermark-reference/plain.docx").read_bytes(), resources)
             assert http(base, "/api/v1/documents", body, "multipart/form-data; boundary=" + boundary)[0] == 422
             envelope["options"]["watermark"]["opacity"] = 1.0
-            for profile in ("pdfa-1b", "standard"):
+            for profile in ("standard", "pdfa-2b", "pdfa-3b"):
                 envelope["output"]["options"] = options | {"profile": profile}
                 boundary, body = multipart(envelope, (args.fixtures / "watermark-reference/plain.docx").read_bytes(), resources)
                 status, _, body = http(base, "/api/v1/documents", body, "multipart/form-data; boundary=" + boundary)
                 assert status == 200, (profile, status, body[:2048])
                 (args.output / ("watermark-opaque-" + profile + ".pdf")).write_bytes(body)
             runtime.clean()
-            checks.append("private-fonts/concurrent-tenants/dynamic-watermark/1b-transparency-rejection/opaque-watermark")
+            checks.append("private-fonts/concurrent-tenants/dynamic-watermark/1b-watermark-rejection/opaque-watermark")
         health_deadline = time.monotonic() + 40
         while runtime.command("inspect", runtime.name, "--format", "{{.State.Health.Status}}") == "starting" and time.monotonic() < health_deadline:
             time.sleep(0.2)
