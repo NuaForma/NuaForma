@@ -19,7 +19,7 @@ class PdfEngine @JvmOverloads constructor(private val validator: PdfConformanceV
         val snapshot = ArrayList(fonts)
         require(snapshot.size <= 16 && snapshot.map { it.id }.toSet().size == snapshot.size) { "Provide at most 16 uniquely named fonts; text must reference a supplied face" }
         require(snapshot.sumOf { it.byteSize.toLong() } <= 33_554_432) { "Font resources exceed the foundation limit" }
-        val images = document.allParagraphs().flatMap { it.runs.filterIsInstance<PdfImageRun>().map { run -> run.image } } +
+        val images = document.allParagraphs().flatMap { it.runs.filterIsInstance<PdfImageRun>().map { run -> run.image } + it.anchoredImages.map { anchor -> anchor.image } } +
             document.pageSequences.flatMap { sequence ->
                 sequence.blocks + sequence.flow?.bands.orEmpty().flatMap { it.blocks }
             }.filterIsInstance<PdfImage>()

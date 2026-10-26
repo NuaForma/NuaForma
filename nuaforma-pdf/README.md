@@ -51,6 +51,12 @@ Validation uses a private per-call directory, a 256 MiB JVM heap, 64 MiB direct-
 
 The [profile evaluation workflow](../tools/pdf-evaluation/own-engine/README.md#alpha-output-profile-qualification) records real validation, complete font streams, concurrency, rejection/cleanup checks and pixel equality against the standard-PDF path. The existing Word proofs remain the independent layout references.
 
+## Paragraph-bound images
+
+`PdfParagraph.anchoredImages` snapshots up to eight `PdfAnchoredImage` resources. Physical x coordinates are page-relative; y coordinates are relative to either the containing paragraph or its page. Paragraph-bound images move with a new-page anchor paragraph. Foreground placement, explicit distances, top/bottom and left/right/largest/both-sided rectangular exclusions retain text flow across paragraphs and pages. `PdfImageCrop` removes fractions from the source edges and clips the stretched result to the image's declared width/height. Source parsing remains in `nuaforma-docx-pdf`; the model contains no DOCX-specific types.
+
+Wrapped keep groups, lists/tabs/inline objects, RTL image wrapping, overlapping floating image layers, tables intersecting active exclusions, page-band/cell anchors, tight/through wrapping, behind-text placement, arbitrary image rotation/flips and alternate fill rectangles are not qualified and reject. An unbreakable word wider than its available region also rejects. Source and physical-page budgets still apply. See the [Word trials and regression coverage](../tools/pdf-evaluation/own-engine/ANCHORED_IMAGES.md).
+
 ## Physical page sequences
 
 `PdfDocument(List<PdfPageSequence>, maxPages)` accepts resolved content ranges with their own `PdfPage`, optional `PdfFlow` and `PdfPageNumbering` policy. Each range starts on a fresh page and retains physical dimensions/margins. Numbering continues unless an explicit start is supplied. Global page/text/block/paragraph/tab/image/leader budgets span all ranges. Collections are defensive snapshots. Existing `PdfDocument(page, blocks, flow)` overloads retain their behavior; `page`, `blocks` and `flow` remain first-range views. See the [mixed-size trial](../tools/pdf-evaluation/own-engine/SECTIONS.md). Continuous/explicit odd/even/column source section transitions remain unsupported.

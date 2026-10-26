@@ -25,6 +25,10 @@ Initial review on 2026-10-25 covered all 17 pages for legibility, wrapping, alig
 | `paragraph-keeps` | 2 | Small-page boundary: heading moves with following kept paragraph and widow policy |
 | `cell-alignment-borders` | 1 | Top/center/bottom cell alignment, competing edge widths/colors, fill and table indentation |
 | `natural-line-spacing` | 1 | Supplied-font natural line boxes at single, 1.5 and double spacing |
+| `anchored-image-wrap` | 1 | Paragraph-bound left/right images, two-sided rectangular wrapping around a central image, full-width resumption |
+| `cropped-image-wrap` | 1 | Asymmetric source crop, explicit non-square output dimensions, rectangular wrapping on US Letter |
+
+The two image-wrapping cases were added and visually reviewed on 2026-10-26 under the maintainer's authorization to implement and test roadmap part 10. All 17 existing reference PNGs retained their original hashes. These new references supplement the independent genuine Word comparisons; they do not replace them.
 
 This first set is deliberately bounded. Existing semantic, negative, concurrent, Java-API and PDF/A conformance tests remain necessary. This set does not add Arabic shaping, general bidi, barcode decoding, PDF/A metadata validation or exhaustive combinatorial coverage. A visually identical PDF can still lose searchable text or conformance.
 

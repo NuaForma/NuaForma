@@ -224,9 +224,12 @@ class PdfParagraph @JvmOverloads constructor(
     val spaceAfter: Float = 8f,
     val format: PdfParagraphFormat = PdfParagraphFormat(),
     val listLabel: PdfListLabel? = null,
+    anchoredImages: List<PdfAnchoredImage> = emptyList(),
 ) : PdfBlock {
     val runs: List<PdfInline> = Collections.unmodifiableList(ArrayList(runs))
+    val anchoredImages: List<PdfAnchoredImage> = Collections.unmodifiableList(ArrayList(anchoredImages))
     init {
+        require(this.anchoredImages.size <= 8) { "Anchored image budget exceeded" }
         require(this.runs.size in 1..1_000) { "A paragraph needs 1 to 1000 runs" }
         require(this.runs.count { it is PdfTab } <= 32) { "Paragraph tab budget exceeded" }
         require(spaceBefore.isFinite() && spaceAfter.isFinite() && spaceBefore in 0f..14_400f && spaceAfter in 0f..14_400f) { "Invalid paragraph spacing" }
@@ -269,7 +272,7 @@ class PdfFont @JvmOverloads constructor(val id: String, bytes: ByteArray, val em
 }
 
 /** PNG bytes and explicit physical dimensions; no external resource lookup. */
-class PdfImage(bytes: ByteArray, val width: Float, val height: Float) : PdfBlock {
+class PdfImage @JvmOverloads constructor(bytes: ByteArray, val width: Float, val height: Float, val crop: PdfImageCrop = PdfImageCrop()) : PdfBlock {
     private val content: ByteArray
     init {
         require(bytes.size in 24..4_194_304) { "PNG exceeds the foundation limit" }

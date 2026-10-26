@@ -26,7 +26,27 @@ internal object PdfVisualFixtures {
     }
 
     fun cases(): List<Case> = listOf(letter(), report(), merged(), splitRows(), lists(), frames(), international(),
-        formats(), keeps(), tableEdges(), automaticSpacing())
+        formats(), keeps(), tableEdges(), automaticSpacing(), anchoredImages(), croppedImage())
+
+    private fun anchoredImages(): Case {
+        val text = "The image remains associated with its paragraph. Text uses the available region alongside it and returns to the complete body width below it. "
+        val anchors = listOf(PdfImageWrap.RIGHT to 54f, PdfImageWrap.LEFT to 469.28f, PdfImageWrap.BOTH to 240f)
+        val blocks = listOf(heading("Paragraph images and rectangular wrapping")) + anchors.mapIndexed { index, (wrap, left) ->
+            PdfParagraph(listOf(PdfTextRun("Region ${index + 1}. " + text.repeat(4), body)), spaceAfter = 18f,
+                format = PdfParagraphFormat(exactLineHeight = 16f, widowControl = true), anchoredImages = listOf(
+                    PdfAnchoredImage(logo(72f), left, 0f, wrap = wrap, distances = PdfMargins(0f, 6f, 6f, 6f))))
+        }
+        return Case("anchored-image-wrap", PdfDocument(a4, blocks, bands()), 1, listOf("Region 1.", "Region 2.", "Region 3."))
+    }
+
+    private fun croppedImage(): Case {
+        val image = PdfImage(logo(96f).bytes(), 96f, 72f, PdfImageCrop(top = .1f, right = .15f, bottom = .2f, left = .2f))
+        val text = "Cropped source pixels are clipped to the declared physical rectangle. Text must remain beside this image, with no lost words or accidental scaling of the page. "
+        val paragraph = PdfParagraph(listOf(PdfTextRun(text.repeat(6), body)), format = PdfParagraphFormat(exactLineHeight = 16f),
+            anchoredImages = listOf(PdfAnchoredImage(image, 54f, 0f, wrap = PdfImageWrap.RIGHT, distances = PdfMargins(0f, 8f, 4f, 0f))))
+        return Case("cropped-image-wrap", PdfDocument(PdfPage(612f, 792f, a4.margins), listOf(heading("Cropped image on US Letter"), paragraph), bands()), 1,
+            listOf("Cropped source pixels", "no lost words"))
+    }
 
     private fun letter(): Case {
         val mixed = PdfParagraph(listOf(PdfTextRun("Real bold ", bold), PdfTextRun("and italic. ", body.copy(fontId = "italic")),

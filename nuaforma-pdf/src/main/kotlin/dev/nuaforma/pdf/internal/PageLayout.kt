@@ -6,7 +6,7 @@ internal data class TextMetrics(val width: Float, val ascent: Float, val descent
 internal fun interface TextMeasurer { fun measure(text: String, style: PdfTextStyle): TextMetrics }
 internal sealed interface PositionedElement
 internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false) : PositionedElement
-internal data class PositionedImage(val image: PdfImage, val x: Float, val top: Float) : PositionedElement
+internal data class PositionedImage(val image: PdfImage, val x: Float, val top: Float, val foreground: Boolean = false) : PositionedElement
 internal data class PositionedRectangle(val x: Float, val top: Float, val width: Float, val height: Float, val fill: PdfColor?, val border: PdfBorder?) : PositionedElement
 internal data class PositionedTableBorder(val x: Float, val top: Float, val length: Float, val horizontal: Boolean, val stroke: PdfEdgeStroke, val group: Any) : PositionedElement
 internal data class PositionedBox(val box: PdfTextBox, val x: Float, val top: Float, val elements: List<PositionedElement>) : PositionedElement
@@ -16,7 +16,7 @@ internal object PageLayouter {
     private val simpleScripts = setOf(Character.UnicodeScript.LATIN, Character.UnicodeScript.GREEK, Character.UnicodeScript.CYRILLIC, Character.UnicodeScript.COMMON)
     private val unshapedForbiddenTypes = setOf(Character.FORMAT.toInt(), Character.SURROGATE.toInt(), Character.UNASSIGNED.toInt(), Character.NON_SPACING_MARK.toInt(), Character.COMBINING_SPACING_MARK.toInt(), Character.ENCLOSING_MARK.toInt())
 
-    fun layout(document: PdfDocument, measurer: TextMeasurer): PageLayout {
+    fun layout(document: PdfDocument, measurer: TextMeasurer, lineArea: ((Int) -> Pair<Float, Float>)? = null): PageLayout {
         val page = document.page
         val width = page.width - page.margins.left - page.margins.right
         val bottom = page.height - page.margins.bottom
@@ -39,6 +39,7 @@ internal object PageLayouter {
                     previousAfter = 0f
                 }
                 is PdfParagraph -> {
+                    if (block.anchoredImages.isNotEmpty()) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Anchored images require body pagination")
                     if (block.format.pageBreakBefore && elements.isNotEmpty()) overflow()
                     val format = block.format
                     val automatic = automaticBox(block, measurer)
@@ -68,8 +69,10 @@ internal object PageLayouter {
                     }
                     top += if (format.collapseSpacing) maxOf(0f, block.spaceBefore - previousAfter) else block.spaceBefore
                     var firstLine = true
-                    fun lineLeft() = if (firstLine) firstTextLeft else format.leftIndent
-                    fun availableWidth() = width - format.rightIndent - lineLeft()
+                    var lineIndex = 0
+                    fun area() = lineArea?.invoke(lineIndex) ?: (0f to width)
+                    fun lineLeft() = maxOf(area().first, if (firstLine) firstTextLeft else format.leftIndent)
+                    fun availableWidth() = minOf(area().first + area().second, width - format.rightIndent) - lineLeft()
                     if (availableWidth() <= 0 || width - format.leftIndent - format.rightIndent <= 0) overflow()
                     var line = mutableListOf<Fragment>()
                     var lineWidth = 0f
@@ -88,7 +91,7 @@ internal object PageLayouter {
                         val baseline = top + (automatic?.second ?: format.exactLineHeight?.times(0.8f) ?: ascent)
                         if (baseline - ascent < page.margins.top - 0.01f || baseline + descent > bottom + 0.01f) overflow()
                         val remaining = availableWidth() - lineWidth
-                        if (firstLine && label != null) elements += PositionedText(label.value.text, label.style, page.margins.left + markerLeft, baseline)
+                        if (firstLine && label != null) elements += PositionedText(label.value.text, label.style, page.margins.left + area().first + markerLeft, baseline)
                         var x = page.margins.left + lineLeft() + when (format.alignment) {
                             PdfAlignment.LEFT -> 0f
                             PdfAlignment.CENTER -> remaining / 2
@@ -109,6 +112,7 @@ internal object PageLayouter {
                         line = mutableListOf()
                         lineWidth = 0f
                         firstLine = false
+                        lineIndex++
                     }
                     for ((groupIndex, word) in groups.withIndex()) {
                         checkCancellation()
