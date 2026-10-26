@@ -61,3 +61,12 @@ python3 tools/pdf-evaluation/own-engine/compare.py build/own-engine-report/word-
 ```
 
 Use `--poppler-dir` when needed. Output includes a JSON record, side-by-side PNG, overlay and amplified difference for every page, without image alignment or content rescaling. Geometry always uses pdfplumber text matrices independently of pypdf content extraction, including across PDF graphics-state changes; `--word-bounds` additionally compares word rectangles. Tests regenerate the synthetic DOCX with Python's standard library but do not call Word or fabricate a Word reference. Preserve needed ignored QA evidence before eventual post-merge worktree cleanup.
+
+
+## Word compatibility and table alignment
+
+Release preparation exposed a source-reader alignment error in the website example: compatibility mode 15 was accepted but used the legacy table-text origin. Two genuine Word exports with identical document/styles/images and only the compatibility value changed place the first header text at 54.00 pt in mode 12 and 59.04 pt in mode 15. Pagination and vertical placement remain identical. Microsoft documents the [compatibility setting and default mode 12](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-docx/90138c4d-eb18-4edc-aa6c-dfb799cb1d0d); the geometry comparison is measured from these independent Word exports.
+
+The DOCX adapter captures the setting before stripping authoring metadata. Legacy/default top-level tables retain the previous origin; mode 15 uses the border-anchored origin already used for nested tables. The shared renderer/model is unchanged. Ambiguous duplicate modes reject, and existing restrictions on other modes remain. Explicit columns are preserved; a modern indent that makes a table exceed the page rejects instead of silently narrowing it.
+
+Six focused regressions exercise absent/12/15 settings, actual embedded-font report PDFs with repeated headers, unchanged nested relative placement, ambiguous/unqualified values and physical overflow. The positive report fixture supplies explicit spare page width for its modern indent; the unchanged full-width legacy input separately proves overflow rejection. Existing neutral-engine golden files are not replaced. Full source/native/Word qualification remains mandatory before merging a candidate.
