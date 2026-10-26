@@ -61,6 +61,7 @@ def review(inventory, notices, sources, output):
     legal = json.loads((notices / "inventory.json").read_text())
     collected = json.loads((sources / "collection.json").read_text())
     assert image["Id"] == legal["image"]
+    assert image.get("Labels", {}).get("dev.nuaforma.validation-boundary") == "container", "Use matching source tools to audit older image boundaries"
     assert not collected["errors"]
     for item in legal["files"]:
         assert digest(notices / item["path"]) == item["sha256"]
@@ -74,38 +75,32 @@ def review(inventory, notices, sources, output):
         assert digest(sources / file["path"]) == file["sha256"]
     output.mkdir(parents=True, exist_ok=False)
     records, gaps = [], []
-    for scope in ("outer", "renderer"):
-        with tarfile.open(notices / (scope + "-doc.tar")) as archive:
-            for line in (inventory / (scope + "-packages.tsv")).read_text().splitlines():
-                binary, version, source, source_version = line.split("\t")
-                package = binary.split(":")[0]
-                record = dict(scope=scope, package=binary, version=version, source=source, sourceVersion=source_version)
-                if source.startswith(("libobasis26.8-", "libreoffice26.8")):
-                    assert source_version == ("26.8.1-1" if source == "libreoffice26.8-debian-menus" else "26.8.1.1-1")
-                    record["sourceFiles"] = [file["path"] for file in collected["upstream"] if file["path"].startswith("libreoffice/")]
-                    record["noticeArchive"] = "libreoffice-LICENSE.tar"
-                    record["noticeReview"] = "shared upstream license; bundled subcomponents require separate coverage"
-                else:
-                    if (source, source_version) not in source_map:
-                        gaps.append(dict(scope=scope, package=binary, reason="missing exact source"))
-                    else:
-                        record["sourceFiles"] = [file["path"] for file in source_map[source, source_version]["files"]]
-                    name = "doc/" + package + "/copyright"
-                    try:
-                        data = read_member(archive, name)
-                        target = output / scope / (package + ".copyright")
-                        target.parent.mkdir(parents=True, exist_ok=True)
-                        target.write_bytes(data)
-                        record["notice"] = target.relative_to(output).as_posix()
-                        record["noticeSha256"] = hashlib.sha256(data).hexdigest()
-                        text = data.decode("utf-8", errors="replace")
-                        record["declaredLicenseLabels"] = sorted(set(re.findall(r"^License:\s*([^\r\n]+)", text, re.MULTILINE)))
-                        record["commonLicenseReferences"] = sorted(set(re.findall(r"/usr/share/common-licenses/([A-Za-z0-9.+_-]+)", text)))
-                    except (ValueError, KeyError) as error:
-                        gaps.append(dict(scope=scope, package=binary, reason=str(error)))
-                records.append(record)
+    scope = "outer"
+    with tarfile.open(notices / "outer-doc.tar") as archive:
+        for line in (inventory / "outer-packages.tsv").read_text().splitlines():
+            binary, version, source, source_version = line.split("\t")
+            package = binary.split(":")[0]
+            record = dict(scope=scope, package=binary, version=version, source=source, sourceVersion=source_version)
+            if (source, source_version) not in source_map:
+                gaps.append(dict(scope=scope, package=binary, reason="missing exact source"))
+            else:
+                record["sourceFiles"] = [file["path"] for file in source_map[source, source_version]["files"]]
+            name = "doc/" + package + "/copyright"
+            try:
+                data = read_member(archive, name)
+                target = output / scope / (package + ".copyright")
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(data)
+                record["notice"] = target.relative_to(output).as_posix()
+                record["noticeSha256"] = hashlib.sha256(data).hexdigest()
+                text = data.decode("utf-8", errors="replace")
+                record["declaredLicenseLabels"] = sorted(set(re.findall(r"^License:\s*([^\r\n]+)", text, re.MULTILINE)))
+                record["commonLicenseReferences"] = sorted(set(re.findall(r"/usr/share/common-licenses/([A-Za-z0-9.+_-]+)", text)))
+            except (ValueError, KeyError) as error:
+                gaps.append(dict(scope=scope, package=binary, reason=str(error)))
+            records.append(record)
     result = dict(image=image["Id"], packages=records, gaps=gaps, auditApproved=False,
-                  pending=["review retained license texts and source obligations", "LibreOffice bundled/build inputs", "JVM and JAR coverage", "durable recipient access", "final immutable candidate binding"])
+                  pending=["review retained license texts and source obligations", "JVM and JAR coverage", "durable recipient access", "final immutable candidate binding"])
     (output / "review.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(dict(packages=len(records), gaps=gaps, auditApproved=False)))
     return result
