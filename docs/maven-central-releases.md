@@ -52,4 +52,6 @@ The local `prepare_central_bundle.py` helper assembles the six modules' verified
 
 Use the parameterized **Upload reviewed release to Central** and **Publish validated release on Central** workflows. Upload checks the signed tag and exact approval records before loading secrets, signs/verifies the candidate and stages once in `USER_MANAGED` mode. Publish requires the validated deployment UUID, verifies every staged artifact hash and submits one publication request. Reject uncertain outcomes rather than retrying automatically. Verify `PUBLISHED`, anonymous retrieval and independent consumers before advertising availability.
 
+The final bundle comparison runs from the reviewed publication policy on `main`, preserved before checking out the immutable source tag. This allows publication-only verification fixes without moving the source tag or changing candidate artifacts; every artifact name and hash must still match the approved six-library set.
+
 Container publication remains under its independent [candidate-specific license/source and fidelity gate](container-releases.md); no approval of Maven preparation waives that gate. Each release also requires the separately authorized website/download synchronization described in the container release guide.

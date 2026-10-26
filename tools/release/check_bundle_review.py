@@ -3,12 +3,17 @@ import argparse
 import json
 import pathlib
 
+from verify_libraries import MODULES
+
 
 def check(bundle, review):
     assert bundle["version"] == review["version"]
     assert bundle["fingerprint"] == "74317C6CE9C61B80A2A1C0B40F736E8D598CB08B"
+    expected = {module + "-" + bundle["version"] + suffix for module in MODULES
+                for suffix in (".pom", ".jar", "-sources.jar", "-javadoc.jar")}
     actual = {record["file"]: record["sha256"] for record in bundle["signatures"]}
-    assert len(actual) == 20 and actual == review["libraryHashes"], "Candidate library bytes differ from review"
+    assert len(bundle["signatures"]) == len(expected), "Require exactly one signature per library artifact"
+    assert set(actual) == expected and actual == review["libraryHashes"], "Candidate library bytes differ from review"
 
 
 def main():

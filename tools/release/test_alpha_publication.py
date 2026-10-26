@@ -9,6 +9,7 @@ import urllib.error
 
 from central_portal import upload
 from central_publish import publish
+from check_bundle_review import check as check_bundle
 from ensure_tag_absent import check as absent_tag
 from ensure_tag_absent import check_reference
 from validate_release_gate import check
@@ -45,6 +46,26 @@ class AlphaGateTest(unittest.TestCase):
 
 
 class PortalTest(unittest.TestCase):
+    def test_bundle_requires_all_six_reviewed_modules_and_rejects_changed_missing_extra_or_duplicate_records(self):
+        version = "0.3.0-alpha.1"
+        hashes = {module + "-" + version + suffix: "a" * 64 for module in MODULES
+                  for suffix in (".pom", ".jar", "-sources.jar", "-javadoc.jar")}
+        bundle = dict(version=version, fingerprint="74317C6CE9C61B80A2A1C0B40F736E8D598CB08B",
+                      signatures=[dict(file=name, sha256=digest) for name, digest in hashes.items()])
+        review = dict(version=version, libraryHashes=hashes)
+        check_bundle(bundle, review)
+        for mutation in ("changed", "missing", "extra", "duplicate"):
+            changed = copy.deepcopy(bundle)
+            if mutation == "changed": changed["signatures"][0]["sha256"] = "b" * 64
+            if mutation == "missing": changed["signatures"] = changed["signatures"][:-4]
+            if mutation == "extra": changed["signatures"].append(dict(file="unexpected.jar", sha256="a" * 64))
+            if mutation == "duplicate": changed["signatures"][-1] = changed["signatures"][0]
+            with self.subTest(mutation=mutation), self.assertRaises(AssertionError):
+                check_bundle(changed, review)
+        workflow = (pathlib.Path(__file__).resolve().parents[2] / '.github/workflows/central-release-upload.yml').read_text()
+        self.assertLess(workflow.index('cp tools/release/check_bundle_review.py'), workflow.index('git checkout --detach'))
+        self.assertIn('python3 "$RUNNER_TEMP/release-policy/check_bundle_review.py"', workflow)
+
     def test_only_both_explicitly_supported_image_repositories_are_accepted(self):
         for image in ('nuaforma', 'nuaforma-playground'):
             for tag in ('0.2.0-alpha.1', '0.2.0-alpha.1-amd64', '0.2.0-alpha.1-arm64'):
