@@ -6,7 +6,7 @@ on:
       version:
         description: Explicit container version (does not publish Maven artifacts)
         required: true
-        default: '0.2.0-alpha.2'
+        default: '0.3.0-alpha.1'
         type: string
 
 # Preparation never authenticates to a registry or uploads executable images.

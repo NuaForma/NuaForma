@@ -14,7 +14,7 @@ NuaForma already provides DOCX template processing, provider contracts, REST and
 
 The engine will read DOCX first and ODT later, preserve supported styling, and generate PDF without Word, LibreOffice, Euro-Office, or an intermediate HTML rendering pipeline. Small differences in line wrapping and pagination are acceptable; missing content, lost branding, accidental overlap and unexplained style changes are not.
 
-The production DOCX reader lives in `nuaforma-docx-pdf`; source-specific styles and structures map into the neutral `nuaforma-pdf` model. Rendering executes in-process, while independent Java 17 validation remains isolated. LibreOffice is absent from the production path and container. Unsupported source features reject explicitly. New topic branches start from and target `feature/own-pdf-engine`.
+The production DOCX reader lives in `nuaforma-docx-pdf`; source-specific styles and structures map into the neutral `nuaforma-pdf` model. Rendering executes in-process, while independent Java 17 validation remains isolated. LibreOffice is absent from the production path and container. Unsupported source features reject explicitly. New topic branches start from and target `develop`; the original integration branch was merged through PR #120.
 
 - Keep independently written NuaForma code under Apache-2.0. Required functionality must use freely usable open-source components, without commercial licenses, evaluation keys or mandatory cloud services.
 - Reuse open-source ZIP/XML, Unicode, font and PDF primitives. Own the document interpretation, style resolution, page layout and conversion policy.
@@ -313,22 +313,17 @@ The bounded foundation, tables, frames, PDF profiles, native provider integratio
 
 ## 13. Branch, PR and release agreement
 
-`feature/own-pdf-engine` is the long-lived integration branch for this version. It was created locally on 2026-10-24 from fetched `origin/develop` at commit `6549e4342295b53da68c923cca77473bc109d417`.
+The original `feature/own-pdf-engine` track merged into develop through PR #120. New work starts from and targets **develop**, with signed Conventional Commits, normal merges and all applicable exact-head Java/native/Sonar checks. Do not recreate the retired integration target or rewrite shared history.
 
-- Start implementation/work branches from the current `feature/own-pdf-engine`, and use **`feature/own-pdf-engine` as their PR target** for now. This also applies to follow-up documentation/fixes specific to this version. It is a scoped exception to the normal `develop` target, not a repository-wide default change.
-- Ordinary unrelated work continues through `develop`. Regularly merge current `develop` into the own-engine integration branch, proposed at least weekly during active development and before milestones. Resolve conflicts and run applicable checks before integration; do not rebase the shared integration branch.
-- Synchronization is performed during authorized work, not by an automatically scheduled process. Do not merge unfinished engine work back to `develop` solely to keep this branch current.
-- A future integration into `develop` requires a separately reviewed PR and explicit approval at the agreed milestone.
-- This version must eventually support its own releases and distinguishable immutable tags. Exact tag syntax, artifact versions/coordinates, image names and publication procedure are deliberately **not decided or configured yet**; no example here reserves a tag.
-- Those own-engine releases use the own engine and **contain no LibreOffice**: no executable, transitive/bundled runtime or hidden fallback. Before release, verify the final dependency graph, image filesystem, SBOM, launchers, capabilities and release claims. Removing LibreOffice must not remove other components' valid notices or source obligations.
-- Current releases and their existing `main`-only protected workflows remain unchanged. They do not currently authorize branch-specific publication. Future workflow/environment/tag changes require a concrete reviewed proposal and explicit approval; do not bypass protection or create tags now.
-- Existing signing, candidate-specific checks, notices/source provision, qualification and website handoff obligations still apply to any future engine release.
+The selected first native-engine release is **`0.3.0-alpha.1`** / **`v0.3.0-alpha.1`**, using the existing protected main-only publisher. Libraries remain Java 17 compatible; the service/Playground use Java 25 with bounded independent Java 17 validation. Standard PDF and PDF/A-1b, 2b and 3b are qualified. Requested watermarks work in standard/2b/3b; every requested 1b watermark is refused. No LibreOffice executable, transitive runtime or fallback is shipped.
 
-See the owning [branch workflow](../branch-workflow.md#own-pdf-engine-integration-branch). This document records the agreement; it does not push a branch, open a PR, publish a release or configure automation.
+Exact candidate/architecture qualification, embedding rights, source/license/SBOM provision, signatures and the matching website remain publication gates. Preparation does not publish artifacts or approve a maintainer-only audit. Publication is explicitly deferred until the maintainer returns. Issues #51 and #54 remain deferred to milestone 0.4.0.
+
+See the owning [branch workflow](../branch-workflow.md#own-pdf-engine-integration-branch).
 
 ## 14. References and outstanding decisions
 
-The approved package structure, scope and workflow are recorded in [ARCHITECTURE.md](../../ARCHITECTURE.md). Actual current behavior remains in [the PDF provider guide](../../nuaforma-docx-pdf/README.md). Outstanding choices include the concrete shaping bridge, exact dependency versions, wrap subset, archival release profile coverage and release tag scheme.
+The approved package structure, scope and workflow are recorded in [ARCHITECTURE.md](../../ARCHITECTURE.md). Actual current behavior remains in [the PDF provider guide](../../nuaforma-docx-pdf/README.md). Remaining design work includes broader shaping/layout combinations, tagged PDF/A level A/PDF/UA and ODT import. Concrete current dependencies, native profile bounds and validation behavior are recorded in the module guides; archival level B and the selected alpha tag scheme are already decided.
 
 Standards/building-block references, originally consulted on 2026-10-24; they establish primitives and format semantics, not implemented NuaForma support:
 
@@ -338,3 +333,7 @@ Standards/building-block references, originally consulted on 2026-10-24; they es
 - [ICU boundary analysis](https://unicode-org.github.io/icu/userguide/boundaryanalysis/): Unicode segmentation.
 - [Java 17 TextLayout](https://docs.oracle.com/en/java/javase/17/docs/api/java.desktop/java/awt/font/TextLayout.html): candidate metrics/shaping primitives, not a PDF encoding bridge.
 - [veraPDF validation](https://docs.verapdf.org/validation/): profile validation and machine-only PDF/UA checks.
+
+## Integration and selected alpha
+
+On 2026-10-26 the maintainer authorized integration and release: PR #120 merged the own-engine track into develop. The next selected release is `0.3.0-alpha.1` (`v0.3.0-alpha.1`), using the ordinary protected main-only publisher. Earlier references to the long-lived feature branch describe the original development track, not a current PR target. The bounded native profile and explicit rejections remain applicable; issues #51 and #54 are scheduled for milestone `0.4.0`.

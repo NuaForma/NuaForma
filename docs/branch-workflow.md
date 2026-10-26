@@ -12,15 +12,11 @@ Issue #88 installs the one-time infrastructure migration baseline through develo
 
 ## Own PDF engine integration branch
 
-Approved on 2026-10-24: `feature/own-pdf-engine` is the long-lived integration branch for the own PDF engine version. It starts from current `develop`; the initial local branch base is `6549e4342295b53da68c923cca77473bc109d417`. Its agreed package structure and design are recorded in the [architecture decision](../ARCHITECTURE.md#own-pdf-engine-development-track) and [technical design](architecture/conversion-engine.md).
+The original own-engine integration track is complete. PR #120 merged `feature/own-pdf-engine` into develop on 2026-10-26; the feature branch was deleted. Requested watermarks subsequently merged through PR #128. New work starts from and targets **develop**, following the ordinary signed-commit, normal-merge and exact-head check policy.
 
-For this track, create work branches from the current `feature/own-pdf-engine` and use **`feature/own-pdf-engine` as the PR target** for now, including track-specific fixes and documentation. Do not target `develop` by default for this work. Unrelated development continues through ordinary branches targeting `develop`; the repository default branch remains unchanged.
+The selected first native-engine release is **`0.3.0-alpha.1`**, with tag **`v0.3.0-alpha.1`**. It uses the existing protected main-only release procedure. Its images contain no LibreOffice executable or fallback and require no custom host seccomp/AppArmor installation. Verify the exact artifacts, profile/architecture checks, dependencies, filesystem, SBOM, notices and matching source materials before publication. Existing release tags/images stay immutable; prereleases do not move `latest`.
 
-Regularly bring current `develop` into the integration branch with merges, proposed at least weekly during active work and before milestones. Review conflicts, preserve both tracks' intended behavior and run the checks relevant to the combined changes. Use authorized work sessions, not an unrequested schedule. Do not rewrite/rebase the shared integration history or merge incomplete engine work into `develop` merely to synchronize it. Final integration into `develop` is a separately approved, reviewed PR. Normal signing, review and applicable build/qualification requirements continue to apply.
-
-The branch must eventually be able to produce separate own-engine releases with distinguishable immutable tags. Their binaries/images must contain no LibreOffice and must not invoke it as a fallback. Review the final artifacts, dependencies, filesystem, launchers and SBOM as well as the release claims; source intent alone is insufficient. Preserve required notices/source materials for all components that remain.
-
-Exact tag/version syntax, artifact/image publication identifiers, candidate workflow design and protected-environment eligibility are deferred. **No branch publisher, workflow trigger, protection change or tag is configured by this agreement.** Existing product publishers remain main-only and cannot be reused from this branch by bypassing their gates. Future changes require a concrete review and explicit approval, with exact-profile qualification, compatibility assessment, signing, license/source review and the normal corresponding website handoff. Do not overwrite ordinary release artifacts or existing tags.
+The maintainer authorized preparing this release and its separate website, but publication waits for the maintainer's return. Keep source qualification distinct from published availability. Do not create a branch publisher, bypass protection, infer maintainer audit approval or publish merely because a preparation PR merged.
 
 ## Separate website repository
 
