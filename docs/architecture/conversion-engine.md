@@ -338,3 +338,7 @@ Standards/building-block references, originally consulted on 2026-10-24; they es
 - [ICU boundary analysis](https://unicode-org.github.io/icu/userguide/boundaryanalysis/): Unicode segmentation.
 - [Java 17 TextLayout](https://docs.oracle.com/en/java/javase/17/docs/api/java.desktop/java/awt/font/TextLayout.html): candidate metrics/shaping primitives, not a PDF encoding bridge.
 - [veraPDF validation](https://docs.verapdf.org/validation/): profile validation and machine-only PDF/UA checks.
+
+## Integration and selected alpha
+
+On 2026-10-26 the maintainer authorized integration and release: PR #120 merged the own-engine track into develop. The next selected release is `0.3.0-alpha.1` (`v0.3.0-alpha.1`), using the ordinary protected main-only publisher. Earlier references to the long-lived feature branch describe the original development track, not a current PR target. The bounded native profile and explicit rejections remain applicable; issues #51 and #54 are scheduled for milestone `0.4.0`.

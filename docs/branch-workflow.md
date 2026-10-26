@@ -12,6 +12,8 @@ Issue #88 installs the one-time infrastructure migration baseline through develo
 
 ## Own PDF engine integration branch
 
+**Integration completed on 2026-10-26:** PR #120 merged this track into `develop` as `92408b5950a483e292b17f80c4b4f5da99a969cb`. The integration branch was automatically deleted. The following paragraphs record the original track agreement; new work now follows the normal develop policy, and release `0.3.0-alpha.1` uses the ordinary protected main-only release procedure. No separate feature-branch publisher is being introduced.
+
 Approved on 2026-10-24: `feature/own-pdf-engine` is the long-lived integration branch for the own PDF engine version. It starts from current `develop`; the initial local branch base is `6549e4342295b53da68c923cca77473bc109d417`. Its agreed package structure and design are recorded in the [architecture decision](../ARCHITECTURE.md#own-pdf-engine-development-track) and [technical design](architecture/conversion-engine.md).
 
 For this track, create work branches from the current `feature/own-pdf-engine` and use **`feature/own-pdf-engine` as the PR target** for now, including track-specific fixes and documentation. Do not target `develop` by default for this work. Unrelated development continues through ordinary branches targeting `develop`; the repository default branch remains unchanged.

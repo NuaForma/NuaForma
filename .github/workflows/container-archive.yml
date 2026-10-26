@@ -6,7 +6,7 @@ on:
       version:
         description: Signed container version with publicly available matching sources
         required: true
-        default: '0.2.0-alpha.2'
+        default: '0.3.0-alpha.1'
         type: string
 
 permissions:
@@ -113,7 +113,7 @@ jobs:
           docker save "$IMAGE_NAME:$CONTAINER_VERSION-${{ matrix.architecture }}-archive" | gzip -1 > "build/container-archive/$archive"
           test "$(stat -c %s "build/container-archive/$archive")" -lt 2147483648
           sha256sum "build/container-archive/$archive" > "build/container-archive/SHA256SUMS.$APPLICATION.${{ matrix.architecture }}"
-          tar -czf "build/container-archive/$IMAGE_NAME-metadata-${{ matrix.architecture }}.tar.gz" -C build/container-archive inventory isolation compatibility-isolation endpoints
+          tar -czf "build/container-archive/$IMAGE_NAME-metadata-${{ matrix.architecture }}.tar.gz" -C build/container-archive inventory endpoints
           gh release upload "v$CONTAINER_VERSION" --repo NuaForma/NuaForma "build/container-archive/$archive" "build/container-archive/SHA256SUMS.$APPLICATION.${{ matrix.architecture }}" "build/container-archive/$IMAGE_NAME-metadata-${{ matrix.architecture }}.tar.gz"
 
 # Sources precede every binary transfer. This does not publish registry tags.
