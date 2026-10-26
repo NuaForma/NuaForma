@@ -5,6 +5,8 @@ import kotlin.math.*
 
 internal object BoxLayouter {
     fun layout(box: PdfTextBox, page: PdfPage, paragraphTop: Float, measurer: TextMeasurer): PositionedBox {
+        if (box.paragraphs.any { p -> p.runs.filterIsInstance<PdfTextRun>().any { it.navigation != null } })
+            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Navigation in text frames is not qualified")
         val x = box.left
         val y = box.top + if (box.anchor == PdfBoxAnchor.PARAGRAPH) paragraphTop else 0f
         val angle = Math.toRadians(box.rotation.toDouble())

@@ -76,7 +76,7 @@ class OwnEngineDocxReaderTest {
             "word/document.xml" to { xml: String -> xml.replace("<w:body>", "<w:body><w:tbl/>") },
             "word/document.xml" to { xml: String -> xml.replace("<w:pPr>", "<w:pPr><w:numPr/>") },
             "word/document.xml" to { xml: String -> xml.replace("<wp:inline ", "<wp:anchor ").replace("</wp:inline>", "</wp:anchor>") },
-            "word/document.xml" to { xml: String -> xml.replace("<w:rPr>", "<w:rPr><w:u w:val=\"single\"/>") },
+            "word/document.xml" to { xml: String -> xml.replace("<w:rPr>", "<w:rPr><w:u w:val=\"double\"/>") },
             "word/_rels/document.xml.rels" to { xml: String -> xml.replace("Target=\"media/logo.png\"", "Target=\"https://invalid.example/logo.png\" TargetMode=\"External\"") },
             "word/styles.xml" to { xml: String -> xml.replace("<w:basedOn w:val=\"Normal\"/>", "<w:basedOn w:val=\"Title\"/>") },
         )

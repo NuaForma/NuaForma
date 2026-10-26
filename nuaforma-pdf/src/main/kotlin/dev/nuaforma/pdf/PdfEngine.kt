@@ -15,6 +15,7 @@ class PdfEngine @JvmOverloads constructor(private val validator: PdfConformanceV
 
     fun render(document: PdfDocument, fonts: List<PdfFont>, options: PdfOutputOptions, control: PdfRenderControl): ByteArray {
         control.checkActive()
+        document.validateNavigation()
         if (options.profile != PdfOutputProfile.STANDARD && options.validationEnabled && validator == null) throw PdfRenderException(PdfFailureCode.VALIDATION_UNAVAILABLE, "Archival output requires an independent validator")
         val snapshot = ArrayList(fonts)
         require(snapshot.size <= 16 && snapshot.map { it.id }.toSet().size == snapshot.size) { "Provide at most 16 uniquely named fonts; text must reference a supplied face" }
