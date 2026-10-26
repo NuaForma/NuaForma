@@ -16,11 +16,11 @@ import java.nio.file.Path
 
 class ConformancePolicyApiTest {
     @Test fun `real provider policy is identical through Java17 facet and REST without changing provider availability`() {
-        val configType = Class.forName("dev.nuaforma.docx.pdf.LibreOfficeConfiguration")
+        val configType = Class.forName("dev.nuaforma.docx.pdf.NativePdfConfiguration")
         val type = Class.forName("dev.nuaforma.docx.pdf.DocxPdfProvider").asSubclass(DocumentProvider::class.java)
         for (enabled in listOf(true, false)) testApplication {
-            val config = configType.getConstructor(Path::class.java, Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType)
-                .newInstance(Path.of(System.getProperty("java.io.tmpdir"), "missing-policy-api"), 1, enabled)
+            val config = configType.getConstructor(List::class.java, Class.forName("dev.nuaforma.pdf.PdfConformanceValidator"), Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType)
+                .newInstance(emptyList<Any>(), null, 1, enabled)
             val provider = type.getConstructor(configType).newInstance(config)
             val registry = ProviderRegistry.registered(listOf(ProviderRegistration(ProviderMetadata("pdf-policy", type.name, "0.1.0", ContractVersion.CURRENT)) { provider }))
             val expected = (provider as ConformancePolicyProvider).conformancePolicies().single()

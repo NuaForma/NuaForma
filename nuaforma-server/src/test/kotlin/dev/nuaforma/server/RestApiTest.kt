@@ -303,9 +303,9 @@ class RestApiTest {
         val caps = client.get("/api/v1/capabilities")
         assertEquals(HttpStatusCode.OK, caps.status)
         assertTrue(caps.bodyAsText().contains("PROVIDER_UNAVAILABLE"), caps.bodyAsText())
-        assertTrue(caps.bodyAsText().contains("paragraphDefaults"))
+        assertFalse(caps.bodyAsText().contains("paragraphDefaults"), "Unqualified native fallbacks must not be advertised")
         assertTrue(caps.bodyAsText().contains("\"fonts\":{\"status\":\"AVAILABLE\",\"entries\":[]}"), caps.bodyAsText())
-        assertTrue(caps.bodyAsText().contains("\"fonts\":{\"status\":\"UNAVAILABLE\",\"entries\":[]}"), caps.bodyAsText())
+        assertFalse(caps.bodyAsText().contains("\"fonts\":{\"status\":\"UNAVAILABLE\""), "Font snapshots remain readable without the PDF validator")
         val accepted = client.post("/api/v1/assess") { contentType(ContentType.Application.Json); setBody(envelope) }
         assertEquals(HttpStatusCode.OK, accepted.status, accepted.bodyAsText())
         val ambiguous = client.post("/api/v1/assess") { contentType(ContentType.Application.Json); setBody(envelope.replace("\"providerId\":\"nuaforma-docx\",", "")) }

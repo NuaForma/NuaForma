@@ -12,25 +12,34 @@ def main():
     parser.add_argument("--docker", required=True)
     parser.add_argument("--image", required=True)
     parser.add_argument("--output", type=pathlib.Path, required=True)
+    parser.add_argument("--source", type=pathlib.Path, required=True, help="Synthetic DOCX using the image's supplied fonts")
     parser.add_argument("--version", default=project_version())
     args = parser.parse_args()
     root = pathlib.Path(__file__).resolve().parents[2]
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
+    # A fresh, owned directory containing synthetic QA output only; the image uses UID 1000.
+    output.chmod(0o777)
     target = root / "examples/embedded/maven/pdf/target"
     assert (target / "classes/dev/nuaforma/examples/PdfExample.class").is_file()
+    assert args.source.is_file() and not args.source.is_symlink()
     name = "nuaforma-embedded-qa-" + uuid.uuid4().hex
     def command(*arguments, timeout=30):
         return subprocess.run([args.docker, *arguments], capture_output=True, text=True, timeout=timeout, check=True)
     command("create", "--name", name, "--label", "dev.nuaforma.embedded-qa=" + name,
             "--init", "--network", "none", "--user", "1000:1000", "--read-only", "--cap-drop", "ALL",
-            "--security-opt", "no-new-privileges", "--security-opt", "seccomp=" + str(root / "deployment/pdf-runtime/seccomp.json"),
+            "--security-opt", "no-new-privileges",
             "--pids-limit", "128", "--memory", "2g", "--cpus", "2", "--tmpfs", "/tmp:rw,size=512m,mode=1777",
             "--mount", "type=bind,source=" + str(target) + ",target=/consumer,readonly",
             "--mount", "type=bind,source=" + str(output) + ",target=/request",
+            "--mount", "type=bind,source=" + str(args.source.resolve()) + ",target=/input.docx,readonly",
             "--entrypoint", "/opt/java/openjdk/bin/java", args.image,
-            "-Xmx512m", "-cp", "/consumer/classes:/consumer/dependency/" + args.version + "/*", "dev.nuaforma.examples.PdfExample",
-            "/opt/nuaforma/bin/render-pdf", "/request/output.pdf")
+            "-Xmx512m", "-Dnuaforma.pdf.validator.java=/opt/java/openjdk/bin/java",
+            "-Dnuaforma.pdf.validator.directory=/opt/nuaforma/pdf-validation",
+            "-Dnuaforma.pdf.validator.launcher=/opt/nuaforma/bin/validate-pdf",
+            "-Dnuaforma.fonts.bundledDirectories=/usr/share/fonts",
+            "-cp", "/consumer/classes:/consumer/dependency/" + args.version + "/*", "dev.nuaforma.examples.PdfExample",
+            "/input.docx", "/request/output.pdf")
     try:
         result = subprocess.run([args.docker, "start", "--attach", name], capture_output=True, text=True, timeout=180)
         state = json.loads(command("inspect", name).stdout)[0]["State"]

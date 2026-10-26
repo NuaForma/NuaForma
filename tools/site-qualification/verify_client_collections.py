@@ -26,7 +26,6 @@ def main():
     args = parser.parse_args()
     args.output = args.output.resolve()
     args.output.mkdir(parents=True, exist_ok=False)
-    args.seccomp = ROOT / "deployment/pdf-runtime/seccomp.json"
     with zipfile.ZipFile(args.website_directory / "site/downloads/nuaforma-complete-kit.zip") as archive:
         assert all(not pathlib.PurePosixPath(name).is_absolute() and ".." not in pathlib.PurePosixPath(name).parts for name in archive.namelist())
         archive.extractall(args.output / "extracted")

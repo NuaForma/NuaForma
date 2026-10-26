@@ -41,7 +41,7 @@ class Pdfa1SafetyTest {
 
     @Test
     fun `assessment rejects transparent watermarks only for PDF A 1b without reading input`() {
-        val provider = DocxPdfProvider()
+        val provider = LegacyDocxPdfProvider()
         val options = GenerationOptions(watermark = TextWatermark("CONCEPT"))
         val status = provider.assess(GenerationRequirements(FormatRequest(DocumentFormat.DOCX),
             FormatRequest(DocumentFormat.PDF, mapOf("profile" to "pdfa-1b")), options))

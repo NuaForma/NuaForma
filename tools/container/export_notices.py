@@ -18,20 +18,16 @@ def main():
     def command(*items):
         return subprocess.check_output([args.docker, *items], text=True, stderr=subprocess.STDOUT, timeout=120).strip()
     image = json.loads(command("image", "inspect", args.image))[0]
+    assert image["Config"].get("Labels", {}).get("dev.nuaforma.validation-boundary") == "container", "Use matching source tools to audit older image boundaries"
     command("create", "--name", name, "--label", "dev.nuaforma.notices=" + name, image["Id"])
     sources = {
         "outer-doc": "/usr/share/doc", "outer-common-licenses": "/usr/share/common-licenses",
-        "renderer-doc": "/opt/nuaforma/renderer/usr/share/doc",
-        "renderer-common-licenses": "/opt/nuaforma/renderer/usr/share/common-licenses",
-        "libreoffice-LICENSE": "/opt/nuaforma/renderer/opt/libreoffice26.8/LICENSE",
-        "libreoffice-NOTICE": "/opt/nuaforma/renderer/opt/libreoffice26.8/NOTICE",
         "java-legal": "/opt/java/openjdk/legal", "java-release": "/opt/java/openjdk/release",
         "runtime-licenses": "/usr/share/nuaforma/licenses", "runtime-NOTICE": "/usr/share/nuaforma/NOTICE",
         "source-instructions": "/usr/share/nuaforma/SOURCES.md",
         "application-materials": "/opt/nuaforma/application/third-party-materials",
         "verapdf-materials": "/opt/nuaforma/verapdf-validation/materials",
         "verapdf-licenses": "/opt/nuaforma/verapdf-validation/licenses",
-        "bubblewrap-source.tar.xz": "/usr/share/nuaforma/sources/bubblewrap-0.13.0.tar.xz",
     }
     if details_layout := image["Config"].get("Labels", {}).get("dev.nuaforma.jvm-layout"):
         assert details_layout == "server25-validator17", "Unreviewed JVM layout"

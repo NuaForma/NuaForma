@@ -15,15 +15,15 @@ class ConformancePolicyTest {
         val previous = System.getProperty(key)
         try {
             System.setProperty(key, "true")
-            val enabled = DocxPdfProvider()
+            val enabled = LegacyDocxPdfProvider()
             System.setProperty(key, "false")
-            val disabled = DocxPdfProvider()
-            val explicit = DocxPdfProvider(LibreOfficeConfiguration(launcher))
+            val disabled = LegacyDocxPdfProvider()
+            val explicit = LegacyDocxPdfProvider(LibreOfficeConfiguration(launcher))
             System.setProperty(key, "PRIVATE_INVALID_VALUE")
             assertTrue(enabled.conformancePolicies().single().validationEnabled)
             assertFalse(disabled.conformancePolicies().single().validationEnabled)
             assertTrue(explicit.conformancePolicies().single().validationEnabled)
-            assertThrows(IllegalArgumentException::class.java) { DocxPdfProvider() }
+            assertThrows(IllegalArgumentException::class.java) { LegacyDocxPdfProvider() }
         } finally { if (previous == null) System.clearProperty(key) else System.setProperty(key, previous) }
     }
 
@@ -45,8 +45,8 @@ class ConformancePolicyTest {
         System.setProperty(key, "PRIVATE_INVALID_VALUE")
         val executor = Executors.newFixedThreadPool(4)
         try {
-            val providers = (0..7).map { index -> executor.submit<DocxPdfProvider> {
-                DocxPdfProvider(LibreOfficeConfiguration(launcher, 1, index % 2 == 0))
+            val providers = (0..7).map { index -> executor.submit<LegacyDocxPdfProvider> {
+                LegacyDocxPdfProvider(LibreOfficeConfiguration(launcher, 1, index % 2 == 0))
             } }.map { it.get(30, TimeUnit.SECONDS) }
             providers.forEachIndexed { index, provider ->
                 val policy = provider.conformancePolicies().single()

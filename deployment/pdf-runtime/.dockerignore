@@ -1,8 +1,7 @@
 **
 !Dockerfile
 !debian.sources
-!renderer-seccomp.c
-!render-pdf.sh
+!validate-pdf.sh
 !start-server.sh
 !healthcheck.sh
 !generate-sbom.py

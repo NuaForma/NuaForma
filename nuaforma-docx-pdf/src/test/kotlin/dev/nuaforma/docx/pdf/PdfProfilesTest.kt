@@ -10,7 +10,7 @@ class PdfProfilesTest {
     @Test
     fun `omitted profile defaults to PDF A 3b and capabilities describe the same choices`() {
         assertEquals(PdfProfile.PDFA_3B, PdfOptions.read(emptyMap()).profile)
-        val choices = DocxPdfProvider().capabilities().outputOptions.getValue(DocumentFormat.PDF)
+        val choices = LegacyDocxPdfProvider().capabilities().outputOptions.getValue(DocumentFormat.PDF)
         val profile = choices.single { it.name == "profile" }
         assertEquals("pdfa-3b", profile.defaultValue)
         assertEquals(PdfProfile.entries.map { it.id }, profile.allowedValues)

@@ -34,7 +34,7 @@ class CentralBundleTest(unittest.TestCase):
         verification.assert_called_once()
         self.assertFalse(record["uploaded"])
         with zipfile.ZipFile(self.output) as bundle:
-            self.assertEqual(120, len(bundle.namelist()))
+            self.assertEqual(144, len(bundle.namelist()))
             self.assertTrue(all(name.startswith("dev/nuaforma/") for name in bundle.namelist()))
             self.assertFalse(any("private" in name or "metadata" in name for name in bundle.namelist()))
         duplicate = self.repository / "second.zip"

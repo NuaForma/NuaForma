@@ -8,7 +8,7 @@ The registered `DocxProvider` reads DOCX and writes DOCX using the [restricted t
 
 ## Value pipes
 
-The source provider supports registered [JSON value pipes](../nuaforma-template/README.md#extensible-value-pipes-unreleased-source) in ordinary placeholders, including split runs, nested structural repetitions/conditions, headers/footers, supported text boxes and requested text watermarks. The registry is captured once at provider construction, using the current thread context class loader (fallback: template library loader), never rediscovered on request threads or during PDF intermediary generation. Installed implementations must be thread-safe and cooperate with cancellation. Historical `0.1` images/libraries remain unchanged.
+The source provider supports registered [JSON value pipes](../nuaforma-template/README.md#extensible-value-pipes) in ordinary placeholders, including split runs, nested structural repetitions/conditions, headers/footers, supported text boxes and requested text watermarks. The registry is captured once at provider construction, using the current thread context class loader (fallback: template library loader), never rediscovered on request threads or during PDF intermediary generation. Installed implementations must be thread-safe and cooperate with cancellation.
 
 For explicit embedded composition, use `DocxProvider(deploymentFonts, contentPipes, valuePipes)` with `TemplatePipes.of(...)` or `TemplatePipes.discover(extensionLoader)`. Existing constructors and Kotlin default-argument JVM descriptors remain available. The template library is an API dependency because this additive constructor refers to its public registry. Optional `TemplatePipeProvider.templatePipes()` reports that exact immutable extension-definition snapshot; Source REST metadata integration (#60) uses that snapshot. Reserve `image` and every generator content-pipe name against value-pipe collisions. A content-pipe marker cannot be mixed with value/formatter chains.
 
@@ -62,7 +62,7 @@ All supported syntax is validated before generation, including unselected branch
 
 ## Generator content pipes
 
-Trusted generators/extensions may explicitly register `ContentPipe` implementations through the additive two-argument `DocxProvider(deploymentFonts, pipes)` constructor. Existing constructor JVM entry points and ordinary template behavior remain unchanged. The built-in `image` pipe is always registered; an empty custom list adds no other pipes. Up to 127 custom pipes fit alongside it within the 128-registration ceiling. Use these APIs with `0.2.0-alpha.1` or matching newer artifacts, not historical `0.1` artifacts.
+Trusted generators/extensions may explicitly register `ContentPipe` implementations through the additive two-argument `DocxProvider(deploymentFonts, pipes)` constructor. Existing constructor JVM entry points and ordinary template behavior remain unchanged. The built-in `image` pipe is always registered; an empty custom list adds no other pipes. Up to 127 custom pipes fit alongside it within the 128-registration ceiling.
 
 ```kotlin
 val companyLabel = object : ContentPipe {
@@ -124,7 +124,7 @@ new DocxProvider().generate(new GenerationRequest(templateStream,
     Map.of("company", Map.of("logo", base64Png))), outputStream, new GenerationContext());
 ```
 
-`ContentPipeProvider.contentPipes()` describes this provider's registered image formats, sizing arguments, defaults, contexts and combinations. Source REST capability listing (#60) uses the same provider-owned metadata. PDF uses the same transformed DOCX before conversion; PDF/A-1b rejects alpha-bearing image sources rather than flattening them. These features are available from `0.2.0-alpha.1`; historical `0.1` artifacts do not include them.
+`ContentPipeProvider.contentPipes()` describes this provider's registered image formats, sizing arguments, defaults, contexts and combinations. Source REST capability listing (#60) uses the same provider-owned metadata. PDF uses the same transformed DOCX before conversion; PDF/A-1b rejects alpha-bearing image sources rather than flattening them.
 
 ## Requested watermarks
 
@@ -150,7 +150,7 @@ After enabling watermark expressions, all 42 previously verified control/variant
 
 <a id="automatic-embedding-unreleased-issue-100-source"></a>
 
-### Automatic embedding (from 0.2.0-alpha.2)
+### Automatic embedding
 
 For DOCX output, request `fontMode: "embed"` with `fontSelection: "used"`. Selection defaults to `declared`, preserving existing explicit validation/embedding. `used` requires `embed`; default preservation and PDF output retain their behavior. Kotlin and Java use the same output-options map as REST:
 

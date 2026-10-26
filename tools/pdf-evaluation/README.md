@@ -1,8 +1,10 @@
 # PDF renderer evaluation
 
-Current product behavior lives in the [PDF provider guide](../../nuaforma-docx-pdf/README.md). This directory preserves the historical FOP, LibreOffice and Euro-Office experiments; it is not an alternative production pipeline. The approved LibreOffice compatibility behavior was subsequently implemented in the product adapter and separately qualified.
+Current native-renderer qualification lives under [own-engine](own-engine/README.md), with genuine Word exports, measured per-page differences and protected engine golden files. Its fixture wrapper exercises the production DOCX reader and shared renderer used by the registered provider.
 
-Issue #10 research only. This standalone Java 17 Gradle build is deliberately outside the product module graph and publication. It is not a provider, an untrusted-input sandbox or approval to adopt a production backend. See [the findings](../../docs/pdf-backend-evaluation.md).
+The [PDF provider guide](../../nuaforma-docx-pdf/README.md) defines current product behavior. The FOP, LibreOffice and Euro-Office programs in this directory are optional retired research tools, outside the product dependency graph and production conversion path.
+
+Issue #10 research only. This standalone Java 17 Gradle build is deliberately outside the product module graph and publication. It is not a provider, an untrusted-input sandbox or approval to adopt a production backend. See [the findings](../../docs/architecture/conversion-engine.md).
 
 ## Reproduce the fixtures
 
@@ -92,11 +94,11 @@ python tools/pdf-evaluation/prepare_copies.py . tools/pdf-evaluation/build/<fres
 
 The shown 8 points and 278/240 line spacing are explicit example selections for the measured fixtures, not universal Word defaults. Convert the copies through the same bounded LibreOffice-only workflow, then run `inspect_results.py` and `assess_copies.py`. Add `--inline-boxes` to `assess_geometry.py` to independently measure the fixture's ordinary 260-by-35-point frame and modern 360-by-36-point frame, including a no-overlap assertion. Frame coordinates are measured from the PDF, never inserted as correction constants.
 
-`review_pages.py <conversion-run>` creates fresh ignored QA sheets and `review/coverage.json`, retaining full page pixels and recording exact pixel duplicates. Inspect all unique pages; scans and coordinate reports do not replace visual review. The full explicit-fallback run contains 14 PDFs, 44 pages and 32 unique page rasters. The ordinary frames now match Word exactly, but modern frames remain vertically displaced by 1.69–1.70 points. The user temporarily accepted this measured limitation, tracked in [issue #32](https://github.com/NuaForma/NuaForma/issues/32), and authorized merging the research. The subsequent LibreOffice backend decision is recorded in [the findings](../../docs/pdf-backend-evaluation.md); this research does not implement a production provider or establish a general production fidelity pass.
+`review_pages.py <conversion-run>` creates fresh ignored QA sheets and `review/coverage.json`, retaining full page pixels and recording exact pixel duplicates. Inspect all unique pages; scans and coordinate reports do not replace visual review. The full explicit-fallback run contains 14 PDFs, 44 pages and 32 unique page rasters. The ordinary frames now match Word exactly, but modern frames remain vertically displaced by 1.69–1.70 points. The user temporarily accepted this measured limitation, tracked in [issue #32](https://github.com/NuaForma/NuaForma/issues/32), and authorized merging the research. The subsequent LibreOffice backend decision is recorded in [the findings](../../docs/architecture/conversion-engine.md); this research does not implement a production provider or establish a general production fidelity pass.
 
 ## Euro-Office research
 
-`euro_office.py` evaluates only the trusted synthetic fixtures through the official image's direct `x2t` executable; it does not start DocumentServer's services. Resolve and record the immutable Linux/amd64 image digest before pulling it. The measured digest and exact package versions/checksums are in [the evaluation](../../docs/pdf-backend-evaluation.md#euro-office-alternative-evaluation). `latest` contained 9.3.4-hotfix.1, not the separately published 9.3.5 package; do not equate those versions or infer a package release from x2t's unchanged internal banner.
+`euro_office.py` evaluates only the trusted synthetic fixtures through the official image's direct `x2t` executable; it does not start DocumentServer's services. Resolve and record the immutable Linux/amd64 image digest before pulling it. The measured digest and exact package versions/checksums are in [the evaluation](../../docs/architecture/conversion-engine.md#euro-office-alternative-evaluation). `latest` contained 9.3.4-hotfix.1, not the separately published 9.3.5 package; do not equate those versions or infer a package release from x2t's unchanged internal banner.
 
 Supply a private QA font directory containing only the explicitly selected locally usable fonts. These files stay ignored, are mounted read-only and are never installed or bundled by the product. Use the normal bundled Python/Poppler and approved barcode decoder. From the repository root, with a fresh output directory:
 

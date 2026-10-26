@@ -91,7 +91,7 @@ class PortalTest(unittest.TestCase):
         result = publish(identity, review, "synthetic-token", opener)
         self.assertTrue(result["publishRequested"])
         self.assertFalse(result["published"])
-        self.assertEqual(22, len(requests))
+        self.assertEqual(26, len(requests))
         requests.clear()
         state["deploymentState"] = "VALIDATING"
         with self.assertRaises(AssertionError): publish(identity, review, "synthetic-token", opener)

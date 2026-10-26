@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[2]
 REPORT = Path("build/reports/jacoco/coverageReport/coverageReport.xml")
 MODULES = (
     "nuaforma-contracts", "nuaforma-core", "nuaforma-template", "nuaforma-docx",
-    "nuaforma-docx-pdf", "nuaforma-server", "nuaforma-playground",
+    "nuaforma-docx-pdf", "nuaforma-pdf", "nuaforma-server", "nuaforma-playground",
 )
 
 
@@ -42,5 +42,5 @@ def validate(root):
 if __name__ == "__main__":
     counters = validate(ROOT)
     lines = counters["LINE"]
-    print(f"Seven-module production inventory verified: {lines['covered']} covered / "
+    print(f"Production module inventory verified: {lines['covered']} covered / "
           f"{int(lines['covered']) + int(lines['missed'])} executable JVM lines")

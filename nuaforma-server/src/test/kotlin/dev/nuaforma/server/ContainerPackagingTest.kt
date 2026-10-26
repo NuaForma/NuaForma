@@ -31,7 +31,7 @@ class ContainerPackagingTest {
         assertEquals(true, service["read_only"])
         assertEquals("1000:1000", service["user"])
         assertEquals(listOf("ALL"), service["cap_drop"])
-        assertEquals(listOf("no-new-privileges:true", "seccomp=\${NUAFORMA_SECCOMP_PROFILE:-./seccomp.json}"), service["security_opt"])
+        assertEquals(listOf("no-new-privileges:true"), service["security_opt"])
         assertEquals("\${NUAFORMA_PLATFORM:-linux/amd64}", service["platform"])
         assertEquals(128, service["pids_limit"])
         assertEquals("2g", service["mem_limit"])
@@ -75,8 +75,7 @@ class ContainerPackagingTest {
         val uploads = steps.map { it as Map<*, *> }.filter { (it["uses"] as? String)?.startsWith("actions/upload-artifact@") == true }
         assertEquals(1, uploads.size)
         val paths = ((uploads.single()["with"] as Map<*, *>)["path"] as String).trim().lines()
-        assertEquals(listOf("build/container-release/inventory/", "build/container-release/endpoints/sbom.json", "build/container-release/qualification/qualification.json",
-            "build/container-release/isolation/isolation.txt", "build/container-release/compatibility-isolation/isolation.txt"), paths)
+        assertEquals(listOf("build/container-release/inventory/", "build/container-release/endpoints/sbom.json", "build/container-release/qualification/qualification.json"), paths)
         assertFalse(steps.any { (it as Map<*, *>)["run"].toString().contains("docker push") })
         assertFalse(steps.any { (it as Map<*, *>)["run"].toString().contains("docker login") })
         assertTrue(steps.any { (it as Map<*, *>)["run"].toString().contains("verify_native_platform.py") })
@@ -93,10 +92,10 @@ class ContainerPackagingTest {
         val steps = (job["steps"] as List<*>).map { it as Map<*, *> }
         assertFalse(steps.any { (it["uses"] as? String)?.startsWith("actions/upload-artifact@") == true })
         val commands = steps.joinToString("\n") { it["run"].toString() }
-        listOf("verify_native_platform.py", "check_renderer_filter.py", "qualify_sandbox.py", "qualify_service.py", "qualify_java_runtime.py").forEach {
+        listOf("verify_native_platform.py", "qualify_service.py", "qualify_java_runtime.py", "qualify_endpoints.py", "verify_embedded_pdf.py").forEach {
             assertTrue(commands.contains(it), it)
         }
-        listOf("docker push", "docker login", "--privileged", "seccomp=unconfined").forEach {
+        listOf("docker push", "docker login", "--privileged", "seccomp=", "--apparmor", "check_renderer_filter.py", "qualify_sandbox.py", "apparmor_parser").forEach {
             assertFalse(commands.contains(it), it)
         }
     }
@@ -143,26 +142,34 @@ class ContainerPackagingTest {
         assertFalse(launcher.contains("\r"))
     }
 
-    @Test fun `renderer keeps namespaces without exposing procfs or caller library paths`() {
-        val launcher = Files.readString(root.resolve("deployment/pdf-runtime/render-pdf.sh"))
-        listOf("--unshare-user", "--unshare-pid", "--unshare-net", "--unshare-ipc", "--unshare-uts",
-            "--cap-drop ALL", "--clearenv", "--seccomp 3").forEach { assertTrue(launcher.contains(it), it) }
-        assertFalse(launcher.contains("--proc /proc"))
-        assertFalse(launcher.contains("--ro-bind /proc"))
-        assertTrue(launcher.contains("--symlink /opt/libreoffice26.8/program/soffice.bin /proc/self/exe"))
-        assertTrue(launcher.contains("--symlink /dev/null /proc/version"))
-        assertTrue(launcher.contains("--remount-ro /proc"))
-        assertTrue(launcher.contains("--setenv LD_LIBRARY_PATH /opt/libreoffice26.8/program:/validator/java/lib:/validator/java/lib/server"))
-        assertTrue(launcher.contains("set -- /opt/libreoffice26.8/program/oosplash"))
+    @Test fun `native validation uses a fixed Java classpath without a nested namespace runtime`() {
+        val launcher = Files.readString(root.resolve("deployment/pdf-runtime/validate-pdf.sh"))
+        listOf("bwrap", "--unshare-", "--ro-bind", "--seccomp", "LD_LIBRARY_PATH").forEach { assertFalse(launcher.contains(it), it) }
+        assertTrue(launcher.contains("-cp '/opt/nuaforma/pdf-validation/*:/opt/nuaforma/verapdf-validation/*'"))
+        assertTrue(launcher.contains("\"-Duser.home=\$work\""))
+        assertTrue(launcher.contains("\"-Djava.io.tmpdir=\$work\""))
+        listOf("seccomp.json", "nuaforma.apparmor", "renderer-seccomp.c", "render-pdf.sh").forEach {
+            assertFalse(Files.exists(root.resolve("deployment/pdf-runtime/$it")), it)
+        }
+        val dockerfile = Files.readString(root.resolve("deployment/pdf-runtime/Dockerfile"))
+        assertFalse(dockerfile.contains("bubblewrap"))
+        assertTrue(dockerfile.contains("dev.nuaforma.validation-boundary=\"container\""))
+    }
+
+    @Test fun `helm uses runtime defaults without a node-installed profile`() {
+        val deployment = Files.readString(root.resolve("deployment/helm/nuaforma/templates/deployment.yaml"))
+        assertTrue(Regex("seccompProfile:\\s+type: RuntimeDefault").containsMatchIn(deployment))
+        assertFalse(deployment.contains("localhostProfile"))
+        assertFalse(Files.readString(root.resolve("deployment/helm/nuaforma/values.yaml")).contains("localhostProfile"))
     }
 
     @Test fun `bounded validators use serial collection without suppressing warnings`() {
-        val launcher = Files.readString(root.resolve("deployment/pdf-runtime/render-pdf.sh"))
-        assertEquals(4, Regex("/validator/java/bin/java ").findAll(launcher).count())
-        assertEquals(4, Regex("/validator/java/bin/java -XX:\\+UseSerialGC -Xmx256m ").findAll(launcher).count())
+        val launcher = Files.readString(root.resolve("deployment/pdf-runtime/validate-pdf.sh"))
+        assertEquals(2, Regex("/opt/java/openjdk/bin/java ").findAll(launcher).count())
+        assertEquals(2, Regex("/opt/java/openjdk/bin/java -XX:\\+UseSerialGC -Xmx256m ").findAll(launcher).count())
         assertTrue(launcher.contains("--as=1610612736"))
         assertFalse(launcher.contains("-Xlog:off"))
-        assertTrue(launcher.contains("--ro-bind /opt/java/openjdk /validator/java"))
+        listOf("--core=0", "--fsize=16777216", "--cpu=30", "-XX:MaxDirectMemorySize=64m", "-XX:MaxMetaspaceSize=128m", "-XX:CompressedClassSpaceSize=64m", "-XX:ReservedCodeCacheSize=64m", "-XX:ActiveProcessorCount=2", "-Xss512k").forEach { assertTrue(launcher.contains(it), it) }
         assertFalse(launcher.contains("/opt/java/server"))
         val dockerfile = Files.readString(root.resolve("deployment/pdf-runtime/Dockerfile"))
         assertTrue(dockerfile.contains("eclipse-temurin:17-jre-noble@sha256:"))
@@ -204,7 +211,7 @@ class ContainerPackagingTest {
     }
 
     @Test fun `normal checks cover develop while release promotion targets main only`() {
-        listOf("build.yml", "native-container.yml", "apparmor-audit.yml").forEach {
+        listOf("build.yml", "native-container.yml").forEach {
             val workflow = yaml(".github/workflows/$it")
             val events = (workflow["on"] ?: workflow[true]) as Map<*, *>
             assertEquals(listOf("main", "develop"), (events["pull_request"] as Map<*, *>)["branches"])
