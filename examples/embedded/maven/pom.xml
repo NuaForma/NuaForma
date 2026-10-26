@@ -1,8 +1,8 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>dev.nuaforma.examples</groupId><artifactId>embedded-examples</artifactId><version>0.1.0-SNAPSHOT</version><packaging>pom</packaging>
-  <modules><module>provider</module><module>core</module><module>docx</module><module>pdf</module></modules>
-  <properties><maven.compiler.release>17</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding><nuaforma.version>0.2.0-alpha.1</nuaforma.version></properties>
+  <modules><module>provider</module><module>core</module><module>docx</module><module>pdf</module><module>pdf-engine</module></modules>
+  <properties><maven.compiler.release>17</maven.compiler.release><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding><nuaforma.version>0.3.0-alpha.1</nuaforma.version></properties>
   <repositories><repository><id>nuaforma-staged</id><url>${nuaforma.repository}</url><snapshots><enabled>true</enabled></snapshots></repository></repositories>
   <build><pluginManagement><plugins>
     <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.16.0</version></plugin>

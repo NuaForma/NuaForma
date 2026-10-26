@@ -42,8 +42,9 @@ def download(url, file, algorithm, expected):
 
 
 def source_pairs(inventory):
+    assert not (inventory / "renderer-packages.tsv").exists(), "Use matching source tools for inventories with a separate legacy filesystem"
     records = {}
-    for name in ("outer-packages.tsv", "renderer-packages.tsv"):
+    for name in ("outer-packages.tsv",):
         for line in (inventory / name).read_text(encoding="utf-8").splitlines():
             binary, binary_version, source, version = line.split("\t")
             assert re.fullmatch(r"[a-z0-9.+-]+", source) and re.fullmatch(r"[A-Za-z0-9.+:~_-]+", version)
@@ -87,16 +88,6 @@ def collect_debian(source, version, packages, destination):
 
 def collect_upstream(destination):
     records = []
-    base = "https://download.documentfoundation.org/libreoffice/src/26.8.1/"
-    for prefix in ("libreoffice", "libreoffice-dictionaries", "libreoffice-help", "libreoffice-translations"):
-        name = prefix + "-26.8.1.1.tar.xz"
-        expected = read_url(base + name + ".sha256").decode("ascii").split()[0]
-        path = destination / "libreoffice" / name
-        record = download(base + name, path, "sha256", expected)
-        record["path"] = path.relative_to(destination).as_posix()
-        records.append(record)
-        signature = read_url(base + name + ".asc")
-        path.with_name(name + ".asc").write_bytes(signature)
     for major, version in ((17, "17.0.20.1"), (25, "25.0.4.1")):
         base = f"https://github.com/adoptium/temurin{major}-binaries/releases/download/jdk-{version}%2B1/"
         name = f"OpenJDK{major}U-jdk-sources_{version}_1.tar.gz"
@@ -123,15 +114,11 @@ def main():
     image = json.loads((args.inventory / "image.json").read_text(encoding="utf-8"))
     assert re.fullmatch(r"sha256:[a-f0-9]{64}", image["Id"])
     pairs = source_pairs(args.inventory)
-    records, errors, upstream_packages = [], [], []
+    records, errors = [], []
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         jobs = {}
         for (source, version), packages in sorted(pairs.items()):
-            if source.startswith(("libobasis26.8-", "libreoffice26.8")):
-                assert version == ("26.8.1-1" if source == "libreoffice26.8-debian-menus" else "26.8.1.1-1")
-                upstream_packages.extend(packages)
-            else:
-                jobs[executor.submit(collect_debian, source, version, packages, destination)] = (source, version)
+            jobs[executor.submit(collect_debian, source, version, packages, destination)] = (source, version)
         for future in concurrent.futures.as_completed(jobs):
             source, version = jobs[future]
             try:
@@ -146,10 +133,10 @@ def main():
     except Exception as error:
         errors.append({"source": "upstream-runtime", "errorType": type(error).__name__})
     report = {"baselineImage": image["Id"], "debian": sorted(records, key=lambda item: (item["source"], item["version"])),
-              "upstreamPackages": upstream_packages, "upstream": upstream, "errors": errors,
+              "upstream": upstream, "errors": errors,
               "auditApproved": False, "published": False,
               "pending": ["final-candidate inventory comparison", "license/notice mapping", "signature and Debian descriptor verification",
-                          "LibreOffice external source/build-resource coverage", "Temurin build provenance", "Maven source/notice inventory",
+                          "Temurin build provenance", "Maven source/notice inventory",
                           "recipient source access and durable release packaging", "final-candidate fidelity/security qualification"]}
     (destination / "collection.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     assert not errors, "Incomplete collection; inspect the retained report"

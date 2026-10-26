@@ -10,6 +10,14 @@ An urgent product hotfix may start from main, enter main through a checked PR an
 
 Issue #88 installs the one-time infrastructure migration baseline through develop and a reviewed promotion to main. It changes branch/site ownership, not the released product binaries or their immutable tags. After this synchronization, normal feature work stays on develop until release promotion.
 
+## Own PDF engine integration branch
+
+The original own-engine integration track is complete. PR #120 merged `feature/own-pdf-engine` into develop on 2026-10-26; the feature branch was deleted. Requested watermarks subsequently merged through PR #128. New work starts from and targets **develop**, following the ordinary signed-commit, normal-merge and exact-head check policy.
+
+The selected first native-engine release is **`0.3.0-alpha.1`**, with tag **`v0.3.0-alpha.1`**. It uses the existing protected main-only release procedure. Its images contain no LibreOffice executable or fallback and require no custom host seccomp/AppArmor installation. Verify the exact artifacts, profile/architecture checks, dependencies, filesystem, SBOM, notices and matching source materials before publication. Existing release tags/images stay immutable; prereleases do not move `latest`.
+
+The maintainer authorized preparing this release and its separate website, but publication waits for the maintainer's return. Keep source qualification distinct from published availability. Do not create a branch publisher, bypass protection, infer maintainer audit approval or publish merely because a preparation PR merged.
+
 ## Separate website repository
 
 [NuaForma/website](https://github.com/NuaForma/website) owns the static site, downloadable deployment/examples/collections, website authoring/packaging and static QA. Product technical documentation, renderer/runtime security policy, license/source audits and actual runtime qualification remain here. Website inputs do not become part of the Java library graph.

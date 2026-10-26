@@ -6,7 +6,7 @@ on:
       version:
         description: Signed container version with publicly available matching sources
         required: true
-        default: '0.2.0-alpha.2'
+        default: '0.3.0-alpha.1'
         type: string
 
 permissions:
@@ -97,20 +97,14 @@ jobs:
           image="$IMAGE_NAME:$CONTAINER_VERSION-${{ matrix.architecture }}-archive"
           python3 tools/container/collect_inventory.py --image "$image" --destination build/container-archive/inventory
           python3 tools/release/check_container_source_coverage.py --application "$APPLICATION" --review "release-materials/$CONTAINER_VERSION$REVIEW_SUFFIX.json" --version "$CONTAINER_VERSION" --architecture ${{ matrix.architecture }} --inventory build/container-archive/inventory
-      - name: Qualify the exact native image with the enforcing policy
+      - name: Qualify the exact native image with runtime default policies
         run: |
           image="$IMAGE_NAME:$CONTAINER_VERSION-${{ matrix.architecture }}-archive"
-          sudo apparmor_parser --add --skip-cache deployment/pdf-runtime/nuaforma.apparmor
-          sudo grep -F 'nuaforma-runtime (enforce)' /sys/kernel/security/apparmor/profiles
-          docker build --platform linux/${{ matrix.architecture }} --file deployment/pdf-runtime/Dockerfile --build-context qualificationfixtures=tools/pdf-evaluation --target sandbox-probe-build --tag nuaforma:native-probe deployment/pdf-runtime
           python3 tools/container/verify_native_platform.py --image "$image" --architecture ${{ matrix.architecture }}
-          python3 tools/container/check_renderer_filter.py --image "$image" --architecture ${{ matrix.architecture }} --output build/container-archive/filter.bpf
-          python3 tools/container/qualify_sandbox.py --image "$image" --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --output build/container-archive/isolation
-          python3 tools/container/qualify_sandbox.py --image "$image" --probe-image nuaforma:native-probe --apparmor nuaforma-runtime --exec-hint --output build/container-archive/compatibility-isolation
           if test "$APPLICATION" = server; then
-            python3 tools/container/qualify_service.py --image "$image" --apparmor nuaforma-runtime --expected-version "$CONTAINER_VERSION" --output build/container-archive/qualification
+            python3 tools/container/qualify_service.py --image "$image" --expected-version "$CONTAINER_VERSION" --output build/container-archive/qualification
           fi
-          python3 tools/container/qualify_endpoints.py --image "$image" --architecture ${{ matrix.architecture }} --application "$APPLICATION" --expected-version "$CONTAINER_VERSION" --apparmor nuaforma-runtime --output build/container-archive/endpoints
+          python3 tools/container/qualify_endpoints.py --image "$image" --architecture ${{ matrix.architecture }} --application "$APPLICATION" --expected-version "$CONTAINER_VERSION" --output build/container-archive/endpoints
           ./gradlew :nuaforma-server:validateSbomFile -PsbomFile=build/container-archive/endpoints/sbom.json --warning-mode=fail
       - name: Retain immutable archive and checksum metadata after source and native gates
         run: |
@@ -119,7 +113,7 @@ jobs:
           docker save "$IMAGE_NAME:$CONTAINER_VERSION-${{ matrix.architecture }}-archive" | gzip -1 > "build/container-archive/$archive"
           test "$(stat -c %s "build/container-archive/$archive")" -lt 2147483648
           sha256sum "build/container-archive/$archive" > "build/container-archive/SHA256SUMS.$APPLICATION.${{ matrix.architecture }}"
-          tar -czf "build/container-archive/$IMAGE_NAME-metadata-${{ matrix.architecture }}.tar.gz" -C build/container-archive inventory isolation compatibility-isolation endpoints
+          tar -czf "build/container-archive/$IMAGE_NAME-metadata-${{ matrix.architecture }}.tar.gz" -C build/container-archive inventory endpoints
           gh release upload "v$CONTAINER_VERSION" --repo NuaForma/NuaForma "build/container-archive/$archive" "build/container-archive/SHA256SUMS.$APPLICATION.${{ matrix.architecture }}" "build/container-archive/$IMAGE_NAME-metadata-${{ matrix.architecture }}.tar.gz"
 
 # Sources precede every binary transfer. This does not publish registry tags.

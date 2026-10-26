@@ -11,6 +11,8 @@ import zipfile
 from qualify_service import Runtime, generate, http, multipart, template
 from verify_native_platform import verify
 from qualify_automatic_fonts import qualify as qualify_automatic_fonts
+from qualify_pdfa_policy import prepare_inspector, inspect
+from qualify_service import verify_pdf_profile
 
 
 def main():
@@ -18,11 +20,9 @@ def main():
     parser.add_argument("--image", required=True)
     parser.add_argument("--architecture", required=True, choices=("amd64", "arm64"))
     parser.add_argument("--docker", default="docker")
-    parser.add_argument("--seccomp", type=pathlib.Path, default=pathlib.Path("deployment/pdf-runtime/seccomp.json"))
     parser.add_argument("--fonts", required=True, type=pathlib.Path)
     parser.add_argument("--extensions", required=True, type=pathlib.Path)
     parser.add_argument("--output", required=True, type=pathlib.Path)
-    parser.add_argument("--apparmor", choices=("nuaforma-runtime",))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     fonts = args.output / "mixed-fonts"
@@ -34,7 +34,9 @@ def main():
     (fonts / "unreadable.ttf").write_bytes(original)
     (fonts / "unreadable.ttf").chmod(0)
     (fonts / "symlink.ttf").symlink_to("LibreBarcode39-Regular.ttf")
-    runtime = Runtime(args, "--mount", f"type=bind,source={fonts.resolve()},target=/opt/nuaforma/custom-fonts,readonly",
+    inspector = prepare_inspector(args.output)
+    runtime = Runtime(args, "--mount", f"type=bind,source={inspector},target=/tmp/pdf-policy-inspector.jar,readonly",
+                      "--mount", f"type=bind,source={fonts.resolve()},target=/opt/nuaforma/custom-fonts,readonly",
                       "--mount", f"type=bind,source={args.extensions.resolve()},target=/opt/nuaforma/extensions,readonly")
     checks = []
     try:
@@ -58,7 +60,7 @@ def main():
         docx_catalog = providers["nuaforma-docx"]["fonts"]["entries"]
         assert [entry for entry in docx_catalog if entry["source"] == "mounted"] == [font]
         assert any(entry["source"] == "bundled" for entry in docx_catalog)
-        qualify_automatic_fonts(base, docx_catalog, args.output)
+        qualify_automatic_fonts(base, docx_catalog, args.output, runtime)
         checks.append("automatic-IMAGE-and-MOUNT/used-faces/independent-font-bytes/preserved-embedding/real-PDF")
         logs = runtime.command("logs", runtime.name)
         for rejected in ("corrupt.ttf", "unsupported.woff", "unreadable.ttf", "symlink.ttf"):
@@ -98,14 +100,13 @@ def main():
                 embedded[index] ^= mask[index % 16]
             assert embedded == original
         (args.output / "mounted-font.docx").write_bytes(docx)
-        status, _, pdf = generate(base, "pdf", docx, {})
-        assert status == 200 and pdf.startswith(b"%PDF-1.7"), (status, pdf[:1024])
-        (args.output / "mounted-font.pdf").write_bytes(pdf)
+        assert generate(base, "pdf", docx, {})[0] == 422, "Source-embedded font packages remain explicitly unqualified"
         # Generate from the unembedded template too, so mounted fallback must actually run.
         status, _, pdf = generate(base, "pdf", document, {"name": "*NF001*"})
         assert status == 200, (status, pdf[:1024])
-        assert re.search(rb"/BaseFont\s*/[^\s/]*LibreBarcode39", pdf) and b"/FontFile2" in pdf
         (args.output / "mounted-fallback.pdf").write_bytes(pdf)
+        verify_pdf_profile(runtime, args.output / "mounted-fallback.pdf", 'pdfa-3b')
+        inspect(runtime, args.output / "mounted-fallback.pdf", 'NF001', 'OTHER-TENANT')
         # Existing instances retain bytes; a fresh instance must observe the changed mount.
         (fonts / "LibreBarcode39-Regular.ttf").write_bytes(b"invalid after startup")
         (fonts / "duplicate.ttf").write_bytes(b"invalid after startup")

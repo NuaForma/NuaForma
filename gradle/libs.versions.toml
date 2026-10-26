@@ -3,6 +3,7 @@ kotlin = "2.4.21"
 junit = "6.1.3"
 mockk = "1.14.11"
 archunit = "1.5.1"
+image-comparison = "5.0.0"
 docx4j = "17.3.2"
 pdfbox = "3.0.8"
 verapdf = "1.30.3"
@@ -39,6 +40,7 @@ junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 archunit = { module = "com.tngtech.archunit:archunit", version.ref = "archunit" }
+image-comparison-kotlin = { module = "dev.nuaforma:image-comparison-kotlin", version.ref = "image-comparison" }
 docx4j-core = { module = "org.docx4j:docx4j-core", version.ref = "docx4j" }
 docx4j-jaxb = { module = "org.docx4j:docx4j-JAXB-ReferenceImpl", version.ref = "docx4j" }
 pdfbox = { module = "org.apache.pdfbox:pdfbox", version.ref = "pdfbox" }

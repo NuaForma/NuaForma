@@ -7,7 +7,7 @@ import pathlib
 import re
 import subprocess
 import zipfile
-from verify_libraries import MODULES, artifacts, project_version
+from verify_libraries import SOURCE_MODULES as MODULES, artifacts, project_version
 
 
 def own_modules(files):
@@ -59,7 +59,8 @@ def main():
     for module, entrypoint, own in (
         ("core", "CoreExample", {"nuaforma-contracts", "nuaforma-core"}),
         ("docx", "DocxExample", {"nuaforma-contracts", "nuaforma-core", "nuaforma-template", "nuaforma-docx"}),
-        ("pdf", "PdfExample", {"nuaforma-contracts", "nuaforma-core", "nuaforma-template", "nuaforma-docx", "nuaforma-docx-pdf"}),
+        ("pdf", "PdfExample", {"nuaforma-contracts", "nuaforma-core", "nuaforma-template", "nuaforma-docx", "nuaforma-docx-pdf", "nuaforma-pdf"}),
+        ("pdf-engine", "PdfEngineExample", {"nuaforma-pdf"}),
     ):
         target = root / "examples/embedded/maven" / module / "target"
         files = sorted((target / "dependency" / args.version).glob("*.jar"))
@@ -77,6 +78,10 @@ def main():
         classpath = os.pathsep.join([str(target / "classes")] + [str(file) for file in files])
         command = ["java", "-cp", classpath, "dev.nuaforma.examples." + entrypoint]
         if module == "docx": command.append(str(output / "maven.docx"))
+        if module == "pdf-engine":
+            assert not any(file.name.startswith(("docx4j-", "jaxb-", "nuaforma-server-")) for file in files)
+            command.extend([str(root / "nuaforma-pdf/src/test/resources/fonts/LiberationSans-Regular.ttf"),
+                            str(output / "independent-engine.pdf")])
         message = run(command, root, output / (module + ".log"))
         records.append({"consumer": "maven-" + module, "passed": True, "javaFeature": 17, "modules": sorted(names), "result": message.strip()})
     provider_files = list((root / "examples/embedded/maven/provider/target/dependency" / args.version).glob("*.jar"))
@@ -95,7 +100,7 @@ def main():
         assert hashlib.sha256(resolved.read_bytes()).digest() == hashlib.sha256(artifacts(repository, name, args.version)[1].read_bytes()).digest()
     records.append({"consumer": "gradle-kotlin-docx", "passed": True, "modules": sorted(names)})
     (output / "verification.json").write_text(json.dumps(records, indent=2), encoding="utf-8")
-    print("Four independent Java/Kotlin consumer checks passed; configured PDF conversion remains a separate runtime check")
+    print(f"{len(records)} independent Java/Kotlin consumer checks passed; configured PDF conversion remains a separate runtime check")
 
 
 if __name__ == "__main__":

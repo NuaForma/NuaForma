@@ -35,8 +35,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--image', required=True)
     parser.add_argument('--docker', default='docker')
-    parser.add_argument('--seccomp', type=pathlib.Path, default=pathlib.Path('deployment/pdf-runtime/seccomp.json'))
-    parser.add_argument('--apparmor', choices=('nuaforma-runtime',))
     parser.add_argument('--output', type=pathlib.Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
@@ -46,7 +44,7 @@ def main():
         try:
             base = runtime.connect()
             config = json.loads(runtime.command('inspect', runtime.name))[0]
-            verify_isolation(config, args.apparmor)
+            verify_isolation(config)
             assert http(base, '/health/ready', timeout=5)[0] == 200
             status, _, payload = http(base, '/api/v1/capabilities')
             assert status == 200

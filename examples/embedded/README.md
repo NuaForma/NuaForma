@@ -1,53 +1,46 @@
 # Independent embedded consumers
 
-These Java 17 and Kotlin examples consume the five library publications by Maven coordinates, not source-project dependencies or an included NuaForma build. They are verified development examples for issue #15, not published artifacts or a stable API promise. All sample inputs are synthetic; generated documents, dependency copies and local repositories remain ignored.
+These Java 17 and Kotlin examples consume the six source library publications by Maven coordinates, without source-project dependencies or an included build. Inputs are synthetic; generated documents and local repositories remain ignored.
 
-## Stage the libraries
+## Stage and verify the libraries
 
-From the repository root, with JDK 17 and JDK 25, Python 3 and the checked-in Gradle Wrapper (the independent consumers themselves use Java 17):
+With JDK 17/25, Python 3, Maven 3.9.6 or later and the checked-in wrapper:
 
 ```sh
 ./gradlew verifyLibraryPublication
-```
-
-The only publication destination is `build/library-repository`, a local file repository. All five libraries have their own POM, main JAR, source JAR and documentation JAR. The documentation JAR contains the module README and architecture guide; it is not generated Kotlin API documentation. Original dependency artifacts are neither shaded nor bundled in these library JARs. Consumers retain the licenses/notices of the dependencies they distribute separately.
-
-## Verify Java/Maven and Kotlin/Gradle
-
-With Maven 3.9.6 or later also available:
-
-```sh
 ./gradlew verifyEmbeddedConsumers
 ```
 
-This compiles/runs the independent Maven reactor under `maven/` and independent Gradle project under `gradle/`, using the staged repository. The wrapper supplies the pinned Gradle version to that separate build. Public dependencies and build tools are retrieved normally, but NuaForma's own JARs must match the staged artifact hashes; external runtime JAR names and hashes must match the reviewed Gradle graph. Maven's local cache for this check is isolated under `build/consumer-tests/m2`; runtime inventories/logs are retained under ignored output directories.
+The publication destination is the local `build/library-repository`. Each library has its own POM, main/source/documentation JARs and original license/notices. Verification compiles/runs the independent Maven reactor and Kotlin/Gradle project with an exclusive local repository and exact staged hashes. It does not upload or publish.
 
 | Example | Direct NuaForma dependencies | Verification |
 | --- | --- | --- |
-| Maven provider | contracts only | A company-owned `company-note` provider with static metadata and SPI registration |
-| Maven core | core, plus the example provider | Discovery and explicit registration both generate `Company: Ada`; no document/conversion/server implementation is installed |
-| Maven DOCX | core, docx | Actual DOCX generation, formatted content and the restricted string language |
-| Maven PDF | core, docx-pdf | Explicit trusted runtime configuration; missing conversion leaves PDF unavailable and DOCX selectable |
-| Gradle Kotlin DOCX | core, docx | Actual generation through the same public contracts and runtime dependency isolation |
+| Maven provider | contracts | Company-owned provider, SPI and explicit registration |
+| Maven core | core and the example provider | Discovery, selection and bounded generation |
+| Maven DOCX | core, docx | Actual styled DOCX template processing |
+| Maven PDF | core, docx-pdf | Native provider composition, validator readiness and DOCX availability |
+| Maven neutral PDF | pdf | Direct shared-model rendering with caller-supplied font bytes |
+| Kotlin/Gradle DOCX | core, docx | Independent Java-17-compatible use and runtime isolation |
 
-The examples' parent POM accepts `-Dnuaforma.repository=<local-file-repository-URL>` and `-Dnuaforma.version=<version>`. The Gradle example accepts `-PnuaformaRepository=<URL>` and `-PnuaformaVersion=<version>`. Published libraries are available as `0.2.0-alpha.2`. For manual consumer builds, pass `-Dnuaforma.version=0.2.0-alpha.2` or `-PnuaformaVersion=0.2.0-alpha.2` explicitly; the example projects retain their historical alpha.1 default coordinate. These verification commands deliberately consume the exclusive local staging repository rather than silently substituting Central's immutable release. There are no project substitutions, composite builds or dependencies on the service.
-
-Runtime assertions reject server/test/veraPDF dependencies in the embedded host. The DOCX stack legitimately includes PDFBox IO/FontBox helpers, but not the optional full PDFBox parser, LibreOffice executable or isolated veraPDF validator. The PDF module's host dependencies differ from the converter's separate runtime; that runtime is not delivered through Maven.
+Pass `-Dnuaforma.repository=<local-file-repository-URL>` and `-Dnuaforma.version=<candidate-version>` to Maven, or `-PnuaformaRepository=<URL>` and `-PnuaformaVersion=<candidate-version>` to the Gradle example. Use the version actually staged from this checkout. The native version is not yet published. Runtime checks keep server/test/veraPDF libraries out of embedded host dependencies; PDFBox writing is part of the native PDF host, while vendor conformance parsing stays in the separate validator.
 
 ## Configured PDF generation
 
-Release `0.2.0-alpha.2` adds explicit immutable per-instance `new LibreOfficeConfiguration(absoluteLauncher, 1, false)` (the same positional Kotlin call) to delegate PDF/A conformance validation downstream. Existing constructors remain default-on and binary compatible, including compiled Kotlin default calls. Explicit configuration takes precedence over trusted JVM property `nuaforma.pdf.pdfaValidation`; libraries read no environment. Optional `ConformancePolicyProvider.conformancePolicies()` reports the same effective policy as REST capabilities. Disabled validation retains PDFBox and isolation and makes no verified-conformance claim; the operator is responsible for downstream validation. The examples below and release qualification keep validation enabled. Historical alpha.1 libraries do not contain this addition.
+`DocxPdfProvider(NativePdfConfiguration(...))` accepts immutable caller fonts, a genuine independent validator, bounded concurrency and a default-on conformance policy. Default provider discovery instead captures trusted JVM font/validator settings at construction. Libraries read no process environment. Disabling conformance checking retains mandatory structural validation and makes no verified archival-conformance claim.
 
-`PdfExample` has two modes. With no arguments it verifies honest unavailability of PDF without the isolated runtime; it does not claim to render a PDF. With two arguments, supply the absolute path to the approved isolated launcher and a caller-owned output path:
+`PdfExample` with no arguments checks honest PDF unavailability without validator configuration, while retaining DOCX output. With two arguments it reads a source DOCX and writes validated PDF/A-3b. For a compiled example, supply the resolved classpath and trusted settings:
 
 ```sh
-java -cp 'examples/embedded/maven/pdf/target/classes:examples/embedded/maven/pdf/target/dependency/0.2.0-alpha.2/*' \
-  dev.nuaforma.examples.PdfExample /absolute/path/to/isolated-launcher /absolute/path/to/output.pdf
+java -Dnuaforma.pdf.validator.java=/absolute/java17/bin/java \
+  -Dnuaforma.pdf.validator.directory=/absolute/pdfa-validation \
+  -Dnuaforma.fonts.directory=/absolute/caller-fonts \
+  -cp '<example classes and resolved runtime JARs>' \
+  dev.nuaforma.examples.PdfExample /absolute/template.docx /absolute/output.pdf
 ```
 
-Use your platform's classpath separator. This example explicitly requests PDF/A-3b and defines `Liberation Serif` as the template's ASCII/hAnsi document-default font, available in the qualified runtime. PDF font preservation requires explicit template defaults; NuaForma does not invent them from the host. Supply your own selected fonts through the documented resources policy when they are not bundled. The example writes output only after successful provider generation and profile validation; a bare `soffice` command is not a supported launcher. The existing [PDF module guide](../../nuaforma-docx-pdf/README.md) and [runtime guide](../../deployment/pdf-runtime/README.md) define readiness, isolation, fonts, limits and the accepted text-box limitation.
+The module's `prepareOwnEngineValidation` task stages the validator distribution locally. Use an appropriate reviewed launcher/isolation boundary for hosted processing; no Office installation, document-renderer executable or server is required for embedded conversion. The [PDF guide](../../nuaforma-docx-pdf/README.md) and [runtime guide](../../deployment/pdf-runtime/README.md) define the qualified profile, fonts, limits and validation boundary.
 
-For a reproducible local check against an already qualified image, run `tools/release/verify_embedded_pdf.py --docker <docker-executable> --image <qualified-local-image> --output <fresh-output-directory>`. It uses the independently compiled Maven example and its resolved JARs inside a networkless, non-root, read-only, bounded container. Inspect/validate the resulting synthetic PDF separately; do not confuse the example check with the final release image qualification. No image, JAR or private font is uploaded by either helper.
+The `tools/release/verify_embedded_pdf.py` helper checks an independently compiled example inside an explicitly selected qualified native container, with runtime default policies and separate bounded Java validation. Supply `--source <synthetic.docx>`, `--docker docker`, `--image <candidate>` and a fresh `--output` directory after `verifyEmbeddedConsumers`. It configures the image's supplied fonts and validator paths, publishes no artifacts and supplements exact-candidate runtime qualification.
 
 ## Third-party providers
 

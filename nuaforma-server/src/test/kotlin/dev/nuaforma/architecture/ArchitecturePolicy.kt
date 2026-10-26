@@ -13,8 +13,9 @@ internal class ArchitecturePolicy {
         Component("nuaforma-contracts", "dev.nuaforma.contracts", emptySet()),
         Component("nuaforma-core", "dev.nuaforma.core", setOf("nuaforma-contracts")),
         Component("nuaforma-template", "dev.nuaforma.template", setOf("nuaforma-contracts")),
-        Component("nuaforma-docx-pdf", "dev.nuaforma.docx.pdf", setOf("nuaforma-contracts", "nuaforma-docx", "nuaforma-template")),
+        Component("nuaforma-docx-pdf", "dev.nuaforma.docx.pdf", setOf("nuaforma-contracts", "nuaforma-docx", "nuaforma-template", "nuaforma-pdf")),
         Component("nuaforma-docx", "dev.nuaforma.docx", setOf("nuaforma-contracts", "nuaforma-template")),
+        Component("nuaforma-pdf", "dev.nuaforma.pdf", emptySet()),
         Component("nuaforma-server", "dev.nuaforma.server", setOf("nuaforma-contracts", "nuaforma-core")),
         Component("nuaforma-playground", "dev.nuaforma.playground", setOf("nuaforma-server")),
     )
@@ -24,8 +25,8 @@ internal class ArchitecturePolicy {
         "org.docx4j" to "dev.nuaforma.docx.adapters.docx4j",
         "jakarta.xml.bind" to "dev.nuaforma.docx.adapters.docx4j",
         "javax.imageio" to "dev.nuaforma.docx.adapters.imageio",
-        "org.apache.pdfbox" to "dev.nuaforma.docx.pdf.adapters.pdfbox",
-        "org.verapdf" to "dev.nuaforma.docx.pdf.adapters.verapdf",
+        "org.apache.pdfbox" to "dev.nuaforma.pdf.adapters.pdfbox",
+        "org.verapdf" to "dev.nuaforma.pdf.adapters.verapdf",
         "io.ktor" to "dev.nuaforma.server.adapters.ktor",
         "kotlinx.coroutines" to "dev.nuaforma.server.adapters.ktor",
         "kotlinx.io" to "dev.nuaforma.server.adapters.ktor",
@@ -50,7 +51,9 @@ internal class ArchitecturePolicy {
             }
             "adapters" -> dependencyCondition("access external types only through their assigned adapter") { source, target, dependency ->
                 if (component(target) != null || platform(target) || compilerAnnotation(target, dependency)) true
-                else integrations.entries.any { (namespace, owner) -> inside(target.packageName, namespace) && inside(source.packageName, owner) }
+                else integrations.entries.any { (namespace, owner) -> inside(target.packageName, namespace) && inside(source.packageName, owner) } ||
+                    inside(target.packageName, "org.apache.pdfbox") && inside(source.packageName, "dev.nuaforma.pdf.adapters.pdfbox") ||
+                    inside(target.packageName, "org.verapdf") && inside(source.packageName, "dev.nuaforma.pdf.adapters.verapdf")
             }
             "api-leaks" -> apiCondition()
             "cycles" -> cycleCondition()

@@ -82,12 +82,20 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
         return CapabilityAssessment(if (errors.isEmpty()) AssessmentStatus.SUPPORTED else AssessmentStatus.UNSUPPORTED, errors)
     }
 
-    override fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext): GenerationResult {
+    override fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext): GenerationResult =
+        generateDocument(request, output, context, false).generation
+
+    /** Resolve the watermark in the document's template session, leaving placement to the converter. */
+    @Throws(GenerationException::class, java.io.IOException::class)
+    fun generateForConversion(request: GenerationRequest, output: OutputStream, context: GenerationContext): DocxConversionResult =
+        generateDocument(request, output, context, true)
+
+    private fun generateDocument(request: GenerationRequest, output: OutputStream, context: GenerationContext, detachWatermark: Boolean): DocxConversionResult {
         context.checkActive()
         deploymentFonts.reportFailures(context.logging)
         val assessment = assess(request.requirements)
         if (assessment.status != AssessmentStatus.SUPPORTED) throw GenerationException(assessment.diagnostics)
-        Docx4jDocuments.generate(deploymentFonts.bind(request), output, context, listOf(ImagePipe(context)) + pipes, valuePipes, deploymentFonts)
-        return GenerationResult(request.requirements.output)
+        val decoration = Docx4jDocuments.generate(deploymentFonts.bind(request), output, context, listOf(ImagePipe(context)) + pipes, valuePipes, deploymentFonts, detachWatermark)
+        return DocxConversionResult(GenerationResult(request.requirements.output), decoration.first, decoration.second)
     }
 }

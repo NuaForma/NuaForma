@@ -7,6 +7,22 @@ from check_container_source_coverage import verify_inventory
 
 
 class SourceCoverageTest(unittest.TestCase):
+    def test_container_boundary_requires_its_exact_package_scope_and_retains_foreign_jar_checks(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            (root / "image.json").write_text(json.dumps({"Labels": {"dev.nuaforma.validation-boundary": "container"}}))
+            data = b"synthetic\t1\tsynthetic\t1\n"
+            (root / "outer-packages.tsv").write_bytes(data)
+            record = dict(packages={"outer-packages.tsv": hashlib.sha256(data).hexdigest()}, foreignJars={})
+            for name in ("application-sha256.txt", "validator-sha256.txt", "verapdf-sha256.txt"):
+                (root / name).write_text("")
+            verify_inventory(root, record)
+            record["packages"]["renderer-packages.tsv"] = hashlib.sha256(data).hexdigest()
+            with self.assertRaises(ValueError): verify_inventory(root, record)
+            del record["packages"]["renderer-packages.tsv"]
+            (root / "verapdf-sha256.txt").write_text("c" * 64 + "  /lib/changed.jar\n")
+            with self.assertRaises(ValueError): verify_inventory(root, record)
+
     def test_split_jvm_layout_cannot_reuse_historical_source_review(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = pathlib.Path(temporary)

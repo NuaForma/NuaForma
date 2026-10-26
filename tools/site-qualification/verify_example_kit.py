@@ -1,4 +1,4 @@
-"""Generate only the website examples through the released, isolated service."""
+"""Qualify website examples through the explicitly selected native service candidate."""
 import argparse
 import importlib.util
 import io
@@ -20,14 +20,13 @@ spec.loader.exec_module(qualification)
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--docker", default="docker")
-    parser.add_argument("--image", default="ghcr.io/nuaforma/nuaforma:0.1.0-alpha.3")
+    parser.add_argument("--image", default="ghcr.io/nuaforma/nuaforma:0.3.0-alpha.1")
     parser.add_argument("--website-directory", type=pathlib.Path, required=True, help="Explicit NuaForma website checkout; no implicit sibling lookup")
     parser.add_argument("--kit-directory", type=pathlib.Path, help="Optional staged downloads override")
     parser.add_argument("--poppler", required=True)
     parser.add_argument("--output", type=pathlib.Path, required=True)
     args = parser.parse_args()
     args.kit_directory = args.kit_directory or (args.website_directory / 'site/downloads')
-    args.seccomp = ROOT / "deployment/pdf-runtime/seccomp.json"
     args.output.mkdir(parents=True, exist_ok=False)
     runtime = qualification.Runtime(args)
     try:
@@ -76,8 +75,9 @@ def main():
                     assert "{#" not in xml and "{/" not in xml
                 preview = dict(envelope, output={"format": "pdf", "options": {"profile": "pdfa-3b"}})
                 preview.pop("providerId", None)
-                preview.pop("options", None)
-                boundary, body = qualification.multipart(preview, output)
+                # Preview the same original request through native decoration placement.
+                # Already generated DOCX watermark shapes are a different import feature.
+                boundary, body = qualification.multipart(preview, template)
                 status, _, output = qualification.http(base, "/api/v1/documents", body, "multipart/form-data; boundary=" + boundary)
                 assert status == 200, (file.name, status, output.decode(errors="replace"))
                 target = target.with_suffix(".pdf")

@@ -21,7 +21,8 @@ def verify_bom(bom, architecture, application):
     for edge in bom['dependencies']:
         assert edge['ref'] in refs and set(edge['dependsOn']) <= refs
     names = {item['name'] for item in components}
-    assert {'bubblewrap','nuaforma-renderer-seccomp','Eclipse Temurin','nuaforma-server'} <= names
+    assert {'Eclipse Temurin','nuaforma-server'} <= names
+    assert not {'bubblewrap','nuaforma-renderer-seccomp','LibreOffice'} & names
     assert any(item.get('group') == 'org.verapdf' for item in components)
     assert any(item.get('purl','').startswith('pkg:deb/') for item in components)
     assert ('nuaforma-playground' in names) == (application == 'playground')
@@ -35,8 +36,6 @@ def main():
     parser.add_argument('--application', choices=('server','playground'), required=True)
     parser.add_argument('--expected-version', help='Require this exact packaged application and SBOM version')
     parser.add_argument('--docker', default='docker')
-    parser.add_argument('--seccomp', type=pathlib.Path, default=pathlib.Path('deployment/pdf-runtime/seccomp.json'))
-    parser.add_argument('--apparmor', choices=('nuaforma-runtime',))
     parser.add_argument('--output', type=pathlib.Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)

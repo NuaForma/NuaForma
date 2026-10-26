@@ -16,15 +16,15 @@ import zlib
 from verify_isolation_config import verify as verify_isolation
 
 
-def template(paragraphs=1, text="Hello {name}"):
+def template(paragraphs=1, text="Hello {name}", line_twips=320):
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("[Content_Types].xml", '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>')
         archive.writestr("_rels/.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="r1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>')
         archive.writestr("word/_rels/document.xml.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="styles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>')
-        archive.writestr("word/styles.xml", '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Liberation Serif" w:hAnsi="Liberation Serif"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr/></w:pPrDefault></w:docDefaults></w:styles>')
+        archive.writestr("word/styles.xml", '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Liberation Serif" w:hAnsi="Liberation Serif"/><w:sz w:val="22"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:before="0" w:after="0" w:line="' + str(line_twips) + '" w:lineRule="exact"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>')
         archive.writestr("word/document.xml", '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
-                         ('<w:p><w:r><w:t>' + text + '</w:t></w:r></w:p>') * paragraphs + '<w:sectPr/></w:body></w:document>')
+                         ('<w:p><w:r><w:t>' + text + '</w:t></w:r></w:p>') * paragraphs + '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>')
     return output.getvalue()
 
 
@@ -75,17 +75,26 @@ def request_id(headers):
     return identity
 
 
+def verify_pdf_profile(runtime, source, profile):
+    # Effective PDF version may be raised by the catalog over a lower header.
+    # The independent parser checks that effective version, fonts and structure;
+    # veraPDF additionally binds the exact archival flavour and final digest.
+    from qualify_pdfa_policy import validate
+    version = '1.4' if profile == 'pdfa-1b' else '1.7'
+    validate(runtime, source, 'validate', version)
+    if profile != 'standard':
+        validate(runtime, source, 'validate-' + profile, version)
+
+
 class Runtime:
     def __init__(self, args, *environment):
         self.args = args
         self.name = "nuaforma-qualification-" + uuid.uuid4().hex
-        apparmor = getattr(args, "apparmor", None)
-        policy = ["--security-opt", "apparmor=" + apparmor] if apparmor else []
         self.command("run", "-d", "--init", "--name", self.name, "--label", "dev.nuaforma.qualification=" + self.name,
                      "--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
-                     "--security-opt", "seccomp=" + str(args.seccomp.resolve()), "--pids-limit", "128",
+                     "--pids-limit", "128",
                      "--memory", "2g", "--cpus", "2", "--tmpfs", "/tmp:rw,size=512m,mode=1777",
-                     "--publish", "127.0.0.1::8080", *policy, *environment, args.image)
+                     "--publish", "127.0.0.1::8080", *environment, args.image)
 
     def command(self, *command, timeout=45):
         return subprocess.check_output([self.args.docker, *command], text=True, encoding="utf-8", stderr=subprocess.STDOUT, timeout=timeout).strip()
@@ -98,11 +107,24 @@ class Runtime:
             try:
                 status, _, _ = http(self.base, "/openapi.json", timeout=2)
                 if status == 200:
+                    self.verify_default_boundary()
                     return self.base
             except (OSError, TimeoutError):
                 pass
             time.sleep(0.2)
         raise AssertionError("Shipped server did not start: " + self.command("logs", self.name))
+
+    def verify_default_boundary(self):
+        config = json.loads(self.command("inspect", self.name))[0]
+        verify_isolation(config)
+        assert config["Config"].get("Labels", {}).get("dev.nuaforma.validation-boundary") == "container"
+        status = self.command("exec", self.name, "cat", "/proc/self/status")
+        fields = dict(line.split(":", 1) for line in status.splitlines() if ":" in line)
+        assert fields["Seccomp"].strip() == "2", "The ordinary runtime seccomp filter must remain active"
+        assert fields["NoNewPrivs"].strip() == "1" and int(fields["CapEff"].strip(), 16) == 0
+        absent = self.command("exec", self.name, "/bin/sh", "-c",
+                              "! command -v bwrap && test ! -e /usr/share/nuaforma/renderer-seccomp.bpf && test ! -d /opt/nuaforma/renderer && echo default-boundary")
+        assert absent == "default-boundary", "Removed namespace runtime must not remain in the image"
 
     def clean(self):
         paths = self.command("exec", self.name, "/bin/sh", "-c", "find /tmp -maxdepth 1 -name 'nuaforma-*' -print")
@@ -119,12 +141,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--image", required=True)
     parser.add_argument("--docker", default="docker")
-    parser.add_argument("--seccomp", type=pathlib.Path, default=pathlib.Path("deployment/pdf-runtime/seccomp.json"))
     parser.add_argument("--output", type=pathlib.Path, required=True)
     parser.add_argument("--fixtures", type=pathlib.Path)
     parser.add_argument("--fonts", type=pathlib.Path)
     parser.add_argument("--expected-version")
-    parser.add_argument("--apparmor", choices=("nuaforma-runtime",))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
     checks = []
@@ -132,13 +152,13 @@ def main():
     try:
         base = runtime.connect()
         config = json.loads(runtime.command("inspect", runtime.name))[0]
-        verify_isolation(config, args.apparmor)
+        verify_isolation(config)
         assert config["Config"]["User"] == "1000:1000" and config["HostConfig"]["ReadonlyRootfs"]
         assert config["HostConfig"]["Init"] and not config["HostConfig"]["Privileged"]
         assert config["HostConfig"]["CapDrop"] == ["ALL"]
         assert runtime.command("exec", runtime.name, "id", "-u") == "1000"
-        assert runtime.command("exec", runtime.name, "/bin/sh", "-c", "test ! -w /opt/nuaforma/application && test ! -w /opt/nuaforma/renderer && echo immutable") == "immutable"
-        checks.append("non-root/read-only/capabilities/init")
+        assert runtime.command("exec", runtime.name, "/bin/sh", "-c", "test ! -w /opt/nuaforma/application && test ! -w /opt/nuaforma/pdf-validation && test ! -w /opt/java/openjdk && echo immutable") == "immutable"
+        checks.append("non-root/read-only/capabilities/init/default-seccomp/no-bubblewrap")
         assert config["Config"]["Healthcheck"]["Test"] == ["CMD", "/opt/nuaforma/bin/healthcheck"]
         assert http(base, "/health/live")[0] == 200
         ready_deadline = time.monotonic() + 10
@@ -171,11 +191,12 @@ def main():
             assert b"SYNTHETIC-DOCX" in xml and b"{name}" not in xml
         (args.output / "document.docx").write_bytes(body)
         status, headers, body = generate(base, "pdf", template(), {"name": "SYNTHETIC-PDF"})
-        assert status == 200 and "application/pdf" in headers["Content-Type"] and body.startswith(b"%PDF-1.7"), (status, body[:2048])
+        assert status == 200 and "application/pdf" in headers["Content-Type"] and body.startswith(b"%PDF-"), (status, body[:2048])
         (args.output / "document.pdf").write_bytes(body)
+        verify_pdf_profile(runtime, args.output / "document.pdf", 'pdfa-3b')
         identity = request_id(headers)
         logs = runtime.command("logs", runtime.name)
-        assert "event=SANDBOX_PROCESS_COMPLETED requestId=" + identity in logs
+        assert "event=NATIVE_PDF_RENDER_STARTED requestId=" + identity in logs
         assert "event=GENERATION_COMPLETED requestId=" + identity in logs
         assert "SYNTHETIC-PDF" not in logs and "SYNTHETIC-DOCX" not in logs
         status, error_headers, error_body = http(base, "/api/v1/assess", b'{"PRIVATE_SENTINEL":}', "application/json")
@@ -184,15 +205,41 @@ def main():
         checks.append("generated-request-identity/safe-errors/production-data-redaction/correlated-real-sandbox")
         for profile, version in (("standard", "1.7"), ("pdfa-1b", "1.4"), ("pdfa-2b", "1.7"), ("pdfa-3b", "1.7")):
             status, headers, body = generate(base, "pdf", template(), {"name": "SYNTHETIC-PROFILE"}, {"profile": profile})
-            assert status == 200 and body.startswith(("%PDF-" + version).encode()), (profile, status, body[:2048])
+            assert status == 200 and body.startswith(b"%PDF-"), (profile, status, body[:2048])
             (args.output / (profile + ".pdf")).write_bytes(body)
+            verify_pdf_profile(runtime, args.output / (profile + ".pdf"), profile)
+        for profile in ("standard", "pdfa-2b", "pdfa-3b", "pdfa-1b"):
+            for opacity in (0.25, 1.0):
+                envelope = {"input": {"format": "docx"}, "output": {"format": "pdf", "options": {"profile": profile}},
+                            "data": {"name": "SYNTHETIC-WATERMARK-BODY", "reference": "NF-057"},
+                            "options": {"watermark": {"text": "{#if true}CONCEPT {reference}{#else}FINAL{/if}",
+                                                       "color": "#127F87", "opacity": opacity, "rotation": -45}}}
+                boundary, payload = multipart(envelope, template())
+                status, _, value = http(base, "/api/v1/documents", payload, "multipart/form-data; boundary=" + boundary)
+                if profile == "pdfa-1b":
+                    assert status == 422 and not value.startswith(b"%PDF-"), (profile, opacity, status)
+                else:
+                    assert status == 200 and value.startswith(b"%PDF-"), (profile, opacity, status, value[:2048])
+                    file = args.output / ("watermark-" + profile + ("-opaque.pdf" if opacity == 1 else "-transparent.pdf"))
+                    file.write_bytes(value)
+                    verify_pdf_profile(runtime, file, profile)
+                runtime.clean()
+        checks.append("dynamic-native-watermarks/all-supported-profiles/opaque-and-transparent/one-b-always-rejects")
+        tight_source = template(line_twips=264)
+        assert generate(base, "docx", tight_source, {"name": "TIGHT-LINE"})[0] == 200
+        assert generate(base, "pdf", tight_source, {"name": "TIGHT-LINE"})[0] == 422
+        checks.append("tight-line-explicit-rejection/no-silent-style-enlargement")
         assert generate(base, "pdf", template(), {}, {"profile": "pdfa-1b", "version": "1.7"})[0] == 422
         assert generate(base, "pdf", template(), {}, {"profile": "pdfa-3a"})[0] == 422
         runtime.clean()
         checks.append("default-PDF-A-3b/explicit-B-profiles/standard/conflict-rejection")
         checks.append("shipped-entrypoint/DOCX/PDF/private-cleanup")
-        image_source = template(text="Before {picture | image(10, 5)} after {missing ?? null | image()}")
+        image_source = template(text="{picture | image(10, 5)}", line_twips=400)
         image_data = {"picture": base64.b64encode(image_fixture()).decode("ascii")}
+        mixed_image_source = template(text="Before {picture | image(10, 5)} after")
+        assert generate(base, "docx", mixed_image_source, image_data)[0] == 200
+        assert generate(base, "pdf", mixed_image_source, image_data)[0] == 422
+        checks.append("mixed-image-text-explicitly-unqualified/native-rejection/DOCX-preserved")
         status, _, body = generate(base, "docx", image_source, image_data)
         assert status == 200, (status, body[:2048])
         with zipfile.ZipFile(io.BytesIO(body)) as archive:
@@ -201,8 +248,9 @@ def main():
         (args.output / "image.docx").write_bytes(body)
         for profile, version in (("standard", "1.7"), ("pdfa-1b", "1.4"), ("pdfa-2b", "1.7"), ("pdfa-3b", "1.7")):
             status, _, body = generate(base, "pdf", image_source, image_data, {"profile": profile})
-            assert status == 200 and body.startswith(("%PDF-" + version).encode()), (profile, status, body[:2048])
+            assert status == 200 and body.startswith(b"%PDF-"), (profile, status, body[:2048])
             (args.output / ("image-" + profile + ".pdf")).write_bytes(body)
+            verify_pdf_profile(runtime, args.output / ("image-" + profile + ".pdf"), profile)
         transparent = {"picture": base64.b64encode(image_fixture(alpha=True)).decode("ascii")}
         assert generate(base, "pdf", image_source, transparent, {"profile": "pdfa-1b"})[0] == 422
         status, _, body = generate(base, "pdf", image_source, transparent, {"profile": "pdfa-3b"})
@@ -241,14 +289,14 @@ def main():
             boundary, body = multipart(envelope, (args.fixtures / "watermark-reference/plain.docx").read_bytes(), resources)
             assert http(base, "/api/v1/documents", body, "multipart/form-data; boundary=" + boundary)[0] == 422
             envelope["options"]["watermark"]["opacity"] = 1.0
-            for profile in ("pdfa-1b", "standard"):
+            for profile in ("standard", "pdfa-2b", "pdfa-3b"):
                 envelope["output"]["options"] = options | {"profile": profile}
                 boundary, body = multipart(envelope, (args.fixtures / "watermark-reference/plain.docx").read_bytes(), resources)
                 status, _, body = http(base, "/api/v1/documents", body, "multipart/form-data; boundary=" + boundary)
                 assert status == 200, (profile, status, body[:2048])
                 (args.output / ("watermark-opaque-" + profile + ".pdf")).write_bytes(body)
             runtime.clean()
-            checks.append("private-fonts/concurrent-tenants/dynamic-watermark/1b-transparency-rejection/opaque-watermark")
+            checks.append("private-fonts/concurrent-tenants/dynamic-watermark/1b-watermark-rejection/opaque-watermark")
         health_deadline = time.monotonic() + 40
         while runtime.command("inspect", runtime.name, "--format", "{{.State.Health.Status}}") == "starting" and time.monotonic() < health_deadline:
             time.sleep(0.2)
@@ -256,16 +304,16 @@ def main():
         checks.append("automatic-Docker-health-transition")
         # Stop only after seeing the actual converter, not merely a queued HTTP request.
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(generate, base, "pdf", template(2000), {"name": "SHUTDOWN"})
+            future = executor.submit(generate, base, "pdf", template(900), {"name": "SHUTDOWN"})
             deadline = time.monotonic() + 45
             running = False
             while time.monotonic() < deadline and not future.done():
                 processes = runtime.command("top", runtime.name, "-eo", "pid,args")
-                if any("soffice.bin" in line and "--convert-to" in line for line in processes.splitlines()):
+                if any("VeraPdfValidator" in line and "--version" not in line for line in processes.splitlines()):
                     running = True
                     break
                 time.sleep(0.1)
-            assert running, "Did not observe active LibreOffice conversion for shutdown test"
+            assert running, "Did not observe active native-pipeline PDF validation for shutdown test"
             assert http(base, "/health/live", timeout=2)[0] == 200
             assert http(base, "/health/ready", timeout=2)[0] == 200
             started = time.monotonic()
@@ -277,7 +325,7 @@ def main():
                 response = future.result(timeout=5)
                 # A request may finish inside the documented shutdown grace period.
                 if response[0] == 200:
-                    assert response[2].startswith(b"%PDF-1.7") and "application/pdf" in response[1]["Content-Type"]
+                    assert response[2].startswith(b"%PDF-") and "application/pdf" in response[1]["Content-Type"]
                 else:
                     assert response[0] in (408, 500, 503)
             except (OSError, TimeoutError):
@@ -285,7 +333,7 @@ def main():
         checks.append("SIGTERM-during-real-conversion/no-forced-kill")
     finally:
         runtime.close()
-    runtime = Runtime(args, "--env", "NUAFORMA_PDF_LAUNCHER=/missing-converter")
+    runtime = Runtime(args, "--env", "NUAFORMA_PDF_VALIDATOR_LAUNCHER=/missing-validator")
     try:
         base = runtime.connect()
         status, _, body = http(base, "/api/v1/capabilities")
@@ -295,13 +343,13 @@ def main():
         assert generate(base, "docx", template(), {"name": "MISSING-CONVERTER"})[0] == 200
         assert generate(base, "pdf", template(), {"name": "MISSING-CONVERTER"})[0] == 503
         logs = runtime.command("logs", runtime.name)
-        assert "PDF_LAUNCHER_UNAVAILABLE" in logs and 'state="partial"' in logs
+        assert "NATIVE_PDF_VALIDATOR_UNAVAILABLE" in logs and 'state="partial"' in logs
         assert "MISSING-CONVERTER" not in logs
         runtime.clean()
         checks.append("missing-converter/DOCX-usable/PDF-rejected")
     finally:
         runtime.close()
-    runtime = Runtime(args, "--env", "NUAFORMA_MODE=development", "--env", "NUAFORMA_PDF_LAUNCHER=/missing-converter")
+    runtime = Runtime(args, "--env", "NUAFORMA_MODE=development", "--env", "NUAFORMA_PDF_VALIDATOR_LAUNCHER=/missing-validator")
     try:
         base = runtime.connect()
         source = template(text='Hello {name} {amount | number("0.00")} {password} {picture | image()}')
@@ -321,7 +369,7 @@ def main():
     runtime = Runtime(args, "--env", "JAVA_TOOL_OPTIONS=-Dnuaforma.server.timeoutMillis=1000")
     try:
         base = runtime.connect()
-        status, _, _ = generate(base, "pdf", template(2000), {"name": "DEADLINE"})
+        status, _, _ = generate(base, "pdf", template(900), {"name": "DEADLINE"})
         assert status == 408
         runtime.clean()
         checks.append("handler-deadline/cancellation/private-cleanup")
