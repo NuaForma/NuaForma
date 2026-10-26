@@ -356,6 +356,31 @@ val navigationRenders = listOf("a4", "letter", "table", "multipage").map { kind 
 }
 tasks.register("renderOwnEngineNavigation") { group = "verification"; dependsOn(navigationRenders) }
 
+val generateOwnEngineReferences = tasks.register<Exec>("generateOwnEngineReferences") {
+    val folder = rootProject.file("tools/pdf-evaluation/own-engine")
+    val output = layout.buildDirectory.dir("own-engine-references")
+    inputs.files(folder.resolve("build_reference_fixtures.py"), folder.resolve("build_fixture.py"), rootProject.file("assets/branding/nuaforma-icon-transparent.png"))
+    outputs.dir(output)
+    commandLine("python3", folder.resolve("build_reference_fixtures.py").absolutePath, output.get().asFile.absolutePath)
+}
+tasks.processTestResources {
+    dependsOn(generateOwnEngineReferences)
+    from(layout.buildDirectory.dir("own-engine-references")) { into("own-engine-references") }
+}
+val referenceRenders = listOf("a4", "letter", "complex", "wrapped").map { kind ->
+    tasks.register<JavaExec>("renderOwnEngineReferences${kind.replaceFirstChar { it.uppercase() }}") {
+        group = "verification"
+        dependsOn(tasks.testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass.set("dev.nuaforma.docx.pdf.ownengine.OwnEngineProof")
+        javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+        args(layout.buildDirectory.file("own-engine-references/$kind/source.docx").get().asFile.absolutePath,
+            layout.buildDirectory.file("own-engine-references/$kind/own-engine.pdf").get().asFile.absolutePath,
+            rootProject.file("nuaforma-pdf/src/test/resources/fonts").absolutePath)
+    }
+}
+tasks.register("renderOwnEngineReferences") { group = "verification"; dependsOn(referenceRenders) }
+
 val generateOwnEngineAnchoredImages = tasks.register<Exec>("generateOwnEngineAnchoredImages") {
     val folder = rootProject.file("tools/pdf-evaluation/own-engine")
     val output = layout.buildDirectory.dir("own-engine-anchored-images")

@@ -206,7 +206,7 @@ internal object FlowLayouter {
     internal fun paragraph(p: PdfParagraph, width: Float, measurer: TextMeasurer, lineArea: ((Int) -> Pair<Float, Float>)? = null): MeasuredParagraph {
         if (p.anchoredImages.isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Anchored images are supported only in body paragraphs")
         val height = PageLayouter.automaticBox(p, measurer)?.first ?: p.format.exactLineHeight ?: fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paginated proof requires explicit exact line spacing")
-        val normalized = PdfParagraph(p.runs, 0f, 0f, p.format, p.listLabel)
+        val normalized = PdfParagraph(p.runs, 0f, 0f, p.format, p.listLabel, semantics = p.semantics)
         val local = PageLayouter.layout(PdfDocument(PdfPage(width, 14_400f, PdfMargins(0f, 0f, 0f, 0f)), listOf(normalized)), measurer, lineArea)
         val lines = local.elements.groupBy { element -> when (element) {
             is PositionedText -> element.baseline
@@ -231,10 +231,10 @@ internal object FlowLayouter {
             is PdfPageCount -> PdfTextRun(totalPages.toString(), it.style)
             is PdfSequencePageCount -> PdfTextRun(sequencePages.toString(), it.style)
             else -> it
-        } }, p.spaceBefore, p.spaceAfter, p.format, p.listLabel, p.anchoredImages)
+        } }, p.spaceBefore, p.spaceAfter, p.format, p.listLabel, p.anchoredImages, p.semantics)
         fun resolveTable(t: PdfTable): PdfTable = PdfTable(t.columnWidths, t.rows.map { row -> PdfTableRow(row.cells.map { cell ->
             PdfTableCell(cell.blocks.map { when (it) { is PdfParagraph -> resolve(it); is PdfTable -> resolveTable(it); is PdfImage -> it; is PdfTextBox -> error("Frame in table") } }, cell.background, cell.columnSpan, cell.rowSpan, cell.verticalAlignment, cell.borders)
-        }, row.allowSplit, row.splitOversized) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent, t.widthPolicy)
+        }, row.allowSplit, row.splitOversized) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent, t.widthPolicy, t.semantics)
         for (block in band.blocks) {
             when (block) {
                 is PdfTextBox -> overflow()
