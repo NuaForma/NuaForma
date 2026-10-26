@@ -41,6 +41,16 @@ tasks.test {
     }
 }
 
+tasks.register<JavaExec>("renderNativeWatermarkProof") {
+    group = "verification"
+    description = "Generates trusted native watermark candidates and fresh Word-reference inputs without overwriting references."
+    dependsOn(tasks.testClasses, ":nuaforma-pdf:prepareOwnEngineValidation")
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("dev.nuaforma.docx.pdf.ownengine.NativeWatermarkProof")
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+    workingDir(projectDir)
+}
+
 tasks.register<JavaExec>("renderNativeDocxProof") {
     group = "verification"
     description = "Runs the registered native provider on explicit trusted inputs; never overwrites reference PDFs."

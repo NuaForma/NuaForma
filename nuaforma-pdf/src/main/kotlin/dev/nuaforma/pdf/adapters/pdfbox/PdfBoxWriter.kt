@@ -23,7 +23,7 @@ import java.nio.ByteOrder
 import org.apache.pdfbox.pdfwriter.compress.CompressParameters
 
 internal object PdfBoxWriter {
-    fun render(document: PdfDocument, suppliedFonts: List<PdfFont>, options: PdfOutputOptions, control: PdfRenderControl): ByteArray {
+    fun render(document: PdfDocument, suppliedFonts: List<PdfFont>, options: PdfOutputOptions, control: PdfRenderControl, watermark: PdfWatermark?): ByteArray {
         control.checkActive()
         PDDocument().use { pdf ->
             pdf.version = if (options.profile == PdfOutputProfile.PDFA_1B) 1.4f else 1.7f
@@ -70,6 +70,14 @@ internal object PdfBoxWriter {
             fun borderSize(elements: List<PositionedElement>): Int = elements.sumOf { when (it) { is PositionedTableBorder -> 1; is PositionedBox -> borderSize(it.elements); else -> 0 } }
             if (layouts.sumOf { borderSize(it.elements) } > 20_000) fail(PdfFailureCode.RESOURCE_LIMIT, "Table border budget exceeded")
             val usedFonts = linkedSetOf<String>()
+            val decoration = watermark?.let { requested ->
+                val bodyCharacters = document.allParagraphs().sumOf { paragraph -> paragraph.runs.filterIsInstance<PdfTextRun>().sumOf { it.text.length.toLong() } }
+                if (requested.text.length.toLong() * layouts.size + bodyCharacters > 100_000)
+                    fail(PdfFailureCode.RESOURCE_LIMIT, "Watermark and document text exceed the cumulative budget")
+                val font = fonts[requested.fontId] ?: fail(PdfFailureCode.FONT_UNAVAILABLE, "Watermark font is not supplied")
+                usedFonts += requested.fontId
+                PdfWatermarkPainter(requested, font, minOf(400f, document.pageSequences.minOf { minOf(it.page.width, it.page.height) } * 0.65f))
+            }
             val images = java.util.IdentityHashMap<PdfImage, PDImageXObject>()
             var decodedImageBytes = 0L
             for (layout in layouts) {
@@ -180,6 +188,7 @@ internal object PdfBoxWriter {
                         val tableBorders = TableBorderLayouter.rectangles(elements, canvasWidth, canvasHeight)
                         if (tableBorders.isNotEmpty()) paint(tableBorders, canvasHeight, canvasWidth)
                     }
+                    decoration?.paint(page, writer, layout.page.width, layout.page.height)
                     paint(layout.elements, layout.page.height, layout.page.width)
                 }
             }

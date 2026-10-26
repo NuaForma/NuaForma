@@ -13,8 +13,12 @@ class PdfEngine @JvmOverloads constructor(private val validator: PdfConformanceV
         return render(document, fonts, options, PdfRenderControl())
     }
 
-    fun render(document: PdfDocument, fonts: List<PdfFont>, options: PdfOutputOptions, control: PdfRenderControl): ByteArray {
+    fun render(document: PdfDocument, fonts: List<PdfFont>, options: PdfOutputOptions, control: PdfRenderControl): ByteArray =
+        render(document, fonts, options, control, null)
+
+    fun render(document: PdfDocument, fonts: List<PdfFont>, options: PdfOutputOptions, control: PdfRenderControl, watermark: PdfWatermark?): ByteArray {
         control.checkActive()
+        if (watermark != null && options.profile == PdfOutputProfile.PDFA_1B) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_OUTPUT, "PDF/A-1b does not support requested watermarks")
         document.validateNavigation(allowUnresolved = dev.nuaforma.pdf.internal.ReferenceLayouter.active(document))
         if (options.profile != PdfOutputProfile.STANDARD && options.validationEnabled && validator == null) throw PdfRenderException(PdfFailureCode.VALIDATION_UNAVAILABLE, "Archival output requires an independent validator")
         val snapshot = ArrayList(fonts)
@@ -25,7 +29,7 @@ class PdfEngine @JvmOverloads constructor(private val validator: PdfConformanceV
                 sequence.blocks + sequence.flow?.bands.orEmpty().flatMap { it.blocks }
             }.filterIsInstance<PdfImage>()
         require(images.sumOf { it.byteSize.toLong() } <= 16_777_216) { "Images exceed the foundation limit" }
-        val bytes = PdfBoxWriter.render(document, snapshot, options, control)
+        val bytes = PdfBoxWriter.render(document, snapshot, options, control, watermark)
         if (options.profile != PdfOutputProfile.STANDARD && options.validationEnabled) {
             val copy = bytes.copyOf()
             try { requireNotNull(validator).validate(copy, options.profile, control) }

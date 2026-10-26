@@ -22,7 +22,7 @@ NuaForma is an open-source document-generation engine. Combine a Word template, 
 - Preserve supported styles, branding, tables, headers/footers, text boxes and page geometry while filling templates.
 - Use nested objects and lists, conditions, repetitions, null fallbacks and explicit number/date formatting.
 - Produce DOCX, standard PDF 1.7 or PDF/A-1b, 2b and 3b. PDF defaults to PDF/A-3b; independent conformance validation is enabled by default.
-- Supply exact fonts with permission-checked subset/full embedding. DOCX supports requested text watermarks; native PDF watermarks remain outside the qualified profile and reject explicitly.
+- Supply exact fonts with permission-checked subset/full embedding. DOCX and native standard PDF/PDF-A-2b/3b support requested text watermarks with dynamic text, RGB color, opacity and rotation. PDF/A-1b rejects every requested watermark.
 - Render PDF in the hosting JVM with request-local state and bounded admission. Independent PDFBox/veraPDF checks run in a separate bounded Java 17 process.
 - Deploy the production service or the separate development Playground on native Linux AMD64/ARM64.
 

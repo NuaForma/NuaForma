@@ -53,7 +53,7 @@ class PdfVisualFixtureTest {
 
     @TestFactory fun `engine fixtures retain golden appearance content geometry and embedded fonts`() = PdfVisualFixtures.cases().map { case ->
         DynamicTest.dynamicTest(case.id) {
-            val bytes = PdfEngine().render(case.document, FoundationLetter.fonts())
+            val bytes = PdfEngine().render(case.document, FoundationLetter.fonts(), PdfOutputOptions(), PdfRenderControl(), case.watermark)
             val output = diagnostics.resolve(case.id)
             try {
                 Loader.loadPDF(bytes).use { pdf ->

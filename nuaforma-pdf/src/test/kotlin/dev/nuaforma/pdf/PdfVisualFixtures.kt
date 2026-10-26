@@ -2,7 +2,7 @@ package dev.nuaforma.pdf
 
 /** Synthetic inputs for engine-only golden images. No source-format reader participates. */
 internal object PdfVisualFixtures {
-    data class Case(val id: String, val document: PdfDocument, val pages: Int, val requiredText: List<String>)
+    data class Case(val id: String, val document: PdfDocument, val pages: Int, val requiredText: List<String>, val watermark: PdfWatermark? = null)
 
     private val teal = PdfColor(0, 139, 144)
     private val pale = PdfColor(229, 244, 245)
@@ -26,7 +26,24 @@ internal object PdfVisualFixtures {
     }
 
     fun cases(): List<Case> = listOf(letter(), report(), merged(), splitRows(), lists(), frames(), international(),
-        formats(), keeps(), tableEdges(), automaticSpacing(), anchoredImages(), croppedImage(), navigation(), contentsReferences(), notes(), continuedNote())
+        formats(), keeps(), tableEdges(), automaticSpacing(), anchoredImages(), croppedImage(), navigation(), contentsReferences(), notes(), continuedNote()) + watermarks()
+
+    private fun watermarks(): List<Case> {
+        fun blocks() = listOf(heading("Watermark reference"), p("The body keeps its original geometry and remains readable."),
+            p("Café, coördinatie, Сведения και στοιχεία."),
+            PdfTable(listOf(180f, 180f), listOf(PdfTableRow(listOf(cell("Description", true), cell("Amount", true))),
+                PdfTableRow(listOf(cell("Independent body table"), cell("EUR 1,234.56"))))),
+            p("The watermark must not move table rows, page bands or this line."))
+        val mixed = PdfDocument(listOf(PdfPageSequence(a4, blocks(), bands()),
+            PdfPageSequence(PdfPage(792f, 612f, PdfMargins(72f, 54f, 64f, 54f)), blocks(), bands())))
+        return listOf(
+            Case("watermark-mixed-pages", mixed, 2, listOf("Watermark reference", "CONCEPT NF-057"),
+                PdfWatermark("CONCEPT NF-057", "regular", teal, 0.25f, -45f)),
+            Case("watermark-opaque-rotation", PdfDocument(a4, blocks(), bands()), 1, listOf("Watermark reference", "FINAL"),
+                PdfWatermark("FINAL", "regular", PdfColor(176, 176, 176), 1f, 30f)),
+            Case("watermark-hebrew", PdfDocument(a4, blocks(), bands()), 1, listOf("Watermark reference"),
+                PdfWatermark("טיוטה 57", "regular", teal, 0.3f, -45f)))
+    }
 
     private fun notes(): Case {
         val raised = body.copy(size = 7f, baselineShift = 4f)
