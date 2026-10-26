@@ -1,6 +1,6 @@
 # Contents, captions and cross-references
 
-Issue [#57](https://github.com/NuaForma/NuaForma/issues/57), roadmap part 12. This increment stays in the existing `nuaforma-pdf` artifact and production DOCX adapter; it introduces no dependency, output profile, external renderer or release. The complete local build/publication checks pass 832 JVM tests with zero failures/errors/skips, plus five independent Java/Kotlin consumers. A focused coverage preflight exercises 98.1% of changed executable production lines; this is not a substitute for the full CI run or actual Sonar Quality Gate. CI and integration-branch delivery remain pending.
+Issue [#57](https://github.com/NuaForma/NuaForma/issues/57), roadmap part 12. This increment stays in the existing `nuaforma-pdf` artifact and production DOCX adapter; it introduces no dependency, output profile, external renderer or release. The complete local build/publication checks pass 832 JVM tests with zero failures/errors/skips, plus five independent Java/Kotlin consumers. A focused coverage preflight exercises 98.1% of changed executable production lines; this is not a substitute for the full CI run or actual Sonar Quality Gate. [PR #125](https://github.com/NuaForma/NuaForma/pull/125) delivered this increment to `feature/own-pdf-engine` at `01108dcbd03df222653a714a727d880a79657e24`; all six integration checks, including the actual Sonar analysis, passed for that merge.
 
 ## Qualified candidate
 

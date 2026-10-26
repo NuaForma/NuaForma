@@ -25,8 +25,12 @@ internal object DocumentLayouter {
             }
             val remaining = document.maxPages - layouts.size
             if (remaining <= 0) limit("Document page budget exceeded")
-            val single = PdfDocument(sequence.page, sequence.blocks, sequence.flow)
-            val pages = if (sequence.flow == null) listOf(PageLayouter.layout(single, measurer)) else FlowLayouter.layout(single, measurer, remaining)
+            val single = PdfDocument(sequence.page, sequence.blocks, sequence.flow, document.referenceTargets, document.notes)
+            val pages = when {
+                document.notes.isNotEmpty() -> NoteFlowLayouter.layout(single, measurer, remaining, control)
+                sequence.flow == null -> listOf(PageLayouter.layout(single, measurer))
+                else -> FlowLayouter.layout(single, measurer, remaining)
+            }
             if (start !in 0..9_999 || start + pages.size - 1 > 9_999) limit("Page-number range exceeded")
             sequences += Triple(layouts.size, pages.size, start)
             layouts += pages

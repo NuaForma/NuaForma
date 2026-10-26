@@ -381,6 +381,31 @@ val referenceRenders = listOf("a4", "letter", "complex", "wrapped").map { kind -
 }
 tasks.register("renderOwnEngineReferences") { group = "verification"; dependsOn(referenceRenders) }
 
+val generateOwnEngineNotes = tasks.register<Exec>("generateOwnEngineNotes") {
+    val folder = rootProject.file("tools/pdf-evaluation/own-engine")
+    val output = layout.buildDirectory.dir("own-engine-notes")
+    inputs.files(folder.resolve("build_notes_fixtures.py"), folder.resolve("build_fixture.py"), rootProject.file("assets/branding/nuaforma-icon-transparent.png"))
+    outputs.dir(output)
+    commandLine("python3", folder.resolve("build_notes_fixtures.py").absolutePath, output.get().asFile.absolutePath)
+}
+tasks.processTestResources {
+    dependsOn(generateOwnEngineNotes)
+    from(layout.buildDirectory.dir("own-engine-notes")) { into("own-engine-notes") }
+}
+val noteRenders = listOf("a4", "letter", "multipage", "split-note", "split-endnote", "automatic", "table").map { kind ->
+    tasks.register<JavaExec>("renderOwnEngineNotes${kind.replaceFirstChar { it.uppercase() }}") {
+        group = "verification"
+        dependsOn(tasks.testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass.set("dev.nuaforma.docx.pdf.ownengine.OwnEngineProof")
+        javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+        args(layout.buildDirectory.file("own-engine-notes/$kind/source.docx").get().asFile.absolutePath,
+            layout.buildDirectory.file("own-engine-notes/$kind/own-engine.pdf").get().asFile.absolutePath,
+            rootProject.file("nuaforma-pdf/src/test/resources/fonts").absolutePath)
+    }
+}
+tasks.register("renderOwnEngineNotes") { group = "verification"; dependsOn(noteRenders) }
+
 val generateOwnEngineAnchoredImages = tasks.register<Exec>("generateOwnEngineAnchoredImages") {
     val folder = rootProject.file("tools/pdf-evaluation/own-engine")
     val output = layout.buildDirectory.dir("own-engine-anchored-images")

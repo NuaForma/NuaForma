@@ -5,7 +5,7 @@ import java.util.Collections
 /** Logical roles, independent of PDF tag names and physical drawing order. */
 enum class PdfSemanticRole {
     DOCUMENT, SECTION, PARAGRAPH, HEADING, CONTENTS, CONTENTS_ENTRY, CAPTION,
-    FIGURE, TABLE, TABLE_ROW, TABLE_CELL, TABLE_HEADER_CELL, FRAME, HEADER, FOOTER, TEXT, LABEL, REFERENCE, LINK,
+    FIGURE, TABLE, TABLE_ROW, TABLE_CELL, TABLE_HEADER_CELL, FRAME, HEADER, FOOTER, TEXT, LABEL, REFERENCE, LINK, NOTE, NOTE_REFERENCE,
 }
 
 /** Stable occurrence identity; a caption association is supplied explicitly, never guessed from proximity. */
@@ -27,7 +27,7 @@ data class PdfSpanSemantics @JvmOverloads constructor(
 ) {
     init {
         requireSemanticId(id)
-        require(role in setOf(PdfSemanticRole.TEXT, PdfSemanticRole.LABEL, PdfSemanticRole.REFERENCE, PdfSemanticRole.LINK)) { "Invalid inline semantic role" }
+        require(role in setOf(PdfSemanticRole.TEXT, PdfSemanticRole.LABEL, PdfSemanticRole.REFERENCE, PdfSemanticRole.LINK, PdfSemanticRole.NOTE_REFERENCE)) { "Invalid inline semantic role" }
         target?.let(::requireSemanticId)
     }
 }

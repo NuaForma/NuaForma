@@ -76,7 +76,7 @@ internal class NativeDocxReader(
         check(ranges.size <= 32, "Section budget exceeded")
         fun readGeometry(section: XmlElement): Pair<PdfPage, XmlElement> {
             attributes(section, emptySet())
-            children(section, setOf("pgSz", "pgMar", "headerReference", "footerReference", "type", "titlePg", "pgNumType"))
+            children(section, setOf("pgSz", "pgMar", "headerReference", "footerReference", "type", "titlePg", "pgNumType", "footnotePr", "endnotePr"))
             pageNumbering(section)
             section.one("titlePg")?.let(::pageToggle)
             for (kind in listOf("headerReference", "footerReference")) {
@@ -117,9 +117,10 @@ internal class NativeDocxReader(
                 PdfLink.External(target)
                 return@associate id to target
             }
-            check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.png|styles\\.xml|numbering\\.xml|settings\\.xml|fontTable\\.xml|webSettings\\.xml|theme/theme1\\.xml|(?:header|footer)[1-9][0-9]?\\.xml)")), "Unsupported relationship target")
+            check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.png|styles\\.xml|numbering\\.xml|settings\\.xml|footnotes\\.xml|endnotes\\.xml|fontTable\\.xml|webSettings\\.xml|theme/theme1\\.xml|(?:header|footer)[1-9][0-9]?\\.xml)")), "Unsupported relationship target")
             val type = element.attribute("", "Type")
             check(type == "$rel/image" && target.startsWith("media/") || type == "$rel/styles" && target == "styles.xml" || type == "$rel/numbering" && target == "numbering.xml" || type == "$rel/settings" && target == "settings.xml" ||
+                type == "$rel/footnotes" && target == "footnotes.xml" || type == "$rel/endnotes" && target == "endnotes.xml" ||
                 type == "$rel/theme" && target == "theme/theme1.xml" || type == "$rel/fontTable" && target == "fontTable.xml" || type == "$rel/webSettings" && target == "webSettings.xml" || type == "$rel/header" && target.matches(Regex("header[1-9][0-9]?\\.xml")) || type == "$rel/footer" && target.matches(Regex("footer[1-9][0-9]?\\.xml")), "Unsupported relationship type")
             id to target
         }
@@ -159,12 +160,19 @@ internal class NativeDocxReader(
             neighbors[last]?.let { neighbors[last] = it.first to null }
             neighbors[first]?.let { neighbors[first] = null to it.second }
         }
+        var noteNumbering = NativeDocxNotes.defaults()
+        fun noteProperties(root: XmlElement) {
+            noteNumbering = noteNumbering.mapValues { (kind, previous) ->
+                NativeDocxNotes.properties(root.one(NativeDocxNotes.kindName(kind) + "Pr"), kind, previous, ::reject)
+            }
+        }
         var decimalSeparator = "."
         var evenAndOddHeaders = false
         val defaultTabInterval = parts["word/settings.xml"]?.let { bytes ->
             val settings = parse(bytes, "word/settings.xml")
             check(settings.name.namespaceURI == word && settings.name.localPart == "settings", "Invalid settings root")
-            attributes(settings, emptySet()); children(settings, setOf("defaultTabStop", "decimalSymbol", "evenAndOddHeaders"))
+            attributes(settings, emptySet()); children(settings, setOf("defaultTabStop", "decimalSymbol", "evenAndOddHeaders", "footnotePr", "endnotePr"))
+            noteProperties(settings)
             evenAndOddHeaders = settings.one("evenAndOddHeaders")?.let(::pageToggle) ?: false
             settings.one("decimalSymbol")?.let { node -> attributes(node, setOf("val")); decimalSeparator = node.value("val") ?: reject("Missing decimal symbol"); check(decimalSeparator in setOf(".", ","), "Unsupported decimal symbol") }
             settings.one("defaultTabStop")?.let { node -> attributes(node, setOf("val")); twips(node.value("val")) }
@@ -196,6 +204,14 @@ internal class NativeDocxReader(
         val numbering = NativeDocxNumbering(parts["word/numbering.xml"]?.let { parse(it, "word/numbering.xml") }, body) { paragraph ->
             chain(paragraph.one("pPr")?.one("pStyle")?.value("val") ?: normal, "paragraph")
         }
+        noteProperties(ranges.first().first)
+        val noteRoots = PdfNoteKind.entries.mapNotNull { kind ->
+            val target = NativeDocxNotes.kindName(kind) + "s.xml"
+            check(("word/$target" in parts) == relations.values.contains(target), "Notes relationship/part mismatch")
+            parts["word/$target"]?.let { kind to parse(it, "word/$target") }
+        }.toMap()
+        val sourceNotes = NativeDocxNotes(noteRoots, noteNumbering, ::reject)
+        var currentNoteKind: PdfNoteKind? = null
         val openBookmarks = mutableSetOf<Pair<String, String>>()
         val seenBookmarks = mutableSetOf<Pair<String, String>>()
         val bookmarkNames = mutableMapOf<Pair<String, String>, String>()
@@ -244,7 +260,7 @@ internal class NativeDocxReader(
                     val instruction = NativeDocxFields.instruction(run.value("instr") ?: reject("Missing field instruction"), ::reject)
                     children(run, setOf("r"))
                     if (instruction.kind == "TOC") {
-                        check(!fields && link == null && pendingDestinations.isEmpty() && contents == null, "Invalid contents location")
+                        check(!fields && currentNoteKind == null && link == null && pendingDestinations.isEmpty() && contents == null, "Invalid contents location")
                         check(instruction.directOutlineLevels || body.descendants().none { it.name.namespaceURI == word && it.name.localPart == "p" && it.one("pPr")?.one("outlineLvl") != null },
                             "Contents for directly assigned outline levels require the explicit outline switch")
                         val levels = (instruction.firstLevel..instruction.lastLevel).map { level ->
@@ -270,7 +286,7 @@ internal class NativeDocxReader(
                     val face = faceFor(cached.first().one("rPr"))
                     check(cached.all { faceFor(it.one("rPr")) == face }, "Mixed field-result formatting is not qualified")
                     check(face.rtl != true, "Forced complex-script page fields are not qualified")
-                    val style = PdfTextStyle(face.id(fontId), face.size ?: reject("Missing font size"), face.color, face.languageTag, face.underline)
+                    val style = textStyle(face)
                     check(link == null, "Nested field hyperlinks are not qualified")
                     if (fields) {
                         check(instruction.kind in setOf("PAGE", "NUMPAGES", "SECTIONPAGES"), "Only page counts in page bands are qualified")
@@ -290,11 +306,26 @@ internal class NativeDocxReader(
                     if (kind == PdfReferenceKind.TEXT) textReferences += requireNotNull(target)
                     return listOf(PdfReferenceField(id, kind, style, target, instruction.linked, navigation))
                 }
-                children(run, setOf("rPr", "t", "tab", "drawing"))
+                children(run, setOf("rPr", "t", "tab", "drawing", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
                 val face = faceFor(run.one("rPr"))
                 val contents = run.elements().filter { it.name.localPart != "rPr" }
                 check(contents.isNotEmpty(), "Each proof run needs content")
                 return contents.map { item -> when (item.name.localPart) {
+                    "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef" -> {
+                        val kind = if (item.name.localPart.startsWith("foot")) PdfNoteKind.FOOTNOTE else PdfNoteKind.ENDNOTE
+                        val owning = item.name.localPart.endsWith("Reference")
+                        check(!fields && link == null && face.rtl != true, "Invalid note reference location")
+                        attributes(item, if (owning) setOf("id", "customMarkFollows") else emptySet())
+                        children(item, emptySet())
+                        val navigation = pendingDestinations.takeIf { it.isNotEmpty() }?.let { PdfTextNavigation(destinations = it.toList()) }.also { pendingDestinations.clear() }
+                        if (owning) {
+                            check(currentNoteKind == null && item.value("customMarkFollows") in setOf(null, "0", "false", "off"), "Custom or nested note references are not qualified")
+                            sourceNotes.call(kind, item.value("id"), textStyle(face), navigation)
+                        } else {
+                            check(currentNoteKind == kind, "Note label outside its definition")
+                            PdfNoteLabel(textStyle(face), navigation)
+                        }
+                    }
                     "t" -> {
                         check(item.elements().isEmpty(), "Invalid text node")
                         val text = item.children.filterIsInstance<XmlText>().joinToString("") { it.text }
@@ -310,9 +341,9 @@ internal class NativeDocxReader(
                         check(text == text.trim() || item.attribute("http://www.w3.org/XML/1998/namespace", "space") == "preserve", "Significant edge whitespace requires explicit preservation")
                         val destinations = if (text.isNotBlank()) pendingDestinations.toList().also { pendingDestinations.clear() } else emptyList()
                         val navigation = if (link != null || destinations.isNotEmpty()) PdfTextNavigation(link, destinations, logicalLink) else null
-                        PdfTextRun(text.ifEmpty { " " }, PdfTextStyle(face.id(fontId), face.size ?: reject("Missing font size"), face.color, face.languageTag, face.underline), navigation)
+                        PdfTextRun(text.ifEmpty { " " }, textStyle(face), navigation)
                     }
-                    "tab" -> { check(link == null, "Linked tabs are not qualified"); attributes(item, emptySet()); check(item.elements().isEmpty(), "Invalid tab control"); PdfTab(PdfTextStyle(face.id(fontId), face.size ?: reject("Missing font size"), face.color, face.languageTag, face.underline)) }
+                    "tab" -> { check(link == null, "Linked tabs are not qualified"); attributes(item, emptySet()); check(item.elements().isEmpty(), "Invalid tab control"); PdfTab(textStyle(face)) }
                     "drawing" -> { check(link == null && pendingDestinations.isEmpty() && !face.underline, "Navigation or underlining on pictures is not qualified"); PdfImageRun(image(item, partRelations, parts)) }
                     else -> reject("Unsupported run content")
                 } }
@@ -355,12 +386,12 @@ internal class NativeDocxReader(
                 for (key in openBookmarks) bookmarkNames[key]?.let { bookmarkRuns.getValue(it).addAll(converted) }
             } }
             check(pendingDestinations.isEmpty(), "Bookmark requires following visible paragraph text")
-            val content = runs.ifEmpty { listOf(PdfTextRun(" ", PdfTextStyle(base.id(fontId), base.size ?: reject("Missing font size"), base.color, base.languageTag, base.underline))) }
+            val content = runs.ifEmpty { listOf(PdfTextRun(" ", textStyle(base))) }
             check(content.none { it is PdfImageRun } || content.size == 1, "Mixed image/text paragraphs are outside the proof profile")
             val label = listEntry?.let { entry ->
                 check(content.all { it is PdfTextRun || it is PdfReferenceField || it is PdfSequenceField }, "List images and inline tabs are outside the proof")
                 val markerFace = resolveRun(entry.level.one("rPr"), base)
-                PdfListLabel(entry.value, PdfTextStyle(markerFace.id(fontId), markerFace.size ?: reject("Missing marker size"), markerFace.color, markerFace.languageTag, markerFace.underline), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval)
+                PdfListLabel(entry.value, textStyle(markerFace), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval)
             }
             val alignment = if (geometry.direction == PdfTextDirection.RIGHT_TO_LEFT) when (geometry.alignment) {
                 PdfAlignment.LEFT -> PdfAlignment.RIGHT; PdfAlignment.RIGHT -> PdfAlignment.LEFT; PdfAlignment.CENTER -> PdfAlignment.CENTER
@@ -744,24 +775,45 @@ internal class NativeDocxReader(
             val numbering = pageNumbering(section)
             PdfPageSequence(page, blocks, flow, numbering.copy(alignParity = evenAndOddHeaders && numbering.start != null))
         }
+        val notes = sourceNotes.readDefinitions { node, kind ->
+            val name = NativeDocxNotes.kindName(kind) + "s.xml"
+            activePart = "word/$name"
+            children(node, setOf("p"))
+            registerNeighbors(node)
+            val ownRelations = parts["word/_rels/$name.rels"]?.let { readRelations(xml.read(it)) } ?: emptyMap()
+            currentNoteKind = kind
+            try { node.elements().map { readParagraph(it, ownRelations) } }
+            finally { currentNoteKind = null }
+        }
         check(openBookmarks.isEmpty(), "Unclosed bookmarks")
         val targets = textReferences.map { name ->
             check(name !in crossParagraphBookmarks, "Text references across paragraphs are not qualified")
             PdfReferenceTarget(name, bookmarkRuns[name] ?: reject("Unknown text reference range"))
         }
-        return PdfDocument(sequences, if (sequences.size == 1) sequences.single().flow?.maxPages ?: 1 else 32, targets)
+        return PdfDocument(sequences, if (sequences.size == 1) sequences.single().flow?.maxPages ?: 1 else 32, targets, notes)
     }
 
     private data class Face(val family: String? = null, val size: Float? = null, val bold: Boolean = false,
-        val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null, val underline: Boolean = false) {
+        val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null, val underline: Boolean = false, val superscript: Boolean = false) {
         fun id(resolve: (String, Boolean, Boolean) -> String): String = resolve(
             requireNotNull(family) { "An explicit font family is required" }, bold, italic)
     }
 
+    private fun textStyle(face: Face): PdfTextStyle {
+        val nominal = face.size ?: reject("Missing font size")
+        val size = if (face.superscript) kotlin.math.round(nominal * 1.3f) / 2 else nominal
+        return PdfTextStyle(face.id(fontId), size, face.color, face.languageTag, face.underline, if (face.superscript) nominal - size else 0f)
+    }
+
     private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>): Face {
         if (property == null) return initial
-        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u"))
+        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign"))
         var result = initial
+        property.one("vertAlign")?.let {
+            attributes(it, setOf("val")); children(it, emptySet())
+            check(it.value("val") in setOf("baseline", "superscript"), "Only baseline and superscript alignment are qualified")
+            result = result.copy(superscript = it.value("val") == "superscript")
+        }
         property.one("numPr")?.let { node ->
             attributes(node, emptySet()); children(node, setOf("numId", "ilvl")); check(node.elements().isNotEmpty(), "Empty numbering reference")
             node.elements().forEach { leaf -> attributes(leaf, setOf("val")); check(leaf.elements().isEmpty(), "Invalid numbering reference"); check(number(leaf.value("val")) <= if (leaf.name.localPart == "ilvl") 8 else 1_000_000, "Numbering reference exceeds bounds") }
@@ -921,7 +973,7 @@ internal class NativeDocxReader(
                     val entry = zip.nextEntry ?: break
                     budget(parts.size < minOf(64, context.limits.maxArchiveEntries))
                     check(entry.name !in parts && !entry.isDirectory, "Invalid or duplicate ZIP entries")
-                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docProps/(?:app|core)\\.xml|word/(?:(?:document|styles|numbering|settings|fontTable|webSettings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|_rels/(?:document|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|media/[A-Za-z0-9_.-]+\\.png))")), "Unsupported package part")
+                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docProps/(?:app|core)\\.xml|word/(?:(?:document|styles|numbering|settings|footnotes|endnotes|fontTable|webSettings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|_rels/(?:document|footnotes|endnotes|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|media/[A-Za-z0-9_.-]+\\.png))")), "Unsupported package part")
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(8192)
                     while (true) {

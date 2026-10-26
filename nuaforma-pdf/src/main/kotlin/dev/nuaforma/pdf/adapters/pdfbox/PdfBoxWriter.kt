@@ -51,10 +51,10 @@ internal object PdfBoxWriter {
                     fail(PdfFailureCode.MISSING_GLYPH, "The supplied font cannot encode requested text")
                 }
                 val box = font.fontDescriptor.fontBoundingBox
-                TextMetrics(width, maxOf(font.fontDescriptor.ascent, box.upperRightY) * style.size / 1000f,
-                    maxOf(-font.fontDescriptor.descent, -box.lowerLeftY) * style.size / 1000f,
-                    lineMetrics[style.fontId]?.get(0)?.times(style.size) ?: Float.NaN,
-                    lineMetrics[style.fontId]?.get(1)?.times(style.size) ?: Float.NaN,
+                TextMetrics(width, maxOf(font.fontDescriptor.ascent, box.upperRightY) * style.size / 1000f + style.baselineShift,
+                    maxOf(-font.fontDescriptor.descent, -box.lowerLeftY) * style.size / 1000f - style.baselineShift,
+                    lineMetrics[style.fontId]?.get(0)?.times(style.size)?.plus(style.baselineShift) ?: Float.NaN,
+                    lineMetrics[style.fontId]?.get(1)?.times(style.size)?.minus(style.baselineShift) ?: Float.NaN,
                     lineMetrics[style.fontId]?.get(2)?.times(style.size) ?: Float.NaN)
             }
             val composed = if (ReferenceLayouter.active(document)) ReferenceLayouter.layout(document, measurer, control)
@@ -131,7 +131,7 @@ internal object PdfBoxWriter {
                                     command("BT")
                                     command("Tf", page.resources.add(font), number(element.style.size))
                                     command("rg", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
-                                    command("Tm", number(1f), number(0f), number(0f), number(1f), number(element.x), number(canvasHeight - element.baseline))
+                                    command("Tm", number(1f), number(0f), number(0f), number(1f), number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift)))
                                     // Write the same qualified cmap glyphs used for measurement, without a second GSUB pass.
                                     command("Tj", COSString(font.encode(element.text)))
                                     command("ET")
@@ -142,7 +142,7 @@ internal object PdfBoxWriter {
                                         if (position - thickness < font.fontDescriptor.fontBoundingBox.lowerLeftY / 1000f)
                                             fail(PdfFailureCode.UNSUPPORTED_TEXT, "Underline exceeds the qualified font bounds")
                                         // OpenType post.underlinePosition denotes the top edge, unlike PostScript's center coordinate.
-                                        command("re", number(element.x), number(canvasHeight - element.baseline + (position - thickness) * element.style.size),
+                                        command("re", number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift) + (position - thickness) * element.style.size),
                                             number(measurer.measure(element.text, element.style).width), number(thickness * element.style.size))
                                         command("f")
                                     }

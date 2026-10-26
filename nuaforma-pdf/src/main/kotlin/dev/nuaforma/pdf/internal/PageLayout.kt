@@ -195,9 +195,15 @@ internal object PageLayouter {
         val metrics = styles.map { measurer.measure(" ", it) }
         if (metrics.any { !it.naturalAscent.isFinite() || !it.naturalDescent.isFinite() || !it.lineGap.isFinite() })
             throw PdfRenderException(PdfFailureCode.INVALID_RESOURCE, "Natural font line metrics are unavailable")
-        val boxes = metrics.map { Triple(it.naturalAscent, it.naturalDescent, it.lineGap) }.distinct()
+        // Raised markers may extend a natural line box. Ordinary mixed font metrics remain
+        // outside the qualified profile; existing paragraphs therefore keep their exact geometry.
+        val ordinary = metrics.filterIndexed { index, _ -> styles[index].baselineShift == 0f }
+        val base = ordinary.ifEmpty { metrics }
+        val boxes = base.map { Triple(it.naturalAscent, it.naturalDescent, it.lineGap) }.distinct()
         if (boxes.size != 1) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Mixed natural line boxes are not qualified")
-        val (ascent, descent, gap) = boxes.single()
+        val ascent = metrics.maxOf { it.naturalAscent }
+        val descent = metrics.maxOf { it.naturalDescent }
+        val gap = metrics.maxOf { it.lineGap }
         val height = (ascent + descent + gap) * policy.multiple
         if (!height.isFinite() || height !in 1f..14_400f || height < ascent + descent + gap) overflow()
         return height to (ascent + gap)
@@ -221,6 +227,7 @@ internal object PageLayouter {
         for (run in runs) {
             if (run is PdfPageField) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields require page-band resolution")
             if (run is PdfReferenceField || run is PdfSequenceField) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "References require document-wide resolution")
+            if (run is PdfNoteCall || run is PdfNoteLabel) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Notes require document-wide resolution")
             if (run is PdfTab) {
                 if (run.style.underline) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Underlined tabs are not qualified")
                 groups += mutableListOf(Fragment("\t", run.style, TextMetrics(0f, 0f, 0f), tab = run))

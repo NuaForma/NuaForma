@@ -5,10 +5,10 @@ import dev.nuaforma.pdf.*
 /** Bounded fixed-point pagination. All values, counters, identities and trial layouts belong to one job. */
 internal object ReferenceLayouter {
     fun active(document: PdfDocument): Boolean {
-        if (document.referenceTargets.isNotEmpty()) return true
+        if (document.referenceTargets.isNotEmpty() || document.notes.isNotEmpty()) return true
         fun block(value: PdfBlock): Boolean = value.semantics != null || when (value) {
             is PdfParagraph -> value.contents != null || value.runs.any { when (it) {
-                is PdfReferenceField, is PdfSequenceField -> true
+                is PdfReferenceField, is PdfSequenceField, is PdfNoteCall, is PdfNoteLabel -> true
                 is PdfTextRun -> it.semantics != null || it.navigation?.logicalId != null
                 is PdfImageRun -> it.image.semantics != null
                 else -> false
@@ -21,13 +21,13 @@ internal object ReferenceLayouter {
     }
 
     fun layout(document: PdfDocument, measurer: TextMeasurer, control: PdfRenderControl): DocumentLayout {
-        val normalized = DocumentTransforms.map(document, true) { p, _, scope ->
-            if (scope in setOf(DocumentTransforms.Scope.BAND, DocumentTransforms.Scope.FRAME) && p.runs.any { it is PdfSequenceField })
+        val normalized = NoteResolver.resolve(DocumentTransforms.map(document, true) { p, _, scope ->
+            if (scope in setOf(DocumentTransforms.Scope.BAND, DocumentTransforms.Scope.FRAME, DocumentTransforms.Scope.NOTE) && p.runs.any { it is PdfSequenceField })
                 unsupported("Sequence fields require main document content")
             if (scope == DocumentTransforms.Scope.BAND && p.runs.filterIsInstance<PdfReferenceField>().any { it.kind == PdfReferenceKind.CURRENT_PAGE })
                 unsupported("Use the per-page field type in page bands")
             listOf(p)
-        }
+        })
         val evaluator = ReferenceValues(normalized)
         val fields = normalized.allParagraphs().flatMap { it.runs.filterIsInstance<PdfReferenceField>() }
         val containers = normalized.allParagraphs().filter { it.contents != null }.associate { p -> requireNotNull(p.semantics).let { it.id to it } }
@@ -96,7 +96,7 @@ internal object ReferenceLayouter {
         val headings = DocumentTransforms.bodyParagraphs(resolved).mapNotNull { p ->
             val semantic = requireNotNull(p.semantics)
             if (semantic.role != PdfSemanticRole.HEADING) null else {
-                val title = LogicalStructureBuilder.paragraphText(p).orEmpty().replace(Regex("\\s+"), " ").trim()
+                val title = LogicalStructureBuilder.paragraphText(p, includeNoteCalls = false).orEmpty().replace(Regex("\\s+"), " ").trim()
                 if (title.isEmpty()) null else Heading(p, semantic.id, semantic.level ?: 0, title)
             }
         }
