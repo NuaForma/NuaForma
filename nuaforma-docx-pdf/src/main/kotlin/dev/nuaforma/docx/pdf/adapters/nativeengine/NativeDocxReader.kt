@@ -511,6 +511,67 @@ internal class NativeDocxReader(
                 fill(props), lineColor?.let { PdfBorder(numeric(line.attribute("", "w")) / 12700, it) },
                 when (bodyProps.attribute("", "anchor")) { "t" -> PdfVerticalAlignment.TOP; "ctr" -> PdfVerticalAlignment.CENTER; "b" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported vertical alignment") })
         }
+        fun readAnchoredImage(node: XmlElement, partRelations: Map<String, String>): PdfAnchoredImage {
+            val anchor = node.elements().single()
+            fun one(name: String) = anchor.elements().singleOrNull { it.name.namespaceURI == wp && it.name.localPart == name } ?: reject("Missing or duplicate image anchor property")
+            val keys = setOf("distT", "distB", "distL", "distR", "simplePos", "relativeHeight", "behindDoc", "locked", "layoutInCell", "allowOverlap")
+            check(anchor.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in keys }, "Unsupported image anchor attribute")
+            for ((key, expected) in mapOf("simplePos" to false, "behindDoc" to false, "locked" to false, "layoutInCell" to true, "allowOverlap" to true)) {
+                val value = when (anchor.attribute("", key)) { "0", "false" -> false; "1", "true" -> true; else -> null }
+                check(value == expected, "Unsupported image anchor policy")
+            }
+            check(anchor.attribute("", "relativeHeight")?.toLongOrNull()?.let { it in 0..4_294_967_295L } == true, "Invalid drawing order")
+            val simple = one("simplePos")
+            check(simple.attributes.size == 2 && simple.attribute("", "x") == "0" && simple.attribute("", "y") == "0", "Unsupported simple image position")
+            val extent = one("extent")
+            val imageWidth = number(extent.attribute("", "cx")) / 12700
+            fun offset(name: String, horizontal: Boolean): Pair<Float, PdfBoxAnchor> {
+                val position = one(name)
+                check(position.attributes.size == 1 && position.elements().size == 1, "Unsupported anchor position")
+                val relative = position.attribute("", "relativeFrom")
+                check(relative in (if (horizontal) setOf("page", "margin", "column") else setOf("page", "paragraph")), "Unsupported image reference area")
+                val value = position.elements().single()
+                check(value.name.namespaceURI == wp && value.attributes.isEmpty() && value.elements().isEmpty(), "Invalid anchor offset")
+                val text = value.children.filterIsInstance<XmlText>().joinToString("") { it.text }
+                val base = if (horizontal && relative != "page") page.margins.left else 0f
+                val available = if (relative == "page") page.width else page.width - page.margins.left - page.margins.right
+                val amount = when (value.name.localPart) {
+                    "posOffset" -> number(text) / 12700
+                    "align" -> {
+                        check(horizontal, "Vertical image alignment is not qualified")
+                        when (text) { "left" -> 0f; "right" -> available - imageWidth; "center" -> (available - imageWidth) / 2; else -> reject("Unsupported image alignment") }
+                    }
+                    else -> reject("Unsupported image offset")
+                }
+                return (base + amount) to if (relative == "paragraph") PdfBoxAnchor.PARAGRAPH else PdfBoxAnchor.PAGE
+            }
+            val horizontal = offset("positionH", true).first
+            val vertical = offset("positionV", false)
+            val wraps = anchor.elements().filter { it.name.namespaceURI == wp && it.name.localPart.startsWith("wrap") }
+            check(wraps.size == 1 && wraps.single().elements().isEmpty(), "Unsupported image wrapping geometry")
+            val wrap = wraps.single()
+            val policy = when (wrap.name.localPart) {
+                "wrapNone" -> { check(wrap.attributes.isEmpty(), "Invalid image wrapping"); PdfImageWrap.NONE }
+                "wrapTopAndBottom" -> { check(wrap.attributes.isEmpty(), "Invalid image wrapping"); PdfImageWrap.TOP_BOTTOM }
+                "wrapSquare" -> {
+                    check(wrap.attributes.size == 1, "Unsupported square wrapping effect")
+                    when (wrap.attribute("", "wrapText")) {
+                        "left" -> PdfImageWrap.LEFT; "right" -> PdfImageWrap.RIGHT; "largest" -> PdfImageWrap.LARGEST
+                        "bothSides" -> PdfImageWrap.BOTH
+                        else -> reject("Unsupported square wrapping side")
+                    }
+                }
+                else -> reject("Unsupported image wrapping")
+            }
+            val allowed = setOf("simplePos", "positionH", "positionV", "extent", "effectExtent", "docPr", "cNvGraphicFramePr", wrap.name.localPart)
+            check(anchor.elements().all { it.name.namespaceURI == wp && it.name.localPart in allowed || it.name.namespaceURI == drawing && it.name.localPart == "graphic" }, "Unsupported anchored image effect")
+            val inline = XmlElement(javax.xml.namespace.QName(wp, "inline"))
+            inline.children.addAll(anchor.elements().filter { it.name.namespaceURI == drawing || it.name.localPart in setOf("extent", "effectExtent", "docPr", "cNvGraphicFramePr") })
+            val container = XmlElement(node.name).also { it.children += inline }
+            return PdfAnchoredImage(image(container, partRelations, parts), horizontal, vertical.first, vertical.second, policy,
+                PdfMargins(number(anchor.attribute("", "distT") ?: "0") / 12700, number(anchor.attribute("", "distR") ?: "0") / 12700,
+                    number(anchor.attribute("", "distB") ?: "0") / 12700, number(anchor.attribute("", "distL") ?: "0") / 12700))
+        }
         fun readBlocks(root: XmlElement, partRelations: Map<String, String>, fields: Boolean): List<PdfBlock> = root.elements().filter { it.name.localPart != "sectPr" }.flatMap { block ->
             when (block.name.localPart) {
                 "p" -> {
@@ -526,7 +587,14 @@ internal class NativeDocxReader(
                     }
                     numbering.alias(block, plain)
                     neighbors[plain] = neighbors[block] ?: (null to null)
-                    frames.map { if (it.name.localPart == "pict") readBox(it, partRelations) else readDrawingBox(it, partRelations) } + readParagraph(plain, partRelations, fields)
+                    val (images, boxes) = frames.partition { node ->
+                        node.elements().singleOrNull()?.elements()?.singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "graphic" }
+                            ?.elements()?.singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "graphicData" }?.attribute("", "uri") == picture
+                    }
+                    val paragraph = readParagraph(plain, partRelations, fields)
+                    boxes.map { if (it.name.localPart == "pict") readBox(it, partRelations) else readDrawingBox(it, partRelations) } +
+                        PdfParagraph(paragraph.runs, paragraph.spaceBefore, paragraph.spaceAfter, paragraph.format, paragraph.listLabel,
+                            images.map { readAnchoredImage(it, partRelations) })
                 }
                 "tbl" -> listOf(readTable(block, partRelations, fields))
                 else -> reject("Unsupported block")
@@ -692,7 +760,7 @@ internal class NativeDocxReader(
         val inline = node.elements().single()
         check(inline.name.namespaceURI == wp && inline.name.localPart == "inline", "Only inline images are supported")
         check(inline.attributes.all { it.key.namespaceURI.isEmpty() && it.key.localPart in setOf("distT", "distB", "distL", "distR") && it.value == "0" }, "Image wrapping is unsupported")
-        val allowed = mapOf(wp to setOf("inline", "extent", "effectExtent", "docPr", "cNvGraphicFramePr"), drawing to setOf("graphic", "graphicData", "graphicFrameLocks", "blip", "stretch", "fillRect", "xfrm", "off", "ext", "prstGeom", "avLst"),
+        val allowed = mapOf(wp to setOf("inline", "extent", "effectExtent", "docPr", "cNvGraphicFramePr"), drawing to setOf("graphic", "graphicData", "graphicFrameLocks", "blip", "srcRect", "stretch", "fillRect", "xfrm", "off", "ext", "prstGeom", "avLst"),
             picture to setOf("pic", "nvPicPr", "cNvPr", "cNvPicPr", "blipFill", "spPr"))
         check(inline.descendants().all { it.name.localPart in (allowed[it.name.namespaceURI] ?: emptySet()) }, "Unsupported drawing effect or geometry")
         inline.descendants().filter { it.name.namespaceURI == drawing && it.name.localPart == "graphicFrameLocks" }.forEach { locks ->
@@ -714,8 +782,15 @@ internal class NativeDocxReader(
         check(transformedExtent.attribute("", "cx") == extent.attribute("", "cx") && transformedExtent.attribute("", "cy") == extent.attribute("", "cy"), "Nonmatching picture transforms are unsupported")
         val shape = inline.descendants().singleOrNull { it.name.localPart == "prstGeom" } ?: reject("Missing image geometry")
         check(shape.attribute("", "prst") == "rect", "Unsupported image geometry")
+        val fill = inline.descendants().singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "fillRect" } ?: reject("Missing image stretch rectangle")
+        check(fill.attributes.isEmpty() && fill.elements().isEmpty(), "Inset image fill rectangles are not qualified")
+        val crops = inline.descendants().filter { it.name.namespaceURI == drawing && it.name.localPart == "srcRect" }.toList()
+        check(crops.size <= 1, "Duplicate image crop")
+        val crop = crops.singleOrNull()
+        check(crop == null || crop.elements().isEmpty() && crop.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in setOf("t", "r", "b", "l") }, "Unsupported image crop")
+        fun fraction(side: String) = number(crop?.attribute("", side) ?: "0") / 100_000
         return PdfImage(parts["word/$target"] ?: reject("Missing image bytes"), number(extent.attribute("", "cx")) / 12700,
-            number(extent.attribute("", "cy")) / 12700)
+            number(extent.attribute("", "cy")) / 12700, PdfImageCrop(fraction("t"), fraction("r"), fraction("b"), fraction("l")))
     }
 
     private fun unpack(bytes: ByteArray): Map<String, ByteArray> {

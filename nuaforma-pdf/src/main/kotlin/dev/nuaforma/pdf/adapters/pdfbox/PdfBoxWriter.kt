@@ -106,7 +106,7 @@ internal object PdfBoxWriter {
                     }
                     fun number(value: Float) = COSFloat(value)
                     fun paint(elements: List<PositionedElement>, canvasHeight: Float, canvasWidth: Float) {
-                        for (element in elements) {
+                        for (element in elements.sortedBy { it is PositionedImage && it.foreground }) {
                             control.checkActive()
                             when (element) {
                                 is PositionedBox -> {
@@ -172,8 +172,15 @@ internal object PdfBoxWriter {
                                         catch (_: IOException) { fail(PdfFailureCode.INVALID_RESOURCE, "Cannot decode the supplied PNG") }
                                     }
                                     command("q")
-                                    command("cm", number(element.image.width), number(0f), number(0f), number(element.image.height),
-                                        number(element.x), number(canvasHeight - element.top - element.image.height))
+                                    val crop = element.image.crop
+                                    val width = element.image.width / (1f - crop.left - crop.right)
+                                    val height = element.image.height / (1f - crop.top - crop.bottom)
+                                    if (crop != PdfImageCrop()) {
+                                        command("re", number(element.x), number(canvasHeight - element.top - element.image.height), number(element.image.width), number(element.image.height))
+                                        command("W"); command("n")
+                                    }
+                                    command("cm", number(width), number(0f), number(0f), number(height),
+                                        number(element.x - width * crop.left), number(canvasHeight - element.top - height * (1f - crop.top)))
                                     command("Do", page.resources.add(image))
                                     command("Q")
                                 }

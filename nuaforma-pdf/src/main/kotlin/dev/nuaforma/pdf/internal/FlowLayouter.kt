@@ -16,6 +16,7 @@ internal object FlowLayouter {
         var after = 0f
         val exclusions = mutableMapOf<Int, MutableList<Pair<Float, Float>>>()
         val paragraphCache = mutableMapOf<Int, MeasuredParagraph>()
+        val floating = mutableMapOf<Int, MutableList<ImageFlow.Exclusion>>()
         fun measuredAt(index: Int) = paragraphCache.getOrPut(index) { paragraph(document.blocks[index] as PdfParagraph, width, measurer) }
         var protectedThrough = -1
         fun nextPage() {
@@ -53,6 +54,13 @@ internal object FlowLayouter {
                     if (block.runs.any { it is PdfPageField }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields are supported only in page bands")
                     val format = block.format
                     if (format.pageBreakBefore && top > page.margins.top + .001f) nextPage()
+                    if (block.anchoredImages.isNotEmpty() || floating[pages.lastIndex].orEmpty().any { top < it.bottom - .001f }) {
+                        if (exclusions[pages.lastIndex].orEmpty().isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Combining image and text-frame wrapping is not qualified")
+                        val result = ImageFlow.paragraph(block, page, pages, top, after, floating, measurer, minOf(policy.maxPages, pageBudget))
+                        top = result
+                        after = block.spaceAfter
+                        continue
+                    }
                     if (exclusions[pages.lastIndex].orEmpty().isNotEmpty() && (format.keepWithNext || format.keepLines || format.widowControl)) {
                         fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph keep rules with wrapped frames are not qualified")
                     }
@@ -103,6 +111,7 @@ internal object FlowLayouter {
                     after = block.spaceAfter
                 }
                 is PdfImage -> {
+                    if (floating[pages.lastIndex].orEmpty().any { top < it.bottom }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Inline block images beside floating images are not qualified")
                     if (block.width > width || block.height > freshHeight()) overflow()
                     avoid(block.height)
                     if (!fits(block.height)) nextPage()
@@ -111,6 +120,7 @@ internal object FlowLayouter {
                     after = 0f
                 }
                 is PdfTable -> {
+                    if (floating[pages.lastIndex].orEmpty().any { top < it.bottom }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Tables beside floating images are not qualified")
                     if (exclusions.isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Combining wrapped frames with body tables is not qualified")
                     if (block.widthPolicy == PdfTableWidthPolicy.FIXED) TableLayouter.checkWidth(block, width, page.margins.left)
                     val measured = TableLayouter.measure(block, measurer)
@@ -193,10 +203,11 @@ internal object FlowLayouter {
         }
     }
 
-    internal fun paragraph(p: PdfParagraph, width: Float, measurer: TextMeasurer): MeasuredParagraph {
+    internal fun paragraph(p: PdfParagraph, width: Float, measurer: TextMeasurer, lineArea: ((Int) -> Pair<Float, Float>)? = null): MeasuredParagraph {
+        if (p.anchoredImages.isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Anchored images are supported only in body paragraphs")
         val height = PageLayouter.automaticBox(p, measurer)?.first ?: p.format.exactLineHeight ?: fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paginated proof requires explicit exact line spacing")
         val normalized = PdfParagraph(p.runs, 0f, 0f, p.format, p.listLabel)
-        val local = PageLayouter.layout(PdfDocument(PdfPage(width, 14_400f, PdfMargins(0f, 0f, 0f, 0f)), listOf(normalized)), measurer)
+        val local = PageLayouter.layout(PdfDocument(PdfPage(width, 14_400f, PdfMargins(0f, 0f, 0f, 0f)), listOf(normalized)), measurer, lineArea)
         val lines = local.elements.groupBy { element -> when (element) {
             is PositionedText -> element.baseline
             is PositionedImage -> element.top + element.image.height
@@ -208,6 +219,7 @@ internal object FlowLayouter {
     }
 
     private fun band(band: PdfPageBand, footer: Boolean, page: PdfPage, number: Int, totalPages: Int, sequencePages: Int, measurer: TextMeasurer, target: MutableList<PositionedElement>) {
+        if (band.blocks.filterIsInstance<PdfParagraph>().any { it.anchoredImages.isNotEmpty() }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Anchored images in page bands are not qualified")
         val margin = if (footer) page.margins.bottom else page.margins.top
         if (band.offset + band.maxHeight > margin + 0.001f) overflow()
         val width = page.width - page.margins.left - page.margins.right
@@ -219,7 +231,7 @@ internal object FlowLayouter {
             is PdfPageCount -> PdfTextRun(totalPages.toString(), it.style)
             is PdfSequencePageCount -> PdfTextRun(sequencePages.toString(), it.style)
             else -> it
-        } }, p.spaceBefore, p.spaceAfter, p.format, p.listLabel)
+        } }, p.spaceBefore, p.spaceAfter, p.format, p.listLabel, p.anchoredImages)
         fun resolveTable(t: PdfTable): PdfTable = PdfTable(t.columnWidths, t.rows.map { row -> PdfTableRow(row.cells.map { cell ->
             PdfTableCell(cell.blocks.map { when (it) { is PdfParagraph -> resolve(it); is PdfTable -> resolveTable(it); is PdfImage -> it; is PdfTextBox -> error("Frame in table") } }, cell.background, cell.columnSpan, cell.rowSpan, cell.verticalAlignment, cell.borders)
         }, row.allowSplit, row.splitOversized) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent, t.widthPolicy)

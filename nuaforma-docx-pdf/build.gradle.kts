@@ -330,6 +330,32 @@ val borderFragmentationRenders = listOf("a4", "letter").map { kind ->
 }
 tasks.register("renderOwnEngineBorderFragmentation") { group = "verification"; dependsOn(borderFragmentationRenders) }
 
+val anchoredImageKinds = listOf("left", "right", "largest", "top-bottom", "page", "boundary", "letter", "crop", "both-sides", "multipage")
+val generateOwnEngineAnchoredImages = tasks.register<Exec>("generateOwnEngineAnchoredImages") {
+    val folder = rootProject.file("tools/pdf-evaluation/own-engine")
+    val output = layout.buildDirectory.dir("own-engine-anchored-images")
+    inputs.files(listOf("build_anchored_image_fixtures.py", "build_fixture.py").map { folder.resolve(it) }, rootProject.file("assets/branding/nuaforma-icon-transparent.png"))
+    outputs.dir(output)
+    commandLine("python3", folder.resolve("build_anchored_image_fixtures.py").absolutePath, output.get().asFile.absolutePath)
+}
+tasks.processTestResources {
+    dependsOn(generateOwnEngineAnchoredImages)
+    from(layout.buildDirectory.dir("own-engine-anchored-images")) { into("own-engine-anchored-images") }
+}
+val anchoredImageRenders = anchoredImageKinds.map { kind ->
+    tasks.register<JavaExec>("renderOwnEngineAnchoredImages${kind.replace("-", "").replaceFirstChar { it.uppercase() }}") {
+        group = "verification"
+        dependsOn(tasks.testClasses)
+        classpath = sourceSets.test.get().runtimeClasspath
+        mainClass.set("dev.nuaforma.docx.pdf.ownengine.OwnEngineProof")
+        javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+        args(layout.buildDirectory.file("own-engine-anchored-images/$kind/source.docx").get().asFile.absolutePath,
+            layout.buildDirectory.file("own-engine-anchored-images/$kind/own-engine.pdf").get().asFile.absolutePath,
+            rootProject.file("nuaforma-pdf/src/test/resources/fonts").absolutePath)
+    }
+}
+tasks.register("renderOwnEngineAnchoredImages") { group = "verification"; dependsOn(anchoredImageRenders) }
+
 val generateOwnEngineNaturalWidths = tasks.register<Exec>("generateOwnEngineNaturalWidths") {
     val folder = rootProject.file("tools/pdf-evaluation/own-engine")
     val output = layout.buildDirectory.dir("own-engine-natural-widths")
