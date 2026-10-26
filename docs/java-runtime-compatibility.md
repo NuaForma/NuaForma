@@ -7,15 +7,15 @@ Issue [#71](https://github.com/NuaForma/NuaForma/issues/71) splits the source bu
 | contracts, core, template, DOCX, PDF, DOCX/PDF libraries | Java 17 | Java 17 minimum |
 | Standalone REST server | Java 25 | Java 25 |
 | Separate development Playground application | Java 25 | Java 25; not a production server dependency |
-| Sandboxed PDFBox and veraPDF validators | Java 17 | Pinned Temurin 17.0.20.1+1 |
+| Separate PDFBox and veraPDF validators | Java 17 | Pinned Temurin 17.0.20.1+1 |
 
 Install both JDKs for the complete build. Gradle's explicit module toolchains, Java `--release` and Kotlin `-Xjdk-release` prevent a Java 25 build daemon from exposing newer JDK APIs to libraries. Set `JDK17` and `JDK25` if installations are not discovered automatically. Library tests run on the Java 17 toolchain and server/architecture/REST tests on Java 25, independently of the daemon JVM. CI runs the full build with Java 17 and Java 25 daemons, preserving the required `Build (Java 17)` check, and runs independently compiled Java/Maven and Kotlin/Gradle consumers on Java 17. Publication checks inspect the Java-17-effective bytecode of all six libraries and their resolved runtime dependencies. No library coordinates, contract version or dependency versions change.
 
 ## Why validators retain Java 17
 
-Only the outer REST service JVM is upgraded. PDFBox and veraPDF parse the native engine's final PDF bytes in separate request-private child processes. Their existing SerialGC, 256 MiB heap, 128 MiB metaspace, 64 MiB compressed class/code caches, two active processors, 512 KiB stacks and 1.5 GiB address-space ceiling were qualified on Java 17, including procfs-free operation. A newer collector/ergonomic or native-loading implementation is not assumed to fit those bounds. Retaining this runtime keeps the deliberate PDF security/resource boundary intact while modernizing the server.
+PDFBox and veraPDF parse the native engine's final PDF bytes in separate request-private child JVMs. SerialGC, 256 MiB heap, 128 MiB metaspace, 64 MiB compressed class/code caches, two active processors, 512 KiB stacks, 1.5 GiB address space, CPU/file limits, bounded output, deadlines and reaping remain on Java 17. The maintainer's subsequent approval removes Bubblewrap and its nested namespaces, not the independent JVM/resource boundary. A newer runtime is not automatically assumed to fit these bounds.
 
-The image stores validator Java at `/opt/java/openjdk` and server Java at `/opt/java/server`. Only the former is mounted at `/validator/java` inside Bubblewrap; no server application, extensions, credentials or neighboring request is added. The private namespaces, device allowlist, both seccomp policies, network denial, timeouts, bounded conversion admission and fail-closed readiness remain unchanged. The server keeps its explicit heap cap and container CPU/memory/process limits; upgrading Java is not permission to increase budgets or suppress JVM warnings. Java 25 runtime defaults apply to the outer server; no preview features or permissive native-access flags are enabled.
+The image stores validator Java at `/opt/java/openjdk` and server Java at `/opt/java/server`. The validator launcher invokes the former directly with a fixed validator classpath and request-private home/temp directory; inherited environment is cleared by the host. Both processes share the ordinary container filesystem/network boundary and runtime default policies. The server retains its explicit heap cap and container CPU/memory/PID limits. Java 25 runtime defaults apply to the application; no preview features or permissive native-access flags are enabled.
 
 ## Extensions
 

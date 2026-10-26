@@ -11,6 +11,7 @@ def collect(image, destination, docker="docker"):
     def command(*args):
         return subprocess.check_output([docker, *args], text=True, stderr=subprocess.STDOUT, timeout=60).strip()
     details = json.loads(command("image", "inspect", image))[0]
+    assert details["Config"].get("Labels", {}).get("dev.nuaforma.validation-boundary") == "container", "Use the matching source tools for older image boundaries"
     metadata = {key: details[key] for key in ("Id", "Architecture", "Os")}
     metadata["User"] = details["Config"]["User"]
     metadata["Labels"] = details["Config"].get("Labels", {})
@@ -18,7 +19,7 @@ def collect(image, destination, docker="docker"):
     name = "nuaforma-inventory-" + uuid.uuid4().hex
     command("create", "--name", name, "--label", "dev.nuaforma.inventory=" + name, image)
     try:
-        for file in ("outer-packages.tsv", "renderer-packages.tsv", "validator-sha256.txt", "verapdf-sha256.txt", "application-sha256.txt"):
+        for file in ("outer-packages.tsv", "validator-sha256.txt", "verapdf-sha256.txt", "application-sha256.txt"):
             command("cp", name + ":/usr/share/nuaforma/" + file, str(destination / file))
         if metadata["Labels"].get("dev.nuaforma.jvm-layout") == "server25-validator17":
             command("cp", name + ":/usr/share/nuaforma/java-sha256.txt", str(destination / "java-sha256.txt"))

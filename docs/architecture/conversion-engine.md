@@ -224,7 +224,7 @@ Use an internal CLI/worker entry point for qualification. Stage output privately
 
 ## 9. Execution, resources and capacity
 
-Each conversion owns its parser, layout and PDF-writing state inside the hosting JVM, with bounded admission, cumulative resource accounting, deadlines and cooperative cancellation. There is no fresh document-renderer process or per-document OS memory boundary. Independent Java 17 output validators retain their separate bounded/network-denied process boundary. Capacity must be measured on the exact application/container and workload; source implementation is not a throughput guarantee.
+Each conversion owns its parser, layout and PDF-writing state inside the hosting JVM, with bounded admission, cumulative resource accounting, deadlines and cooperative cancellation. There is no fresh document-renderer process or per-document OS memory boundary. Independent Java 17 output validators retain separate bounded processes with private working directories, fixed classpaths and cleared inherited environments. The approved container boundary uses runtime default policies and is shared by server and validators; it does not deny validator networking through a separate namespace. Capacity must be measured on the exact application/container and workload; source implementation is not a throughput guarantee.
 
 Prototype limits are starting proposals, not changes to existing qualified production settings:
 

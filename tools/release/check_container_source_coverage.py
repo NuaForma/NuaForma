@@ -9,14 +9,16 @@ import urllib.request
 def verify_inventory(root, platform):
     java = root / "java-sha256.txt"
     image = root / "image.json"
-    split_runtime = image.is_file() and json.loads(image.read_text()).get("Labels", {}).get("dev.nuaforma.jvm-layout") == "server25-validator17"
+    labels = json.loads(image.read_text()).get("Labels", {}) if image.is_file() else {}
+    split_runtime = labels.get("dev.nuaforma.jvm-layout") == "server25-validator17"
     if split_runtime or java.exists() or "javaRuntimeFilesSha256" in platform:
         if not java.is_file() or hashlib.sha256(java.read_bytes()).hexdigest() != platform.get("javaRuntimeFilesSha256"):
             raise ValueError("Both Java runtime files must match the exact source/license review")
-    if set(platform["packages"]) != {"outer-packages.tsv", "renderer-packages.tsv"}:
-        raise ValueError("Both package scopes must be reviewed")
+    scopes = {"outer-packages.tsv"} if labels.get("dev.nuaforma.validation-boundary") == "container" else {"outer-packages.tsv", "renderer-packages.tsv"}
+    if set(platform["packages"]) != scopes:
+        raise ValueError("Every package scope of this exact image boundary must be reviewed")
     for name, expected in platform["packages"].items():
-        if name not in ("outer-packages.tsv", "renderer-packages.tsv") or hashlib.sha256((root / name).read_bytes()).hexdigest() != expected:
+        if name not in scopes or hashlib.sha256((root / name).read_bytes()).hexdigest() != expected:
             raise ValueError("Package inventory differs from source review")
     actual = {}
     for name in ("application-sha256.txt", "validator-sha256.txt", "verapdf-sha256.txt"):
@@ -50,8 +52,12 @@ def main():
         if not (args.inventory / "java-sha256.txt").is_file() or "javaRuntimeFilesSha256" not in record["platforms"][args.architecture]:
             raise ValueError("New releases require exact review of both JVM installations")
     verify_inventory(args.inventory, record["platforms"][args.architecture])
-    if len(record["sourceMaterials"]) != 4:
-        raise ValueError("Require all four reviewed source archives")
+    boundary = json.loads((args.inventory / "image.json").read_text()).get("Labels", {}).get("dev.nuaforma.validation-boundary")
+    required_groups = {"debian", "java", "jvm"} if boundary == "container" else {"debian", "libreoffice", "java", "jvm"}
+    required_files = {f"nuaforma-sources-{group}-{args.version}.tar" for group in required_groups}
+    actual_files = {asset["url"].rsplit("/", 1)[-1] for asset in record["sourceMaterials"]}
+    if len(record["sourceMaterials"]) != len(required_files) or actual_files != required_files:
+        raise ValueError("Require every reviewed source archive of the exact runtime boundary")
     prefix = "https://github.com/NuaForma/NuaForma/releases/download/v" + args.version + "/"
     for asset in record["sourceMaterials"]:
         if not asset["url"].startswith(prefix):

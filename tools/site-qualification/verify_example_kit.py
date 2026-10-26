@@ -27,7 +27,6 @@ def main():
     parser.add_argument("--output", type=pathlib.Path, required=True)
     args = parser.parse_args()
     args.kit_directory = args.kit_directory or (args.website_directory / 'site/downloads')
-    args.seccomp = ROOT / "deployment/pdf-runtime/seccomp.json"
     args.output.mkdir(parents=True, exist_ok=False)
     runtime = qualification.Runtime(args)
     try:

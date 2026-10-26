@@ -71,7 +71,7 @@ def inventory(root, architecture, application):
                     licenses = [dict(license={key:element.findtext('m:' + key, namespaces=ns) for key in ('name','url') if element.findtext('m:' + key, namespaces=ns)}) for element in pom.findall('m:licenses/m:license', ns)] or None
         jar_component(path, artifact['group'], artifact['artifact'], artifact['version'], 'verapdf-validator', licenses, artifact.get('classifier'))
 
-    for role in ('outer', 'renderer'):
+    for role in ('outer',):
         architectures = {}
         for paragraph in (root / f'{role}-status').read_text().split('\n\n'):
             fields = dict(re.findall(r'^(Package|Architecture): (.+)$', paragraph, re.MULTILINE))
@@ -96,11 +96,6 @@ def inventory(root, architecture, application):
         components[ref] = {'type':'platform', 'bom-ref':ref, 'name':'Eclipse Temurin', 'version':version,
                            'licenses':[dict(expression='GPL-2.0-only WITH Classpath-exception-2.0')],
                            'properties':[dict(name='nuaforma:component:role', value=role), dict(name='nuaforma:java:releaseSha256', value=digest(path))]}
-        dependencies[root_ref].add(ref)
-    for name, version, filename, license_id in [('bubblewrap','0.13.0','bwrap','LGPL-2.1-or-later'),('nuaforma-renderer-seccomp',app['version'],'renderer-seccomp.bpf','Apache-2.0')]:
-        ref = f'urn:nuaforma:helper:{name}:{version}:{architecture}'
-        components[ref] = {'type':'application', 'bom-ref':ref, 'name':name, 'version':version,
-                           'hashes':[dict(alg='SHA-256',content=digest(root / filename))], 'licenses':[dict(license=dict(id=license_id))]}
         dependencies[root_ref].add(ref)
     bom['metadata']['component'] = {'type':'container', 'bom-ref':root_ref, 'name':'nuaforma' + ('-playground' if application == 'playground' else ''), 'version':app['version']}
     bom['metadata']['properties'] = [item for item in bom['metadata']['properties'] if item['name'] not in ('nuaforma:inventory:scope','nuaforma:inventory:exclusions')] + [

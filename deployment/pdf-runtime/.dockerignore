@@ -1,7 +1,6 @@
 **
 !Dockerfile
 !debian.sources
-!renderer-seccomp.c
 !validate-pdf.sh
 !start-server.sh
 !healthcheck.sh

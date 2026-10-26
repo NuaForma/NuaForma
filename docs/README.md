@@ -15,7 +15,7 @@ Choose a guide for the task you want to complete. Module guides are the technica
 ## Deploy and operate
 
 - [Source service container](../deployment/pdf-runtime/SERVICE.md): building, configuration, limits and shutdown. The service and separate Playground share the native provider and independently isolated validators.
-- [ARM64 and Podman](../deployment/pdf-runtime/ARM64.md), [AppArmor](../deployment/pdf-runtime/APPARMOR.md) and [renderer isolation](../deployment/pdf-runtime/README.md).
+- [ARM64 and Podman](../deployment/pdf-runtime/ARM64.md), [runtime default security policies](../deployment/pdf-runtime/APPARMOR.md) and [container/validator boundaries](../deployment/pdf-runtime/README.md).
 - [Font and extension mounts](../deployment/pdf-runtime/MOUNTS.md).
 - [Operational logging](logging.md): correlation, safe errors and sensitive development diagnostics.
 - [Health endpoints](health.md) and [source Helm chart](../deployment/helm/README.md).
