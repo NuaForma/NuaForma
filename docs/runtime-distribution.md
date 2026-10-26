@@ -1,6 +1,6 @@
 # Runtime distribution checklist
 
-The source container combines NuaForma's native engine, application dependencies, fonts, Java runtimes, independent PDF validators and isolation helpers. It contains no LibreOffice. This checklist supplements [THIRD_PARTY.md](../THIRD_PARTY.md) and the runtime's [source-access instructions](../deployment/pdf-runtime/SOURCES.md); it does not authorize publication.
+The source container combines NuaForma's native engine, application dependencies, fonts, Java runtimes, independent PDF validators and standard runtime utilities. It contains no LibreOffice or Bubblewrap. This checklist supplements [THIRD_PARTY.md](../THIRD_PARTY.md) and the runtime's [source-access instructions](../deployment/pdf-runtime/SOURCES.md); it does not authorize publication.
 
 Before distributing a candidate:
 
