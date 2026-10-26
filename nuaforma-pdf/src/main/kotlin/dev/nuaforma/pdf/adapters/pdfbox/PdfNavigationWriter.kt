@@ -23,6 +23,7 @@ internal class PdfNavigationWriter(private val pdf: PDDocument) {
     private val outline = PDDocumentOutline()
     private var hasOutline = false
     private var annotations = 0
+    private val outlineParents = mutableListOf<Pair<Int, PDOutlineItem>>()
 
     fun add(text: PositionedText, page: PDPage, metrics: TextMetrics) {
         val navigation = text.navigation ?: return
@@ -39,7 +40,11 @@ internal class PdfNavigationWriter(private val pdf: PDDocument) {
             }
             destinations[destination.name] = target
             destination.title?.let { title ->
-                outline.addLast(PDOutlineItem().apply { this.title = title; this.destination = target })
+                while (outlineParents.lastOrNull()?.first?.let { it >= destination.level } == true) outlineParents.removeAt(outlineParents.lastIndex)
+                val item = PDOutlineItem().apply { this.title = title; this.destination = target }
+                val parent = outlineParents.lastOrNull()?.second
+                if (parent == null) outline.addLast(item) else parent.addLast(item)
+                outlineParents += destination.level to item
                 hasOutline = true
             }
         }

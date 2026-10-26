@@ -10,6 +10,31 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class JavaPdfEngineTest {
     @Test
+    void javaCallerCanRenderContentsAndSymbolicCaptionReferences() throws IOException {
+        var style = new PdfTextStyle("regular", 11);
+        var format = new PdfParagraphFormat(PdfAlignment.LEFT, 0, 0, 0, 14f);
+        var contents = new PdfParagraph(List.of(new PdfTextRun(" ", style)), 0, 8, format, null, List.of(),
+            new PdfBlockSemantics("contents", PdfSemanticRole.CONTENTS),
+            new PdfContents(List.of(new PdfContentsLevel(0, style, format))));
+        var heading = new PdfParagraph(List.of(new PdfTextRun("Java chapter", style)), 0, 8, format, null, List.of(),
+            new PdfBlockSemantics("chapter", PdfSemanticRole.HEADING, 0));
+        List<PdfInline> runs = List.of(new PdfTextRun("Figure ", style), new PdfSequenceField("number", "figures", style));
+        var caption = new PdfParagraph(runs, 0, 8, format, null, List.of(), new PdfBlockSemantics("caption", PdfSemanticRole.CAPTION));
+        var reference = new PdfParagraph(List.of(new PdfTextRun("See ", style), new PdfReferenceField("reference", PdfReferenceKind.TEXT, style, "caption")), 0, 8, format);
+        var document = new PdfDocument(new PdfPage(300, 300, new PdfMargins(20, 20, 20, 20)),
+            List.of(contents, heading, caption, reference), new PdfFlow(), List.of(new PdfReferenceTarget("caption", runs)));
+        byte[] font;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            font = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        try (var pdf = Loader.loadPDF(new PdfEngine().render(document, List.of(new PdfFont("regular", font))))) {
+            assertTrue(new PDFTextStripper().getText(pdf).contains("See Figure 1"));
+            assertEquals(0, pdf.getDocumentCatalog().getNames().getDests().getNames().get("caption").retrievePageNumber());
+            assertEquals("Java chapter", pdf.getDocumentCatalog().getDocumentOutline().getFirstChild().getTitle());
+        }
+    }
+
+    @Test
     void javaCallerCanSelectValidatedArchivalOutputAndFullFontEmbedding(
             @org.junit.jupiter.api.io.TempDir java.nio.file.Path scratch) throws IOException {
         byte[] bytes;

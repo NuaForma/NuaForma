@@ -22,19 +22,21 @@ sealed interface PdfLink {
 }
 
 /** Optional title also creates a flat PDF outline entry at the first painted destination text. */
-data class PdfDestination @JvmOverloads constructor(val name: String, val title: String? = null) {
+data class PdfDestination @JvmOverloads constructor(val name: String, val title: String? = null, val level: Int = 0) {
     init {
         requireDestinationName(name)
         require(title == null || title.length in 1..256 && title.none { it.isISOControl() }) { "Invalid bookmark title" }
+        require(level in 0..8) { "Invalid outline level" }
     }
 }
 
 /** Independent of styling and source format; a run's destinations refer to its first visible fragment. */
-class PdfTextNavigation @JvmOverloads constructor(val link: PdfLink? = null, destinations: List<PdfDestination> = emptyList()) {
+class PdfTextNavigation @JvmOverloads constructor(val link: PdfLink? = null, destinations: List<PdfDestination> = emptyList(), val logicalId: String? = null) {
     val destinations: List<PdfDestination> = Collections.unmodifiableList(ArrayList(destinations))
     init {
         require(this.destinations.size <= 32 && this.destinations.map { it.name }.distinct().size == this.destinations.size) { "Invalid run destinations" }
         require(link != null || this.destinations.isNotEmpty()) { "Empty navigation metadata" }
+        logicalId?.let(::requireSemanticId)
     }
 }
 

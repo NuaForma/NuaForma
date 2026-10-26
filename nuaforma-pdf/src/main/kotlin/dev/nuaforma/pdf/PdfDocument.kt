@@ -4,14 +4,15 @@ import java.util.Collections
 import dev.nuaforma.pdf.internal.placements
 
 /** Bounded document model. Parsers and source-format semantics belong to format adapters. */
-class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>, val maxPages: Int = 32) {
+class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>, val maxPages: Int = 32, referenceTargets: List<PdfReferenceTarget> = emptyList()) {
+    val referenceTargets: List<PdfReferenceTarget> = Collections.unmodifiableList(ArrayList(referenceTargets))
     val pageSequences: List<PdfPageSequence> = Collections.unmodifiableList(ArrayList(pageSequences)).also {
         require(it.size in 1..32) { "A document needs 1 to 32 page sequences" }
     }
 
     /** Existing single-policy construction retains its original page budget and layout path. */
-    @JvmOverloads constructor(page: PdfPage, blocks: List<PdfBlock>, flow: PdfFlow? = null) :
-        this(listOf(PdfPageSequence(page, blocks, flow)), flow?.maxPages ?: 1)
+    @JvmOverloads constructor(page: PdfPage, blocks: List<PdfBlock>, flow: PdfFlow? = null, referenceTargets: List<PdfReferenceTarget> = emptyList()) :
+        this(listOf(PdfPageSequence(page, blocks, flow)), flow?.maxPages ?: 1, referenceTargets)
 
     /** First-sequence views retained for existing callers; use pageSequences for the whole document. */
     val page: PdfPage get() = pageSequences.first().page
@@ -25,15 +26,21 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
             "Document text exceeds the foundation limit"
         }
         require(allParagraphs().sumOf { it.runs.count { run -> run is PdfTab } } <= 2_000) { "Tab control budget exceeded" }
+        require(this.referenceTargets.size <= 1_000 && this.referenceTargets.map { it.name }.distinct().size == this.referenceTargets.size) { "Duplicate or excessive reference targets" }
+        require(this.referenceTargets.sumOf { it.runs.size } <= 10_000 && this.referenceTargets.sumOf { it.runs.filterIsInstance<PdfTextRun>().sumOf { run -> run.text.length.toLong() } } <= 100_000) { "Reference-range budget exceeded" }
+        val fields = allParagraphs().flatMap { it.runs }.mapNotNull { when (it) { is PdfReferenceField -> it.id; is PdfSequenceField -> it.id; else -> null } }
+        require(fields.size <= 1_000 && fields.distinct().size == fields.size) { "Duplicate or excessive field identities" }
     }
 
-    internal fun validateNavigation() {
-        val navigation = allParagraphs().flatMap { it.runs.filterIsInstance<PdfTextRun>() }.mapNotNull { it.navigation }
+    internal fun validateNavigation(allowUnresolved: Boolean = false) {
+        val navigation = allParagraphs().flatMap { it.runs }.mapNotNull { when (it) {
+            is PdfTextRun -> it.navigation; is PdfReferenceField -> it.navigation; is PdfSequenceField -> it.navigation; else -> null
+        } }
         require(navigation.size <= 2_000) { "Navigation budget exceeded" }
         val destinations = navigation.flatMap { it.destinations }.map { it.name }
         require(destinations.size <= 1_000 && destinations.distinct().size == destinations.size) { "Duplicate or excessive destinations" }
         val names = destinations.toSet()
-        require(navigation.mapNotNull { it.link as? PdfLink.Internal }.all { it.destination in names }) { "Missing internal destination" }
+        require(allowUnresolved || navigation.mapNotNull { it.link as? PdfLink.Internal }.all { it.destination in names }) { "Missing internal destination" }
     }
 
     internal fun allParagraphs(): List<PdfParagraph> {
@@ -137,6 +144,7 @@ class PdfTable @JvmOverloads constructor(
     val border: PdfBorder? = PdfBorder(0.5f, PdfColor(184, 197, 204)),
     val repeatedHeaderRows: Int = 0, val leftIndent: Float = 0f,
     val widthPolicy: PdfTableWidthPolicy = PdfTableWidthPolicy.FIXED,
+    override val semantics: PdfBlockSemantics? = null,
 ) : PdfBlock {
     val columnWidths: List<Float> = Collections.unmodifiableList(ArrayList(columnWidths))
     val rows: List<PdfTableRow> = Collections.unmodifiableList(ArrayList(rows))
@@ -163,7 +171,7 @@ data class PdfPage(val width: Float, val height: Float, val margins: PdfMargins)
     }
 }
 
-sealed interface PdfBlock
+sealed interface PdfBlock { val semantics: PdfBlockSemantics? get() = null }
 
 enum class PdfBoxAnchor { PAGE, PARAGRAPH }
 enum class PdfBoxWrap { NONE, TOP_BOTTOM }
@@ -177,6 +185,7 @@ class PdfTextBox @JvmOverloads constructor(
     val fill: PdfColor? = null, val border: PdfBorder? = null,
     val verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP,
     val wrap: PdfBoxWrap = PdfBoxWrap.NONE,
+    override val semantics: PdfBlockSemantics? = null,
 ) : PdfBlock {
     val paragraphs: List<PdfParagraph> = Collections.unmodifiableList(ArrayList(paragraphs))
     init {
@@ -234,6 +243,8 @@ class PdfParagraph @JvmOverloads constructor(
     val format: PdfParagraphFormat = PdfParagraphFormat(),
     val listLabel: PdfListLabel? = null,
     anchoredImages: List<PdfAnchoredImage> = emptyList(),
+    override val semantics: PdfBlockSemantics? = null,
+    val contents: PdfContents? = null,
 ) : PdfBlock {
     val runs: List<PdfInline> = Collections.unmodifiableList(ArrayList(runs))
     val anchoredImages: List<PdfAnchoredImage> = Collections.unmodifiableList(ArrayList(anchoredImages))
@@ -242,6 +253,9 @@ class PdfParagraph @JvmOverloads constructor(
         require(this.runs.size in 1..1_000) { "A paragraph needs 1 to 1000 runs" }
         require(this.runs.count { it is PdfTab } <= 32) { "Paragraph tab budget exceeded" }
         require(spaceBefore.isFinite() && spaceAfter.isFinite() && spaceBefore in 0f..14_400f && spaceAfter in 0f..14_400f) { "Invalid paragraph spacing" }
+        require(contents == null || this.runs.all { it is PdfTextRun && it.text.isBlank() } && listLabel == null && this.anchoredImages.isEmpty()) { "Contents markers cannot hide ordinary content" }
+        require(contents == null || semantics == null || semantics.role == PdfSemanticRole.CONTENTS) { "Contents markers require contents semantics" }
+        require(semantics == null || semantics.role in setOf(PdfSemanticRole.PARAGRAPH, PdfSemanticRole.HEADING, PdfSemanticRole.CAPTION, PdfSemanticRole.CONTENTS, PdfSemanticRole.CONTENTS_ENTRY)) { "Invalid paragraph semantics" }
     }
 }
 
@@ -263,7 +277,7 @@ data class PdfTextStyle @JvmOverloads constructor(
     }
 }
 
-data class PdfTextRun @JvmOverloads constructor(val text: String, val style: PdfTextStyle, val navigation: PdfTextNavigation? = null) : PdfInline {
+data class PdfTextRun @JvmOverloads constructor(val text: String, val style: PdfTextStyle, val navigation: PdfTextNavigation? = null, val semantics: PdfSpanSemantics? = null) : PdfInline {
     init {
         require(text.isNotEmpty() && text.length <= 100_000) { "A text run must contain bounded nonempty text" }
         require(navigation?.destinations.isNullOrEmpty() || text.isNotBlank()) { "Destination requires visible text" }
@@ -285,7 +299,7 @@ class PdfFont @JvmOverloads constructor(val id: String, bytes: ByteArray, val em
 }
 
 /** PNG bytes and explicit physical dimensions; no external resource lookup. */
-class PdfImage @JvmOverloads constructor(bytes: ByteArray, val width: Float, val height: Float, val crop: PdfImageCrop = PdfImageCrop()) : PdfBlock {
+class PdfImage @JvmOverloads constructor(bytes: ByteArray, val width: Float, val height: Float, val crop: PdfImageCrop = PdfImageCrop(), override val semantics: PdfBlockSemantics? = null) : PdfBlock {
     private val content: ByteArray
     init {
         require(bytes.size in 24..4_194_304) { "PNG exceeds the foundation limit" }

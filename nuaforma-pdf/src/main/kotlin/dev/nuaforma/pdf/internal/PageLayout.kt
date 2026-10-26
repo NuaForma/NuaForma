@@ -5,7 +5,7 @@ import dev.nuaforma.pdf.*
 internal data class TextMetrics(val width: Float, val ascent: Float, val descent: Float, val naturalAscent: Float = ascent, val naturalDescent: Float = descent, val lineGap: Float = 0f)
 internal fun interface TextMeasurer { fun measure(text: String, style: PdfTextStyle): TextMetrics }
 internal sealed interface PositionedElement
-internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false, val navigation: PdfTextNavigation? = null) : PositionedElement
+internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false, val navigation: PdfTextNavigation? = null, val logicalOwner: String? = null, val span: PdfSpanSemantics? = null, val logicalOffset: Int? = null) : PositionedElement
 internal data class PositionedImage(val image: PdfImage, val x: Float, val top: Float, val foreground: Boolean = false) : PositionedElement
 internal data class PositionedRectangle(val x: Float, val top: Float, val width: Float, val height: Float, val fill: PdfColor?, val border: PdfBorder?) : PositionedElement
 internal data class PositionedTableBorder(val x: Float, val top: Float, val length: Float, val horizontal: Boolean, val stroke: PdfEdgeStroke, val group: Any) : PositionedElement
@@ -42,7 +42,7 @@ internal object PageLayouter {
                     if (block.anchoredImages.isNotEmpty()) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Anchored images require body pagination")
                     if (block.format.pageBreakBefore && elements.isNotEmpty()) overflow()
                     val format = block.format
-                    if (format.textDirection != null && block.runs.filterIsInstance<PdfTextRun>().any { it.navigation != null })
+                    if (format.textDirection != null && block.runs.filterIsInstance<PdfTextRun>().any { it.navigation != null || it.semantics != null })
                         throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Bidi navigation is not qualified")
                     val automatic = automaticBox(block, measurer)
                     if (format.textDirection != null && block.runs.any { it !is PdfTextRun })
@@ -93,7 +93,8 @@ internal object PageLayouter {
                         val baseline = top + (automatic?.second ?: format.exactLineHeight?.times(0.8f) ?: ascent)
                         if (baseline - ascent < page.margins.top - 0.01f || baseline + descent > bottom + 0.01f) overflow()
                         val remaining = availableWidth() - lineWidth
-                        if (firstLine && label != null) elements += PositionedText(label.value.text, label.style, page.margins.left + area().first + markerLeft, baseline)
+                        val prefix = (label?.value?.text?.length ?: 0) + if (label == null || label.suffix == PdfListSuffix.NOTHING) 0 else 1
+                        if (firstLine && label != null) elements += PositionedText(label.value.text, label.style, page.margins.left + area().first + markerLeft, baseline, logicalOwner = block.semantics?.id, span = block.semantics?.let { PdfSpanSemantics(semanticChildId(it.id, "label"), PdfSemanticRole.LABEL) }, logicalOffset = block.semantics?.let { 0 })
                         var x = page.margins.left + lineLeft() + when (format.alignment) {
                             PdfAlignment.LEFT -> 0f
                             PdfAlignment.CENTER -> remaining / 2
@@ -102,12 +103,13 @@ internal object PageLayouter {
                         if (paragraphBidi != null) {
                             val slices = line.map { LogicalTextSlice(it.text, requireNotNull(it.style), it.sourceStart) }
                             for (run in BidiLine.visualRuns(paragraphBidi, slices)) {
-                                elements += PositionedText(run.text, run.style, x, baseline)
+                                elements += PositionedText(run.text, run.style, x, baseline, logicalOwner = block.semantics?.id, logicalOffset = block.semantics?.let { run.sourceStart + prefix })
                                 x += measurer.measure(run.text, run.style).width
                             }
                         } else for (fragment in line) {
                             if (fragment.image != null) elements += PositionedImage(fragment.image, x, baseline - fragment.image.height)
-                            else elements += PositionedText(fragment.text, requireNotNull(fragment.style), x + fragment.paintOffset, baseline, fragment.decoration, fragment.navigation)
+                            else elements += PositionedText(fragment.text, requireNotNull(fragment.style), x + fragment.paintOffset, baseline, fragment.decoration, fragment.navigation, block.semantics?.id, fragment.semantics,
+                                block.semantics?.takeUnless { fragment.decoration || fragment.text.isEmpty() }?.let { fragment.sourceStart + prefix })
                             x += fragment.metrics.width
                         }
                         top += height
@@ -158,12 +160,12 @@ internal object PageLayouter {
                         }
                         val wordWidth = word.sumOf { it.metrics.width.toDouble() }.toFloat()
                         val spaceWidth = spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
-                        if (lineWidth + spaceWidth + wordWidth > availableWidth()) {
+                        if (lineWidth + spaceWidth + wordWidth > availableWidth() + .001f) {
                             if (line.isEmpty()) overflow()
                             flush()
                             spaces.clear()
                         }
-                        if (wordWidth > availableWidth()) overflow()
+                        if (wordWidth > availableWidth() + .001f) overflow()
                         line += spaces
                         lineWidth += spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
                         spaces.clear()
@@ -210,7 +212,7 @@ internal object PageLayouter {
         return width
     }
 
-    private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null, val tab: PdfTab? = null, val paintOffset: Float = 0f, val decoration: Boolean = false, val sourceStart: Int = 0, val navigation: PdfTextNavigation? = null)
+    private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null, val tab: PdfTab? = null, val paintOffset: Float = 0f, val decoration: Boolean = false, val sourceStart: Int = 0, val navigation: PdfTextNavigation? = null, val semantics: PdfSpanSemantics? = null)
 
     private fun words(runs: List<PdfInline>, measurer: TextMeasurer, bidi: Boolean): List<List<Fragment>> {
         val groups = mutableListOf<MutableList<Fragment>>()
@@ -218,15 +220,18 @@ internal object PageLayouter {
         var previousSpace: Boolean? = null
         for (run in runs) {
             if (run is PdfPageField) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields require page-band resolution")
+            if (run is PdfReferenceField || run is PdfSequenceField) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "References require document-wide resolution")
             if (run is PdfTab) {
                 if (run.style.underline) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Underlined tabs are not qualified")
                 groups += mutableListOf(Fragment("\t", run.style, TextMetrics(0f, 0f, 0f), tab = run))
                 previousSpace = null
+                sourceOffset++
                 continue
             }
             if (run is PdfImageRun) {
                 groups += mutableListOf(Fragment("\uFFFC", null, TextMetrics(run.image.width, run.image.height, 0f), run.image))
                 previousSpace = null
+                sourceOffset++
                 continue
             }
             run as PdfTextRun
@@ -234,7 +239,7 @@ internal object PageLayouter {
             for (match in Regex(" +|[^ ]+").findAll(run.text)) {
                 val space = match.value[0] == ' '
                 if (space != previousSpace) groups += mutableListOf<Fragment>()
-                groups.last() += Fragment(match.value, run.style, measurer.measure(match.value, run.style), sourceStart = sourceOffset + match.range.first, navigation = run.navigation)
+                groups.last() += Fragment(match.value, run.style, measurer.measure(match.value, run.style), sourceStart = sourceOffset + match.range.first, navigation = run.navigation, semantics = run.semantics)
                 previousSpace = space
             }
             sourceOffset += run.text.length

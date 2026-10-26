@@ -26,7 +26,37 @@ internal object PdfVisualFixtures {
     }
 
     fun cases(): List<Case> = listOf(letter(), report(), merged(), splitRows(), lists(), frames(), international(),
-        formats(), keeps(), tableEdges(), automaticSpacing(), anchoredImages(), croppedImage(), navigation())
+        formats(), keeps(), tableEdges(), automaticSpacing(), anchoredImages(), croppedImage(), navigation(), contentsReferences())
+
+    private fun contentsReferences(): Case {
+        val format = PdfParagraphFormat(exactLineHeight = 16f)
+        val figureNumber = PdfSequenceField("figure-number", "figures", body,
+            navigation = PdfTextNavigation(destinations = listOf(PdfDestination("number-target"))))
+        val blocks = listOf(
+            heading("Contents, captions and cross-references"),
+            PdfParagraph(listOf(PdfTextRun(" ", body)), spaceAfter = 12f,
+                semantics = PdfBlockSemantics("contents", PdfSemanticRole.CONTENTS),
+                contents = PdfContents(listOf(PdfContentsLevel(0, body, format),
+                    PdfContentsLevel(1, body, format.copy(leftIndent = 18f))))),
+            PdfParagraph(listOf(PdfTextRun("1. Overview", bold)), spaceAfter = 8f, format = format.copy(outlineLevel = 0),
+                semantics = PdfBlockSemantics("overview", PdfSemanticRole.HEADING, 0)),
+            PdfParagraph(listOf(PdfTextRun("See Figure ", body), PdfReferenceField("forward-number", PdfReferenceKind.TEXT, body, "number-target"),
+                PdfTextRun(" on page ", body), PdfReferenceField("forward-page", PdfReferenceKind.PAGE, body, "caption")), spaceAfter = 8f, format = format),
+            PdfParagraph(listOf(PdfTextRun("1.1 Details — Сведения και στοιχεία", bold)), spaceAfter = 8f, format = format.copy(outlineLevel = 1),
+                semantics = PdfBlockSemantics("details", PdfSemanticRole.HEADING, 1)),
+            p("Fixed font metrics and typed leader tabs keep this contents list reproducible."),
+            PdfParagraph(listOf(PdfTextRun("2. Illustration", bold)), spaceAfter = 12f, format = format.copy(pageBreakBefore = true, outlineLevel = 0),
+                semantics = PdfBlockSemantics("illustration", PdfSemanticRole.HEADING, 0)),
+            PdfImage(FoundationLetter.resource("/fixtures/nuaforma-icon-transparent.png"), 64f, 64f,
+                semantics = PdfBlockSemantics("figure", PdfSemanticRole.FIGURE)),
+            PdfParagraph(listOf(PdfTextRun("Figure ", body), figureNumber, PdfTextRun(" — NuaForma", body)), spaceAfter = 12f, format = format,
+                semantics = PdfBlockSemantics("caption", PdfSemanticRole.CAPTION, captionTargetId = "figure")),
+            PdfParagraph(listOf(PdfTextRun("Page ", body), PdfReferenceField("current-page", PdfReferenceKind.CURRENT_PAGE, body),
+                PdfTextRun(" of ", body), PdfReferenceField("total-pages", PdfReferenceKind.TOTAL_PAGES, body)), spaceAfter = 8f, format = format),
+        )
+        return Case("contents-references", PdfDocument(a4, blocks, bands(), listOf(PdfReferenceTarget("number-target", listOf(figureNumber)))), 2,
+            listOf("See Figure 1 on page 2", "Figure 1 — NuaForma", "Page 2 of 2"))
+    }
 
     private fun navigation(): Case {
         val blue = body.copy(color = PdfColor(0, 80, 160), underline = true)

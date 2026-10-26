@@ -57,32 +57,10 @@ internal object PdfBoxWriter {
                     lineMetrics[style.fontId]?.get(1)?.times(style.size) ?: Float.NaN,
                     lineMetrics[style.fontId]?.get(2)?.times(style.size) ?: Float.NaN)
             }
-            val layouts = mutableListOf<PageLayout>()
-            val sequencePages = mutableListOf<Triple<Int, Int, Int>>()
-            var nextPageNumber = 1
-            for (sequence in document.pageSequences) {
-                control.checkActive()
-                val start = sequence.numbering.start ?: nextPageNumber
-                if (sequencePages.isNotEmpty() && sequence.numbering.alignParity && start % 2 != nextPageNumber % 2) {
-                    layouts += PageLayout(sequence.page, emptyList())
-                }
-                val remaining = document.maxPages - layouts.size
-                if (remaining <= 0) fail(PdfFailureCode.RESOURCE_LIMIT, "Document page budget exceeded")
-                val single = PdfDocument(sequence.page, sequence.blocks, sequence.flow)
-                val pages = if (sequence.flow == null) listOf(PageLayouter.layout(single, measurer))
-                    else FlowLayouter.layout(single, measurer, remaining)
-                if (start !in 0..9_999 || start + pages.size - 1 > 9_999) fail(PdfFailureCode.RESOURCE_LIMIT, "Page-number range exceeded")
-                sequencePages += Triple(layouts.size, pages.size, start)
-                layouts += pages
-                nextPageNumber = start + pages.size
-            }
-            for ((index, sequence) in document.pageSequences.withIndex()) {
-                val (offset, count, start) = sequencePages[index]
-                sequence.flow?.let { policy ->
-                    val decorated = FlowLayouter.decorate(layouts.subList(offset, offset + count), policy, start, layouts.size, measurer)
-                    for ((local, layout) in decorated.withIndex()) layouts[offset + local] = layout
-                }
-            }
+            val composed = if (ReferenceLayouter.active(document)) ReferenceLayouter.layout(document, measurer, control)
+                else DocumentLayouter.plain(document, measurer, control)
+            DocumentLayouter.validatePlacedLinks(composed)
+            val layouts = composed.pages
             fun decorationSize(elements: List<PositionedElement>): Long = elements.sumOf { element -> when (element) {
                 is PositionedText -> if (element.decoration) element.text.length.toLong() else 0L
                 is PositionedBox -> decorationSize(element.elements)

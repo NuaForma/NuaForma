@@ -34,7 +34,7 @@ internal object TableWidthResolver {
         }
         if (framed.sum() > 14_400f) overflow()
         return PdfTable(framed, table.rows,
-            table.cellMargins, table.border, table.repeatedHeaderRows, table.leftIndent)
+            table.cellMargins, table.border, table.repeatedHeaderRows, table.leftIndent, semantics = table.semantics)
     }
 
     private fun unsupported(): Nothing = throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Natural table widths require unmerged text cells without indentation, controls or direction changes")

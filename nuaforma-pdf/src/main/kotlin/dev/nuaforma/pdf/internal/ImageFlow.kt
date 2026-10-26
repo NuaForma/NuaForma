@@ -11,7 +11,7 @@ internal object ImageFlow {
                   previousAfter: Float, exclusions: MutableMap<Int, MutableList<Exclusion>>, measurer: TextMeasurer, budget: Int): Float {
         if (p.format.keepWithNext || p.format.keepLines || p.listLabel != null || p.format.textDirection == PdfTextDirection.RIGHT_TO_LEFT || p.runs.any { it !is PdfTextRun })
             fail(PdfFailureCode.UNSUPPORTED_TEXT, "Floating image paragraphs with keeps, lists, RTL text or inline objects are not qualified")
-        val clean = PdfParagraph(p.runs, 0f, 0f, p.format, p.listLabel)
+        val clean = PdfParagraph(p.runs, 0f, 0f, p.format, p.listLabel, semantics = p.semantics)
         val width = page.width - page.margins.left - page.margins.right
         val bottom = page.height - page.margins.bottom
         val base = FlowLayouter.paragraph(clean, width, measurer)

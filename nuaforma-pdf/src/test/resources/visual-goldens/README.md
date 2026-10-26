@@ -28,6 +28,9 @@ Initial review on 2026-10-25 covered all 17 pages for legibility, wrapping, alig
 | `anchored-image-wrap` | 1 | Paragraph-bound left/right images, two-sided rectangular wrapping around a central image, full-width resumption |
 | `cropped-image-wrap` | 1 | Asymmetric source crop, explicit non-square output dimensions, rectangular wrapping on US Letter |
 | `navigation-links` | 1 | Wrapped external links, run underlining/color, internal named target, flat outline and mailto link with existing page bands |
+| `contents-references` | 2 | Two-level clickable contents, forward text/page references, caption/figure association, body page counts, header/footer images and preserved logical identities |
+
+The contents/reference increment adds two initially reviewed pages (2026-10-26), bringing the inventory to fifteen fixtures / twenty-two pages. PDFBox and independent Poppler renderings were visually inspected. All twenty pre-existing PNGs, their manifest rows and the font/logo input inventory remain byte-identical; none was replaced.
 
 The navigation baseline was first created and visually reviewed on 2026-10-26 with both the PDFBox candidate and an independent Poppler rendering. All 19 existing PNGs, their inventory rows and font/logo inputs remained byte-identical. Only the new page and its inventory entry were added.
 
