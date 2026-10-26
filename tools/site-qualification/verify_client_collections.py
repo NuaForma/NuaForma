@@ -26,6 +26,8 @@ def main():
     args = parser.parse_args()
     args.output = args.output.resolve()
     args.output.mkdir(parents=True, exist_ok=False)
+    scenario_count = len(json.loads((args.website_directory / "site/downloads/scenarios.json").read_text(encoding="utf-8")))
+    request_count = 5 + scenario_count
     with zipfile.ZipFile(args.website_directory / "site/downloads/nuaforma-complete-kit.zip") as archive:
         assert all(not pathlib.PurePosixPath(name).is_absolute() and ".." not in pathlib.PurePosixPath(name).parts for name in archive.namelist())
         archive.extractall(args.output / "extracted")
@@ -48,11 +50,11 @@ def main():
             assert result.returncode == 0, (name, result.returncode)
         postman = json.loads((args.output / "postman-results.json").read_text(encoding="utf-8"))
         bruno = json.loads((args.output / "bruno-results.json").read_text(encoding="utf-8"))
-        assert len(bruno) == 1 and len(bruno[0]["results"]) == 11
-        assert bruno[0]["summary"]["passedRequests"] == 11
+        assert len(bruno) == 1 and len(bruno[0]["results"]) == request_count
+        assert bruno[0]["summary"]["passedRequests"] == request_count
         for execution in bruno[0]["results"]:
             assert execution["error"] is None and execution["response"]["status"] == 200
-        assert len(postman["run"]["executions"]) == 11
+        assert len(postman["run"]["executions"]) == request_count
         assert not postman["run"]["failures"]
         for execution in postman["run"]["executions"]:
             assert execution["response"]["code"] == 200
@@ -60,7 +62,7 @@ def main():
                 data = bytes(execution["response"]["stream"]["data"])
                 assert data.startswith(b"PK") if execution["item"]["name"].endswith("Editable Word output") else data.startswith(b"%PDF-")
         runtime.clean()
-        print("Both clients: 11 requests including all six document scenarios PASS", flush=True)
+        print(f"Both clients: {request_count} requests including all {scenario_count} document scenarios PASS", flush=True)
     finally:
         runtime.close()
 
