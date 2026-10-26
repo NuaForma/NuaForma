@@ -1,0 +1,101 @@
+{
+  "version": "0.3.0-alpha.1",
+  "application": "playground",
+  "sourceCommit": "65176ddabf0707eba335705f6c6f72324b98f60c",
+  "reviewer": "mrhoeve",
+  "latest": false,
+  "maintainerDispositionDate": "2026-10-26",
+  "reviewedAtUtc": "2026-10-26T22:42:09.238658+00:00",
+  "platforms": {
+    "amd64": {
+      "nativeQualificationArchitecture": "amd64",
+      "containerArchiveSha256": "358e279130fe9960b7ad64d96a074c611fecc94776c24480121910492e5c9995",
+      "containerConfigSha256": "d8cca099dab668d60cddee11b34fedc942602902ca5d4949dbc4b7f4167c73d1",
+      "approved": {
+        "containerAudit": true,
+        "sourceAccess": true,
+        "fidelityQualification": true,
+        "securityReview": true
+      },
+      "sourceMaterials": [
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.3.0-alpha.1/nuaforma-sources-debian-0.3.0-alpha.1.tar",
+          "sha256": "9f71e0321fc292986b2f920e9cf9157286a0706562cfc3bc3df1105abb7c9b2b",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.3.0-alpha.1/nuaforma-sources-java-0.3.0-alpha.1.tar",
+          "sha256": "5076d81dc1c8a7da0062bea9f3ede89fd86cbeaffd80f86159642412d3f81c44",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.3.0-alpha.1/nuaforma-sources-jvm-0.3.0-alpha.1.tar",
+          "sha256": "d49b818aa0f4d107720e392557064f7fc4cd0d797d0a074678e2c1e19664c2ad",
+          "verifiedAnonymousAccess": true
+        }
+      ],
+      "evidence": {
+        "nativeArchiveRun": "https://github.com/NuaForma/NuaForma/actions/runs/40412520183",
+        "metadata": "https://github.com/NuaForma/NuaForma/releases/download/v0.3.0-alpha.1/nuaforma-playground-metadata-amd64.tar.gz",
+        "metadataSha256": "5fe4e8f3ac738e19688d56ef16ec200f4cd9b85aba47012b455f488d6ce38e06",
+        "componentSourceReview": "release-materials/0.3.0-alpha.1-playground.json",
+        "distributionReview": "docs/release-0.3.0-alpha.1-audit.md",
+        "sourceAccess": "All three exact source assets anonymously streamed and SHA-256 verified locally; every successful native pre-transfer gate independently repeated source and component verification.",
+        "checks": [
+          "verified signed source/version/application",
+          "both exact JVM inventories and outer packages/foreign JARs",
+          "native architecture and default container policies",
+          "real service/endpoints/SBOM and independent profile validation",
+          "fonts, deadlines, cancellation and cleanup; development-only Playground separation"
+        ],
+        "securityDisposition": "The maintainer explicitly accepted the current official Java image patch exception and remaining font/XML/other runtime findings for this evaluation alpha on 2026-10-26, with #51 deferred to 0.4.0. Not remediated or inherited from older alpha approval. Exact reviewed third-party inputs match; no claim of network denial or universal non-exploitability.",
+        "fidelityScope": "The retained seven-scenario/twelve-page genuine Word proof remains scoped to its fixtures; rendering/dependency inputs are unchanged. Every exact final native variant passed its configured runtime checks. Existing golden files were not replaced. Both packaged clients pass all twelve requests."
+      }
+    },
+    "arm64": {
+      "nativeQualificationArchitecture": "arm64",
+      "containerArchiveSha256": "acbfab6728d0dd7ca54b486dbe93fe2e9de107d47a2f7bbfb12fa696a8259636",
+      "containerConfigSha256": "a7b2836982f59c58feb16f3b744b3a416a20877f7b6521d6e8efbf902b33dd5b",
+      "approved": {
+        "containerAudit": true,
+        "sourceAccess": true,
+        "fidelityQualification": true,
+        "securityReview": true
+      },
+      "sourceMaterials": [
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.3.0-alpha.1/nuaforma-sources-debian-0.3.0-alpha.1.tar",
+          "sha256": "9f71e0321fc292986b2f920e9cf9157286a0706562cfc3bc3df1105abb7c9b2b",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.3.0-alpha.1/nuaforma-sources-java-0.3.0-alpha.1.tar",
+          "sha256": "5076d81dc1c8a7da0062bea9f3ede89fd86cbeaffd80f86159642412d3f81c44",
+          "verifiedAnonymousAccess": true
+        },
+        {
+          "url": "https://github.com/NuaForma/NuaForma/releases/download/v0.3.0-alpha.1/nuaforma-sources-jvm-0.3.0-alpha.1.tar",
+          "sha256": "d49b818aa0f4d107720e392557064f7fc4cd0d797d0a074678e2c1e19664c2ad",
+          "verifiedAnonymousAccess": true
+        }
+      ],
+      "evidence": {
+        "nativeArchiveRun": "https://github.com/NuaForma/NuaForma/actions/runs/40412520183",
+        "metadata": "https://github.com/NuaForma/NuaForma/releases/download/v0.3.0-alpha.1/nuaforma-playground-metadata-arm64.tar.gz",
+        "metadataSha256": "2d0e6b7dade292a379c46929704dab32bb0f8a2443ea95099720361c6a48c26c",
+        "componentSourceReview": "release-materials/0.3.0-alpha.1-playground.json",
+        "distributionReview": "docs/release-0.3.0-alpha.1-audit.md",
+        "sourceAccess": "All three exact source assets anonymously streamed and SHA-256 verified locally; every successful native pre-transfer gate independently repeated source and component verification.",
+        "checks": [
+          "verified signed source/version/application",
+          "both exact JVM inventories and outer packages/foreign JARs",
+          "native architecture and default container policies",
+          "real service/endpoints/SBOM and independent profile validation",
+          "fonts, deadlines, cancellation and cleanup; development-only Playground separation"
+        ],
+        "securityDisposition": "The maintainer explicitly accepted the current official Java image patch exception and remaining font/XML/other runtime findings for this evaluation alpha on 2026-10-26, with #51 deferred to 0.4.0. Not remediated or inherited from older alpha approval. Exact reviewed third-party inputs match; no claim of network denial or universal non-exploitability.",
+        "fidelityScope": "The retained seven-scenario/twelve-page genuine Word proof remains scoped to its fixtures; rendering/dependency inputs are unchanged. Every exact final native variant passed its configured runtime checks. Existing golden files were not replaced. Both packaged clients pass all twelve requests."
+      }
+    }
+  }
+}
