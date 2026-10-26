@@ -1,7 +1,5 @@
 # Service health
 
-Available in the `0.2.0-alpha.1` production and separate Playground containers. Historical `0.1` images remain unchanged.
-
 `GET /health/live` returns `200 {"status":"UP"}` while the HTTP application is live, independently of converters and generation slots. `GET /health/ready` returns the same success body only after initialization with at least one executable provider pair; otherwise it returns `503 {"status":"DOWN"}`. Both include `X-Request-ID`, `Cache-Control: no-store` and `nosniff`, without diagnostic/provider/configuration details in either mode. They are health states, not the ordinary API error-body schema.
 
 One daemon background observer checks available providers immediately after application startup and every 30 seconds, using a five-second cooperative context budget. A known usable pair short-circuits the remaining observations. Results older than 60 seconds fail readiness. Uncooperative trusted provider code cannot safely be forcibly terminated; the single worker prevents accumulating probe threads and stale observations fail closed. Shutdown marks readiness false before stopping HTTP and cancels the observer. Readiness is not a reservation or a guarantee that a particular template/PDF profile can be processed; inspect capabilities and assess full requirements separately.

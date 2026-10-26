@@ -4,19 +4,18 @@ Issue [#71](https://github.com/NuaForma/NuaForma/issues/71) splits the source bu
 
 | Component | Compile/API target | Execution |
 | --- | --- | --- |
-| contracts, core, template, DOCX, DOCX/PDF libraries | Java 17 | Java 17 minimum |
+| contracts, core, template, DOCX, PDF, DOCX/PDF libraries | Java 17 | Java 17 minimum |
 | Standalone REST server | Java 25 | Java 25 |
 | Separate development Playground application | Java 25 | Java 25; not a production server dependency |
 | Sandboxed PDFBox and veraPDF validators | Java 17 | Pinned Temurin 17.0.20.1+1 |
-| LibreOffice | Native executable | Unchanged native AMD64/ARM64 runtime |
 
-Install both JDKs for the complete build. Gradle's explicit module toolchains, Java `--release` and Kotlin `-Xjdk-release` prevent a Java 25 build daemon from exposing newer JDK APIs to libraries. Set `JDK17` and `JDK25` if installations are not discovered automatically. Library tests run on the Java 17 toolchain and server/architecture/REST tests on Java 25, independently of the daemon JVM. CI runs the full build with Java 17 and Java 25 daemons, preserving the required `Build (Java 17)` check, and runs independently compiled Java/Maven and Kotlin/Gradle consumers on Java 17. Publication checks inspect the Java-17-effective bytecode of all five libraries and their resolved runtime dependencies. No library coordinates, contract version or dependency versions change.
+Install both JDKs for the complete build. Gradle's explicit module toolchains, Java `--release` and Kotlin `-Xjdk-release` prevent a Java 25 build daemon from exposing newer JDK APIs to libraries. Set `JDK17` and `JDK25` if installations are not discovered automatically. Library tests run on the Java 17 toolchain and server/architecture/REST tests on Java 25, independently of the daemon JVM. CI runs the full build with Java 17 and Java 25 daemons, preserving the required `Build (Java 17)` check, and runs independently compiled Java/Maven and Kotlin/Gradle consumers on Java 17. Publication checks inspect the Java-17-effective bytecode of all six libraries and their resolved runtime dependencies. No library coordinates, contract version or dependency versions change.
 
 ## Why validators retain Java 17
 
-Only the outer REST service JVM is upgraded. PDFBox and veraPDF parse untrusted renderer output in separate request-private child processes. Their existing SerialGC, 256 MiB heap, 128 MiB metaspace, 64 MiB compressed class/code caches, two active processors, 512 KiB stacks and 1.5 GiB address-space ceiling were qualified on Java 17, including procfs-free operation. A newer collector/ergonomic or native-loading implementation is not assumed to fit those bounds. Retaining this runtime keeps the deliberate PDF security/resource boundary intact while modernizing the server.
+Only the outer REST service JVM is upgraded. PDFBox and veraPDF parse the native engine's final PDF bytes in separate request-private child processes. Their existing SerialGC, 256 MiB heap, 128 MiB metaspace, 64 MiB compressed class/code caches, two active processors, 512 KiB stacks and 1.5 GiB address-space ceiling were qualified on Java 17, including procfs-free operation. A newer collector/ergonomic or native-loading implementation is not assumed to fit those bounds. Retaining this runtime keeps the deliberate PDF security/resource boundary intact while modernizing the server.
 
-The image stores validator Java at `/opt/java/openjdk` and server Java at `/opt/java/server`. Only the former is mounted at `/validator/java` inside Bubblewrap; no server application, extensions, credentials or neighboring request is added. The private namespaces, device allowlist, both seccomp policies, network denial, timeouts, single conversion slot and fail-closed readiness remain unchanged. The server keeps its explicit heap cap and container CPU/memory/process limits; upgrading Java is not permission to increase budgets or suppress JVM warnings. Java 25 runtime defaults apply to the outer server; no preview features or permissive native-access flags are enabled.
+The image stores validator Java at `/opt/java/openjdk` and server Java at `/opt/java/server`. Only the former is mounted at `/validator/java` inside Bubblewrap; no server application, extensions, credentials or neighboring request is added. The private namespaces, device allowlist, both seccomp policies, network denial, timeouts, bounded conversion admission and fail-closed readiness remain unchanged. The server keeps its explicit heap cap and container CPU/memory/process limits; upgrading Java is not permission to increase budgets or suppress JVM warnings. Java 25 runtime defaults apply to the outer server; no preview features or permissive native-access flags are enabled.
 
 ## Extensions
 
@@ -24,7 +23,7 @@ Java 17 providers remain usable on the Java 25 server. Operators may deliberatel
 
 ## Runtime inputs and distribution
 
-The [stable-component policy](../ARCHITECTURE.md#stable-components-and-upgrade-debt) keeps approved major/API baselines while preferring current stable security patches. For evaluation release `0.2.0-alpha.2`, the maintainer explicitly approved retaining the pins below on 2026-10-22 rather than waiting for complete upstream Temurin 25.0.5 AMD64/ARM64 inputs. Both application architectures retain the same 25.0.4.1+1 runtime; validators separately retain 17.0.20.1+1. This is not a claim that the newer patch is implemented, qualified or unnecessary for security. See the [release-specific risk and reassessment condition](release-0.2.0-alpha.2.md). Track exact sources, native qualification and the final inventory review in [issue #105](https://github.com/NuaForma/NuaForma/issues/105); reassess the exception before the next release/runtime change rather than carrying it forward silently.
+The [stable-component policy](../ARCHITECTURE.md#stable-components-and-upgrade-debt) retains Java 17 for embedded libraries/validators and Java 25 for server/Playground, while requiring current stable security-patch review. The pinned source inputs are below. Reassess any approved patch exception, exact sources and both native platforms before each release through [issue #105](https://github.com/NuaForma/NuaForma/issues/105); the existing pin is not approval to skip the next review.
 
 The Java 25 server runtime is unmodified Eclipse Temurin 25.0.4.1+1, pinned by OCI index `sha256:d9a39a23634650173f1e2bbc176227af9728587ecf0f4b62d53e9355cd7a19ab`:
 
@@ -39,6 +38,6 @@ Both Java installations retain their complete upstream `legal` directories and `
 
 Native CI must qualify the actual combined image independently on AMD64 and ARM64. Local AMD64 qualification is not ARM64 evidence, and neither native hosted architecture alone proves a fresh Apple Silicon/Podman integration. Check DOCX, all PDF profiles, caller/mounted fonts, extensions, independent layout/barcodes where approved, limits, concurrency, cancellation and cleanup before release. Track exact commands/results in the issue/PR; do not describe pending checks as passed.
 
-Release `0.2.0-alpha.1` uses Java 25 for the production service and separate Playground, Java 17 for embedded libraries, and the pinned Java 17 child validators. Historical `0.1` images remain immutable Java 17 releases. The matching website kits follow the mandatory release synchronization checklist. REST/OpenAPI consumers are independent of server JVM versions.
+The source service and Playground use Java 25, embedded libraries use Java 17, and independent validators retain their separately pinned Java 17 runtime. REST/OpenAPI consumers are independent of server JVM versions. Match release downloads to the exact qualified candidate.
 
 References: [Gradle Java compatibility](https://docs.gradle.org/current/userguide/compatibility.html), [Gradle toolchains](https://docs.gradle.org/current/userguide/toolchains.html), [Kotlin compiler options](https://kotlinlang.org/docs/compiler-reference.html), [Temurin release](https://github.com/adoptium/temurin25-binaries/releases/tag/jdk-25.0.4.1%2B1).

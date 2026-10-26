@@ -121,7 +121,7 @@ distributions { main { contents {
     from(rootProject.file("LICENSE"))
     from(rootProject.file("THIRD_PARTY.md"))
     from(rootProject.file("DEPENDENCIES.md"))
-    from(rootProject.file("docs/libreoffice-licensing.md")) { into("docs") }
+    from(rootProject.file("docs/runtime-distribution.md")) { into("docs") }
     from(rootProject.file("docs/container-releases.md")) { into("docs") }
     from(rootProject.file("docs/java-runtime-compatibility.md")) { into("docs") }
 } } }

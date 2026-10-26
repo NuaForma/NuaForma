@@ -1,6 +1,6 @@
 # Native ARM64 containers
 
-Issue [#63](https://github.com/NuaForma/NuaForma/issues/63) added native Linux/arm64 builds alongside Linux/amd64. Release `0.2.0-alpha.1` provides both architectures for production and the separate development Playground, with a Java 25 service and Java 17 validators; see the [distribution review](../../docs/release-0.2.0-alpha.1-audit.md) and matching website kits. Historical `0.1` images remain immutable. Native hosted qualification alone is not evidence that a changed runtime works on every Apple Silicon/Podman setup; retain the host checks below.
+The native source container supports Linux AMD64 and ARM64 for the production service and separate development Playground, using a Java 25 application and independently isolated Java 17 PDF validators. Qualify both native architectures and follow the [source/service guide](SERVICE.md) and [distribution gate](../../docs/runtime-distribution.md). Hosted qualification does not establish compatibility with every Apple Silicon/Podman configuration; retain the host checks below.
 
 ## Why emulation is insufficient
 
