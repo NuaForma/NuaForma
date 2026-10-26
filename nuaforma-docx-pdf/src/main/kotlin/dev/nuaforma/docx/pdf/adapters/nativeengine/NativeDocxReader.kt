@@ -33,6 +33,12 @@ internal class NativeDocxReader(
     fun read(bytes: ByteArray): PdfDocument {
         val parts = unpack(bytes)
         parts.filterKeys { it.endsWith(".xml") || it.endsWith(".rels") }.forEach { (name, content) -> parse(content, name) }
+        val compatibilityModes = parsed["word/settings.xml"]?.elements().orEmpty()
+            .filter { it.name.namespaceURI == word && it.name.localPart == "compat" }
+            .flatMap { it.elements() }.filter { it.name.namespaceURI == word && it.name.localPart == "compatSetting" &&
+                it.value("name") == "compatibilityMode" && it.value("uri") == "http://schemas.microsoft.com/office/word" }
+        if (compatibilityModes.size > 1) throw NativeDocxReadException("Ambiguous document compatibility mode", "word/settings.xml")
+        val modernTableAlignment = compatibilityModes.singleOrNull()?.value("val") == "15"
         val complexText = WordAuthoringMetadata.containsComplexText(parsed.values)
         parsed.forEach { (name, root) -> WordAuthoringMetadata.normalize(root, name, complexText) }
         parsed.forEach { (name, root) -> activePart = name; NativeDocxFields.normalize(root, ::reject) }
@@ -552,7 +558,7 @@ internal class NativeDocxReader(
             val count = headerFlags.takeWhile { it }.size
             check(headerFlags.drop(count).none { it }, "Table headers must be leading rows")
             val indent = properties.one("tblInd")?.let(::dimension) ?: reject("Explicit table indent required")
-            val physicalIndent = if (depth == 0) indent - padding.left else indent + (border?.width ?: 0f) / 2
+            val physicalIndent = if (depth == 0 && !modernTableAlignment) indent - padding.left else indent + (border?.width ?: 0f) / 2
             return PdfTable(widths, rows, padding, border, count, physicalIndent, if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else PdfTableWidthPolicy.FIXED)
         }
         fun readBox(pict: XmlElement, partRelations: Map<String, String>): PdfTextBox {

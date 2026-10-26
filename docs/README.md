@@ -44,7 +44,7 @@ Choose a guide for the task you want to complete. Module guides are the technica
 
 ## Source versus published versions
 
-This checkout uses the native DOCX reader and shared `nuaforma-pdf` renderer. Libraries target Java 17; server/Playground use Java 25, with separate Java 17 PDF validators. The native source version is not yet published. Stage/build this checkout for evaluation; a release needs its own version, signed source, qualification and publication approval.
+This checkout uses the native DOCX reader and shared `nuaforma-pdf` renderer. Libraries target Java 17; server/Playground use Java 25, with separate Java 17 PDF validators. This guide targets the native engine selected for `0.3.0-alpha.1`. Consult the actual signed release and matching Maven/container artifacts for published availability; older LibreOffice-based images do not gain this implementation automatically. Source builds and checks do not themselves publish artifacts. Local evaluation can use staged libraries and the source container; publication retains its candidate-specific qualification and approval gates.
 
 The runtime contract is `0.4`, accepting compatible provider minima `0.1` through `0.4`. DOCX requires `0.3`, and the PDF provider requires `0.4`. PDF defaults to PDF/A-3b. Only exact `NUAFORMA_PDFA_VALIDATION=false` delegates conformance checking downstream; structural/font checks and validator isolation remain mandatory. See the [current PDF guide](../nuaforma-docx-pdf/README.md).
 
