@@ -16,6 +16,7 @@ import java.util.zip.ZipFile
 import javax.xml.stream.XMLInputFactory
 import javax.xml.stream.XMLStreamConstants
 import javax.xml.stream.XMLStreamException
+import javax.xml.namespace.QName
 
 /** Validate original bytes before docx4j sees them; never extract archive paths or resolve URLs. */
 internal object PackageValidation {
@@ -25,8 +26,9 @@ internal object PackageValidation {
     private const val WORD = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private const val MAIN_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
 
-    fun validate(path: Path, context: GenerationContext) {
+    fun validate(path: Path, context: GenerationContext): Boolean {
         context.checkActive()
+        val templates = PassiveTemplateReferences()
         try {
             ZipFile(path.toFile()).use { zip ->
                 val entries = zip.entries().asSequence().mapIndexed { index, entry ->
@@ -78,7 +80,8 @@ internal object PackageValidation {
                         val stream = CheckedInput(source, context.limits.maxExpandedBytes - expanded, context)
                         if (entry.name.endsWith(".xml") || entry.name.endsWith(".rels") || type?.endsWith("+xml") == true || type == "application/xml") {
                             val ids = mutableSetOf<String>()
-                            xml(stream, entry.name) { event ->
+                            xml(stream, entry.name, { depth, text -> templates.text(entry.name, depth, text) }) { event ->
+                                templates.element(entry.name, event.local, event.namespace, event.depth, event.qualifiedAttributes)
                                 if (entry.name == "word/document.xml" && event.depth == 1 &&
                                     (event.local != "document" || event.namespace != WORD)) unsupported(RejectionReason.ONLY_TRANSITIONAL_WORDPROCESSINGML_IS_SUPPORTED)
                                 if (entry.name.endsWith(".rels")) {
@@ -89,15 +92,16 @@ internal object PackageValidation {
                                         if (!ids.add(id)) invalid(RejectionReason.DUPLICATE_RELATIONSHIP_ID)
                                         val target = event.attributes["Target"] ?: invalid(RejectionReason.MISSING_RELATIONSHIP_TARGET)
                                         val relationship = event.attributes["Type"] ?: invalid(RejectionReason.MISSING_RELATIONSHIP_TYPE)
-                                        if (relationship.endsWith("/attachedTemplate")) unsupported(RejectionReason.LINKED_TEMPLATE_RELATIONSHIP)
+                                        val passiveTemplate = templates.relationship(entry.name, id, relationship, event.attributes["TargetMode"], target, event.depth, event.qualifiedAttributes)
                                         if (relationship.endsWith("/aFChunk") || relationship.endsWith("/oleObject")) {
                                             unsupported(RejectionReason.LINKED_TEMPLATES_AND_EMBEDDED_DOCUMENTS_ARE_NOT_SUPPORTED)
                                         }
                                         when (event.attributes["TargetMode"]) {
-                                            "External" -> if (relationship != OFFICE + "hyperlink") unsupported(RejectionReason.EXTERNAL_RELATIONSHIPS_OTHER_THAN_PASSIVE_HYPERLINKS_ARE_NOT_SUPPORTED)
+                                            "External" -> if (relationship != OFFICE + "hyperlink" && !passiveTemplate) unsupported(RejectionReason.EXTERNAL_RELATIONSHIPS_OTHER_THAN_PASSIVE_HYPERLINKS_ARE_NOT_SUPPORTED)
                                             null, "Internal" -> {
                                                 val resolved = resolve(entry.name, target)
                                                 if (resolved !in names) invalid(RejectionReason.A_DOCX_RELATIONSHIP_POINTS_TO_A_MISSING_PACKAGE_PART)
+                                                if (entry.name == "word/_rels/document.xml.rels" && relationship == OFFICE + "settings" && resolved == PassiveTemplateReferences.SETTINGS) templates.settingsRelationship(event.depth)
                                                 if (entry.name == "_rels/.rels" && relationship == OFFICE + "officeDocument") {
                                                     officeDocuments++
                                                     if (resolved != "word/document.xml") unsupported(RejectionReason.DOCX_MAIN_DOCUMENT_MUST_BE_WORD_DOCUMENT_XML)
@@ -123,6 +127,7 @@ internal object PackageValidation {
         } catch (_: XMLStreamException) {
             invalid(RejectionReason.A_DOCX_XML_PART_IS_MALFORMED_OR_CONTAINS_PROHIBITED)
         }
+        return DocxFailure.inPart(PassiveTemplateReferences.SETTINGS) { templates.finish() }
     }
 
     private fun resolve(relationshipPart: String, target: String): String {
@@ -144,9 +149,9 @@ internal object PackageValidation {
         }
     }
 
-    private class Event(val local: String, val namespace: String?, val depth: Int, val attributes: Map<String, String>)
+    private class Event(val local: String, val namespace: String?, val depth: Int, val attributes: Map<String, String>, val qualifiedAttributes: Map<QName, String>)
 
-    private fun xml(stream: InputStream, part: String, inspect: (Event) -> Unit) {
+    private fun xml(stream: InputStream, part: String, text: (Int, String) -> Unit = { _, _ -> }, inspect: (Event) -> Unit) {
         val factory = XMLInputFactory.newDefaultFactory()
         factory.setProperty(XMLInputFactory.SUPPORT_DTD, false)
         factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false)
@@ -162,8 +167,10 @@ internal object PackageValidation {
                         if (depth > 256 || reader.attributeCount > 256) limit(RejectionReason.DOCX_XML_COMPLEXITY_BUDGET_WAS_EXCEEDED)
                         inspect(Event(reader.localName, reader.namespaceURI, depth, (0 until reader.attributeCount)
                             .filter { reader.getAttributeNamespace(it).isNullOrEmpty() }
-                            .associate { reader.getAttributeLocalName(it) to reader.getAttributeValue(it) }))
+                            .associate { reader.getAttributeLocalName(it) to reader.getAttributeValue(it) },
+                            (0 until reader.attributeCount).associate { reader.getAttributeName(it) to reader.getAttributeValue(it) }))
                     }
+                    XMLStreamConstants.CHARACTERS, XMLStreamConstants.CDATA -> text(depth, reader.text)
                     XMLStreamConstants.END_ELEMENT -> depth--
                 }
             }
