@@ -103,8 +103,17 @@ class RestApiTest {
             val embedded = entries(template()).toMutableMap().apply {
                 this["_rels/.rels"] = getValue("_rels/.rels").replace("</Relationships>", """<Relationship Id="embedded" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/oleObject" Target="PRIVATE_TOKEN"/></Relationships>""")
             }
+            val updates = entries(template()).toMutableMap().apply {
+                val rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+                val relationships = "http://schemas.openxmlformats.org/package/2006/relationships"
+                this["[Content_Types].xml"] = getValue("[Content_Types].xml").replace("</Types>", """<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/></Types>""")
+                this["word/_rels/document.xml.rels"] = """<Relationships xmlns="$relationships"><Relationship Id="settings" Type="$rel/settings" Target="settings.xml"/></Relationships>"""
+                this["word/settings.xml"] = """<w:settings xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="$rel"><w:attachedTemplate r:id="template"/><w:linkStyles/></w:settings>"""
+                this["word/_rels/settings.xml.rels"] = """<Relationships xmlns="$relationships"><Relationship Id="template" Type="$rel/attachedTemplate" Target="https://PRIVATE_TOKEN.example/template.dotm" TargetMode="External"/></Relationships>"""
+            }
             val cases = listOf(
                 Triple(envelope, repack(linked), "Linked templates and embedded documents are not supported"),
+                Triple(envelope, repack(updates), "Automatic style updates from an external template are not supported"),
                 Triple(envelope, repack(embedded), "Linked templates and embedded documents are not supported"),
                 Triple(envelope, repack(malformed), "A DOCX XML part is malformed"),
                 Triple(envelope, "PRIVATE_TOKEN invalid ZIP".toByteArray(), "Input is not a valid unencrypted DOCX ZIP archive"),

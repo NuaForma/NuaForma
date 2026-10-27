@@ -44,7 +44,12 @@ internal object Docx4jDocuments {
         return TemporaryPackage.create(context).use { temporary ->
             val spool = temporary.path
             Files.newOutputStream(spool).use { BoundedStreams.copy(input, it, context.limits.maxTemplateBytes, context) }
-            PackageValidation.validate(spool, context)
+            if (PackageValidation.validate(spool, context)) {
+                DetachedTemplate.strip(spool, context)
+                if (PackageValidation.validate(spool, context)) {
+                    DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.INVALID_ATTACHED_TEMPLATE_REFERENCE)
+                }
+            }
             val model = try {
                 Files.newInputStream(spool).use { WordprocessingMLPackage.load(it) }.also { document ->
                     ZipFile(spool.toFile()).use { zip ->

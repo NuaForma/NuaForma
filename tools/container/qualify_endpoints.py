@@ -6,6 +6,7 @@ import pathlib
 import shutil
 from qualify_service import Runtime, generate, http, template
 from qualify_pdfa_policy import qualify as qualify_pdfa_policy
+from qualify_template_links import qualify as qualify_template_links
 
 
 def verify_bom(bom, architecture, application):
@@ -70,6 +71,7 @@ def main():
             assert version['contractVersion'] == '0.4'
         verify_bom(bom, args.architecture, args.application)
         (args.output / 'sbom.json').write_bytes(data)
+        qualify_template_links(runtime, base, args.output)
         status, headers, body = http(base, '/playground/')
         if args.application == 'server':
             assert status == 404
