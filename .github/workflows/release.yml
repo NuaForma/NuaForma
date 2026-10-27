@@ -19,7 +19,6 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 concurrency:
   group: release-publication
@@ -32,6 +31,9 @@ env:
 jobs:
   prepare:
     if: github.repository == 'NuaForma/NuaForma' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -81,6 +83,9 @@ jobs:
 
   containers:
     needs: prepare
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -138,6 +143,9 @@ jobs:
 
   review:
     needs: containers
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
