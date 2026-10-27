@@ -254,6 +254,7 @@ A plausible but incorrect document may be worse than a failed request. Fail clea
 - Enforce limits on upload size, archive expansion, entry count, expression complexity, nesting, repetition growth, generation time and memory consumption.
 - Disable external XML entities and unsafe XML resolution. Reject archive path traversal and protect against decompression bombs.
 - Do not fetch external document relationships, fonts, URLs or linked data implicitly. Any future fetching adapter needs explicit policy, timeouts and protection against SSRF.
+- Development source for #139 accepts only validated passive attached-template references with absent/disabled automatic style updates. Detach the matched reference from a private DOCX processing copy before docx4j loading; never open its target. DOCX output is detached; PDF uses the saved internal styles. Enabled external style synchronization, malformed links and other unsupported external relationships remain rejected. This is not external template loading or a change to the network policy.
 - Do not execute macros, embedded scripts or active content. Define an explicit reject-or-strip policy; do not let a renderer execute them accidentally.
 - Parsing libraries and expression restrictions alone are not a sandbox. Isolate external conversion processes and apply process, filesystem and network limits appropriate to hosted and on-premise deployments.
 - Keep temporary files isolated per generation and clean them up on success, failure and cancellation. Avoid cross-user paths and predictable shared filenames.

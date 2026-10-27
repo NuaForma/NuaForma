@@ -1,0 +1,208 @@
+name: Release with one final approval
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: New signed release version (without v)
+        required: true
+        type: string
+      native_ci_run:
+        description: Green native-container CI run covering unchanged runtime inputs
+        required: true
+        type: string
+      source_baseline:
+        description: Published matching third-party source review
+        default: '0.3.0-alpha.1'
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: release-publication
+  cancel-in-progress: false
+
+env:
+  RELEASE_VERSION: ${{ inputs.version }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  prepare:
+    if: github.repository == 'NuaForma/NuaForma' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      actions: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind signed source, green CI and public corresponding sources
+        env:
+          NATIVE_RUN: ${{ inputs.native_ci_run }}
+          SOURCE_BASELINE: ${{ inputs.source_baseline }}
+        run: |
+          python3 tools/release/release_candidate.py gate --version "$RELEASE_VERSION" --baseline "$SOURCE_BASELINE" --native-run "$NATIVE_RUN" --output build/release/jvm/gate.json
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Build release libraries and shared runtime inputs once using existing CI evidence
+        env:
+          MAVEN_SIGNING_KEY: ${{ secrets.MAVEN_SIGNING_KEY }}
+          MAVEN_SIGNING_PASSWORD: ${{ secrets.MAVEN_SIGNING_PASSWORD }}
+        run: |
+          echo '7a9ce74cff467ca1bf60a4fcd9f05185acceda4d0f382434d393e17864262c5d  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check --strict
+          test -x gradlew
+          ./gradlew --no-daemon stageLibraries -PsignArtifacts=true :nuaforma-server:installDist :nuaforma-playground:installDist :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation --no-build-cache --no-configuration-cache --warning-mode=fail
+          python3 tools/release/verify_libraries.py build/library-repository --version "$RELEASE_VERSION" --include-experimental-pdf-engine
+          python3 tools/container/prepare_verapdf_materials.py nuaforma-docx-pdf/build/verapdf-validation
+          python3 tools/container/prepare_application_materials.py
+          python3 tools/container/prepare_application_materials.py --application nuaforma-playground/build/install/nuaforma-playground
+          python3 tools/release/release_candidate.py match-foreign --gate build/release/jvm/gate.json
+      - name: Verify signatures and retain the exact Central bundle and runtime inputs
+        run: |
+          curl --fail --silent --show-error --proto '=https' --max-time 30 'https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x74317C6CE9C61B80A2A1C0B40F736E8D598CB08B' --output build/release/jvm/public.asc
+          python3 tools/release/prepare_central_bundle.py --repository build/library-repository --version "$RELEASE_VERSION" --fingerprint 74317C6CE9C61B80A2A1C0B40F736E8D598CB08B --public-key build/release/jvm/public.asc --output build/release/jvm/central.zip
+          tar -czf build/release/jvm/runtime-inputs.tar.gz nuaforma-server/build/install/nuaforma-server nuaforma-playground/build/install/nuaforma-playground nuaforma-docx-pdf/build/pdf-validation nuaforma-docx-pdf/build/verapdf-validation
+          sha256sum build/release/jvm/runtime-inputs.tar.gz > build/release/jvm/runtime-inputs.sha256
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-jvm
+          path: build/release/jvm/
+          if-no-files-found: error
+          retention-days: 14
+
+  containers:
+    needs: prepare
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {application: server, architecture: amd64, runner: ubuntu-24.04, target: service, image: nuaforma}
+          - {application: server, architecture: arm64, runner: ubuntu-24.04-arm, target: service, image: nuaforma}
+          - {application: playground, architecture: amd64, runner: ubuntu-24.04, target: playground, image: nuaforma-playground}
+          - {application: playground, architecture: arm64, runner: ubuntu-24.04-arm, target: playground, image: nuaforma-playground}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    env:
+      APPLICATION: ${{ matrix.application }}
+      ARCHITECTURE: ${{ matrix.architecture }}
+      IMAGE_NAME: ${{ matrix.image }}
+      IMAGE_TARGET: ${{ matrix.target }}
+      SOURCE_BASELINE: ${{ inputs.source_baseline }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Reuse exact shared inputs and select matching published source notices
+        run: |
+          gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name release-jvm --dir build/release/jvm
+          sha256sum --check --strict build/release/jvm/runtime-inputs.sha256
+          tar -xzf build/release/jvm/runtime-inputs.tar.gz
+          # Exact third-party component inventories must still match this baseline below.
+          # The generated notice points recipients to already-public matching sources.
+          python3 -c 'import os,pathlib; p=pathlib.Path("deployment/pdf-runtime/SOURCES.md"); p.write_text(p.read_text().replace("0.1.0-alpha.1",os.environ["SOURCE_BASELINE"]).replace("The native source version is not yet published.","Image labels identify this application release; matching third-party sources are linked below."))'
+      - name: Build each native image once without repeating container qualification
+        run: |
+          docker build --platform "linux/$ARCHITECTURE" --file deployment/pdf-runtime/Dockerfile \
+            --build-context pdfvalidation=nuaforma-docx-pdf/build/pdf-validation \
+            --build-context verapdfvalidation=nuaforma-docx-pdf/build/verapdf-validation \
+            --build-context application=nuaforma-server/build/install/nuaforma-server \
+            --build-context playgroundapplication=nuaforma-playground/build/install/nuaforma-playground \
+            --build-arg "NUAFORMA_CONTAINER_VERSION=$RELEASE_VERSION" \
+            --label "dev.nuaforma.application=$APPLICATION" --label "org.opencontainers.image.version=$RELEASE_VERSION" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --target "$IMAGE_TARGET" --tag "$IMAGE_NAME:$RELEASE_VERSION-$ARCHITECTURE-archive" deployment/pdf-runtime
+          python3 tools/container/verify_native_platform.py --image "$IMAGE_NAME:$RELEASE_VERSION-$ARCHITECTURE-archive" --architecture "$ARCHITECTURE"
+      - name: Check actual component identities before any image transfer
+        run: |
+          python3 tools/container/collect_inventory.py --image "$IMAGE_NAME:$RELEASE_VERSION-$ARCHITECTURE-archive" --destination build/release/inventory
+          mkdir -p build/release/archive
+          archive="build/release/archive/$IMAGE_NAME-container-$RELEASE_VERSION-$ARCHITECTURE.tar.gz"
+          docker save "$IMAGE_NAME:$RELEASE_VERSION-$ARCHITECTURE-archive" | gzip -1 > "$archive"
+          python3 tools/release/release_candidate.py archive --gate build/release/jvm/gate.json --application "$APPLICATION" --architecture "$ARCHITECTURE" --archive "$archive" --inventory build/release/inventory --output build/release/archive/archive.json
+          cp -r build/release/inventory build/release/archive/inventory
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-${{ matrix.application }}-${{ matrix.architecture }}
+          path: build/release/archive/
+          if-no-files-found: error
+          retention-days: 14
+
+  review:
+    needs: containers
+    permissions:
+      contents: read
+      actions: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Assemble the complete immutable candidate for final review
+        run: |
+          for item in jvm server-amd64 server-arm64 playground-amd64 playground-arm64; do
+            gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "release-$item" --dir "build/release/$item"
+          done
+          python3 tools/release/release_candidate.py assemble --root build/release --output build/release/candidate.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-candidate
+          path: build/release/candidate.json
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    needs: review
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: release
+    permissions:
+      contents: write
+      packages: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify the single protected final approval and unchanged candidate
+        run: |
+          python3 tools/release/check_environment.py --environment release
+          for item in jvm server-amd64 server-arm64 playground-amd64 playground-arm64 candidate; do
+            gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "release-$item" --dir "build/release/$item"
+          done
+          python3 tools/release/release_candidate.py assemble --root build/release --output build/release/verified.json
+          cmp build/release/verified.json build/release/candidate/candidate.json
+      - name: Publish the exact approved libraries and images without rebuilding
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          REGISTRY_TOKEN: ${{ github.token }}
+        run: python3 tools/release/publish_candidate.py --root build/release --confirm-publish
+      - name: Retain publication identities even when a remote operation needs recovery
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-publication-receipts
+          path: build/release/receipts/
+          if-no-files-found: warn
+          retention-days: 90
+      - name: Clear registry authentication
+        if: always()
+        run: docker logout ghcr.io
+
+# Legacy release workflows remain protected recovery tools. Normal releases use this workflow.
+# Website publication in NuaForma/website follows this same approved candidate and adds no review.

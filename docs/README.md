@@ -22,6 +22,10 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [Static CycloneDX inventory](sbom.md): component scope, exclusions and build-time validation.
 - [Java runtime compatibility](java-runtime-compatibility.md): Java 17 libraries, Java 25 server/Playground and separate Java 17 validators.
 
+## Release
+
+- [Single-final-approval release procedure](release-process.md): green CI, build once, verify identity/source coverage and publish under one final review.
+
 ## Develop, extend and contribute
 
 - [Build and test](development.md).

@@ -48,6 +48,64 @@ class NativeDocxPdfProviderTest {
     private fun render(provider: NativeDocxPdfProvider, source: ByteArray, data: Map<String, Any?> = emptyMap(), profile: String = "standard"): ByteArray =
         ByteArrayOutputStream().also { provider.generate(GenerationRequest(source.inputStream(), requirements(profile), data), it, GenerationContext()) }.toByteArray()
 
+    @Test fun `passive template references retain all text embedded fonts and pixels on branded and multipage documents`() {
+        val provider = NativeDocxPdfProvider(NativePdfConfiguration(fonts(), validator()))
+        for (fixture in listOf("/own-engine/source.docx", "/own-engine-report/source.docx")) {
+            val source = resource(fixture)
+            Loader.loadPDF(render(provider, source)).use { expected ->
+                for (style in listOf(null, "false", "off", "0")) {
+                    val attached = attachedTemplate(source, style)
+                    val snapshot = attached.copyOf()
+                    Loader.loadPDF(render(provider, attached)).use { actual ->
+                        assertArrayEquals(snapshot, attached)
+                        assertEquals(expected.numberOfPages, actual.numberOfPages)
+                        assertEquals(PDFTextStripper().getText(expected), PDFTextStripper().getText(actual))
+                        val before = PDFRenderer(expected)
+                        val after = PDFRenderer(actual)
+                        for (page in 0 until expected.numberOfPages) {
+                            assertTrue(actual.getPage(page).resources.fontNames.all { actual.getPage(page).resources.getFont(it).isEmbedded })
+                            val a = before.renderImageWithDPI(page, 96f, ImageType.RGB)
+                            val b = after.renderImageWithDPI(page, 96f, ImageType.RGB)
+                            assertEquals(a.width, b.width); assertEquals(a.height, b.height)
+                            assertArrayEquals(a.getRGB(0, 0, a.width, a.height, null, 0, a.width), b.getRGB(0, 0, b.width, b.height, null, 0, b.width), "$fixture page ${page + 1} style=$style")
+                            if (style == null) {
+                                val review = Files.createDirectories(Path.of("build/passive-template-reference"))
+                                ImageIO.write(a, "png", review.resolve("${fixture.substringBeforeLast('/').substringAfterLast('/')}-before-${page + 1}.png").toFile())
+                                ImageIO.write(b, "png", review.resolve("${fixture.substringBeforeLast('/').substringAfterLast('/')}-after-${page + 1}.png").toFile())
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun attachedTemplate(source: ByteArray, style: String?): ByteArray {
+        val parts = linkedMapOf<String, ByteArray>()
+        ZipInputStream(source.inputStream()).use { input ->
+            while (true) {
+                val entry = input.nextEntry ?: break
+                parts[entry.name] = input.readBytes()
+            }
+        }
+        val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+        val rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+        if ("word/settings.xml" !in parts) {
+            parts["word/settings.xml"] = """<w:settings xmlns:w="$word"/>""".toByteArray()
+            parts["[Content_Types].xml"] = parts.getValue("[Content_Types].xml").decodeToString().replace("</Types>",
+                """<Override PartName="/word/settings.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.settings+xml"/></Types>""").toByteArray()
+            parts["word/_rels/document.xml.rels"] = parts.getValue("word/_rels/document.xml.rels").decodeToString().replace("</Relationships>",
+                """<Relationship Id="settings139" Type="$rel/settings" Target="settings.xml"/></Relationships>""").toByteArray()
+        }
+        val settings = parts.getValue("word/settings.xml").decodeToString().replace("<w:settings xmlns:w=\"$word\"/>", "<w:settings xmlns:w=\"$word\"></w:settings>")
+        parts["word/settings.xml"] = settings.replace("</w:settings>", """<w:attachedTemplate xmlns:r="$rel" r:id="template139"/>""" +
+            style?.let { """<w:linkStyles w:val="$it"/>""" }.orEmpty() + "</w:settings>").toByteArray()
+        parts["word/_rels/settings.xml.rels"] = """<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="template139" Type="$rel/attachedTemplate" Target="https://missing.invalid/template.dotm" TargetMode="External"/></Relationships>""".toByteArray()
+        return ByteArrayOutputStream().also { bytes -> ZipOutputStream(bytes).use { output ->
+            for ((name, content) in parts) { output.putNextEntry(ZipEntry(name)); output.write(content); output.closeEntry() }
+        } }.toByteArray()
+    }
+
     @Test fun `Word-saved DOCX preserves text and layout after safe authoring metadata interpretation`() {
         val source = resource("/native-profile/word-letter.docx")
         val provider = NativeDocxPdfProvider(NativePdfConfiguration(fonts(), validator()))

@@ -1,6 +1,6 @@
 # NuaForma DOCX/PDF provider
 
-The registered `DocxPdfProvider` reuses `nuaforma-docx` for template processing and DOCX output, translates supported filled DOCX into the neutral model, and writes PDF through `nuaforma-pdf`. Rendering takes place in the hosting JVM with request-local state. There is no LibreOffice backend or external document-renderer fallback. The native source profile is not yet published.
+The registered `DocxPdfProvider` reuses `nuaforma-docx` for template processing and DOCX output, translates supported filled DOCX into the neutral model, and writes PDF through `nuaforma-pdf`. Rendering takes place in the hosting JVM with request-local state. There is no LibreOffice backend or external document-renderer fallback. The native engine is published in the `0.3.0-alpha.2` evaluation release.
 
 ## Output and validation
 
@@ -11,6 +11,8 @@ Every delivered native PDF requires independent structural/font/active-content c
 The separate validator uses Java 17. Container validation retains a private directory, bounded JVM/process, read-only installations, a cleared inherited environment and cleanup. Server and validator share the ordinary container filesystem and network boundary under runtime default policies; Bubblewrap and a custom seccomp file are not required. Deployment-level egress controls remain the operator's responsibility. An unavailable or failed validator never causes unvalidated delivery or a renderer fallback. Standard DOCX output remains available without the PDF validator.
 
 ## Supported source profile
+
+Version `0.3.0-alpha.2` detaches validated passive Word template references during the shared DOCX preprocessing step, before loading or rendering. It uses only saved internal styles, never the referenced `.dotx`/`.dotm` or a local/network target. Absent or explicitly disabled automatic style updates are supported; enabled updates and malformed references reject with actionable diagnostics. See the [DOCX policy](../nuaforma-docx/README.md#input-and-failure-policy) for output handling. Earlier versions reject these references. This improvement does not broaden support for other external resources or visible constructs.
 
 The native profile is deliberately bounded to the qualified shared layout features: explicit page geometry and fonts, supported inherited paragraph/run/table styles, multilevel lists, tabs, next-page sections, page-band variants and decimal fields, standalone inline PNG-image paragraphs, supported frames/rotations, and qualified fixed/merged/nested/fragmented tables. Roadmap part 10 adds paragraph-bound DrawingML PNG images, rectangular text wrapping and source cropping; [qualification](../tools/pdf-evaluation/own-engine/ANCHORED_IMAGES.md) records its current limits. Word compatibility mode 12 (including the absent/default setting) retains legacy table-text alignment; mode 15 anchors the outer table border to the declared indent. Declared table widths must still fit their containing page; conversion does not shrink columns to hide overflow. Language support is per qualified script/font combination; this is not universal Word compatibility. PNG/JPEG image pipes reuse existing DOCX image normalization before native conversion, within standalone image paragraphs. Mixed inline text/image paragraphs remain explicitly unqualified.
 
