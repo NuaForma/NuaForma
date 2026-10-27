@@ -15,7 +15,9 @@
 
 NuaForma is an open-source document-generation engine. Combine a Word template, structured data and generation options to produce DOCX or PDF documents. Embed the Java-17-compatible libraries in your application, or run the REST service in your own infrastructure.
 
-> **Native PDF engine:** version `0.3.0-alpha.1` converts DOCX with NuaForma's own shared PDF engine. LibreOffice, Microsoft Word and a cloud conversion service are not runtime requirements. Consult the [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.3.0-alpha.1) for matching published libraries, images and source materials. APIs remain an evaluation draft.
+> **Native PDF engine:** version `0.3.0-alpha.2` converts DOCX with NuaForma's own shared PDF engine. LibreOffice, Microsoft Word and a cloud conversion service are not runtime requirements. Consult the [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.3.0-alpha.2) for matching published libraries, images and source materials. APIs remain an evaluation draft.
+
+The alpha.2 update accepts passive attached-template references without accessing the external template; enabled automatic style updates still reject. See the [DOCX guide](nuaforma-docx/README.md).
 
 ## What it supports
 
