@@ -103,7 +103,7 @@ Gradle with Kotlin DSL is the selected build system. Install JDK 17 and JDK 25: 
 
 ## Own PDF engine branch scope
 
-The own-engine integration track was merged into `develop` through PR #120 on 2026-10-26, with explicit maintainer authorization. New release preparation and subsequent work use the normal `develop` branch/PR policy above. The earlier `feature/own-pdf-engine` starting point and target are historical; do not recreate or target that deleted integration branch. The agreed shared package structure and qualified source limits remain documented in the [design](docs/architecture/conversion-engine.md) and [roadmap](docs/architecture/own-engine-roadmap.md). The approved next release is `0.3.0-alpha.1`; publication still requires its exact-candidate checks and protected main-only procedure.
+The own-engine integration track was merged into `develop` through PR #120 on 2026-10-26, with explicit maintainer authorization. New release preparation and subsequent work use the normal `develop` branch/PR policy above. The earlier `feature/own-pdf-engine` starting point and target are historical; do not recreate or target that deleted integration branch. The agreed shared package structure and qualified source limits remain documented in the [design](docs/architecture/conversion-engine.md) and [roadmap](docs/architecture/own-engine-roadmap.md). The approved next release is `0.3.0-alpha.2`. The maintainer approved the [single-final-approval release procedure](docs/release-process.md): reuse green CI, build once and retain lightweight identity/signature/source checks instead of repeating full qualification during release. Only the final publication job requires environment review; the same approval covers the matching website.
 
 ## Boundaries
 

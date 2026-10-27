@@ -2,6 +2,8 @@
 
 The source container combines NuaForma's native engine, application dependencies, fonts, Java runtimes, independent PDF validators and standard runtime utilities. It contains no LibreOffice or Bubblewrap. This checklist supplements [THIRD_PARTY.md](../THIRD_PARTY.md) and the runtime's [source-access instructions](../deployment/pdf-runtime/SOURCES.md); it does not authorize publication.
 
+From `0.3.0-alpha.2`, apply these obligations through the [single-final-approval release procedure](release-process.md). Existing green CI supplies behavior qualification when runtime inputs are unchanged; release preparation retains actual component/source/identity checks without repeating the full per-container suite.
+
 Before distributing a candidate:
 
 - Record its exact source commit, version, platform and immutable image digest. Inventory the complete final image, including OS packages, both JVMs, fonts, application JARs and validator dependencies.

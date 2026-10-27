@@ -9,7 +9,7 @@ if not __debug__:
 
 
 def check(environment, policies, name="maven-central"):
-    assert name in {"maven-central", "ghcr-release"}
+    assert name in {"maven-central", "ghcr-release", "release"}
     assert environment["name"] == name and environment["can_admins_bypass"] is False
     reviewers = [rule for rule in environment["protection_rules"] if rule["type"] == "required_reviewers"]
     assert len(reviewers) == 1 and reviewers[0]["prevent_self_review"] is False
@@ -22,7 +22,7 @@ def check(environment, policies, name="maven-central"):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--environment", choices=("maven-central", "ghcr-release"), default="maven-central")
+    parser.add_argument("--environment", choices=("maven-central", "ghcr-release", "release"), default="maven-central")
     args = parser.parse_args()
     assert os.environ.get("GITHUB_REPOSITORY") == "NuaForma/NuaForma" and os.environ.get("GITHUB_REF") == "refs/heads/main"
     def read(suffix):

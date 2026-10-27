@@ -1,5 +1,7 @@
 # Maven Central release preparation
 
+For normal releases from `0.3.0-alpha.2`, follow the [single-final-approval release procedure](release-process.md). The workflows and repeated qualification/review steps below are legacy recovery instructions; they are not additional gates for the unified workflow. Original source/license, identity and immutability obligations remain in force.
+
 Target namespace: `dev.nuaforma`, verified by the maintainer through ownership of `nuaforma.dev`. The project website is hosted at `nuaforma.dev` through GitHub Pages. Those registrations are not artifact publication, website deployment or permission to distribute a container.
 
 ## Current state
@@ -14,7 +16,7 @@ The manually dispatched **Prepare Maven Central release** workflow is limited to
 
 The `maven-central` environment must require reviewer `mrhoeve`, disallow administrator bypass, allow only the exact `main` branch and allow self-review while there is one human maintainer. The helper verifies that actual configuration rather than relying on an environment name in YAML. Changes to the reviewed configuration require an explicit policy update.
 
-Environment secrets:
+Organization secrets (repository access granted to NuaForma/NuaForma and the maintained image-comparison repository):
 
 | Name | Purpose |
 | --- | --- |
