@@ -2,6 +2,7 @@
 import io
 import json
 import zipfile
+import xml.etree.ElementTree as ET
 from qualify_service import generate, template, verify_pdf_profile
 
 
@@ -25,6 +26,15 @@ def attached_template(style=None):
     return output.getvalue()
 
 
+def verify_docx(data):
+    word = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        document = ET.fromstring(archive.read('word/document.xml'))
+        assert ''.join(node.text or '' for node in document.iter('{' + word + '}t')) == 'Hello Passive template'
+        assert b'attachedTemplate' not in archive.read('word/settings.xml')
+        assert all(b'PRIVATE_TEMPLATE' not in archive.read(name) for name in archive.namelist() if name.endswith('.rels'))
+
+
 def qualify(runtime, base, output):
     records = []
     for style in (None, 'false', 'off', '0', 'true'):
@@ -45,10 +55,7 @@ def qualify(runtime, base, output):
                 path = output / f'passive-template-{style or "absent"}.{format_id}'
                 path.write_bytes(data)
                 if format_id == 'docx':
-                    with zipfile.ZipFile(io.BytesIO(data)) as archive:
-                        assert b'Hello Passive template' in archive.read('word/document.xml')
-                        assert b'attachedTemplate' not in archive.read('word/settings.xml')
-                        assert all(b'PRIVATE_TEMPLATE' not in archive.read(name) for name in archive.namelist() if name.endswith('.rels'))
+                    verify_docx(data)
                 else:
                     verify_pdf_profile(runtime, path, 'standard')
             records.append(dict(format=format_id, linkStyles=style, status=status))
