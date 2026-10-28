@@ -4,6 +4,8 @@ The Playground shows the effective provider-owned PDF/A conformance policy besid
 
 The Playground displays server-provided development rejection explanations, safe part/construct/location and recovery advice alongside the request ID. Results use text nodes, so diagnostic text cannot become HTML. The Playground does not select or override the server mode and exports no diagnostics-mode option. Production/restricted responses remain readable without optional fields.
 
+Source after `0.3.0-alpha.2` also shows a bounded expression excerpt with a caret, its zero-based error position and available one-based paragraph context. The same details are returned to curl and logged under `TEMPLATE_SYNTAX_DETAIL` in development. `template:8` is a local fragment offset, not a page/line number. Excerpts may contain business text; production omits them. See [syntax diagnostics](../docs/logging.md#template-syntax-context-source-after-030-alpha2) and the [date/quote reference](../nuaforma-template/README.md#date-and-time-pattern-reference).
+
 A separate, development-only Java 25 application over the same REST server and engine. Production `nuaforma-server` artifacts and the `service` image do not depend on this module or contain its browser assets. The six embedded libraries retain Java 17 support. There is no separate generation implementation and no browser framework/CDN dependency.
 
 ## Run the development container

@@ -38,7 +38,7 @@ internal class Session private constructor(
     override fun validate(source: String) { program(source).validateDepth(state, depth) }
     override fun validateExpression(expression: String) { expression(expression) }
 
-    private fun expression(source: String): Expression = ExpressionParser(source, 0, context).parse().also { state.checkDepth(depth + it.depth - 1) }
+    private fun expression(source: String): Expression = Safety.inSource(source, context) { ExpressionParser(source, 0, context).parse() }.also { state.checkDepth(depth + it.depth - 1) }
     private fun program(source: String, content: Boolean = true): Program =
         TemplateParser(source, context, captureSpans = true, contentNames = if (content) state.contentNames else emptySet(), valuePipes = state.valuePipes).compile() as Program
 

@@ -29,6 +29,54 @@ class RestApiTest {
     private val envelope = """{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"name":"Ada","nested":{"a":[null,true,42]}},"options":{"watermark":{"text":"CONCEPT — {name}","color":"#A1B2C3","opacity":0.3,"rotation":-30}}}"""
 
     @Test
+    fun `real template syntax errors expose exact excerpts only in startup development mode`() {
+        for (mode in LoggingMode.entries) testApplication {
+            val events = java.util.Collections.synchronizedList(mutableListOf<GenerationLogEvent>())
+            application { KtorServer(ProviderRegistry.discover(), ServerConfiguration(ServerConfiguration(temporaryDirectory = temporary), mode), events::add).installRoutes(this) }
+            val response = client.post("/api/v1/documents") {
+                contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY"))
+                setBody(multipart(envelope, template("Hello {trim(name,)}")))
+            }
+            assertEquals(HttpStatusCode.UnprocessableEntity, response.status)
+            val json = com.fasterxml.jackson.databind.ObjectMapper().readTree(response.bodyAsText())
+            val diagnostic = json.path("diagnostics").single()
+            val id = response.headers["X-Request-ID"]
+            assertEquals(id, json.path("requestId").asText())
+            assertEquals("INVALID_TEMPLATE", diagnostic.path("code").asText())
+            val captured = synchronized(events) { events.filter { it.requestId == id } }
+            if (mode == LoggingMode.DEVELOPMENT) {
+                assertEquals("UNEXPECTED_EXPRESSION_TOKEN", diagnostic.path("reason").asText())
+                assertEquals("{trim(name,)}", diagnostic.path("expression").asText())
+                assertEquals(")", diagnostic.path("expression").asText()[diagnostic.path("expressionPosition").asInt()].toString())
+                assertEquals("word/document.xml", diagnostic.path("part").asText())
+                assertEquals("paragraph:1", diagnostic.path("documentLocation").asText())
+                assertTrue(captured.any { it.code == "TEMPLATE_SYNTAX_DETAIL" && it.text.contains("trim(name,)") })
+            } else {
+                assertFalse(diagnostic.has("expression"))
+                assertTrue(captured.none { it.text.contains("trim(name,)") })
+            }
+            assertTrue(captured.any { it.code == "GENERATION_REJECTED" })
+            assertEmpty()
+        }
+    }
+
+    @Test
+    fun `mixed quotes in real Word templates work through the same HTTP generation route`() = testApplication {
+        application { KtorServer(ProviderRegistry.discover(), ServerConfiguration(temporaryDirectory = temporary)).installRoutes(this) }
+        val response = client.post("/api/v1/documents") {
+            contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY"))
+            setBody(multipart(envelope, template("{trim(‘ Ada\")} {\"2026-10-28’ | date(“dd-MM-yyyy')}")))
+        }
+        assertEquals(HttpStatusCode.OK, response.status, if (response.status != HttpStatusCode.OK) response.bodyAsText() else "")
+        val document = entries(response.bodyAsBytes()).getValue("word/document.xml")
+        val tree = javax.xml.parsers.DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }.newDocumentBuilder()
+            .parse(document.byteInputStream())
+        val texts = tree.getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "t")
+        assertTrue((0 until texts.length).joinToString("") { texts.item(it).textContent }.contains("Ada 28-10-2026"), document)
+        assertEmpty()
+    }
+
+    @Test
     fun `automatic font selection uses the same public catalog and option semantics through REST and embedded generation`() = testApplication {
         val directory = Files.createDirectory(temporary.resolve("automatic"))
         val fixture = Path.of(System.getProperty("nuaforma.repositoryRoot"), "nuaforma-docx/src/test/resources/fonts/LibreBarcode39-Regular.ttf")
@@ -120,7 +168,7 @@ class RestApiTest {
                 Triple(envelope, template("{absent}"), "Required template data is missing"),
                 Triple(envelope, template("{#if name}yes{/if}"), "Template data has an incompatible type"),
                 Triple(envelope, template("{#if}"), "Unexpected DOCX block marker"),
-                Triple(envelope, template("Hello {name |}"), "Invalid template syntax"),
+                Triple(envelope, template("Hello {name |}"), "Expected a registered pipe name"),
                 Triple(envelope.replace("\"output\":{\"format\":\"docx\"}", """"output":{"format":"docx","options":{"fontMode":"validate","fonts":[{"family":"Synthetic Font","resource":"missing"}]}}"""), template(), "Supply exactly the declared font resources"),
                 Triple(envelope.replace("\"output\":{\"format\":\"docx\"}", """"output":{"format":"docx","options":{"PRIVATE_TOKEN":true}}"""), template(), "Unrecognized DOCX options"),
             )

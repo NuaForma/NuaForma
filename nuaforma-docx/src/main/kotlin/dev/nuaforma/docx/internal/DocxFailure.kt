@@ -11,7 +11,14 @@ internal object DocxFailure {
 
     fun <T> inPart(part: String, action: () -> T): T = try { action() } catch (error: GenerationException) {
         throw GenerationException(error.diagnostics.map { diagnostic ->
-            diagnostic.rejectionReason?.let { Diagnostic(diagnostic.code, it, diagnostic.severity, diagnostic.location, diagnostic.part ?: part) } ?: diagnostic
+            diagnostic.rejectionReason?.let { Diagnostic(diagnostic.code, it, diagnostic.severity, diagnostic.location, diagnostic.part ?: part)
+                .withTemplateContext(diagnostic.templateContext).withDocumentLocation(diagnostic.documentLocation) } ?: diagnostic
+        })
+    }
+
+    fun <T> inParagraph(index: Int, action: () -> T): T = try { action() } catch (error: GenerationException) {
+        throw GenerationException(error.diagnostics.map { diagnostic ->
+            if (diagnostic.documentLocation == null) diagnostic.withDocumentLocation("paragraph:$index") else diagnostic
         })
     }
 }

@@ -16,6 +16,25 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class JavaContractTest {
     @Test
+    void templateContextIsAdditiveImmutableAndBoundedForJavaCallers() {
+        var original = new Diagnostic(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.UNEXPECTED_EXPRESSION_TOKEN);
+        var details = new TemplateErrorContext("{trim(name,)}", 11, 6);
+        var enriched = original.withTemplateContext(details).withDocumentLocation("paragraph:3");
+        assertNull(original.getTemplateContext());
+        assertNull(original.getDocumentLocation());
+        assertEquals("{trim(name,)}", enriched.getTemplateContext().getExpression());
+        assertEquals(11, enriched.getTemplateContext().getPosition());
+        assertEquals("paragraph:3", enriched.getDocumentLocation());
+        assertSame(original.getRejectionReason(), enriched.getRejectionReason());
+        var redacted = new TemplateErrorContext("password " + "x".repeat(600), 580, 0);
+        assertTrue(redacted.getRedacted());
+        assertEquals("[redacted expression]", redacted.getExpression());
+        var longText = new TemplateErrorContext("x".repeat(10000), 9900, 0);
+        assertTrue(longText.getExpression().length() <= 256);
+        assertTrue(longText.getPosition() <= longText.getExpression().length());
+    }
+
+    @Test
     void structuredReasonsPreserveExistingJavaAndKotlinConstructors() throws ReflectiveOperationException {
         var legacy = new Diagnostic(DiagnosticCodes.INVALID_TEMPLATE, "Legacy text");
         assertEquals("Legacy text", legacy.getMessage());

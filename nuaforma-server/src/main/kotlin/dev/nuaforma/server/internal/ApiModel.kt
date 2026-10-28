@@ -38,7 +38,7 @@ internal object ApiErrors {
                 "AMBIGUOUS_PROVIDER" -> "Multiple providers match; supply an explicit providerId"
                 "RESOURCE_LIMIT_EXCEEDED" -> "Document processing exceeded its resource limits"
                 else -> "Document processing diagnostic: ${it.code.id}"
-            }) + if (mode == LoggingMode.DEVELOPMENT) details else emptyMap()
+            }) + if (mode == LoggingMode.DEVELOPMENT) details + templateDetails(it) else emptyMap()
     }
 
     /** Only closed application-owned text and constrained coordinates may cross this boundary. */
@@ -51,15 +51,34 @@ internal object ApiErrors {
         return details
     }
 
+    private fun templateDetails(diagnostic: Diagnostic): Map<String, String> {
+        if (diagnostic.rejectionReason == null) return emptyMap()
+        val details = linkedMapOf<String, String>()
+        diagnostic.documentLocation?.takeIf { DOCUMENT_LOCATION.matches(it) }?.let { details["documentLocation"] = it }
+        diagnostic.templateContext?.let {
+            val redacted = it.redacted
+            details["expression"] = if (redacted) "[redacted expression]" else it.expression
+            if (!redacted) details["expressionPosition"] = it.position.toString()
+            details["expressionStart"] = it.excerptStart.toString()
+            details["expressionSourceOffset"] = it.sourceOffset.toString()
+        }
+        return details
+    }
+
     fun logRejections(logging: GenerationLogging, values: List<Diagnostic>) {
         values.take(32).forEach { diagnostic ->
             val fields = linkedMapOf("code" to diagnostic.code.id)
             fields.putAll(explanation(diagnostic))
             diagnostic.rejectionReason?.let { fields["message"] = it.message }
             logging.operation("GENERATION_REJECTED", fields)
+            if (logging.mode == LoggingMode.DEVELOPMENT) {
+                val template = templateDetails(diagnostic)
+                if (template.isNotEmpty()) logging.trace("TEMPLATE_SYNTAX_DETAIL", fields + template)
+            }
         }
     }
 
     private val LOCATION = Regex("(?:template:[0-9]{1,8}|xml:[0-9]{1,8}:[0-9]{1,8})")
+    private val DOCUMENT_LOCATION = Regex("paragraph:[0-9]{1,8}")
     private val PART = Regex("(?:\\[Content_Types\\]\\.xml|_rels/\\.rels|word/(?:document|styles|settings|fontTable|numbering|footnotes|endnotes|comments|(?:header|footer)[0-9]{1,4})\\.xml|word/_rels/(?:document|settings|(?:header|footer)[0-9]{1,4})\\.xml\\.rels)")
 }

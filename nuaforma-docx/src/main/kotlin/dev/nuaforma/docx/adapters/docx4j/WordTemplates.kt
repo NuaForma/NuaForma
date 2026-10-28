@@ -21,6 +21,8 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
     private var visits = 0L
     private lateinit var images: WordImages
     private lateinit var owner: org.docx4j.openpackaging.parts.Part
+    private val paragraphs = java.util.IdentityHashMap<P, Int>()
+    private var paragraphIndex = 0
 
     fun apply(document: WordprocessingMLPackage): TextWatermark? {
         watermark?.let { root.validateText(it.text) }
@@ -37,7 +39,12 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         } }
         (roots + unsupported.map { it.second }).forEach { identities.collect(it) }
         unsupported.forEach { (part, value) -> DocxFailure.inPart(part.getPartName().name.removePrefix("/")) { rejectUnsupportedContent(value, 1) } }
-        parts.forEach { (part, value) -> DocxFailure.inPart(part.getPartName().name.removePrefix("/")) { owner = part; process(value, root, true, 1) } }
+        parts.forEach { (part, value) -> DocxFailure.inPart(part.getPartName().name.removePrefix("/")) {
+            paragraphIndex = 0
+            if (context.logging.mode == LoggingMode.DEVELOPMENT) indexParagraphs(value, 1)
+            owner = part
+            process(value, root, true, 1)
+        } }
         parts.forEach { (part, value) -> DocxFailure.inPart(part.getPartName().name.removePrefix("/")) { owner = part; process(value, root, false, 1) } }
         return watermark?.let { requested ->
             val text = StringBuilder()
@@ -65,6 +72,21 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
     }
 
     private fun process(raw: Any, session: ContentTemplateSession, validateOnly: Boolean, depth: Int, inlineHandled: Boolean = false) {
+        val node = XmlUtils.unwrap(raw)
+        val paragraph = (node as? P)?.let { paragraphs[it] }
+        if (paragraph != null) DocxFailure.inParagraph(paragraph) { processNode(raw, session, validateOnly, depth, inlineHandled) }
+        else processNode(raw, session, validateOnly, depth, inlineHandled)
+    }
+
+    private fun indexParagraphs(raw: Any, depth: Int) {
+        context.checkActive()
+        if (++visits > 1_000_000 || depth > 128) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.DOCX_STRUCTURE_EXCEEDS_PROCESSING_LIMITS)
+        val node = XmlUtils.unwrap(raw)
+        if (node is P) paragraphs[node] = ++paragraphIndex
+        children(node).forEach { indexParagraphs(it, depth + 1) }
+    }
+
+    private fun processNode(raw: Any, session: ContentTemplateSession, validateOnly: Boolean, depth: Int, inlineHandled: Boolean) {
         context.checkActive()
         if (++visits > 1_000_000 || depth > 128) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.DOCX_STRUCTURE_EXCEEDS_PROCESSING_LIMITS)
         val node = XmlUtils.unwrap(raw)
@@ -129,34 +151,65 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
                 val value = content[cursor++]
                 val marker = marker(value)
                 if (marker in stops) return result to marker
-                when {
-                    marker == null -> result.add(Item(value))
-                    marker.startsWith("#if ") -> {
-                        val expression = marker.substring(4)
-                        session.validateExpression(expression)
-                        val (yes, stop) = sequence(setOf("#else", "/if"), nesting + 1)
-                        if (stop == null) invalid(RejectionReason.UNCLOSED_DOCX_CONDITION)
-                        val no = if (stop == "#else") sequence(setOf("/if"), nesting + 1).also {
-                            if (it.second == null) invalid(RejectionReason.UNCLOSED_DOCX_CONDITION)
-                        }.first else emptyList()
-                        result.add(Condition(expression, yes, no))
+                try {
+                    when {
+                        marker == null -> result.add(Item(value))
+                        marker.startsWith("#if ") -> {
+                            val expression = marker.substring(4)
+                            validateBlockExpression(value, expression, session)
+                            val (yes, stop) = sequence(setOf("#else", "/if"), nesting + 1)
+                            if (stop == null) invalid(RejectionReason.UNCLOSED_DOCX_CONDITION)
+                            val no = if (stop == "#else") sequence(setOf("/if"), nesting + 1).also {
+                                if (it.second == null) invalid(RejectionReason.UNCLOSED_DOCX_CONDITION)
+                            }.first else emptyList()
+                            result.add(Condition(expression, yes, no))
+                        }
+                        marker.startsWith("#each ") -> {
+                            val match = Regex("(.+)\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*)").matchEntire(marker.substring(6))
+                                ?: invalid(RejectionReason.INVALID_DOCX_REPEAT_MARKER)
+                            val expression = match.groupValues[1]; val alias = match.groupValues[2]
+                            if (alias in setOf("data", "loop", "true", "false", "null")) invalid(RejectionReason.RESERVED_DOCX_REPEAT_ALIAS)
+                            validateBlockExpression(value, expression, session)
+                            val (body, stop) = sequence(setOf("/each"), nesting + 1)
+                            if (stop == null) invalid(RejectionReason.UNCLOSED_DOCX_REPEAT)
+                            result.add(Repeat(expression, alias, body))
+                        }
+                        else -> invalid(RejectionReason.UNEXPECTED_DOCX_BLOCK_MARKER)
                     }
-                    marker.startsWith("#each ") -> {
-                        val match = Regex("(.+)\\s+as\\s+([A-Za-z_][A-Za-z0-9_]*)").matchEntire(marker.substring(6))
-                            ?: invalid(RejectionReason.INVALID_DOCX_REPEAT_MARKER)
-                        val expression = match.groupValues[1]; val alias = match.groupValues[2]
-                        if (alias in setOf("data", "loop", "true", "false", "null")) invalid(RejectionReason.RESERVED_DOCX_REPEAT_ALIAS)
-                        session.validateExpression(expression)
-                        val (body, stop) = sequence(setOf("/each"), nesting + 1)
-                        if (stop == null) invalid(RejectionReason.UNCLOSED_DOCX_REPEAT)
-                        result.add(Repeat(expression, alias, body))
-                    }
-                    else -> invalid(RejectionReason.UNEXPECTED_DOCX_BLOCK_MARKER)
+                } catch (error: GenerationException) {
+                    throw blockFailure(value, marker, error)
                 }
             }
             return result to null
         }
         return sequence(emptySet(), 1).first
+    }
+
+    private fun validateBlockExpression(raw: Any, expression: String, session: TemplateSession) {
+        val paragraph = markerParagraph(raw)
+        val index = paragraph?.let { paragraphs[it] }
+        if (index == null) session.validateExpression(expression)
+        else DocxFailure.inParagraph(index) { session.validateExpression(expression) }
+    }
+
+    private fun blockFailure(raw: Any, marker: String?, error: GenerationException): GenerationException {
+        if (context.logging.mode != LoggingMode.DEVELOPMENT || marker == null) return error
+        val paragraph = markerParagraph(raw)?.let { paragraphs[it] }
+        return GenerationException(error.diagnostics.map { diagnostic ->
+            val reason = diagnostic.rejectionReason
+            val enriched = if (diagnostic.templateContext == null && diagnostic.code == DiagnosticCodes.INVALID_TEMPLATE && reason != null)
+                Diagnostic(diagnostic.code, reason, diagnostic.severity, diagnostic.location ?: "template:0", diagnostic.part)
+                    .withTemplateContext(TemplateErrorContext("{$marker}", 0))
+                    .withDocumentLocation(diagnostic.documentLocation)
+            else diagnostic
+            if (enriched.documentLocation == null && paragraph != null) enriched.withDocumentLocation("paragraph:$paragraph") else enriched
+        })
+    }
+
+    private fun markerParagraph(raw: Any): P? = when (val node = XmlUtils.unwrap(raw)) {
+        is P -> node
+        is Tr -> node.content.singleOrNull()?.let { XmlUtils.unwrap(it) as? Tc }?.content?.singleOrNull()?.let { XmlUtils.unwrap(it) as? P }
+        else -> null
     }
 
     private fun marker(raw: Any): String? {
