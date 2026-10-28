@@ -1,6 +1,6 @@
-# Marked template diagnostic PDF (unreleased source, issue #150)
+# Marked template diagnostic PDF
 
-This development-only operation locates a parser error in a private template. It is not available in published `0.3.0-alpha.3`. Normal generation still fails; the diagnostic PDF is a separate artifact, not a generated business document or archival export.
+This development-only operation locates a parser error in a private template, starting with the selected `0.3.0-alpha.4` release (#150). Consult the actual signed release for public availability; published alpha.3 does not include it. Normal generation still fails; the diagnostic PDF is a separate artifact, not a generated business document or archival export.
 
 After a syntax failure, choose **Download diagnostic PDF** in the Playground. The browser resends the original failed request, template and resources, even after builder edits. A request-private copy preserves literal template content, adds a red `[ERROR 1]` marker and appends an explanation page with the reason, part, paragraph, local position and bounded excerpt/caret. Known secret-field excerpts remain redacted. The document itself contains original template text: protect development instances and downloaded files.
 

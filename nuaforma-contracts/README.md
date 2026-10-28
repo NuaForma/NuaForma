@@ -4,7 +4,7 @@ Development API for Kotlin and Java 17, in `dev.nuaforma.contracts`. Release `0.
 
 ## Template syntax context (source after 0.3.0-alpha.2)
 
-Unreleased #150 source advances the runtime to **0.6** for optional `TemplateDiagnosticProvider.diagnoseTemplate`. Built-in source DOCX/PDF providers require 0.6; compatible earlier provider minima remain accepted. Original interfaces/constructors are unchanged. Published alpha.3 remains contract 0.5. The explicit development operation returns a separate diagnostic artifact; see [the guide](../docs/template-diagnostic-pdf.md).
+The selected alpha.4 release advances the runtime to **0.6** for optional `TemplateDiagnosticProvider.diagnoseTemplate` (#150). Built-in DOCX/PDF providers require 0.6; compatible earlier provider minima remain accepted. Original interfaces/constructors are unchanged. Alpha.3 retains contract 0.5. The explicit development operation returns a separate diagnostic artifact; see [the guide](../docs/template-diagnostic-pdf.md).
 
 Contract **0.5** introduced immutable `TemplateErrorContext` and copy-returning `Diagnostic.withTemplateContext` / `withDocumentLocation` methods. Original constructors and JVM descriptors remain unchanged. Alpha.3 DOCX/PDF providers require 0.5; unreleased diagnostic providers require 0.6 as described above. The current source runtime accepts compatible minima 0.1 through 0.6. Artifact release versions remain separate from contract minima. The earlier minima described below record when each facet was introduced.
 

@@ -1,6 +1,6 @@
 # NuaForma Playground
 
-Unreleased #150 source adds **Download diagnostic PDF** after syntax failures. It marks the original failed template and appends an explanation, while preserving the error in the UI if layout/fonts prevent rendering. Published alpha.3 does not include it. See [the guide](../docs/template-diagnostic-pdf.md).
+The selected alpha.4 release adds **Download diagnostic PDF** after syntax failures (#150). It marks the original failed template and appends an explanation, while preserving the error in the UI if layout/fonts prevent rendering. Alpha.3 does not include it. See [the guide](../docs/template-diagnostic-pdf.md).
 
 The Playground shows the effective provider-owned PDF/A conformance policy beside the PDF selection and in the provider explorer. Disabled policy displays **PDF/A conformance is not checked by NuaForma**, with downstream operator responsibility. Generation remains available when the backend is ready. Missing/null/legacy metadata is shown as unknown; multiple matching providers retain their individual policies. There is no checkbox or request/export override. The same strict default-on `NUAFORMA_PDFA_VALIDATION` startup behavior and production-safe warning apply through the common server main.
 
