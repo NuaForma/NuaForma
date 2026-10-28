@@ -90,6 +90,11 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
     fun generateForConversion(request: GenerationRequest, output: OutputStream, context: GenerationContext): DocxConversionResult =
         generateDocument(request, output, context, true)
 
+    /** Explicit development copy: validate template syntax, mark the original source and leave instructions literal. */
+    @Throws(GenerationException::class, java.io.IOException::class)
+    fun diagnosticCopy(request: GenerationRequest, output: OutputStream, context: GenerationContext, explanationFontFamily: String): Diagnostic =
+        Docx4jDocuments.diagnosticCopy(request, output, context, listOf(ImagePipe(context)) + pipes, valuePipes, explanationFontFamily)
+
     private fun generateDocument(request: GenerationRequest, output: OutputStream, context: GenerationContext, detachWatermark: Boolean): DocxConversionResult {
         context.checkActive()
         deploymentFonts.reportFailures(context.logging)

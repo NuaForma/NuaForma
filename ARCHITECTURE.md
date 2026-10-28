@@ -6,6 +6,8 @@ The Gradle build, initial public provider contracts, core provider discovery/sel
 
 ## Product direction and scope
 
+Approved development diagnostic workflow (#150, source after `0.3.0-alpha.3`): an optional public provider facet and separate development-only multipart operation create a request-private literal DOCX copy, map the first parser failure to actual Word objects and add a visible marker/explanation. The native provider renders validated standard diagnostic PDF; normal generation remains unsuccessful. No production activation through request data, cross-request artifact cache, second evaluator, Office fallback or relaxed validation is introduced. Unsupported rendering retains textual diagnostics. See [the guide](docs/template-diagnostic-pdf.md).
+
 - Initial implementation: Kotlin and docx4j for DOCX templates and DOCX output, supporting placeholders, conditions and repetitions while preserving Word formatting.
 - Template conditions must work inside a sentence as well as across complete paragraphs or sections. Repetitions must support collections and table rows, including nested structures.
 - Input data consists of generic JSON-compatible objects, lists and scalar values. Consumers define their own nested data structures; never require project-specific customer or business domain classes.

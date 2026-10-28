@@ -8,7 +8,8 @@ internal object ApiRoutes {
     const val CAPABILITIES = "/api/v1/capabilities"
     const val ASSESS = "/api/v1/assess"
     const val DOCUMENTS = "/api/v1/documents"
+    const val TEMPLATE_DIAGNOSTIC = "/api/v1/diagnostics/template"
     const val OPENAPI_JSON = "/openapi.json"
     const val OPENAPI_YAML = "/openapi.yaml"
-    val operations = mapOf(LIVE to "get", READY to "get", SBOM to "get", VERSION to "get", CAPABILITIES to "get", ASSESS to "post", DOCUMENTS to "post", OPENAPI_JSON to "get", OPENAPI_YAML to "get")
+    val operations = mapOf(LIVE to "get", READY to "get", SBOM to "get", VERSION to "get", CAPABILITIES to "get", ASSESS to "post", DOCUMENTS to "post", TEMPLATE_DIAGNOSTIC to "post", OPENAPI_JSON to "get", OPENAPI_YAML to "get")
 }

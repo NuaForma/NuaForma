@@ -30,7 +30,7 @@ internal object WordRuns {
     fun detectionSource(content: List<Any>): String = content.mapNotNull { XmlUtils.unwrap(it) as? R }
         .joinToString("") { run -> run.content.mapNotNull { XmlUtils.unwrap(it) as? Text }.joinToString("") { it.value } }
 
-    fun mixed(run: R, session: TemplateSession, validateOnly: Boolean, context: GenerationContext, valuePipes: TemplatePipes) {
+    fun mixed(run: R, session: TemplateSession, validateOnly: Boolean, context: GenerationContext, valuePipes: TemplatePipes, fault: WordTemplateFault? = null) {
         if (plain(run)) return
         if (validateOnly && ContentTemplates.containsContentMarker(run.content.filterIsInstance<JAXBElement<*>>()
                 .filter { it.name.localPart != "t" && it.value is Text }.joinToString("") { (it.value as Text).value }, valuePipes, context)) {
@@ -45,7 +45,11 @@ internal object WordRuns {
             val text = run.content.subList(start, index).joinToString("") { (XmlUtils.unwrap(it) as Text).value }
             if ('{' !in text && '}' !in text) continue
             if (validateOnly) {
-                if (session is ContentTemplateSession) session.validateText(text) else session.validate(text)
+                try { if (session is ContentTemplateSession) session.validateText(text) else session.validate(text) }
+                catch (error: dev.nuaforma.contracts.GenerationException) {
+                    fault?.mixed(run, run.content.subList(start, index).toList(), text, error)
+                    throw error
+                }
                 continue
             }
             val replacement = session.expand(text).joinToString("") { it.text }
@@ -56,7 +60,7 @@ internal object WordRuns {
     }
 
     fun apply(content: MutableList<Any>, session: ContentTemplateSession, validateOnly: Boolean, context: GenerationContext, valuePipes: TemplatePipes,
-              image: (ImageContent) -> org.docx4j.wml.Drawing) {
+              fault: WordTemplateFault? = null, image: (ImageContent) -> org.docx4j.wml.Drawing) {
         if (validateOnly) {
             val instructions = content.joinToString("") { raw -> when (val node = XmlUtils.unwrap(raw)) {
                 is R -> node.content.filterIsInstance<JAXBElement<*>>().filter { it.name.localPart != "t" && it.value is Text }
@@ -77,7 +81,11 @@ internal object WordRuns {
             val originals = content.subList(start, index).toList()
             val source = source(originals)
             if ('{' !in source && '}' !in source) continue
-            if (validateOnly) { session.validate(source); continue }
+            if (validateOnly) {
+                try { session.validate(source) }
+                catch (error: dev.nuaforma.contracts.GenerationException) { fault?.plain(content, originals, source, error); throw error }
+                continue
+            }
             var offset = 0
             val segments = originals.flatMap { raw ->
                 val run = XmlUtils.unwrap(raw) as R

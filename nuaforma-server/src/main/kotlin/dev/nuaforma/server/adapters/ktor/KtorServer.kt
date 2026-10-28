@@ -132,6 +132,9 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
                 call.respondText(json.encode(mapOf("status" to "SUPPORTED", "providerId" to provider.metadata.id)), ContentType.Application.Json)
             } }
             post(ApiRoutes.DOCUMENTS) { guarded(call) { generate(call) } }
+            if (config.loggingMode == LoggingMode.DEVELOPMENT) {
+                post(ApiRoutes.TEMPLATE_DIAGNOSTIC) { guarded(call) { generate(call, true) } }
+            }
         }
     }
 
@@ -181,7 +184,7 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
         ))), ContentType.Application.Json, HttpStatusCode.fromValue(status))
     }
 
-    private suspend fun generate(call: ApplicationCall) {
+    private suspend fun generate(call: ApplicationCall, diagnostic: Boolean = false) {
         if (!call.request.contentType().match(ContentType.MultiPart.FormData)) throw ApiFailure(415, "UNSUPPORTED_MEDIA_TYPE", "Expected multipart/form-data")
         val directory = createPrivateDirectory()
         try {
@@ -238,13 +241,25 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
                             count += length
                         }
                     }
-                    registry.generate(GenerationRequest(input, request.requirements, request.data, resources), bounded, context, request.providerId)
+                    val generation = GenerationRequest(input, request.requirements, request.data, resources)
+                    if (diagnostic) {
+                        val requirements = GenerationRequirements(request.requirements.input,
+                            FormatRequest(DocumentFormat.PDF, mapOf("profile" to "standard")))
+                        val provider = registry.select(requirements, null, context).provider as? TemplateDiagnosticProvider
+                            ?: throw ApiFailure(422, "UNSUPPORTED_INPUT", "No template diagnostic PDF provider is available")
+                        provider.diagnoseTemplate(generation, bounded, context).also {
+                            if (it.output.format != DocumentFormat.PDF || it.output.options["profile"] != "standard")
+                                throw ApiFailure(500, "INVALID_PROVIDER_RESULT", "Diagnostic provider did not return standard PDF")
+                        }
+                    } else registry.generate(generation, bounded, context, request.providerId)
                 } }
             }
             val format = result.output.format.id
             val media = when (format) { "docx" -> ContentType.parse("application/vnd.openxmlformats-officedocument.wordprocessingml.document"); "pdf" -> ContentType.Application.Pdf; else -> ContentType.Application.OctetStream }
             // Only validated tokens, never uploaded filenames or user-supplied media types.
-            call.response.headers.append(HttpHeaders.ContentDisposition, "attachment; filename=\"${request.filename}.$format\"")
+            val filename = if (diagnostic) "template-diagnostic.pdf" else "${request.filename}.$format"
+            call.response.headers.append(HttpHeaders.ContentDisposition, "attachment; filename=\"$filename\"")
+            if (diagnostic) call.response.headers.append("NuaForma-Diagnostic-Artifact", "template-error")
             call.response.headers.append(HttpHeaders.CacheControl, "no-store")
             call.response.headers.append("X-Content-Type-Options", "nosniff")
             call.response.headers.append("NuaForma-Warning-Codes", result.warnings.map { it.code.id }.distinct().take(32).joinToString(","))

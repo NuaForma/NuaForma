@@ -293,7 +293,7 @@ async function bootstrap() {
   $('refresh').disabled = true; $('bootstrap-error').hidden = true;
   try {
     [contract, capabilities] = await Promise.all([getJson('/openapi.json'), getJson('/api/v1/capabilities')]);
-    routes = Object.fromEntries(['generateDocument', 'assessGeneration'].map(operation => [operation, locationFor(operation)]));
+    routes = Object.fromEntries(['generateDocument', 'assessGeneration', 'diagnoseTemplate'].map(operation => [operation, locationFor(operation)]));
     if (!routes.generateDocument || !routes.assessGeneration) throw Error('The running API does not describe generation and assessment operations.');
     const envelope = schema('GenerationEnvelope');
     $('filename').pattern = envelope.properties.filename.pattern;
@@ -362,9 +362,11 @@ async function send(generate) {
       {method: 'POST', body, headers: generate ? {} : {'Content-Type': 'application/json'}, signal: running.signal, credentials: 'same-origin'});
     const requestId = response.headers.get('X-Request-ID');
     if (!response.ok) {
-      const text = (await response.text()).slice(0, 128000); let details;
-      try { details = formatDiagnostics(JSON.parse(text).diagnostics); } catch { details = `HTTP ${response.status}`; }
-      throw Error(`${details}\nRequest ID: ${requestId || 'not available'}`);
+      const text = (await response.text()).slice(0, 128000); let details, diagnostics;
+      try { diagnostics = JSON.parse(text).diagnostics; details = formatDiagnostics(diagnostics); } catch { details = `HTTP ${response.status}`; }
+      showResult(`${details}\nRequest ID: ${requestId || 'not available'}`);
+      if (generate && routes.diagnoseTemplate && Array.isArray(diagnostics) && diagnostics.some(item => item.code === 'INVALID_TEMPLATE')) offerTemplateDiagnostic(body);
+      return;
     }
     if (!generate) { const assessment = await response.json(); showResult(`Requirements supported by ${assessment.providerId}.\nThis does not validate the template or reserve availability.\nRequest ID: ${requestId}`); return; }
     const bytes = await response.blob(); if (downloadUrl) URL.revokeObjectURL(downloadUrl); downloadUrl = URL.createObjectURL(bytes);
@@ -375,6 +377,34 @@ async function send(generate) {
     const warnings = response.headers.get('NuaForma-Warning-Codes'); if (warnings) $('result').append(create('p', `Warnings: ${warnings}`));
   } catch (error) { showResult(error.name === 'AbortError' ? 'Request cancelled. No output is available.' : error.message); }
   finally { running = null; $('cancel').hidden = true; updateRequest(); }
+}
+function offerTemplateDiagnostic(failedRequest) {
+  const button = create('button', 'Download diagnostic PDF'); button.type = 'button';
+  const status = create('p', 'Development only: creates a marked, literal copy of the failed template. Document generation remains unsuccessful.', 'hint');
+  $('result').append(create('br'), button, status);
+  button.addEventListener('click', async () => {
+    if (running) return;
+    button.disabled = true; running = new AbortController(); $('cancel').hidden = false; updateRequest();
+    status.textContent = 'Creating the diagnostic PDF from the original failed request…';
+    try {
+      const response = await fetch(routes.diagnoseTemplate, {method: 'POST', body: failedRequest, signal: running.signal, credentials: 'same-origin'});
+      const identity = response.headers.get('X-Request-ID') || 'not available';
+      if (!response.ok) {
+        let details = `HTTP ${response.status}`;
+        try { details = formatDiagnostics(JSON.parse((await response.text()).slice(0, 128000)).diagnostics); } catch { /* Retain bounded status fallback. */ }
+        throw Error(`Diagnostic PDF unavailable. The source layout or fonts may not be supported.\n${details}\nRequest ID: ${identity}`);
+      }
+      if (response.headers.get('NuaForma-Diagnostic-Artifact') !== 'template-error' || !response.headers.get('Content-Type')?.startsWith('application/pdf'))
+        throw Error('The server did not return a template diagnostic PDF.');
+      const bytes = await response.blob();
+      if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+      downloadUrl = URL.createObjectURL(bytes);
+      const link = create('a', 'Download diagnostic PDF'); link.href = downloadUrl; link.download = 'template-diagnostic.pdf';
+      status.textContent = `Diagnostic copy ready; generation remains unsuccessful. Request ID: ${identity}`;
+      status.append(create('br'), link); link.click();
+    } catch (error) { status.textContent = error.name === 'AbortError' ? 'Diagnostic request cancelled. Original parser details remain above.' : error.message; }
+    finally { running = null; button.disabled = false; $('cancel').hidden = true; updateRequest(); }
+  });
 }
 function formatDiagnostics(diagnostics) {
   return diagnostics.slice(0, 64).map(item => [

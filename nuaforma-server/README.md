@@ -1,5 +1,7 @@
 # REST service
 
+The selected alpha.4 release adds a development-only marked template PDF operation (#150). See [the diagnostic guide](../docs/template-diagnostic-pdf.md) for multipart input, production restrictions and failure behavior. Alpha.3 does not include it.
+
 <a id="pdfa-operator-policy-unreleased-issue-93-source"></a>
 
 ## PDF/A operator policy
