@@ -42,6 +42,8 @@ The source service and Playground use Java 25, embedded libraries use Java 17, a
 
 References: [Gradle Java compatibility](https://docs.gradle.org/current/userguide/compatibility.html), [Gradle toolchains](https://docs.gradle.org/current/userguide/toolchains.html), [Kotlin compiler options](https://kotlinlang.org/docs/compiler-reference.html), [Temurin release](https://github.com/adoptium/temurin25-binaries/releases/tag/jdk-25.0.4.1%2B1).
 
-## 0.3.0-alpha.2 patch review
+## 0.3.0-alpha.3 patch review
 
-On 2026-10-27, the official `eclipse-temurin:17-jre-noble` and `25-jre-noble` index annotations still identify 17.0.20.1+1 and 25.0.4.1+1. The release retains its existing immutable pins and matching sources. The unified candidate manifest presents the unchanged patch exception and open #51 runtime/font/XML findings for explicit acceptance in the one final release approval; alpha.1 approval is not inherited. No dependencies or JVM boundaries are changed by alpha.2.
+The 2026-10-28 review confirms that official `eclipse-temurin:17-jre-noble` and `25-jre-noble` annotations still identify 17.0.20.1+1 and 25.0.4.1+1 on both Linux AMD64 and ARM64. The moving indexes are `sha256:b3e1d0486f09293b2455aed02d396d4b6b5ea9b0e8c7c065c297cfef453b0116` and `sha256:ce8543ddd3070ccbeaac2106a74c9387ddeb8d47a1c43348345715c1ef245c7f`; these observations do not replace the deliberately retained immutable pins above. The official recipe remains revision `511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07`.
+
+Newer [17.0.21+9](https://github.com/adoptium/temurin17-binaries/releases/tag/jdk-17.0.21%2B9) and [25.0.5+8](https://github.com/adoptium/temurin25-binaries/releases/tag/jdk-25.0.5%2B8) Linux JRE binaries are available for both architectures. This evaluation alpha retains the already-qualified official container runtime and corresponding sources, with no JVM/dependency change or security-remediation claim. The unchanged patch exception and open #51 runtime/font/XML findings must be explicitly accepted for alpha.3 in the single final candidate approval; alpha.2 acceptance is not inherited. Remediation remains planned for 0.4.0.
