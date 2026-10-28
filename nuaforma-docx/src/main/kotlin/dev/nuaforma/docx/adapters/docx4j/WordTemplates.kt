@@ -14,7 +14,7 @@ import org.docx4j.openpackaging.parts.WordprocessingML.HeaderPart
 import org.docx4j.openpackaging.parts.WordprocessingML.FooterPart
 import org.docx4j.wml.*
 
-internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, private val context: GenerationContext, pipes: List<ContentPipe>, private val valuePipes: TemplatePipes) {
+internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, private val context: GenerationContext, pipes: List<ContentPipe>, private val valuePipes: TemplatePipes, private val fault: WordTemplateFault? = null) {
     private val root = ContentTemplates.open(data, pipes, valuePipes, options, context)
     private val watermark = options.watermark
     private val identities = WordIdentities(context)
@@ -24,7 +24,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
     private val paragraphs = java.util.IdentityHashMap<P, Int>()
     private var paragraphIndex = 0
 
-    fun apply(document: WordprocessingMLPackage): TextWatermark? {
+    fun apply(document: WordprocessingMLPackage, inspection: Boolean = false): TextWatermark? {
         watermark?.let { root.validateText(it.text) }
         images = WordImages(document, identities, context)
         val parts = listOf(document.mainDocumentPart to document.mainDocumentPart.jaxbElement.body) + document.parts.parts.values.mapNotNull {
@@ -45,6 +45,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
             owner = part
             process(value, root, true, 1)
         } }
+        if (inspection) return null
         parts.forEach { (part, value) -> DocxFailure.inPart(part.getPartName().name.removePrefix("/")) { owner = part; process(value, root, false, 1) } }
         return watermark?.let { requested ->
             val text = StringBuilder()
@@ -74,8 +75,13 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
     private fun process(raw: Any, session: ContentTemplateSession, validateOnly: Boolean, depth: Int, inlineHandled: Boolean = false) {
         val node = XmlUtils.unwrap(raw)
         val paragraph = (node as? P)?.let { paragraphs[it] }
-        if (paragraph != null) DocxFailure.inParagraph(paragraph) { processNode(raw, session, validateOnly, depth, inlineHandled) }
-        else processNode(raw, session, validateOnly, depth, inlineHandled)
+        try {
+            if (paragraph != null) DocxFailure.inParagraph(paragraph) { processNode(raw, session, validateOnly, depth, inlineHandled) }
+            else processNode(raw, session, validateOnly, depth, inlineHandled)
+        } catch (error: GenerationException) {
+            if (node is P) fault?.paragraph(node)
+            throw error
+        }
     }
 
     private fun indexParagraphs(raw: Any, depth: Int) {
@@ -95,8 +101,8 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
             ContentTemplates.containsContentMarker(WordRuns.source(listOf(node)), valuePipes, context)) {
             invalid(RejectionReason.CONTENT_PIPES_REQUIRE_ORDINARY_PARAGRAPH_OR_HYPERLINK_TEXT_NOT)
         }
-        if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context, valuePipes) { images.drawing(it, owner) }
-        if (node is R) WordRuns.mixed(node, session, validateOnly, context, valuePipes)
+        if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context, valuePipes, fault) { images.drawing(it, owner) }
+        if (node is R) WordRuns.mixed(node, session, validateOnly, context, valuePipes, fault)
         if (node is Body || node is Hdr || node is Ftr || node is Tc || node is Tbl || node is CTTxbxContent ||
             node is org.docx4j.vml.CTTextbox || modernTextBox(node)) blocks(children, session, validateOnly, depth)
         else children.toList().forEach { process(it, session, validateOnly, depth + 1,
@@ -193,6 +199,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
     }
 
     private fun blockFailure(raw: Any, marker: String?, error: GenerationException): GenerationException {
+        fault?.paragraph(markerParagraph(raw))
         if (context.logging.mode != LoggingMode.DEVELOPMENT || marker == null) return error
         val paragraph = markerParagraph(raw)?.let { paragraphs[it] }
         return GenerationException(error.diagnostics.map { diagnostic ->

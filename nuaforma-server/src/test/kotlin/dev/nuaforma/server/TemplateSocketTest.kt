@@ -47,7 +47,7 @@ class TemplateSocketTest {
                 val port = runBlocking { server.engine.resolvedConnectors().single().port }
                 HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build().use { client ->
                     val uri = URI("http://127.0.0.1:$port/api/v1/documents")
-                    fun send(marker: String): HttpResponse<ByteArray> {
+                    fun send(marker: String, path: String = "/api/v1/documents"): HttpResponse<ByteArray> {
                         val template = insert(source, marker)
                         val envelope = """{"input":{"format":"docx"},"output":{"format":"pdf","options":{"profile":"standard"}},"data":{"day":"2026-10-28","name":"Ada"}}"""
                         val body = ByteArrayOutputStream()
@@ -56,7 +56,7 @@ class TemplateSocketTest {
                             body.write(bytes); body.write("\r\n".toByteArray())
                         }
                         body.write("--SYNTAX144--\r\n".toByteArray())
-                        return client.send(HttpRequest.newBuilder(uri).timeout(Duration.ofSeconds(90))
+                        return client.send(HttpRequest.newBuilder(uri.resolve(path)).timeout(Duration.ofSeconds(90))
                             .header("Content-Type", "multipart/form-data; boundary=SYNTAX144")
                             .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray())).build(), HttpResponse.BodyHandlers.ofByteArray())
                     }
@@ -81,6 +81,29 @@ class TemplateSocketTest {
                     } else {
                         assertFalse(diagnostic.has("expression"))
                         assertTrue(captured.none { it.text.contains("trim(name,)") })
+                    }
+                    val marked = send("Prefix {broken", "/api/v1/diagnostics/template")
+                    if (mode == LoggingMode.DEVELOPMENT) {
+                        assertEquals(200, marked.statusCode(), if (marked.statusCode() == 200) "" else marked.body().decodeToString())
+                        assertEquals("template-error", marked.headers().firstValue("NuaForma-Diagnostic-Artifact").orElseThrow())
+                        assertEquals("no-store", marked.headers().firstValue("Cache-Control").orElseThrow())
+                        Loader.loadPDF(marked.body()).use { pdf ->
+                            val text = PDFTextStripper().getText(pdf)
+                            assertTrue(text.contains("[ERROR 1] {broken"), text)
+                            assertTrue(text.contains("TEMPLATE DIAGNOSTIC - ERROR 1"), text)
+                            assertTrue(text.contains("UNCLOSED_TEMPLATE_MARKER"), text)
+                            assertTrue(pdf.numberOfPages >= 2)
+                        }
+                        val valid = send("{name}", "/api/v1/diagnostics/template")
+                        assertEquals(422, valid.statusCode())
+                        assertTrue(valid.body().decodeToString().contains("TEMPLATE_DIAGNOSTIC_REQUIRES_PARSER_ERROR"))
+                        val interrupted = send("{broken</w:t><w:br/><w:t>}", "/api/v1/diagnostics/template")
+                        assertEquals(422, interrupted.statusCode())
+                        assertTrue(interrupted.body().decodeToString().contains("NATIVE_DOCX_PROFILE_UNSUPPORTED"))
+                        assertFalse(interrupted.headers().firstValue("Content-Type").orElse("").contains("application/pdf"))
+                    } else {
+                        assertEquals(404, marked.statusCode())
+                        assertFalse(marked.body().decodeToString().contains("{broken"))
                     }
                 }
             } finally { server.stop(1000, 5000) }

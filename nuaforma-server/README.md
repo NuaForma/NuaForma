@@ -1,5 +1,7 @@
 # REST service
 
+Unreleased #150 source adds a development-only marked template PDF operation. See [the diagnostic guide](../docs/template-diagnostic-pdf.md) for multipart input, production restrictions and failure behavior. Published alpha.3 does not include it.
+
 <a id="pdfa-operator-policy-unreleased-issue-93-source"></a>
 
 ## PDF/A operator policy

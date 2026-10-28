@@ -450,6 +450,8 @@ enum class RejectionReason(val message: String, private val advice: RejectionAdv
         RejectionAdvice.OPTIONS),
     WATERMARK_TEXT_MUST_CONTAIN_VALID_XML_CHARACTERS("Watermark text must contain valid XML characters",
         RejectionAdvice.OPTIONS),
+    TEMPLATE_DIAGNOSTICS_REQUIRE_DEVELOPMENT("Template diagnostic copies require explicit development mode", RejectionAdvice.OPTIONS),
+    TEMPLATE_DIAGNOSTIC_REQUIRES_PARSER_ERROR("No locatable template parser error was found; no diagnostic copy was created", RejectionAdvice.DATA),
     WATERMARK_TRAVERSAL_EXCEEDS_PROCESSING_LIMITS("Watermark traversal exceeds processing limits",
         RejectionAdvice.LIMITS);
 

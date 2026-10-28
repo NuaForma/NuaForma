@@ -6,7 +6,8 @@ import dev.nuaforma.template.TemplatePipes
 /** Registered DOCX/PDF provider backed solely by the shared in-process PDF engine. */
 class DocxPdfProvider private constructor(delegate: NativeDocxPdfProvider) :
     DocumentProvider by delegate, ProviderReadiness by delegate, FontCatalogProvider by delegate,
-    ConformancePolicyProvider by delegate, TemplatePipeProvider by delegate, ContentPipeProvider by delegate {
+    ConformancePolicyProvider by delegate, TemplatePipeProvider by delegate, ContentPipeProvider by delegate,
+    TemplateDiagnosticProvider by delegate {
     @JvmOverloads constructor(configuration: NativePdfConfiguration? = null) :
         this(NativeDocxPdfProvider(configuration ?: NativePdfConfiguration.configured()))
 

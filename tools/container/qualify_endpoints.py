@@ -68,7 +68,7 @@ def main():
             status, _, version = http(base, '/api/v1/version')
             version = json.loads(version)
             assert status == 200 and version['version'] == args.expected_version
-            assert version['contractVersion'] == '0.5'
+            assert version['contractVersion'] == '0.6'
         verify_bom(bom, args.architecture, args.application)
         (args.output / 'sbom.json').write_bytes(data)
         qualify_template_links(runtime, base, args.output)
