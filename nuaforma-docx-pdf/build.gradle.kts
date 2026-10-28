@@ -30,6 +30,7 @@ dependencies {
     implementation(project(":nuaforma-docx"))
     implementation(libs.pdfbox)
     api(project(":nuaforma-pdf"))
+    testImplementation(libs.image.comparison.kotlin)
 }
 
 tasks.test {

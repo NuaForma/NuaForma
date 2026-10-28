@@ -156,3 +156,40 @@ test('syntax excerpts show a literal expression and bounded error marker',()=>{
   assert.match(node('result').textContent,/Error position: 11/);
   assert.doesNotThrow(()=>api.formatDiagnostics([{code:'INVALID_TEMPLATE',message:'Bounded',expression:'x',expressionPosition:'999999999'}]));
 });
+
+test('diagnostic download reuses the failed upload and preserves the original error on success or unsupported rendering',async()=>{
+  for(const succeeds of [true,false]) {
+    const nodes=new Map();
+    const make=()=>({children:[],events:{},textContent:'',append(...children){this.children.push(...children);},
+      addEventListener(name,callback){this.events[name]=callback;},click(){this.clicked=true;}});
+    const node=id=>{if(!nodes.has(id))nodes.set(id,make());return nodes.get(id);};
+    node('result').textContent='Original parser error: {broken';
+    const failedUpload={originalFile:'snapshot-before-builder-edits'};
+    let sent;
+    const context=vm.createContext({document:{getElementById:node,createElement:make},AbortController,
+      URL:{createObjectURL:()=> 'blob:diagnostic',revokeObjectURL:()=>{}},
+      fetch:async(url,options)=>{sent={url,options};return {ok:succeeds,status:succeeds?200:422,
+        headers:{get:name=>({'X-Request-ID':'diagnostic-request','NuaForma-Diagnostic-Artifact':'template-error','Content-Type':'application/pdf'}[name])},
+        blob:async()=>({size:1024}),text:async()=>JSON.stringify({diagnostics:[{code:'UNSUPPORTED_INPUT',message:'Unsupported source drawing'}]})};},
+      JSON,Error,Set,Boolean,Number});
+    const source=fs.readFileSync(path.join(__dirname,'../../main/resources/playground/app.js'),'utf8');
+    vm.runInContext(source.slice(0,source.indexOf("$('builder').addEventListener")),context);
+    vm.runInContext('routes={diagnoseTemplate:"/api/v1/diagnostics/template"}; updateRequest=()=>true;',context);
+    const offer=vm.runInContext('offerTemplateDiagnostic',context);
+    offer(failedUpload);
+    const button=node('result').children.find(child=>child.type==='button');
+    await button.events.click();
+    assert.equal(sent.url,'/api/v1/diagnostics/template');
+    assert.equal(sent.options.body,failedUpload);
+    assert.equal(sent.options.credentials,'same-origin');
+    assert.equal(node('result').textContent,'Original parser error: {broken');
+    const status=node('result').children.at(-1);
+    assert.match(status.textContent,succeeds?/generation remains unsuccessful/:/Diagnostic PDF unavailable/);
+    if(succeeds) {
+      const link=status.children.find(child=>child.download==='template-diagnostic.pdf');
+      assert.equal(link.clicked,true);
+    } else assert.match(status.textContent,/Unsupported source drawing/);
+    assert.equal(button.disabled,false);
+    assert.equal(node('cancel').hidden,true);
+  }
+});

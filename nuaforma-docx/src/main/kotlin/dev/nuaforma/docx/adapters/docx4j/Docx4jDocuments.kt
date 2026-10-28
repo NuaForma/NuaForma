@@ -4,6 +4,7 @@ import dev.nuaforma.contracts.RejectionReason
 import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.contracts.GenerationException
+import dev.nuaforma.contracts.Diagnostic
 import dev.nuaforma.contracts.GenerationRequest
 import dev.nuaforma.contracts.ContentPipe
 import dev.nuaforma.contracts.TextWatermark
@@ -26,6 +27,25 @@ import javax.xml.stream.XMLInputFactory
 import javax.xml.stream.XMLStreamException
 
 internal object Docx4jDocuments {
+    fun diagnosticCopy(request: GenerationRequest, output: OutputStream, context: GenerationContext, pipes: List<ContentPipe>, valuePipes: TemplatePipes, family: String): Diagnostic {
+        if (context.logging.mode != dev.nuaforma.contracts.LoggingMode.DEVELOPMENT)
+            DocxFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, RejectionReason.TEMPLATE_DIAGNOSTICS_REQUIRE_DEVELOPMENT)
+        var result: Diagnostic? = null
+        open(request.template, context) { document ->
+            val fault = WordTemplateFault(context)
+            try {
+                WordTemplates(request.data, request.requirements.options, context, pipes, valuePipes, fault).apply(document, true)
+            } catch (error: GenerationException) {
+                val diagnostic = error.diagnostics.firstOrNull { it.code == DiagnosticCodes.INVALID_TEMPLATE && it.location?.startsWith("template:") == true }
+                    ?: throw error
+                fault.annotate(document, diagnostic, family)
+                result = diagnostic
+            }
+            if (result == null) DocxFailure.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.TEMPLATE_DIAGNOSTIC_REQUIRES_PARSER_ERROR)
+        }.use { it.writeTo(output) }
+        return requireNotNull(result)
+    }
+
     fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext, pipes: List<ContentPipe> = emptyList(), valuePipes: TemplatePipes = TemplatePipes.discover(), deploymentFonts: DeploymentFonts = DeploymentFonts.configured(), detachWatermark: Boolean = false): Pair<TextWatermark?, String?> {
         var decoration: Pair<TextWatermark?, String?> = null to null
         open(request.template, context) {

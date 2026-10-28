@@ -15,9 +15,9 @@
 
 NuaForma is an open-source document-generation engine. Combine a Word template, structured data and generation options to produce DOCX or PDF documents. Embed the Java-17-compatible libraries in your application, or run the REST service in your own infrastructure.
 
-> **Native PDF engine:** version `0.3.0-alpha.3` converts DOCX with NuaForma's own shared PDF engine. LibreOffice, Microsoft Word and a cloud conversion service are not runtime requirements. Consult the [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.3.0-alpha.3) for matching published libraries, images and source materials. APIs remain an evaluation draft.
+> **Native PDF engine:** selected release `0.3.0-alpha.4` converts DOCX with NuaForma's own shared PDF engine. LibreOffice, Microsoft Word and a cloud conversion service are not runtime requirements. Consult the [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.3.0-alpha.4) for matching published libraries, images and source materials once publication completes. APIs remain an evaluation draft.
 
-The alpha.3 update accepts mixed straight/single/typographic expression quotes and provides actionable development syntax diagnostics with expression excerpts, error positions and document context. Production omits excerpts. The website adds a date/time reference and independently tested Maven/Gradle pipe-starter downloads. Passive attached-template support from alpha.2 remains available. See the [template reference](nuaforma-template/README.md), [logging guide](docs/logging.md) and [DOCX guide](nuaforma-docx/README.md).
+The alpha.4 update adds a development-only marked template diagnostic PDF: locate the first parser failure in a literal Word-template copy and read the explanation beside it. The Playground keeps the original error and offers the separate download; production does not register the operation. Mixed expression quotes, detailed syntax excerpts, passive attached-template handling and the native PDF profile remain available. See the [diagnostic guide](docs/template-diagnostic-pdf.md), [template reference](nuaforma-template/README.md) and [Playground guide](nuaforma-playground/README.md).
 
 ## What it supports
 

@@ -19,7 +19,7 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
     pipes: List<ContentPipe> = emptyList(),
     private val valuePipes: TemplatePipes = TemplatePipes.discover(),
 ) :
-    DocumentProvider, ProviderReadiness, FontCatalogProvider, ConformancePolicyProvider, TemplatePipeProvider, ContentPipeProvider {
+    DocumentProvider, ProviderReadiness, FontCatalogProvider, ConformancePolicyProvider, TemplatePipeProvider, ContentPipeProvider, TemplateDiagnosticProvider {
     private val deploymentFonts = DeploymentFonts.configured()
     private val pipes = pipes.map { implementation ->
         val definition = implementation.definition
@@ -99,7 +99,20 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
         } catch (error: GenerationException) { CapabilityAssessment(AssessmentStatus.UNSUPPORTED, error.diagnostics) }
     }
 
-    override fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext): GenerationResult {
+    override fun diagnoseTemplate(request: GenerationRequest, output: OutputStream, context: GenerationContext): GenerationResult {
+        if (context.logging.mode != LoggingMode.DEVELOPMENT) fail(DiagnosticCodes.UNSUPPORTED_OPTION, RejectionReason.TEMPLATE_DIAGNOSTICS_REQUIRE_DEVELOPMENT)
+        val declared = capabilities().outputOptions[request.requirements.output.format].orEmpty().map { it.name }.toSet()
+        if (request.requirements.output.options.keys.any { it !in declared } || request.requirements.options.extensions.isNotEmpty())
+            fail(DiagnosticCodes.UNSUPPORTED_OPTION, RejectionReason.UNRECOGNIZED_PDF_OPTIONS)
+        val options = request.requirements.output.options.filterKeys { it in setOf("fonts", "fontMode") } + ("profile" to "standard")
+        val requirements = GenerationRequirements(request.requirements.input, FormatRequest(DocumentFormat.PDF, options),
+            GenerationOptions(locale = request.requirements.options.locale, timeZone = request.requirements.options.timeZone))
+        return render(GenerationRequest(request.template, requirements, request.data, request.resources), output, context, true)
+    }
+
+    override fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext): GenerationResult = render(request, output, context, false)
+
+    private fun render(request: GenerationRequest, output: OutputStream, context: GenerationContext, diagnostic: Boolean): GenerationResult {
         context.checkActive()
         val assessment = assess(request.requirements, context)
         if (assessment.status != AssessmentStatus.SUPPORTED) throw GenerationException(assessment.diagnostics)
@@ -115,7 +128,12 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
                 FormatRequest(DocumentFormat.DOCX), request.requirements.options), request.data)
             val applicable = pipes.filter { pipe -> pipe.definition.support.any { support -> support.input == DocumentFormat.DOCX && support.output == DocumentFormat.PDF &&
                 (support.profiles.isEmpty() || options.profile.id in support.profiles) } }
-            val prepared = DocxProvider(deploymentFonts, applicable, valuePipes).generateForConversion(intermediate, filled, context)
+            val processor = DocxProvider(deploymentFonts, applicable, valuePipes)
+            val prepared = if (diagnostic) {
+                val family = fonts.firstOrNull { it.face == "regular" }?.family ?: fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE)
+                processor.diagnosticCopy(intermediate, filled, context, family)
+                null
+            } else processor.generateForConversion(intermediate, filled, context)
             val intermediateSize = filled.size()
             fun fontReference(family: String, bold: Boolean, italic: Boolean): String {
                 val face = when { bold && italic -> "boldItalic"; bold -> "bold"; italic -> "italic"; else -> "regular" }
@@ -129,7 +147,7 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
             }
             val reader = NativeDocxReader(context, ::fontReference)
             val document = reader.read(filled.toByteArray())
-            val watermark = prepared.watermark?.let { resolved ->
+            val watermark = prepared?.watermark?.let { resolved ->
                 val text = resolved.text.replace("\r\n", " ").replace('\r', ' ').replace('\n', ' ').replace('\t', ' ')
                 val rgb = resolved.color.removePrefix("#").toInt(16)
                 PdfWatermark(text, fontReference(requireNotNull(prepared.watermarkFontFamily), false, false),

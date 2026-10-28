@@ -144,6 +144,18 @@ internal object OpenApiContract {
                 "requestBody" to mapOf("required" to true, "content" to mapOf("multipart/form-data" to mapOf("schema" to multipart, "encoding" to mapOf("request" to mapOf("contentType" to "application/json"))))),
                 "responses" to (errors() + mapOf("200" to download)))),
         )
+        paths[ApiRoutes.TEMPLATE_DIAGNOSTIC] = mapOf("post" to mapOf(
+            "operationId" to "diagnoseTemplate", "summary" to "Download a marked template diagnostic PDF in development mode",
+            "description" to "Available only with trusted startup development mode; production returns 404. Re-upload the failed request and original template/resources. Marks the first locatable parser error in a literal private template copy and appends an explanation. This is a diagnostic artifact, not successful document generation. Unsupported source layout or missing fonts can prevent rendering; retain the original JSON diagnostics. No server-side artifact cache or second template evaluation. Output is validated standard PDF, independent of the original output profile.",
+            "requestBody" to mapOf("required" to true, "content" to mapOf("multipart/form-data" to mapOf("schema" to multipart, "encoding" to mapOf("request" to mapOf("contentType" to "application/json"))))),
+            "responses" to (errors() + mapOf("200" to mapOf(
+                "description" to "Separate diagnostic copy; original generation remains unsuccessful. Validated standard PDF with literal template content and first-error explanation.",
+                "content" to content(mapOf("type" to "string", "format" to "binary"), "application/pdf"),
+                "headers" to mapOf("NuaForma-Diagnostic-Artifact" to mapOf("schema" to string(), "description" to "template-error"),
+                    "Content-Disposition" to mapOf("schema" to string(), "description" to "attachment; filename=template-diagnostic.pdf"),
+                    "Cache-Control" to mapOf("schema" to string(), "description" to "no-store"),
+                    "X-Content-Type-Options" to mapOf("schema" to string(), "description" to "nosniff"))),
+                "404" to mapOf("description" to "Development diagnostic route is not registered in production")))))
         listOf(ApiRoutes.OPENAPI_JSON to "application/json", ApiRoutes.OPENAPI_YAML to "application/yaml").forEach { (path, media) ->
             val schema = if (path == ApiRoutes.OPENAPI_JSON) jsonObject() else string()
             paths[path] = mapOf("get" to mapOf("operationId" to if (path == ApiRoutes.OPENAPI_JSON) "downloadOpenApiJson" else "downloadOpenApiYaml", "summary" to "Download this authoritative API contract", "responses" to (errors() + mapOf("200" to mapOf("description" to "Equivalent OpenAPI 3.1.1 document serialized as $media", "content" to content(schema, media),
