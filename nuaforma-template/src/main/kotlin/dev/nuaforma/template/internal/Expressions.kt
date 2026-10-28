@@ -2,6 +2,7 @@ package dev.nuaforma.template.internal
 
 import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.contracts.GenerationContext
+import dev.nuaforma.contracts.RejectionReason
 import java.math.BigDecimal
 
 internal object Missing
@@ -175,7 +176,7 @@ internal class ExpressionParser(private val text: String, private val offset: In
                 else -> {
                     if (take("(")) {
                         val operation = StringOperation.entries.firstOrNull { it.functionName == start.value }
-                            ?: Safety.invalid(offset + start.position)
+                            ?: Safety.syntax(offset + start.position, RejectionReason.UNSUPPORTED_EXPRESSION_FUNCTION)
                         return nested {
                             val arguments = mutableListOf<Expression>()
                             if (token.kind != ")") {
@@ -186,7 +187,7 @@ internal class ExpressionParser(private val text: String, private val offset: In
                                 }
                             }
                             expect(")")
-                            if (arguments.size !in operation.minimumArguments..operation.maximumArguments) invalid()
+                            if (arguments.size !in operation.minimumArguments..operation.maximumArguments) Safety.syntax(offset + start.position, RejectionReason.INVALID_EXPRESSION_ARGUMENT_COUNT)
                             bounded(Expression.Call(operation, arguments.toList()))
                         }
                     }
@@ -209,7 +210,7 @@ internal class ExpressionParser(private val text: String, private val offset: In
                     bounded(Expression.Path(start.value, keys.toList()))
                 }
             }
-            else -> Safety.invalid(offset + start.position)
+            else -> Safety.syntax(offset + start.position, RejectionReason.UNEXPECTED_EXPRESSION_TOKEN)
         }
     }
 
@@ -228,14 +229,14 @@ internal class ExpressionParser(private val text: String, private val offset: In
         return try { action() } finally { nesting-- }
     }
     private fun take(kind: String): Boolean = if (token.kind == kind) { index++; true } else false
-    private fun expect(kind: String) { if (!take(kind)) invalid() }
-    private fun invalid(): Nothing = Safety.invalid(offset + token.position)
+    private fun expect(kind: String) { if (!take(kind)) Safety.syntax(offset + token.position, RejectionReason.EXPECTED_EXPRESSION_DELIMITER) }
+    private fun invalid(): Nothing = Safety.syntax(offset + token.position, RejectionReason.UNEXPECTED_EXPRESSION_TOKEN)
 
     private fun tokenize(): List<Token> {
         if (text.length > 4096) Safety.limit()
         val result = mutableListOf<Token>()
         var cursor = 0
-        fun invalid(): Nothing = Safety.invalid(offset + cursor)
+        fun invalid(): Nothing = Safety.syntax(offset + cursor, RejectionReason.UNEXPECTED_EXPRESSION_TOKEN)
         while (cursor < text.length) {
             context.checkActive()
             if (text[cursor].isWhitespace()) { cursor++; continue }
@@ -243,24 +244,26 @@ internal class ExpressionParser(private val text: String, private val offset: In
             val start = cursor
             val character = text[cursor]
             when {
-                character == '"' -> {
+                QuotedText.isQuote(character) -> {
+                    val end = QuotedText.end(text, cursor)
+                    if (end < 0) Safety.syntax(offset + start, RejectionReason.UNCLOSED_EXPRESSION_STRING)
                     cursor++
                     val value = StringBuilder()
                     var closed = false
-                    while (cursor < text.length) {
+                    while (cursor < end) {
                         val next = text[cursor++]
-                        if (next == '"') { closed = true; break }
+                        if (cursor == end) { closed = true; break }
                         if (next == '\\') {
-                            if (cursor >= text.length) invalid()
+                            if (cursor >= end - 1) Safety.syntax(offset + cursor - 1, RejectionReason.INVALID_EXPRESSION_ESCAPE)
                             value.append(when (val escape = text[cursor++]) {
-                                '"', '\\', '/' -> escape
+                                '"', '\'', '\\', '/' -> escape
                                 'b' -> '\b'; 'f' -> '\u000c'; 'n' -> '\n'; 'r' -> '\r'; 't' -> '\t'
                                 'u' -> {
-                                    if (cursor + 4 > text.length) invalid()
-                                    val code = text.substring(cursor, cursor + 4).toIntOrNull(16) ?: invalid()
+                                    if (cursor + 4 > end - 1) Safety.syntax(offset + cursor - 2, RejectionReason.INVALID_EXPRESSION_ESCAPE)
+                                    val code = text.substring(cursor, cursor + 4).toIntOrNull(16) ?: Safety.syntax(offset + cursor, RejectionReason.INVALID_EXPRESSION_ESCAPE)
                                     cursor += 4; code.toChar()
                                 }
-                                else -> invalid()
+                                else -> Safety.syntax(offset + cursor - 1, RejectionReason.INVALID_EXPRESSION_ESCAPE)
                             })
                         } else { if (next.code < 32) invalid(); value.append(next) }
                     }

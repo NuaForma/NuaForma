@@ -38,7 +38,7 @@ You {#if active}have {#if count >= 2}multiple orders{#else}one order{/if}{#else}
 
 With `active = true` and `count = 2`, this produces `You have multiple orders.` without introducing a newline. To remove a block's line break, include that line break inside the condition. Unclosed or mismatched markers and unsupported directives fail at compilation, even in a branch that would not be selected. Unescaped unmatched braces are invalid template syntax.
 
-Inserted data is always literal: a value containing `{secret}` or `{#if true}` is never parsed again. It does not need template-brace escaping. String literals inside markers are double-quoted, with JSON escapes, and may contain braces. Built-in formatters and installed value pipes can form the explicit chains described below. Only the built-in string functions below are callable as expressions; arbitrary application methods and user-defined functions are not supported.
+Inserted data is always literal: a value containing `{secret}` or `{#if true}` is never parsed again. It does not need template-brace escaping. String literals inside markers accept straight double/single quotes and typographic forms (`‘ ’ ‚ ‛ “ ” „ ‟ « » ‹ ›`), including mixed opening/closing forms. A quote closes a string when followed by expression punctuation or the end of the expression, ignoring intervening whitespace. Quotes inside words and date-pattern literal text remain intact. When an interior quote would otherwise close the string, escape it explicitly; JSON escapes and `\'` are supported in expression string literals. The parser never normalizes ordinary document text or inserted values. This tolerance is source behavior prepared after `0.3.0-alpha.2`; published alpha.2 requires straight double quotes. Built-in formatters and installed value pipes can form the explicit chains described below. Only the built-in string functions below are callable as expressions; arbitrary application methods and user-defined functions are not supported.
 
 ## Paths and scopes
 
@@ -112,7 +112,43 @@ Only these five built-ins are callable. Unknown functions, incorrect argument co
 
 `| number("pattern")` requires a number or null. It uses the explicitly supplied `GenerationOptions.locale` (default `Locale.ROOT`) and half-even rounding. Patterns are bounded to 64 characters and restricted to DecimalFormat's numeric symbols `0 # . , % ; E + -`; invalid patterns fail at compilation. For example, `1.005` with `"0.00"` yields `1.00`. Plain numeric insertion is locale-independent.
 
-`| date("pattern")` requires a string or null. Input is a strict ISO local date (`2026-01-01`) or an ISO timestamp with an explicit offset (`2026-01-01T00:30:00Z`), bounded to 128 characters. A local date remains a date; timestamps are converted to `GenerationOptions.timeZone` (default UTC) before formatting. Patterns use Java 17 DateTimeFormatter syntax, are bounded to 64 characters and use the explicit locale. No implicit local time zone, host locale or guessed input format is used. Invalid dates, offset-free timestamps or fields unavailable on a local date fail. Prefer `uuuu` for calendar years; pattern literals may use single quotes inside the double-quoted pattern. Backslash/double-quote escapes in formatter patterns are not part of this initial grammar.
+`| date("pattern")` requires a string or null. Input is a strict ISO local date (`2026-01-01`) or an ISO timestamp with an explicit offset (`2026-01-01T00:30:00Z`), bounded to 128 characters. A local date remains a date; timestamps are converted to `GenerationOptions.timeZone` (default UTC) before formatting. Patterns use Java 17 DateTimeFormatter syntax, are bounded to 64 characters and use the explicit locale (default `Locale.ROOT`). No implicit local time zone, host locale or guessed input format is used. Invalid dates, offset-free timestamps or fields unavailable on a local date fail. Formatter patterns accept the same mixed outer quotes as other strings. Interior quote shapes are normalized to the date formatter's single-quote syntax, so `date(“dd MMMM yyyy ‘om’ HH:mm')` retains literal `om`. Backslash escapes in formatter patterns remain unsupported.
+
+### Date and time pattern reference
+
+Patterns are case-sensitive. `MM` is a month; `mm` is minutes. Names and abbreviations depend on the explicit locale.
+
+| Pattern | Meaning | Example |
+| --- | --- | --- |
+| `d` / `dd` | Day of month, without / with padding | `8` / `08` |
+| `M` / `MM` | Month number, without / with padding | `3` / `03` |
+| `MMM` / `MMMM` | Short / full month name | `Mar` / `March` in English |
+| `EEE` / `EEEE` | Short / full weekday name | `Wed` / `Wednesday` in English |
+| `yyyy` / `uuuu` | Year of era / continuous year | `2026` / `2026` |
+| `yy` | Last two digits of year | `26` |
+| `HH` / `hh` / `a` | 24-hour clock / 12-hour clock / AM-PM | `14` / `02` / `PM` |
+| `mm` / `ss` / `SSS` | Minutes / seconds / three fractional-second digits | `05` / `09` / `123` |
+| `XXX` | Offset, or `Z` for UTC | `+01:00` |
+| `VV` / `z` | Zone identifier / short name | `Europe/Amsterdam` / `CET` |
+| `D` / `Q` | Day of year / quarter number | `301` / `4` |
+| `w` / `YYYY` | Locale-dependent week number / week-based year | Can differ near New Year |
+
+`yyyy` is supported and produces the same result as `uuuu` for modern business dates. `uuuu` also represents year zero and negative years; the input profile remains the ISO forms described above. Prefer it for precise calendar-year semantics, not because `yyyy` is invalid. Avoid uppercase `YYYY` for ordinary calendar dates. See the [complete Java 17 pattern reference](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/time/format/DateTimeFormatter.html#patterns).
+
+```text
+{issuedOn | date("dd-MM-yyyy")}
+{issuedOn | date("EEEE d MMMM uuuu")}
+{createdAt | date("dd-MM-uuuu 'om' HH:mm")}
+{createdAt | date("uuuu-MM-dd'T'HH:mm:ssXXX")}
+```
+
+With `nl-NL`, the second pattern renders `2026-10-28` as `woensdag 28 oktober 2026`. Timestamp conversion includes daylight-saving rules and can move the calendar date; date-only input cannot supply clock/zone fields. Two consecutive single quotes inside a date pattern produce a literal apostrophe. Optional pattern sections and other Java patterns are available when their required fields exist on the supplied value.
+
+### Syntax error diagnostics
+
+For complete Maven/Gradle extension builds and packaged-JAR discovery tests, see the [Java 17 pipe starters](../examples/pipe-starters/README.md). They use published `0.3.0-alpha.2` and cover basic prefix, uppercase and object-member selection without requiring the unreleased quote/diagnostic additions.
+
+Source after `0.3.0-alpha.2` adds fixed syntax reasons and bounded expression context. Trusted `LoggingMode.DEVELOPMENT` captures a maximum 256-character excerpt, its starting offset and the error position, including end-of-input. Production does not attach template excerpts. For embedded use inspect `Diagnostic.templateContext`; HTTP and Playground presentation follow the [logging guide](../docs/logging.md). A `template:n` location remains a zero-based UTF-16 offset within the adapter's local text fragment. It is not a Word page or document-wide position. Known secret field expressions are redacted; other business text can be sensitive. Unclosed quotes, missing delimiters, unsupported functions/pipes, argument counts and invalid patterns have distinct fixed reasons.
 
 Null formatting yields empty text; missing formatting fails unless the expression supplies a fallback. The two formatters are separate from the built-in string functions; neither exposes general Java methods or user-installed callbacks.
 

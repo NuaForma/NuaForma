@@ -48,6 +48,38 @@ class NativeDocxPdfProviderTest {
     private fun render(provider: NativeDocxPdfProvider, source: ByteArray, data: Map<String, Any?> = emptyMap(), profile: String = "standard"): ByteArray =
         ByteArrayOutputStream().also { provider.generate(GenerationRequest(source.inputStream(), requirements(profile), data), it, GenerationContext()) }.toByteArray()
 
+    @Test fun `mixed quotation date expressions retain literal reference text and page pixels`() {
+        val provider = NativeDocxPdfProvider(NativePdfConfiguration(fonts(), validator()))
+        val fixture = resource("/own-engine/source.docx")
+        fun document(text: String) = repack(fixture) { name, bytes ->
+            if (name != "word/document.xml") bytes else bytes.decodeToString().replace("<w:body>",
+                "<w:body><w:p><w:r><w:rPr><w:rFonts w:ascii=\"Liberation Sans\" w:hAnsi=\"Liberation Sans\"/></w:rPr><w:t>$text</w:t></w:r></w:p>").toByteArray()
+        }
+        Loader.loadPDF(render(provider, document("28-10-2026"))).use { expected ->
+            assertTrue(PDFTextStripper().getText(expected).contains("28-10-2026"))
+            val wideName = "longDateField".repeat(20)
+            for (expression in listOf("{day | date(\"dd-MM-yyyy\")}", "{day | date('dd-MM-yyyy')}",
+                "{day | date(“dd-MM-yyyy”)}", "{day | date(‘dd-MM-yyyy\")}", "{$wideName | date(“dd-MM-yyyy”)}")) {
+                Loader.loadPDF(render(provider, document(expression), mapOf("day" to "2026-10-28", wideName to "2026-10-28"))).use { actual ->
+                    assertEquals(expected.numberOfPages, actual.numberOfPages)
+                    assertEquals(PDFTextStripper().getText(expected), PDFTextStripper().getText(actual))
+                    for (page in 0 until expected.numberOfPages) {
+                        val before = PDFRenderer(expected).renderImageWithDPI(page, 96f, ImageType.RGB)
+                        val after = PDFRenderer(actual).renderImageWithDPI(page, 96f, ImageType.RGB)
+                        assertEquals(before.width, after.width); assertEquals(before.height, after.height)
+                        assertArrayEquals(before.getRGB(0, 0, before.width, before.height, null, 0, before.width),
+                            after.getRGB(0, 0, after.width, after.height, null, 0, after.width), expression)
+                        if (expression.startsWith("{day | date(‘")) {
+                            val directory = Files.createDirectories(Path.of("build/144-quotation-reference"))
+                            ImageIO.write(before, "png", directory.resolve("literal-${page + 1}.png").toFile())
+                            ImageIO.write(after, "png", directory.resolve("expression-${page + 1}.png").toFile())
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     @Test fun `passive template references retain all text embedded fonts and pixels on branded and multipage documents`() {
         val provider = NativeDocxPdfProvider(NativePdfConfiguration(fonts(), validator()))
         for (fixture in listOf("/own-engine/source.docx", "/own-engine-report/source.docx")) {

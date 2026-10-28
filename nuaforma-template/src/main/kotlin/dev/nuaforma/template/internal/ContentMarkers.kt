@@ -8,18 +8,19 @@ internal object ContentMarkers {
         context.checkActive()
         var index = 0
         var marker = false
-        var quoted = false
-        var escaped = false
         while (index < source.length) {
             if (index % 1024 == 0) context.checkActive()
             val character = source[index]
             if (!marker && (source.startsWith("{{", index) || source.startsWith("}}", index))) { index += 2; continue }
             if (!marker) { if (character == '{') marker = true; index++; continue }
-            if (escaped) { escaped = false; index++; continue }
-            if (quoted && character == '\\') { escaped = true; index++; continue }
-            if (character == '"') quoted = !quoted
-            if (!quoted && character == '}') marker = false
-            if (!quoted && character == '|' && source.getOrNull(index - 1) != '|' && source.getOrNull(index + 1) != '|') {
+            if (QuotedText.isQuote(character)) {
+                val end = QuotedText.end(source, index)
+                if (end < 0) return false
+                index = end
+                continue
+            }
+            if (character == '}') marker = false
+            if (character == '|' && source.getOrNull(index - 1) != '|' && source.getOrNull(index + 1) != '|') {
                 var cursor = index + 1
                 while (cursor < source.length && source[cursor].isWhitespace()) cursor++
                 val start = cursor

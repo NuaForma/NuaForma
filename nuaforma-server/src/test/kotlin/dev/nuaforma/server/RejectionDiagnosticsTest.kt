@@ -10,6 +10,40 @@ import org.junit.jupiter.api.Test
 
 class RejectionDiagnosticsTest {
     @Test
+    fun `expression excerpts and document context are development only bounded and secret aware`() {
+        val context = TemplateErrorContext("{trim(name,)}", 11, 6)
+        val diagnostic = Diagnostic(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.UNEXPECTED_EXPRESSION_TOKEN,
+            location = "template:17", part = "word/document.xml").withTemplateContext(context).withDocumentLocation("paragraph:4")
+        for (mode in LoggingMode.entries) {
+            val events = mutableListOf<GenerationLogEvent>()
+            val response = ApiErrors.diagnostics(listOf(diagnostic), mode).single()
+            ApiErrors.logRejections(GenerationLogging(mode, "syntax-example", events::add), listOf(diagnostic))
+            if (mode == LoggingMode.DEVELOPMENT) {
+                assertEquals("{trim(name,)}", response["expression"])
+                assertEquals("11", response["expressionPosition"])
+                assertEquals("paragraph:4", response["documentLocation"])
+                assertTrue(events.any { it.development && it.text.contains("trim(name,)") })
+                val schema = OpenApiSchemaChecks(ObjectMapper().readTree(ApiDocumentation().jsonText))
+                assertTrue(schema.matches("Diagnostic", ObjectMapper().valueToTree<JsonNode>(response)))
+            } else {
+                assertFalse(response.containsKey("expression"))
+                assertFalse(response.containsKey("documentLocation"))
+                assertFalse(events.joinToString { it.text }.contains("trim(name,)"))
+            }
+            assertTrue(events.any { it.code == "GENERATION_REJECTED" && it.text.contains("UNEXPECTED_EXPRESSION_TOKEN") })
+        }
+        val secret = diagnostic.withTemplateContext(TemplateErrorContext("{password ?? \"PRIVATE_VALUE\" +}", 27))
+        val events = mutableListOf<GenerationLogEvent>()
+        val response = ApiErrors.diagnostics(listOf(secret), LoggingMode.DEVELOPMENT).single()
+        ApiErrors.logRejections(GenerationLogging(LoggingMode.DEVELOPMENT, "redacted", events::add), listOf(secret))
+        assertEquals("[redacted expression]", response["expression"])
+        assertFalse(response.containsKey("expressionPosition"))
+        assertFalse(events.joinToString { it.text }.contains("PRIVATE_VALUE"))
+        val freeText = Diagnostic(DiagnosticCodes.INVALID_TEMPLATE, "Untrusted extension").withTemplateContext(context)
+        assertFalse(ApiErrors.diagnostics(listOf(freeText), LoggingMode.DEVELOPMENT).single().containsKey("expression"))
+    }
+
+    @Test
     fun `free extension text and locations never become explanations`() {
         val hostile = "Bearer PRIVATE_TOKEN\n</script> /srv/private/server.key".repeat(10000)
         val diagnostic = Diagnostic(DiagnosticCodes.INVALID_TEMPLATE, hostile, location = hostile)

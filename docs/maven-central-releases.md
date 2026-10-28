@@ -42,7 +42,7 @@ Verify the configured signing identity and every exact artifact signature for ea
 
 ## Before each new publication
 
-The runtime contract is `0.4`. Upload/publish workflows require server and Playground approval records tied to the same signed source/version. The server record must approve the library audit and bind every POM/main/source/documentation artifact for all six modules through `libraryHashes`. Publication requires a validated deployment and checks all staged bytes before one publish request. If the maintainer has already published in the Portal, inspect and verify public hashes instead of submitting another request.
+The current source runtime contract is `0.5` (template syntax context); published alpha.2 remains unchanged. Upload/publish workflows require server and Playground approval records tied to the same signed source/version. The server record must approve the library audit and bind every POM/main/source/documentation artifact for all six modules through `libraryHashes`. Publication requires a validated deployment and checks all staged bytes before one publish request. If the maintainer has already published in the Portal, inspect and verify public hashes instead of submitting another request.
 
 1. Use the reviewed, signed source on `main`; run the protected preparation job with the actual signing secret and retain accepted review records. Independent local consumers and disposable-key signing QA do not replace this actual-key check.
 2. Recheck **all Markdown files** against the exact candidate: implemented features, planned work, options/examples, limitations, selected coordinates and download instructions must match what is being released.
