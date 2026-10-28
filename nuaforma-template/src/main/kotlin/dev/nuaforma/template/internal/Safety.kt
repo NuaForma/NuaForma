@@ -6,6 +6,8 @@ import dev.nuaforma.contracts.DiagnosticCode
 import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.contracts.GenerationException
+import dev.nuaforma.contracts.LoggingMode
+import dev.nuaforma.contracts.TemplateErrorContext
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.util.IdentityHashMap
@@ -19,6 +21,19 @@ internal object Safety {
         throw GenerationException(listOf(Diagnostic(code, reason, location = offset?.let { "template:$it" })))
 
     fun invalid(offset: Int): Nothing = fail(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.INVALID_TEMPLATE_SYNTAX_OR_UNSUPPORTED_OPERATION, offset)
+    fun syntax(offset: Int, reason: RejectionReason): Nothing = fail(DiagnosticCodes.INVALID_TEMPLATE, reason, offset)
+
+    fun enrich(error: GenerationException, source: String, context: GenerationContext, sourceOffset: Int = 0): GenerationException {
+        if (context.logging.mode != LoggingMode.DEVELOPMENT) return error
+        return GenerationException(error.diagnostics.map { diagnostic ->
+            val offset = diagnostic.location?.removePrefix("template:")?.toIntOrNull()
+            if (diagnostic.code != DiagnosticCodes.INVALID_TEMPLATE || diagnostic.templateContext != null || offset == null) diagnostic
+            else diagnostic.withTemplateContext(TemplateErrorContext(source, offset - sourceOffset, sourceOffset))
+        })
+    }
+
+    fun <T> inSource(source: String, context: GenerationContext, action: () -> T): T = try { action() }
+        catch (error: GenerationException) { throw enrich(error, source, context) }
     fun limit(): Nothing = fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.TEMPLATE_PROCESSING_BUDGET_WAS_EXCEEDED)
 
     fun utf8Length(value: String, context: GenerationContext, code: DiagnosticCode): Long {

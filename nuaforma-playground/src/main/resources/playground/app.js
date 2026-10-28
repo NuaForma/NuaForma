@@ -379,7 +379,13 @@ async function send(generate) {
 function formatDiagnostics(diagnostics) {
   return diagnostics.slice(0, 64).map(item => [
     `${item.code}: ${item.message}`, item.part && `Part: ${item.part}`, item.construct && `Construct: ${item.construct}`,
-    item.location && `Location: ${item.location}`, item.remediation && `Try: ${item.remediation}`
+    item.documentLocation && `Document location: ${item.documentLocation}`,
+    item.location && `Location: ${item.location}`,
+    item.expression && `Expression${Number(item.expressionStart) > 0 ? ' (excerpt)' : ''}:\n${item.expression}`,
+    item.expression && /^\d{1,3}$/.test(item.expressionPosition || '') && Number(item.expressionPosition) <= 256
+      && `${' '.repeat(Number(item.expressionPosition))}^`,
+    item.expressionPosition && `Error position: ${Number(item.expressionStart || 0) + Number(item.expressionPosition)} (zero-based, within the expression/marker)`,
+    item.remediation && `Try: ${item.remediation}`
   ].filter(Boolean).join('\n')).join('\n\n');
 }
 function showResult(message) { $('result').textContent = message; $('result').hidden = false; }

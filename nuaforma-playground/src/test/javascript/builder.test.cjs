@@ -144,3 +144,15 @@ test('rejection advice and coordinates render literally and older restricted err
   assert.equal(api.formatDiagnostics([{code:'INVALID_TEMPLATE',message:'Restricted diagnostic'}]),'INVALID_TEMPLATE: Restricted diagnostic');
   assert.equal(api.formatDiagnostics(Array(1000).fill({code:'INVALID_TEMPLATE',message:'Bounded'})).split('\n\n').length,64);
 });
+
+test('syntax excerpts show a literal expression and bounded error marker',()=>{
+  const {api,node}=fixture();
+  Object.defineProperty(node('result'),'innerHTML',{set(){throw Error('HTML injection');}});
+  const text=api.formatDiagnostics([{code:'INVALID_TEMPLATE',message:'Missing operand',part:'word/header1.xml',
+    documentLocation:'paragraph:2',expression:'{trim(name,)}',expressionPosition:'11',expressionStart:'0'}]);
+  api.showResult(text);
+  assert.match(node('result').textContent,/Document location: paragraph:2/);
+  assert.match(node('result').textContent,/Expression:\n\{trim\(name,\)\}\n {11}\^/);
+  assert.match(node('result').textContent,/Error position: 11/);
+  assert.doesNotThrow(()=>api.formatDiagnostics([{code:'INVALID_TEMPLATE',message:'Bounded',expression:'x',expressionPosition:'999999999'}]));
+});

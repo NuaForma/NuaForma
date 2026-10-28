@@ -4,6 +4,8 @@ Extensions let an application supply private behavior without changing NuaForma 
 
 ## Choose an extension point
 
+For a runnable starting point, [pipe starters](../examples/pipe-starters/README.md) supplies three Java 17 value pipes (`prefix`, `uppercase`, `select`), Maven and Gradle builds, same-JAR registration and executable packaged-JAR tests. The website prepares separate Maven/Gradle ZIPs from these sources. Both variants target published `0.3.0-alpha.2`; adapting this starter does not require unreleased syntax changes.
+
 | Extension | Use it for | Registration |
 | --- | --- | --- |
 | Document provider | Your own formats or complete processing implementation | Provider ServiceLoader metadata, or explicit core registration |
@@ -23,7 +25,7 @@ META-INF/services/dev.nuaforma.contracts.DocumentProvider
 META-INF/nuaforma/providers/<binary-implementation-class-name>.properties
 ```
 
-The [contracts reference](../nuaforma-contracts/README.md#static-provider-metadata-and-versioning) specifies the descriptor fields; the [core guide](../nuaforma-core/README.md#metadata-before-provider-loading) describes origin validation before initialization. Contract compatibility uses same-major/minimum-minor matching, not exact minor matching. Published `0.2.0-alpha.1` uses contract `0.2`, accepting legacy `0.1` providers. Release `0.2.0-alpha.2` uses runtime contract `0.4`, accepting compatible minima `0.1` through `0.4`. DOCX and extensions referencing `RejectionReason` or structured `Diagnostic` overloads require at least `0.3`; the PDF provider's conformance-policy facet requires `0.4`. Older runtimes reject incompatible descriptors before loading. Extensions using only the original pipe/logging/content APIs may still declare `0.2`. Module release versions and required contract versions are separate; selecting a release does not publish it.
+The [contracts reference](../nuaforma-contracts/README.md#static-provider-metadata-and-versioning) specifies the descriptor fields; the [core guide](../nuaforma-core/README.md#metadata-before-provider-loading) describes origin validation before initialization. Contract compatibility uses same-major/minimum-minor matching, not exact minor matching. Published `0.2.0-alpha.1` uses contract `0.2`, accepting legacy `0.1` providers. Release `0.2.0-alpha.2` uses runtime contract `0.4`, accepting compatible minima `0.1` through `0.4`. DOCX and extensions referencing `RejectionReason` or structured `Diagnostic` overloads require at least `0.3`; the PDF provider's conformance-policy facet requires `0.4`. Source after `0.3.0-alpha.2` adds contract `0.5` for `TemplateErrorContext` and diagnostic enrichment; source DOCX/PDF providers require `0.5`. The current runtime still accepts all earlier compatible minima. Older runtimes reject incompatible descriptors before loading. Extensions using only the original pipe/logging/content APIs may still declare `0.2`. Module release versions and required contract versions are separate; selecting a release does not publish it.
 
 The [independent Java provider example](../examples/embedded/README.md#third-party-providers) compiles against contracts only and demonstrates a company-owned format, SPI and explicit registration. Follow the complete contracts for streams, resource limits, concurrency, cancellation, diagnostics and option rejection; the example is not a universal renderer.
 

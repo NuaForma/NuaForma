@@ -27,6 +27,43 @@ class DocxProviderTest {
     private fun row(text: String) = "<w:tr><w:tc>${paragraph(text)}</w:tc></w:tr>"
 
     @Test
+    fun `mixed quote date markers across styled runs preserve equivalent literal document structure`() {
+        val expression = "<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{day | date(“dd-</w:t></w:r>" +
+            "<w:r><w:rPr><w:i/></w:rPr><w:t>MM-yyyy')}</w:t></w:r></w:p>"
+        val literal = "<w:p><w:r><w:rPr><w:b/></w:rPr><w:t xml:space=\"preserve\">28-10-2026</w:t></w:r></w:p>"
+        val actual = generate(insert(expression), data + ("day" to "2026-10-28"))
+        val expected = generate(insert(literal))
+        assertEquals(expected.keys, actual.keys)
+        for (name in expected.keys) {
+            if (name.endsWith(".xml") || name.endsWith(".rels")) assertEquals(SyntheticDocx.semantic(expected.getValue(name)), SyntheticDocx.semantic(actual.getValue(name)), name)
+            else assertArrayEquals(expected.getValue(name), actual.getValue(name), name)
+        }
+    }
+
+    @Test
+    fun `syntax details retain source paragraph and part through DOCX diagnostics`() {
+        val context = GenerationContext(logging = GenerationLogging(LoggingMode.DEVELOPMENT))
+        val cases = listOf(
+            "word/document.xml" to insert(paragraph("{trim(customer.name,)}")),
+            "word/document.xml" to insert("<w:tbl>${row("{trim(customer.name,)}")}</w:tbl>"),
+            "word/document.xml" to insert(paragraph("{#if trim(customer.name,)}") + paragraph("yes") + paragraph("{/if}")),
+            "word/header1.xml" to SyntheticDocx.parts().apply {
+                this["word/header1.xml"] = getValue("word/header1.xml").decodeToString().replace("{customer.name}", "{trim(customer.name,)}").toByteArray()
+            },
+            "word/footer1.xml" to SyntheticDocx.parts().apply {
+                this["word/footer1.xml"] = getValue("word/footer1.xml").decodeToString().replace("{reference}", "{trim(reference,)}").toByteArray()
+            },
+        )
+        for ((part, source) in cases) {
+            val error = assertThrows(GenerationException::class.java) { generate(source, context = context) }.diagnostics.single()
+            assertEquals(part, error.part)
+            assertNotNull(error.templateContext, part)
+            assertTrue(error.templateContext!!.expression.contains("trim("), part)
+            assertTrue(error.documentLocation?.startsWith("paragraph:") == true, part)
+        }
+    }
+
+    @Test
     fun `string functions in split runs structural rows and text boxes preserve literal equivalent layout`() {
         val split = "<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>{trim(customer.</w:t></w:r>" +
             "<w:r><w:rPr><w:i/></w:rPr><w:t>name)}</w:t></w:r></w:p>"
