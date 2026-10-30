@@ -52,11 +52,11 @@ Full repository/consumer, Word/golden, REST/Playground and native AMD64/ARM64 ch
 
 ### Hidden template text (source fix #154)
 
-The DOCX stage evaluates only print-view text and removes resolved hidden runs from its private PDF intermediary before automatic font collection and native reading. Hidden text does not enter the PDF, and fonts used only by removed hidden runs are not required; ordinary DOCX output retains the source runs and their formatting. This also applies to development diagnostic PDFs. Visibility uses the [Word template rules](../nuaforma-docx/README.md#word-template-rules), including inherited toggles and explicit overrides; it does not infer visibility from color, position or the operator’s Word display settings. Existing golden files remain unchanged. This source change is not included in the immutable alpha.4 release.
+The DOCX stage evaluates only print-view text and removes resolved hidden runs from its private PDF intermediary before automatic font collection and native reading. Hidden text does not enter the PDF, and fonts used only by removed hidden runs are not required; ordinary DOCX output retains the source runs and their formatting. This also applies to development diagnostic PDFs. Visibility uses the [Word template rules](../nuaforma-docx/README.md#word-template-rules), including inherited toggles and explicit overrides; it does not infer visibility from color, position or the operator’s Word display settings. Existing golden files remain unchanged. This change is included in the selected alpha.5 release; earlier artifacts remain immutable.
 
 ## Rich-text source feature
 
-The source after alpha.4 accepts the same filled [`richText("rtf")`](../docs/rich-text.md) document for standard PDF and PDF/A-1b/2b/3b, including single strikeout. Native layout/script restrictions, font embedding and independent validation remain mandatory. The owning guide explains scope and limits; alpha.4 does not contain this pipe.
+The selected alpha.5 release accepts the same filled [`richText("rtf")`](../docs/rich-text.md) document for standard PDF and PDF/A-1b/2b/3b, including single strikeout. Native layout/script restrictions, font embedding and independent validation remain mandatory. The owning guide explains scope and limits; earlier alphas do not contain this pipe.
 
 ## Passive bibliography metadata
 

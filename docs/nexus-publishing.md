@@ -23,7 +23,7 @@ Use organization secrets **`NEXUS_USERNAME`** and **`NEXUS_PASSWORD`**, scoped t
 
 ## Automatic and manual snapshots
 
-Every push to develop automatically publishes all six signed libraries after its own Java 17/25 jobs and actual SonarCloud analysis/Quality Gate succeed. The publisher verifies the exact signed source and current Build run; it waits up to ten minutes for the real Sonar check, never substitutes a generic status and never publishes from PRs, main or forks. Builds and publications are queued without replacing pending source revisions. A prerelease such as `0.3.0-alpha.5` produces `0.3.0-SNAPSHOT`; a stable `0.3.0` baseline starts `0.3.1-SNAPSHOT`. Source versions remain unchanged, while Maven creates a timestamped generation for each publication.
+Every push to develop automatically publishes all six signed libraries after its own Java 17/25 jobs and actual SonarCloud analysis/Quality Gate succeed. The publisher verifies the exact signed source and current Build run; it allows up to two minutes for GitHub job-completion metadata to propagate and up to ten minutes for the real Sonar check, never substitutes a generic status and never publishes from PRs, main or forks. Builds and publications are queued without replacing pending source revisions. A prerelease such as `0.3.0-alpha.5` produces `0.3.0-SNAPSHOT`; a stable `0.3.0` baseline starts `0.3.1-SNAPSHOT`. Source versions remain unchanged, while Maven creates a timestamped generation for each publication.
 
 Manual dispatch remains available. Wait for the selected **develop commit** to have successful Java 17/25 CI (and the actual SonarCloud analysis for NuaForma). In Actions, select **Publish signed snapshot to Nexus**, choose **develop**, enter a canonical snapshot version, and type **`PUBLISH_SNAPSHOT`**. The workflow checks the exact GitHub-verified signed checkout and latest required check runs before loading any publishing secrets. A generic SonarCloud status or an older green build cannot substitute for the required checks.
 
@@ -64,6 +64,6 @@ repositories {
 }
 ```
 
-For snapshots add the separate `nuaforma-snapshots` URL, enable snapshots and disable releases in Maven, or use `mavenContent { snapshotsOnly() }` in Gradle. Avoid dynamic versions in reproducible builds: snapshots may resolve to a newer generation later. Publishing these workflow changes does not publish any artifact; a first authorized Nexus run is still needed to verify the real credentials and server write policies.
+For snapshots add the separate `nuaforma-snapshots` URL, enable snapshots and disable releases in Maven, or use `mavenContent { snapshotsOnly() }` in Gradle. Avoid dynamic versions in reproducible builds: snapshots may resolve to a newer generation later. Static checks and local staging do not prove repository write permissions. Every actual publication must retain its verification receipt and independently compare anonymous artifact/signature bytes; immutable prereleases must remain non-redeployable.
 
 The Maven client maintains repository metadata ([Sonatype documentation](https://help.sonatype.com/en/tasks.html)); Gradle supports Nexus and native snapshot publishing through its existing [Maven Publish plugin](https://docs.gradle.org/current/userguide/publishing_maven.html). No runtime dependency is added by this routing.

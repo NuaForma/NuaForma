@@ -112,7 +112,7 @@ jobs:
           tar -xzf build/release/jvm/runtime-inputs.tar.gz
           # Exact third-party component inventories must still match this baseline below.
           # The generated notice points recipients to already-public matching sources.
-          python3 -c 'import os,pathlib; p=pathlib.Path("deployment/pdf-runtime/SOURCES.md"); p.write_text(p.read_text().replace("0.1.0-alpha.1",os.environ["SOURCE_BASELINE"]).replace("The native source version is not yet published.","Image labels identify this application release; matching third-party sources are linked below."))'
+          python3 tools/release/release_candidate.py source-notice --gate build/release/jvm/gate.json --notice deployment/pdf-runtime/SOURCES.md
       - name: Build each native image once without repeating container qualification
         run: |
           docker build --platform "linux/$ARCHITECTURE" --file deployment/pdf-runtime/Dockerfile \

@@ -4,7 +4,7 @@ Development API for Kotlin and Java 17, in `dev.nuaforma.contracts`. Release `0.
 
 ## Template syntax context (source after 0.3.0-alpha.2)
 
-The current source runtime is **0.7**, adding opt-in `ContentPipeDefinition.missingAsNull` for generator content pipes (#118); built-in DOCX/PDF providers require 0.7. Existing constructor descriptors and the strict default are retained. [Rich-text semantics and compatibility](../docs/rich-text.md) describe the source feature; it is not in alpha.4. The published alpha.4 runtime remains 0.6 for optional `TemplateDiagnosticProvider.diagnoseTemplate` (#150); see [the guide](../docs/template-diagnostic-pdf.md).
+The selected alpha.5 runtime is **0.7**, adding opt-in `ContentPipeDefinition.missingAsNull` for generator content pipes (#118); built-in DOCX/PDF providers require 0.7. Existing constructor descriptors and the strict default are retained. [Rich-text semantics and compatibility](../docs/rich-text.md) describe this alpha.5 feature and its compatibility boundaries. The published alpha.4 runtime remains 0.6 for optional `TemplateDiagnosticProvider.diagnoseTemplate` (#150); see [the guide](../docs/template-diagnostic-pdf.md).
 
 Contract **0.5** introduced immutable `TemplateErrorContext` and copy-returning `Diagnostic.withTemplateContext` / `withDocumentLocation` methods. Original constructors and JVM descriptors remain unchanged. Alpha.3 DOCX/PDF providers require 0.5; the diagnostic facet requires 0.6. The current source runtime accepts compatible minima 0.1 through 0.7. Artifact release versions remain separate from contract minima. The earlier minima described below record when each facet was introduced.
 

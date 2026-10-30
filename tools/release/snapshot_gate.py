@@ -18,16 +18,34 @@ def automatic_version(version):
     return base + "-SNAPSHOT"
 
 
-def successful_run(run, jobs, repository, revision, identity):
+def successful_run(run, jobs, repository, revision, identity, allow_pending=False):
     require(run.get("id") == int(identity) and run.get("head_sha") == revision
             and run.get("head_branch") == "develop" and run.get("event") == "push"
             and run.get("path") == ".github/workflows/build.yml"
             and run.get("repository", {}).get("full_name") == repository,
             "Require this exact develop Build run, not another source/run/workflow")
+    ready = True
     for name in ("Build (Java 17)", "Build (Java 25)"):
         matches = [job for job in jobs if job.get("name") == name]
-        require(len(matches) == 1 and matches[0].get("status") == "completed"
-                and matches[0].get("conclusion") == "success", "Both Java builds must finish successfully before publication")
+        require(len(matches) <= 1, "Ambiguous current-run Java job identity")
+        if not matches or matches[0].get("status") != "completed":
+            require(allow_pending, "Both Java builds must finish successfully before publication")
+            ready = False
+            continue
+        require(matches[0].get("conclusion") == "success", "Both Java builds must finish successfully before publication")
+    return ready
+
+
+def wait_for_builds(fetch, current, repository, revision, identity, attempts=13, pause=time.sleep):
+    for attempt in range(attempts):
+        data = fetch()
+        require(data["total_count"] <= 100, "Too many CI jobs; explicit pagination review required")
+        if successful_run(current, data["jobs"], repository, revision, identity, allow_pending=True):
+            return
+        if attempt + 1 < attempts:
+            print("Waiting for the exact current Java jobs to appear as completed in the GitHub API", flush=True)
+            pause(10)
+    raise ValueError("Current Java job completion is unavailable; no publication attempted")
 
 
 def successful_checks(checks, sonar=False):
@@ -83,9 +101,8 @@ def main():
         require(re.fullmatch(r"[1-9][0-9]*", args.ci_run) and args.ci_run == os.environ.get("GITHUB_RUN_ID"), "Require the current calling CI run")
         endpoint = "repos/" + args.repository + "/actions/runs/" + args.ci_run
         current = json.loads(run("gh", "api", endpoint))
-        jobs = json.loads(run("gh", "api", endpoint + "/jobs?per_page=100"))
-        require(jobs["total_count"] <= 100, "Too many CI jobs; explicit pagination review required")
-        successful_run(current, jobs["jobs"], args.repository, revision, args.ci_run)
+        wait_for_builds(lambda: json.loads(run("gh", "api", endpoint + "/jobs?per_page=100")),
+                        current, args.repository, revision, args.ci_run)
         if args.repository == "NuaForma/NuaForma":
             wait_for_sonar(lambda: json.loads(run("gh", "api", "repos/" + args.repository
                                                  + "/commits/" + revision + "/check-runs?per_page=100&filter=latest")), revision)

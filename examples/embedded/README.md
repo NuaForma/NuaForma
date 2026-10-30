@@ -22,7 +22,7 @@ The publication destination is the local `build/library-repository`. Each librar
 | Maven neutral PDF | pdf | Direct shared-model rendering with caller-supplied font bytes |
 | Kotlin/Gradle DOCX | core, docx | Independent Java-17-compatible use and runtime isolation |
 
-Pass `-Dnuaforma.repository=<local-file-repository-URL>` and `-Dnuaforma.version=<candidate-version>` to Maven, or `-PnuaformaRepository=<URL>` and `-PnuaformaVersion=<candidate-version>` to the Gradle example. Use the version actually staged from this checkout. The native version is not yet published. Runtime checks keep server/test/veraPDF libraries out of embedded host dependencies; PDFBox writing is part of the native PDF host, while vendor conformance parsing stays in the separate validator.
+Pass `-Dnuaforma.repository=<Maven-repository-URL>` and `-Dnuaforma.version=<version>` to Maven, or `-PnuaformaRepository=<URL>` and `-PnuaformaVersion=<version>` to the Gradle example. Local verification uses the version actually staged from this checkout. Published alpha.5 libraries use `https://repo.nuaforma.dev/repository/nuaforma-prereleases/`; `0.3.0-SNAPSHOT` uses `https://repo.nuaforma.dev/repository/nuaforma-snapshots/`. Downloads require no credentials. Keep all NuaForma versions aligned; see [repository selection and publication policy](../../docs/nexus-publishing.md). Runtime checks keep server/test/veraPDF libraries out of embedded host dependencies; PDFBox writing is part of the native PDF host, while vendor conformance parsing stays in the separate validator.
 
 ## Configured PDF generation
 

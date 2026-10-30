@@ -10,7 +10,7 @@ import sys
 import urllib.request
 
 from check_bundle_review import check as check_bundle
-from check_container_source_coverage import verify_inventory
+from check_container_source_coverage import reviewed_asset_tag, verify_inventory
 from prepare_central_bundle import release_version
 from verify_libraries import MODULES
 
@@ -80,7 +80,38 @@ def require_native(run, jobs):
             raise ValueError("Missing successful native CI architecture: " + arch)
 
 
+def source_asset_tag(baseline):
+    if destination(baseline)["kind"] == "snapshot":
+        raise ValueError("Source coverage requires an immutable baseline")
+    tags = set()
+    for application in APPLICATIONS:
+        suffix = "-playground" if application == "playground" else ""
+        record = read(ROOT / "release-materials" / (baseline + suffix + ".json"))
+        if record.get("version") != baseline or record.get("application") != application:
+            raise ValueError("Wrong baseline source review")
+        tag = reviewed_asset_tag(record, baseline)
+        tags.add(tag)
+    if len(tags) != 1:
+        raise ValueError("Both applications require the same source asset release")
+    return tags.pop()
+
+
+def source_notice(gate_record, target):
+    original = target.read_text(encoding="utf-8")
+    title = "# Corresponding source and third-party materials"
+    if title not in original:
+        raise ValueError("Source notice template is missing its expected section")
+    original = title + original.split(title, 1)[1]
+    original = original.replace("0.1.0-alpha.1", gate_record["sourceBaseline"])
+    links = ["\n## Reviewed corresponding-source downloads\n"]
+    for asset in gate_record["sourceMaterials"]:
+        name = asset["url"].rsplit("/", 1)[-1]
+        links.append(f"- [{name}]({asset['url']}), SHA-256 `{asset['sha256']}`.\n")
+    target.write_text(original + "\n".join(links), encoding="utf-8")
+
+
 def sources(baseline):
+    tag = source_asset_tag(baseline)
     assets = {}
     for application in APPLICATIONS:
         suffix = "-playground" if application == "playground" else ""
@@ -88,13 +119,15 @@ def sources(baseline):
         if record["version"] != baseline or record["application"] != application:
             raise ValueError("Wrong baseline source review")
         for asset in record["sourceMaterials"]:
-            prefix = f"https://github.com/NuaForma/NuaForma/releases/download/v{baseline}/nuaforma-sources-"
+            prefix = f"https://github.com/NuaForma/NuaForma/releases/download/{tag}/nuaforma-sources-"
             if not asset["url"].startswith(prefix) or not re.fullmatch(r"[a-f0-9]{64}", asset["sha256"]):
                 raise ValueError("Unexpected source material identity")
             if asset["url"] in assets and assets[asset["url"]] != asset["sha256"]:
                 raise ValueError("Conflicting source review")
             assets[asset["url"]] = asset["sha256"]
-    if len(assets) != 3:
+    expected = {f"https://github.com/NuaForma/NuaForma/releases/download/{tag}/nuaforma-sources-{group}-{baseline}.tar"
+                for group in ("debian", "java", "jvm")}
+    if set(assets) != expected:
         raise ValueError("Require Debian, both JVMs and third-party JAR source archives")
     for url, expected in assets.items():
         actual, size = hashlib.sha256(), 0
@@ -114,8 +147,8 @@ def sources(baseline):
 def gate(version, baseline, native_run, output):
     release_version(version)
     release_version(baseline)
-    if version == baseline:
-        raise ValueError("A new immutable version is required")
+    if version == baseline and source_asset_tag(baseline) != "sources-v" + version:
+        raise ValueError("Same-version source coverage requires a distinct source-only release")
     if os.environ.get("GITHUB_REF") != "refs/heads/main" or os.environ.get("GITHUB_REPOSITORY") != "NuaForma/NuaForma":
         raise ValueError("Release preparation is main-only")
     source = command("git", "rev-parse", "HEAD")
@@ -142,8 +175,9 @@ def gate(version, baseline, native_run, output):
         raise ValueError("Native CI no longer covers changed runtime inputs: " + ", ".join(differences))
     record = {"version": version, "sourceCommit": source, "tagObject": tag_object,
               "nativeCiRun": int(native_run), "nativeCiSource": tested, "sourceBaseline": baseline,
+              "sourceAssetTag": source_asset_tag(baseline),
               "sourceMaterials": sources(baseline), "qualification": "existing-ci-no-release-retest",
-              "runtimeReview": "Current inputs are Temurin 17.0.21+9 / 25.0.5+8. Review the source disposition of residual #51 findings for this release; historical evaluation acceptances are not reused"}
+              "runtimeReview": (ROOT / "docs" / ("release-" + version + "-audit.md")).read_text(encoding="utf-8")}
     write(output, record)
     print("Signed source, current JVM/Sonar CI, unchanged native CI inputs and public corresponding sources: PASS")
 
@@ -214,7 +248,7 @@ def assemble(root, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("gate", "match-foreign", "archive", "assemble"))
+    parser.add_argument("action", choices=("gate", "match-foreign", "archive", "assemble", "source-notice"))
     parser.add_argument("--version")
     parser.add_argument("--baseline")
     parser.add_argument("--native-run")
@@ -225,11 +259,14 @@ def main():
     parser.add_argument("--inventory", type=pathlib.Path)
     parser.add_argument("--root", type=pathlib.Path)
     parser.add_argument("--output", type=pathlib.Path)
+    parser.add_argument("--notice", type=pathlib.Path)
     args = parser.parse_args()
     if args.action == "gate":
         gate(args.version, args.baseline, args.native_run, args.output)
     elif args.action == "match-foreign":
         match_foreign(read(args.gate))
+    elif args.action == "source-notice":
+        source_notice(read(args.gate), args.notice)
     elif args.action == "archive":
         archive(read(args.gate), args.application, args.architecture, args.archive, args.inventory, args.output)
     else:

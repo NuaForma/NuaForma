@@ -1,6 +1,6 @@
 # Rich text in Word templates
 
-Source feature for the next release after `0.3.0-alpha.4`, tracked in [#118](https://github.com/NuaForma/NuaForma/issues/118). Alpha.4 does not include this pipe. This is a bounded RTF text profile, not a general Office/HTML importer.
+Selected for `0.3.0-alpha.5`, tracked in [#118](https://github.com/NuaForma/NuaForma/issues/118). Earlier published alphas do not include this pipe. This is a bounded RTF text profile, not a general Office/HTML importer.
 
 ## Start with one marker
 

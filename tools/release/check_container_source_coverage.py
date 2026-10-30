@@ -6,6 +6,13 @@ import pathlib
 import urllib.request
 
 
+def reviewed_asset_tag(record, version):
+    tag = record.get("assetTag", "v" + version)
+    if tag not in {"v" + version, "sources-v" + version}:
+        raise ValueError("Unexpected source-only release tag")
+    return tag
+
+
 def verify_inventory(root, platform):
     java = root / "java-sha256.txt"
     image = root / "image.json"
@@ -58,7 +65,7 @@ def main():
     actual_files = {asset["url"].rsplit("/", 1)[-1] for asset in record["sourceMaterials"]}
     if len(record["sourceMaterials"]) != len(required_files) or actual_files != required_files:
         raise ValueError("Require every reviewed source archive of the exact runtime boundary")
-    prefix = "https://github.com/NuaForma/NuaForma/releases/download/v" + args.version + "/"
+    prefix = "https://github.com/NuaForma/NuaForma/releases/download/" + reviewed_asset_tag(record, args.version) + "/"
     for asset in record["sourceMaterials"]:
         if not asset["url"].startswith(prefix):
             raise ValueError("Source provision must belong to the selected version")
