@@ -28,7 +28,7 @@ internal object PipeCatalog {
                     mapOf("name" to definition.name, "description" to definition.description, "chainable" to false,
                         "arguments" to arguments(definition.arguments), "nullBehavior" to definition.nullBehavior,
                         "contexts" to definition.contexts.map { it.name.lowercase() }.sorted(),
-                        "contentTypes" to definition.contentTypes.sorted(),
+                        "contentTypes" to definition.contentTypes.sorted(), "missingAsNull" to definition.missingAsNull,
                         "declaredSupport" to support.map(::combination),
                         "availableSupport" to support.filter { available.supports(it.input, it.output) }.map(::combination))
                 }))

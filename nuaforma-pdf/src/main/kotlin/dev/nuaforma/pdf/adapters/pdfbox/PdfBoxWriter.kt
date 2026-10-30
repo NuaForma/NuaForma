@@ -145,11 +145,22 @@ internal object PdfBoxWriter {
                                     command("ET")
                                     if (element.style.underline) {
                                         val metrics = lineMetrics[element.style.fontId]
-                                        val position = metrics?.getOrNull(3) ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified underline metrics")
-                                        val thickness = metrics.getOrNull(4) ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified underline thickness")
+                                        val position = metrics?.getOrNull(3)?.takeIf { it.isFinite() } ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified underline metrics")
+                                        val thickness = metrics.getOrNull(4)?.takeIf { it.isFinite() } ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified underline thickness")
                                         if (position - thickness < font.fontDescriptor.fontBoundingBox.lowerLeftY / 1000f)
                                             fail(PdfFailureCode.UNSUPPORTED_TEXT, "Underline exceeds the qualified font bounds")
                                         // OpenType post.underlinePosition denotes the top edge, unlike PostScript's center coordinate.
+                                        command("re", number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift) + (position - thickness) * element.style.size),
+                                            number(measurer.measure(element.text, element.style).width), number(thickness * element.style.size))
+                                        command("f")
+                                    }
+                                    if (element.style.strikethrough) {
+                                        val metrics = lineMetrics[element.style.fontId]
+                                        val position = metrics?.getOrNull(5)?.takeIf { it.isFinite() } ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified strikeout metrics")
+                                        val thickness = metrics.getOrNull(6)?.takeIf { it.isFinite() } ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified strikeout thickness")
+                                        val box = font.fontDescriptor.fontBoundingBox
+                                        if (position - thickness < box.lowerLeftY / 1000f || position > box.upperRightY / 1000f)
+                                            fail(PdfFailureCode.UNSUPPORTED_TEXT, "Strikeout exceeds the qualified font bounds")
                                         command("re", number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift) + (position - thickness) * element.style.size),
                                             number(measurer.measure(element.text, element.style).width), number(thickness * element.style.size))
                                         command("f")
@@ -254,11 +265,23 @@ internal object PdfBoxWriter {
         val gap = buffer.getShort(hhea + 8).toInt()
         if (units !in 16..16_384 || ascent <= 0 || descent < 0 || gap < 0) return null
         val line = floatArrayOf(ascent.toFloat() / units, descent.toFloat() / units, gap.toFloat() / units)
-        val post = table(0x706F7374, 12) ?: return line
-        val underlinePosition = buffer.getShort(post + 8).toInt()
-        val underlineThickness = buffer.getShort(post + 10).toInt()
-        if (underlinePosition !in -units..0 || underlineThickness !in 1..units / 4) return line
-        return line + floatArrayOf(underlinePosition.toFloat() / units, underlineThickness.toFloat() / units)
+        val metrics = line + FloatArray(4) { Float.NaN }
+        table(0x706F7374, 12)?.let { post ->
+            val position = buffer.getShort(post + 8).toInt()
+            val thickness = buffer.getShort(post + 10).toInt()
+            if (position in -units..0 && thickness in 1..units / 4) {
+                metrics[3] = position.toFloat() / units; metrics[4] = thickness.toFloat() / units
+            }
+        }
+        // OpenType OS/2 yStrikeoutSize/Position; position denotes the top edge of the stroke.
+        table(0x4F532F32, 30)?.let { os2 ->
+            val thickness = buffer.getShort(os2 + 26).toInt()
+            val position = buffer.getShort(os2 + 28).toInt()
+            if (position in -units..units && thickness in 1..units / 4) {
+                metrics[5] = position.toFloat() / units; metrics[6] = thickness.toFloat() / units
+            }
+        }
+        return metrics
     }
 
     private fun validatePng(bytes: ByteArray) {

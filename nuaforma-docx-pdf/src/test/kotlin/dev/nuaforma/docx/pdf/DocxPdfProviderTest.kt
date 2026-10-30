@@ -50,7 +50,7 @@ class DocxPdfProviderTest {
                 Files.write(files.pdf, StaticPdfFixture.bytes().decodeToString().replace("%PDF-1.7", "%PDF-${files.profile.version}").toByteArray())
             }
             val provider = LegacyDocxPdfProvider()
-            assertEquals(setOf("standard", "pdfa-1b", "pdfa-2b", "pdfa-3b"), provider.contentPipes().single().support.single { it.output == DocumentFormat.PDF }.profiles)
+            assertEquals(setOf("standard", "pdfa-1b", "pdfa-2b", "pdfa-3b"), provider.contentPipes().single { it.name == "image" }.support.single { it.output == DocumentFormat.PDF }.profiles)
             for (profile in listOf("standard", "pdfa-1b", "pdfa-2b", "pdfa-3b")) {
                 val output = ByteArrayOutputStream()
                 provider.generate(GenerationRequest(PdfFixture.zip(parts).inputStream(), requirements(DocumentFormat.PDF, mapOf("profile" to profile)),

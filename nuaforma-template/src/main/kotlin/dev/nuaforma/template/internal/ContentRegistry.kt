@@ -16,6 +16,8 @@ internal class ContentRegistry(pipes: List<ContentPipe>) {
         entries = registrations.associateBy { it.definition.name }
     }
 
+    fun missingAsNull(name: String): Boolean = entries[name]?.definition?.missingAsNull == true
+
     fun apply(name: String, value: Any?, arguments: List<Any?>, options: GenerationOptions, context: GenerationContext, step: () -> Unit): ContentResult {
         val entry = entries[name] ?: Safety.fail(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.CONTENT_PIPE_IS_NOT_SUPPORTED_BY_THE_SELECTED_GENERATOR)
         val definitions = entry.definition.arguments

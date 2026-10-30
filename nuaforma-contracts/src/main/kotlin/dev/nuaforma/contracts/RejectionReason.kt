@@ -453,7 +453,11 @@ enum class RejectionReason(val message: String, private val advice: RejectionAdv
     TEMPLATE_DIAGNOSTICS_REQUIRE_DEVELOPMENT("Template diagnostic copies require explicit development mode", RejectionAdvice.OPTIONS),
     TEMPLATE_DIAGNOSTIC_REQUIRES_PARSER_ERROR("No locatable template parser error was found; no diagnostic copy was created", RejectionAdvice.DATA),
     WATERMARK_TRAVERSAL_EXCEEDS_PROCESSING_LIMITS("Watermark traversal exceeds processing limits",
-        RejectionAdvice.LIMITS);
+        RejectionAdvice.LIMITS),
+    RICH_TEXT_EXCEEDS_PROCESSING_LIMITS("Rich-text fragments exceed the generation processing limits", RejectionAdvice.LIMITS, "richText"),
+    INVALID_RICH_TEXT("The richText value must be a well-formed supported RTF fragment", RejectionAdvice.DATA, "richText"),
+    UNSUPPORTED_RICH_TEXT("The RTF fragment contains unsupported formatting, encoding, or active/binary content; use the documented richText profile", RejectionAdvice.DATA, "richText"),
+    UNSUPPORTED_RICH_TEXT_PLACEMENT("richText requires an ordinary text-only paragraph; block mode requires a standalone marker and paragraph splits cannot detach document boundaries", RejectionAdvice.STRUCTURE, "richText");
 
     val remediation: String get() = advice.message
 }

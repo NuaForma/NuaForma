@@ -25,10 +25,19 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
     private lateinit var visibility: WordVisibility
     private var currentParagraph: P? = null
     private var currentTable: Tbl? = null
+    private val richReplacements = java.util.IdentityHashMap<P, List<P>>()
+    private var richStyles: List<Style> = emptyList()
+    private var richStyleIndex: Map<String, Style>? = null
+    private var richDefaultProperties: PPrBase? = null
+    var richTextUsed = false
+        private set
     private fun visible(run: R) = !visibility.hidden(run, currentParagraph, currentTable)
 
     fun apply(document: WordprocessingMLPackage, inspection: Boolean = false): TextWatermark? {
         visibility = WordVisibility(document, context)
+        val styles = document.mainDocumentPart.styleDefinitionsPart?.jaxbElement
+        richStyles = styles?.style.orEmpty()
+        richDefaultProperties = styles?.docDefaults?.pPrDefault?.pPr
         watermark?.let { root.validateText(it.text) }
         images = WordImages(document, identities, context)
         val parts = listOf(document.mainDocumentPart to document.mainDocumentPart.jaxbElement.body) + document.parts.parts.values.mapNotNull {
@@ -116,13 +125,37 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
             ContentTemplates.containsContentMarker(WordRuns.source(listOf(node)), valuePipes, context)) {
             invalid(RejectionReason.CONTENT_PIPES_REQUIRE_ORDINARY_PARAGRAPH_OR_HYPERLINK_TEXT_NOT)
         }
-        if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context, valuePipes, ::visible, fault) { images.drawing(it, owner) }
+        // A content expression requires a literal pipe separator; ordinary paragraphs need no rich-content snapshot.
+        val rich = if (node is P && !validateOnly && children.any { rawChild ->
+            (XmlUtils.unwrap(rawChild) as? R)?.content?.any { (XmlUtils.unwrap(it) as? Text)?.value?.contains('|') == true } == true
+        }) WordRichParagraphs(node, context, ::visible) { richSplitAllowed(node) } else null
+        if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context, valuePipes, ::visible, fault,
+            { value, anchor, source, start, end ->
+                rich?.accept(value, anchor, source, start, end) ?: DocxFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.UNSUPPORTED_RICH_TEXT_PLACEMENT)
+            }) { images.drawing(it, owner) }
+        if (rich?.used == true) {
+            richTextUsed = true
+            richReplacements[node as P] = rich.finish()
+            return // Every source child was ordinary text, already evaluated once. Finalized data is never parsed again.
+        }
         if (node is R) WordRuns.mixed(node, session, validateOnly, context, valuePipes, fault)
         if (node is Body || node is Hdr || node is Ftr || node is Tc || node is Tbl || node is CTTxbxContent ||
             node is org.docx4j.vml.CTTextbox || modernTextBox(node)) blocks(children, session, validateOnly, depth)
-        else children.toList().forEach { process(it, session, validateOnly, depth + 1,
-            (node is P || node is P.Hyperlink) && XmlUtils.unwrap(it) is R) }
+        else {
+            val original = children.toList()
+            var output: MutableList<Any>? = null
+            original.forEachIndexed { index, value ->
+                process(value, session, validateOnly, depth + 1, (node is P || node is P.Hyperlink) && XmlUtils.unwrap(value) is R)
+                val replacement = (XmlUtils.unwrap(value) as? P)?.let { richReplacements.remove(it) }
+                if (replacement != null) {
+                    if (output == null) output = original.take(index).toMutableList()
+                    output.addAll(replacement)
+                } else output?.add(value)
+            }
+            output?.let { children.clear(); children.addAll(it) }
+        }
         if (!validateOnly && node is Tc && (children.isEmpty() || XmlUtils.unwrap(children.last()) !is P)) children.add(P())
+        if (!validateOnly && node is Body && children.isEmpty() && richTextUsed) children.add(P())
         if (!validateOnly && node is Tbl && children.none { XmlUtils.unwrap(it) is Tr }) invalid(RejectionReason.CONDITIONS_OR_REPEATS_REMOVED_EVERY_TABLE_ROW_WRAP_THE)
     }
 
@@ -142,9 +175,12 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
             nodes.forEach { block -> when (block) {
                 is Item -> {
                     val value = if (clone) XmlUtils.deepCopy(block.value) else block.value
-                    if (clone) identities.renew(value)
+                    if (clone) {
+                        identities.renew(value)
+                        if (context.logging.mode == LoggingMode.DEVELOPMENT) copyParagraphOrigins(block.value, value)
+                    }
                     process(value, scope, false, depth + 1)
-                    output.add(value)
+                    output.addAll(replaced(value))
                 }
                 is Condition -> output.addAll(emit(if (scope.test(block.expression)) block.yes else block.no, scope.branch(), clone))
                 is Repeat -> scope.repeat(block.expression, block.alias).forEach { output.addAll(emit(block.body, it, true)) }
@@ -153,6 +189,61 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         }
         val output = emit(plan, session, false)
         content.clear(); content.addAll(output)
+    }
+
+    private fun replaced(value: Any): List<Any> = (XmlUtils.unwrap(value) as? P)?.let { richReplacements.remove(it) } ?: listOf(value)
+
+    private fun copyParagraphOrigins(source: Any, target: Any) {
+        context.checkActive()
+        val original = XmlUtils.unwrap(source)
+        val copy = XmlUtils.unwrap(target)
+        if (original is P && copy is P) paragraphs[original]?.let { paragraphs[copy] = it }
+        val originalChildren = children(original)
+        val copiedChildren = children(copy)
+        if (originalChildren.size != copiedChildren.size) return
+        originalChildren.indices.forEach { copyParagraphOrigins(originalChildren[it], copiedChildren[it]) }
+    }
+
+    private class RichBoundary(properties: PPrBase?) {
+        private var number = properties?.numPr?.numId?.`val`
+        private var pageBreak = properties?.pageBreakBefore?.isVal
+        private var outline = properties?.outlineLvl?.`val`
+        fun inherit(properties: PPrBase?) {
+            number = number ?: properties?.numPr?.numId?.`val`
+            pageBreak = pageBreak ?: properties?.pageBreakBefore?.isVal
+            outline = outline ?: properties?.outlineLvl?.`val`
+        }
+        fun clear(): Boolean = (number ?: java.math.BigInteger.ZERO) == java.math.BigInteger.ZERO &&
+            pageBreak != true && (outline ?: java.math.BigInteger.valueOf(9)) == java.math.BigInteger.valueOf(9)
+    }
+    private fun indexedRichStyles(): Map<String, Style>? {
+        richStyleIndex?.let { return it }
+        val index = linkedMapOf<String, Style>()
+        for (style in richStyles) {
+            context.checkActive()
+            if (index.size >= 10_000) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.RICH_TEXT_EXCEEDS_PROCESSING_LIMITS)
+            val key = style.styleId ?: return null
+            if (index.put(key, style) != null) return null
+        }
+        richStyleIndex = index
+        return index
+    }
+    private fun richSplitAllowed(paragraph: P): Boolean {
+        if (paragraph.pPr?.sectPr != null || paragraph.pPr?.framePr != null || richDefaultProperties?.framePr != null) return false
+        val boundary = RichBoundary(paragraph.pPr)
+        val byId = indexedRichStyles() ?: return false
+        var id = paragraph.pPr?.pStyle?.`val` ?: richStyles.firstOrNull { it.type == "paragraph" && it.isDefault == true }?.styleId
+        val seen = mutableSetOf<String>()
+        while (id != null) {
+            context.checkActive()
+            if (!seen.add(id) || seen.size > 64) return false
+            val style = byId[id] ?: return false
+            if (style.type != "paragraph" || style.pPr?.framePr != null) return false
+            boundary.inherit(style.pPr)
+            id = style.basedOn?.`val`
+        }
+        boundary.inherit(richDefaultProperties)
+        return boundary.clear()
     }
 
     private sealed interface Block

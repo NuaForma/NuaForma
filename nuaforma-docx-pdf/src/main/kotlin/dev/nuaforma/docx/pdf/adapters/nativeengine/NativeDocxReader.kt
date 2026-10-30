@@ -350,7 +350,7 @@ internal class NativeDocxReader(
                         PdfTextRun(text.ifEmpty { " " }, textStyle(face), navigation)
                     }
                     "tab" -> { check(link == null, "Linked tabs are not qualified"); attributes(item, emptySet()); check(item.elements().isEmpty(), "Invalid tab control"); PdfTab(textStyle(face)) }
-                    "drawing" -> { check(link == null && pendingDestinations.isEmpty() && !face.underline, "Navigation or underlining on pictures is not qualified"); PdfImageRun(image(item, partRelations, parts)) }
+                    "drawing" -> { check(link == null && pendingDestinations.isEmpty() && !face.underline && !face.strikethrough, "Navigation or text decorations on pictures are not qualified"); PdfImageRun(image(item, partRelations, parts)) }
                     else -> reject("Unsupported run content")
                 } }
             }
@@ -757,7 +757,9 @@ internal class NativeDocxReader(
             val ownRelations = parts["word/_rels/$target.rels"]?.let { readRelations(xml.read(it)) } ?: emptyMap()
             val offset = twips(margins.value(name))
             val extent = (if (name == "header") page.margins.top else page.margins.bottom) - offset
-            return PdfPageBand(offset, extent, readBlocks(bandRoot, ownRelations, true))
+            check(offset >= 0 && extent > 0, "Invalid page-band geometry")
+            val blocks = readBlocks(bandRoot, ownRelations, true)
+            return if (blocks.isEmpty()) null else PdfPageBand(offset, extent, blocks)
         }
         val headerReferences = mutableMapOf<String, XmlElement>()
         val footerReferences = mutableMapOf<String, XmlElement>()
@@ -800,7 +802,7 @@ internal class NativeDocxReader(
     }
 
     private data class Face(val family: String? = null, val size: Float? = null, val bold: Boolean = false,
-        val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null, val underline: Boolean = false, val superscript: Boolean = false) {
+        val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null, val underline: Boolean = false, val superscript: Boolean = false, val strikethrough: Boolean = false) {
         fun id(resolve: (String, Boolean, Boolean) -> String): String = resolve(
             requireNotNull(family) { "An explicit font family is required" }, bold, italic)
     }
@@ -808,12 +810,12 @@ internal class NativeDocxReader(
     private fun textStyle(face: Face): PdfTextStyle {
         val nominal = face.size ?: reject("Missing font size")
         val size = if (face.superscript) kotlin.math.round(nominal * 1.3f) / 2 else nominal
-        return PdfTextStyle(face.id(fontId), size, face.color, face.languageTag, face.underline, if (face.superscript) nominal - size else 0f)
+        return PdfTextStyle(face.id(fontId), size, face.color, face.languageTag, face.underline, if (face.superscript) nominal - size else 0f, face.strikethrough)
     }
 
     private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>): Face {
         if (property == null) return initial
-        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden"))
+        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike"))
         var result = initial
         property.one("vertAlign")?.let {
             attributes(it, setOf("val")); children(it, emptySet())
@@ -825,7 +827,7 @@ internal class NativeDocxReader(
             node.elements().forEach { leaf -> attributes(leaf, setOf("val")); check(leaf.elements().isEmpty(), "Invalid numbering reference"); check(number(leaf.value("val")) <= if (leaf.name.localPart == "ilvl") 8 else 1_000_000, "Numbering reference exceeds bounds") }
         }
         property.one("rFonts")?.let {
-            attributes(it, setOf("ascii", "hAnsi", "asciiTheme", "hAnsiTheme", "cs"))
+            attributes(it, setOf("ascii", "hAnsi", "asciiTheme", "hAnsiTheme", "cs", "eastAsia"))
             fun family(name: String): String? = it.value(name + "Theme")?.let { key ->
                 val kind = when (key) { "majorAscii", "majorHAnsi" -> "major"; "minorAscii", "minorHAnsi" -> "minor"; else -> reject("Unsupported theme font role") }
                 themeFonts[kind] ?: reject("Unresolved theme font")
@@ -833,6 +835,7 @@ internal class NativeDocxReader(
             val family = family("ascii") ?: reject("Explicit Latin font required")
             check(family("hAnsi") == family, "Mixed font families are unsupported")
             check(it.value("cs") == null || it.value("cs") == family, "Separate complex-script font faces are outside this proof")
+            check(it.value("eastAsia") == null || it.value("eastAsia") == family, "Separate East Asian font faces are outside this profile")
             result = result.copy(family = family)
         }
         property.one("lang")?.let {
@@ -851,6 +854,9 @@ internal class NativeDocxReader(
         property.one("rtl")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty(), "Invalid run direction"); result = result.copy(rtl = enabled(it)) }
         property.one("b")?.let { result = result.copy(bold = enabled(it)) }
         property.one("i")?.let { result = result.copy(italic = enabled(it)) }
+        property.one("strike")?.let {
+            attributes(it, setOf("val")); children(it, emptySet()); result = result.copy(strikethrough = enabled(it))
+        }
         property.one("u")?.let {
             attributes(it, setOf("val")); children(it, emptySet())
             check(it.value("val") in setOf(null, "single", "none"), "Only single run underlining is qualified")

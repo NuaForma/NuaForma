@@ -7,6 +7,7 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [Project overview](../README.md) and [website/downloads](https://nuaforma.dev).
 - [Template language](../nuaforma-template/README.md): placeholders, null/missing values, conditions, nested repetitions, formatting and pipes.
 - [Word templates](../nuaforma-docx/README.md): paragraph/table rules, text boxes, images, fonts and watermarks.
+- [Rich text](rich-text.md): explicit bounded RTF insertion, independent boundary trims, inline placement and font policies (source feature after alpha.4).
 - [PDF output](../nuaforma-docx-pdf/README.md): standard/PDF-A profiles, font requirements, isolation and fidelity limits.
 - [REST API](../nuaforma-server/README.md): multipart requests/resources, capabilities, assessment, errors and downloadable OpenAPI JSON/YAML.
 - [Embedded Java/Kotlin examples](../examples/embedded/README.md): consume library artifacts without running a server.
