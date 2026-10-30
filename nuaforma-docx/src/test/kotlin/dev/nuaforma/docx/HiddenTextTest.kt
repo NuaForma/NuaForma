@@ -152,4 +152,18 @@ class HiddenTextTest {
         assertEquals(RejectionReason.DOCX_STRUCTURE_CANNOT_BE_TRANSFORMED_SAFELY_SIMPLIFY_THE_TEMPLATE,failure.diagnostics.single().rejectionReason)
     }
 
+    @Test fun `structural diagnostic uses a visible anchor after hidden prefix text`() {
+        val hidden=run("{secret}","<w:vanish/><w:rFonts w:ascii=\"Missing Hidden Font\" w:hAnsi=\"Missing Hidden Font\"/>")
+        val visible=run("{#if true}","<w:rFonts w:ascii=\"Marker Family\" w:hAnsi=\"Marker Family\"/>")
+        val output=ByteArrayOutputStream()
+        val diagnostic=DocxProvider().diagnosticCopy(GenerationRequest(source(paragraph(hidden+visible)+paragraph(run("Body"))).inputStream(),requirements),
+            output,GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT)),"Arial")
+        assertEquals(RejectionReason.UNCLOSED_DOCX_CONDITION,diagnostic.rejectionReason)
+        val result=xml(SyntheticDocx.unzip(output.toByteArray()))
+        val label=Regex("<w:r>[\\s\\S]*?</w:r>").findAll(result).map { it.value }.firstOrNull { it.contains("[ERROR 1]") }
+        assertNotNull(label,result)
+        assertTrue(label!!.contains("Marker Family"),label)
+        assertFalse(label.contains("Missing Hidden Font"),label)
+    }
+
 }

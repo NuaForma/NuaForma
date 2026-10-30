@@ -90,7 +90,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
             if (paragraph != null) DocxFailure.inParagraph(paragraph) { processNode(raw, session, validateOnly, depth, inlineHandled) }
             else processNode(raw, session, validateOnly, depth, inlineHandled)
         } catch (error: GenerationException) {
-            if (node is P) fault?.paragraph(node)
+            if (node is P) fault?.paragraph(node, currentTable)
             throw error
         } finally {
             currentParagraph = previousParagraph
@@ -214,7 +214,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
     }
 
     private fun blockFailure(raw: Any, marker: String?, error: GenerationException): GenerationException {
-        fault?.paragraph(markerParagraph(raw))
+        fault?.paragraph(markerParagraph(raw), currentTable)
         if (context.logging.mode != LoggingMode.DEVELOPMENT || marker == null) return error
         val paragraph = markerParagraph(raw)?.let { paragraphs[it] }
         return GenerationException(error.diagnostics.map { diagnostic ->

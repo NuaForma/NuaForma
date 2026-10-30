@@ -10,8 +10,11 @@ import org.docx4j.wml.*
 internal class WordTemplateFault(private val context: GenerationContext) {
     private var mark: (() -> Unit)? = null
     private var paragraph: P? = null
+    private var table: Tbl? = null
 
-    fun paragraph(value: P?) { if (paragraph == null) paragraph = value }
+    fun paragraph(value: P?, ownerTable: Tbl? = null) {
+        if (paragraph == null) { paragraph = value; table = ownerTable }
+    }
 
     fun plain(content: MutableList<Any>, originals: List<Any>, source: String, error: GenerationException) {
         val diagnostic = syntax(error) ?: return
@@ -69,7 +72,9 @@ internal class WordTemplateFault(private val context: GenerationContext) {
     fun annotate(document: WordprocessingMLPackage, diagnostic: Diagnostic, family: String) {
         if (mark == null && paragraph == null) throw GenerationException(listOf(diagnostic))
         mark?.invoke() ?: paragraph!!.let { p ->
-            val anchor = p.content.map { XmlUtils.unwrap(it) }.filterIsInstance<R>().firstOrNull()
+            val visibility = WordVisibility(document, context)
+            val anchor = p.content.map { XmlUtils.unwrap(it) }.filterIsInstance<R>()
+                .firstOrNull { !visibility.hidden(it, p, table) }
             val label = anchor?.let { XmlUtils.deepCopy(it) } ?: R().apply {
                 rPr = RPr().apply { rFonts = RFonts().apply { ascii = family; hAnsi = family } }
             }
@@ -127,5 +132,6 @@ internal class WordTemplateFault(private val context: GenerationContext) {
     private fun emphasize(run: R) {
         val properties = run.rPr ?: RPr().also { run.rPr = it }
         properties.color = Color().apply { `val` = "C00000" }
+        properties.vanish = BooleanDefaultTrue().apply { isVal = false }
     }
 }
