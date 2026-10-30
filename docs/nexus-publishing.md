@@ -64,6 +64,6 @@ repositories {
 }
 ```
 
-For snapshots add the separate `nuaforma-snapshots` URL, enable snapshots and disable releases in Maven, or use `mavenContent { snapshotsOnly() }` in Gradle. Avoid dynamic versions in reproducible builds: snapshots may resolve to a newer generation later. Publishing these workflow changes does not publish any artifact; a first authorized Nexus run is still needed to verify the real credentials and server write policies.
+For snapshots add the separate `nuaforma-snapshots` URL, enable snapshots and disable releases in Maven, or use `mavenContent { snapshotsOnly() }` in Gradle. Avoid dynamic versions in reproducible builds: snapshots may resolve to a newer generation later. Static checks and local staging do not prove repository write permissions. Every actual publication must retain its verification receipt and independently compare anonymous artifact/signature bytes; immutable prereleases must remain non-redeployable.
 
 The Maven client maintains repository metadata ([Sonatype documentation](https://help.sonatype.com/en/tasks.html)); Gradle supports Nexus and native snapshot publishing through its existing [Maven Publish plugin](https://docs.gradle.org/current/userguide/publishing_maven.html). No runtime dependency is added by this routing.
