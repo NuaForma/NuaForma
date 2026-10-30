@@ -104,13 +104,26 @@ def main():
         wait_for_builds(lambda: json.loads(run("gh", "api", endpoint + "/jobs?per_page=100")),
                         current, args.repository, revision, args.ci_run)
         if args.repository == "NuaForma/NuaForma":
-            wait_for_sonar(lambda: json.loads(run("gh", "api", "repos/" + args.repository
-                                                 + "/commits/" + revision + "/check-runs?per_page=100&filter=latest")), revision)
+            require_qualification(revision, args.ci_run)
     else:
         checks = json.loads(run("gh", "api", "repos/" + args.repository + "/commits/" + revision + "/check-runs?per_page=100&filter=latest"))
         require(checks["total_count"] <= 100, "Too many check runs; explicit pagination review required")
-        successful_checks(checks["check_runs"], sonar=args.repository == "NuaForma/NuaForma")
+        successful_checks(checks["check_runs"])
+        if args.repository == "NuaForma/NuaForma":
+            require_qualification(revision)
     print("Exact signed develop source and required Java CI verified; snapshot destination: " + destination(args.version)["repository"])
+
+
+def require_qualification(revision, preferred=None, attempts=31, pause=time.sleep):
+    from ci_evidence import qualification
+    for attempt in range(attempts):
+        result = qualification("java", revision, preferred=preferred)
+        if result:
+            print("Full Java/Sonar qualification reused from run " + str(result["run"]))
+            return result
+        if attempt + 1 < attempts:
+            pause(10)
+    raise ValueError("No complete green qualification for the selected source; no snapshot published")
 
 
 if __name__ == "__main__":

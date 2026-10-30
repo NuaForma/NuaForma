@@ -9,7 +9,7 @@ import urllib.error
 from unittest.mock import patch
 
 from check_environment import check
-from publish_candidate import check_loaded, validated, verify_public_libraries
+from publish_candidate import check_loaded, require_publishable, validated, verify_public_libraries
 from release_candidate import (APPLICATIONS, FINGERPRINT, assemble, require_checks, require_native,
                                runtime_changes, write)
 from verify_libraries import MODULES
@@ -54,6 +54,14 @@ class ReleaseCandidateTest(unittest.TestCase):
             with self.subTest(relative=relative), self.assertRaises(ValueError):
                 assemble(self.root, self.root / "candidate.json")
             path.write_bytes(original)
+
+    def test_review_uses_small_evidence_and_publication_requires_actual_archive_bytes(self):
+        expected = assemble(self.root, self.root / "complete.json")
+        for path in [self.root / "jvm/central.zip", *self.root.glob("*/*.tar.gz")]:
+            path.unlink()
+        self.assertEqual(expected, assemble(self.root, self.root / "review.json", verify_bytes=False))
+        with self.assertRaises(FileNotFoundError):
+            assemble(self.root, self.root / "publication.json")
 
     def test_other_source_platform_version_or_baseline_rejected(self):
         path = self.root / "playground-arm64/archive.json"
@@ -132,6 +140,12 @@ class ReleaseCandidateTest(unittest.TestCase):
 
 
 class PublicationTest(unittest.TestCase):
+    def test_preparation_only_candidates_can_never_be_published(self):
+        require_publishable({"preparationOnly": False})
+        for value in (True, "false", None):
+            with self.assertRaises(ValueError):
+                require_publishable({"preparationOnly": value})
+
     @staticmethod
     def response(value):
         return io.BytesIO(json.dumps(value).encode())

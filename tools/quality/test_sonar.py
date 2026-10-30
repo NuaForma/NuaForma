@@ -45,7 +45,7 @@ class SonarEventTest(unittest.TestCase):
         self.assertIn("  pull_request:\n    branches: [main, develop]\n", workflow)
         self.assertEqual(workflow.count("secrets.SONAR_TOKEN"), 1)
         scan = workflow.split("- name: Analyze with SonarQube Cloud\n", 1)[1]
-        self.assertIn("if: matrix.java == '25' && steps.sonar.outputs.analyze == 'true'", scan)
+        self.assertIn("if: steps.reuse.outputs.reuse != 'true' && (matrix.java == '25' && steps.sonar.outputs.analyze == 'true')", scan)
         self.assertIn('if [ -z "$SONAR_TOKEN" ]; then', scan)
         self.assertIn("exit 1", scan)
         self.assertIn("-x test -x coverageReport", scan)
