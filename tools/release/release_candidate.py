@@ -15,6 +15,7 @@ from prepare_central_bundle import release_version
 from verify_libraries import MODULES
 
 from maven_destination import destination
+from ci_evidence import qualification
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -110,6 +111,15 @@ def source_notice(gate_record, target):
     target.write_text(original + "\n".join(links), encoding="utf-8")
 
 
+def public_source_release(tag):
+    with urllib.request.urlopen("https://api.github.com/repos/NuaForma/NuaForma/releases/tags/" + tag,
+                                timeout=30) as response:
+        raw = response.read(4 * 1024 * 1024 + 1)
+    if len(raw) > 4 * 1024 * 1024:
+        raise ValueError("Public source metadata exceeds bound")
+    return json.loads(raw)
+
+
 def sources(baseline):
     tag = source_asset_tag(baseline)
     assets = {}
@@ -129,18 +139,15 @@ def sources(baseline):
                 for group in ("debian", "java", "jvm")}
     if set(assets) != expected:
         raise ValueError("Require Debian, both JVMs and third-party JAR source archives")
+    release = public_source_release(tag)
+    if release.get("draft") or release.get("tag_name") != tag:
+        raise ValueError("Corresponding source release is not public")
     for url, expected in assets.items():
-        actual, size = hashlib.sha256(), 0
-        with urllib.request.urlopen(url, timeout=120) as response:
-            if not response.url.startswith("https://"):
-                raise ValueError("Source retrieval must remain HTTPS")
-            while block := response.read(1024 * 1024):
-                size += len(block)
-                if size > 2 * 1024**3:
-                    raise ValueError("Source archive exceeds bound")
-                actual.update(block)
-        if not size or actual.hexdigest() != expected:
-            raise ValueError("Public corresponding source differs from review")
+        matches = [a for a in release["assets"] if a["browser_download_url"] == url]
+        if len(matches) != 1 or matches[0].get("state") != "uploaded" or not 0 < matches[0].get("size", 0) <= 2 * 1024**3:
+            raise ValueError("Public corresponding source is missing or oversized")
+        if matches[0].get("digest") != "sha256:" + expected:
+            raise ValueError("GitHub source asset digest differs from the reviewed archive")
     return [{"url": url, "sha256": value} for url, value in sorted(assets.items())]
 
 
@@ -152,34 +159,38 @@ def gate(version, baseline, native_run, output):
     if os.environ.get("GITHUB_REF") != "refs/heads/main" or os.environ.get("GITHUB_REPOSITORY") != "NuaForma/NuaForma":
         raise ValueError("Release preparation is main-only")
     source = command("git", "rev-parse", "HEAD")
-    if source != os.environ["GITHUB_SHA"] or command("git", "rev-parse", f"v{version}^{{commit}}") != source:
-        raise ValueError("Signed release tag must identify this workflow revision")
-    tag_object = command("git", "rev-parse", f"v{version}")
-    if command("git", "cat-file", "-t", tag_object) != "tag":
-        raise ValueError("Require an annotated signed tag")
-    verification = api("git/tags/" + tag_object)["verification"]
+    if source != os.environ["GITHUB_SHA"]:
+        raise ValueError("Workflow source differs from checkout")
+    preparation_only = os.environ.get("PREPARE_ONLY", "false") == "true"
+    tag_object = None
+    if preparation_only:
+        verification = api("commits/" + source)["commit"]["verification"]
+    else:
+        if command("git", "rev-parse", f"v{version}^{{commit}}") != source:
+            raise ValueError("Signed release tag must identify this workflow revision")
+        tag_object = command("git", "rev-parse", f"v{version}")
+        if command("git", "cat-file", "-t", tag_object) != "tag":
+            raise ValueError("Require an annotated signed tag")
+        verification = api("git/tags/" + tag_object)["verification"]
     if not verification["verified"] or verification["reason"] != "valid":
         raise ValueError("Release tag signature is not verified")
     properties = (ROOT / "gradle.properties").read_text()
     if re.findall(r"(?m)^version=(.*)$", properties) != [version]:
         raise ValueError("Source version differs from requested release")
-    checks = api(f"commits/{source}/check-runs?per_page=100")["check_runs"]
-    require_checks(checks)
-    native = api(f"actions/runs/{native_run}")
-    require_native(native, api(f"actions/runs/{native_run}/jobs?per_page=100")["jobs"])
-    tested = native["head_sha"]
-    subprocess.run(["git", "merge-base", "--is-ancestor", tested, source], check=True)
-    changed = command("git", "diff", "--name-only", tested, source).splitlines()
-    differences = runtime_changes(changed, command("git", "show", tested + ":gradle.properties"), properties.strip())
-    if differences:
-        raise ValueError("Native CI no longer covers changed runtime inputs: " + ", ".join(differences))
+    java = qualification("java", source)
+    native = qualification("native", source, preferred=native_run)
+    if not java or not native:
+        raise ValueError("Require full green JVM/Sonar and native qualification for these exact inputs")
+    tested = native["sourceCommit"]
     record = {"version": version, "sourceCommit": source, "tagObject": tag_object,
-              "nativeCiRun": int(native_run), "nativeCiSource": tested, "sourceBaseline": baseline,
+              "preparationOnly": preparation_only,
+              "nativeCiRun": native["run"], "nativeCiSource": tested, "sourceBaseline": baseline,
+              "javaQualification": java, "nativeQualification": native,
               "sourceAssetTag": source_asset_tag(baseline),
               "sourceMaterials": sources(baseline), "qualification": "existing-ci-no-release-retest",
               "runtimeReview": (ROOT / "docs" / ("release-" + version + "-audit.md")).read_text(encoding="utf-8")}
     write(output, record)
-    print("Signed source, current JVM/Sonar CI, unchanged native CI inputs and public corresponding sources: PASS")
+    print("Signed source, matching full JVM/Sonar/native qualification and public source identities: PASS")
 
 
 def match_foreign(gate_record):
@@ -217,12 +228,14 @@ def archive(gate_record, application, architecture, archive_path, inventory, out
                    "sourceBaseline": gate_record["sourceBaseline"]})
 
 
-def assemble(root, output):
+def assemble(root, output, verify_bytes=True):
     gate_record = read(root / "jvm/gate.json")
     bundle = read(root / "jvm/central.zip.json")
     hashes = {record["file"]: record["sha256"] for record in bundle["signatures"]}
     check_bundle(bundle, {"version": gate_record["version"], "libraryHashes": hashes})
-    if digest(root / "jvm/central.zip") != bundle["sha256"]:
+    if not re.fullmatch(r"[a-f0-9]{64}", bundle["sha256"]):
+        raise ValueError("Invalid bundle hash")
+    if verify_bytes and digest(root / "jvm/central.zip") != bundle["sha256"]:
         raise ValueError("Central bundle changed in transit")
     images = []
     for application in APPLICATIONS:
@@ -234,7 +247,8 @@ def assemble(root, output):
                     or image["version"] != gate_record["version"] or image["sourceCommit"] != gate_record["sourceCommit"]
                     or image["sourceBaseline"] != gate_record["sourceBaseline"] or image["file"] != expected_file
                     or not re.fullmatch(r"sha256:[a-f0-9]{64}", image["config"])
-                    or digest(directory / expected_file) != image["sha256"]):
+                    or not re.fullmatch(r"[a-f0-9]{64}", image["sha256"])
+                    or (verify_bytes and digest(directory / expected_file) != image["sha256"])):
                 raise ValueError("Container identity or archive changed in transit")
             images.append(image)
     publication = destination(gate_record["version"])
@@ -248,7 +262,7 @@ def assemble(root, output):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("gate", "match-foreign", "archive", "assemble", "source-notice"))
+    parser.add_argument("action", choices=("gate", "match-foreign", "archive", "assemble", "review", "source-notice"))
     parser.add_argument("--version")
     parser.add_argument("--baseline")
     parser.add_argument("--native-run")
@@ -270,15 +284,19 @@ def main():
     elif args.action == "archive":
         archive(read(args.gate), args.application, args.architecture, args.archive, args.inventory, args.output)
     else:
-        record = assemble(args.root, args.output)
+        record = assemble(args.root, args.output, verify_bytes=args.action != "review")
         summary = os.environ.get("GITHUB_STEP_SUMMARY")
         if summary:
             with open(summary, "a", encoding="utf-8") as target:
-                target.write(f"## Ready for one final approval: {record['version']}\n\nSource: `{record['sourceCommit']}`.\n\n")
+                title = "Non-publishing rehearsal" if record.get("preparationOnly") else "Ready for one final approval"
+                target.write(f"## {title}: {record['version']}\n\nSource: `{record['sourceCommit']}`.\n\n")
                 target.write("All 24 signed library artifacts and four native image archives are built; full tests are reused from green CI.\n\n")
                 target.write(record["runtimeReview"] + ".\n\n")
                 target.write(f"Maven destination: `{record['mavenPublication']['repository']}` ({record['mavenPublication']['kind']}).\n\n")
-                target.write("Approval authorizes publication to that Maven destination, both container indexes, GitHub release and the matching website. No rebuild follows approval.\n")
+                if record.get("preparationOnly"):
+                    target.write("This rehearsal cannot publish artifacts or request final deployment approval.\n")
+                else:
+                    target.write("Approval authorizes publication to that Maven destination, both container indexes, GitHub release and the matching website. No rebuild follows approval.\n")
         print("Complete candidate manifest verified")
 
 

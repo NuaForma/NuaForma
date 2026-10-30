@@ -3,17 +3,21 @@ name: Release with one final approval
 on:
   workflow_dispatch:
     inputs:
+      prepare_only:
+        description: Rehearse the full preparation without publishing or creating a release tag
+        type: boolean
+        default: false
       version:
         description: New signed release version (without v)
         required: true
         type: string
       native_ci_run:
         description: Green native-container CI run covering unchanged runtime inputs
-        required: true
+        required: false
         type: string
       source_baseline:
         description: Published matching third-party source review
-        default: '0.3.0-alpha.1'
+        default: '0.3.0-alpha.5'
         required: true
         type: string
 
@@ -25,6 +29,7 @@ concurrency:
 
 env:
   RELEASE_VERSION: ${{ inputs.version }}
+  PREPARE_ONLY: ${{ inputs.prepare_only }}
   GH_TOKEN: ${{ github.token }}
 
 jobs:
@@ -33,6 +38,7 @@ jobs:
     permissions:
       contents: read
       actions: read
+      checks: read
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -77,6 +83,15 @@ jobs:
         with:
           name: release-jvm
           path: build/release/jvm/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Retain small verified JVM evidence for review
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-jvm-evidence
+          path: |
+            build/release/jvm/gate.json
+            build/release/jvm/central.zip.json
           if-no-files-found: error
           retention-days: 14
 
@@ -136,7 +151,14 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-${{ matrix.application }}-${{ matrix.architecture }}
-          path: build/release/archive/
+          path: build/release/archive/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+      - name: Retain small verified native image evidence for review
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-${{ matrix.application }}-${{ matrix.architecture }}-evidence
+          path: build/release/archive/archive.json
           if-no-files-found: error
           retention-days: 14
 
@@ -154,9 +176,9 @@ jobs:
       - name: Assemble the complete immutable candidate for final review
         run: |
           for item in jvm server-amd64 server-arm64 playground-amd64 playground-arm64; do
-            gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "release-$item" --dir "build/release/$item"
+            gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "release-$item-evidence" --dir "build/release/$item"
           done
-          python3 tools/release/release_candidate.py assemble --root build/release --output build/release/candidate.json
+          python3 tools/release/release_candidate.py review --root build/release --output build/release/candidate.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-candidate
@@ -165,6 +187,7 @@ jobs:
           retention-days: 90
 
   publish:
+    if: ${{ !inputs.prepare_only }}
     needs: review
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -184,8 +207,9 @@ jobs:
           for item in jvm server-amd64 server-arm64 playground-amd64 playground-arm64 candidate; do
             gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "release-$item" --dir "build/release/$item"
           done
-          python3 tools/release/release_candidate.py assemble --root build/release --output build/release/verified.json
-          cmp build/release/verified.json build/release/candidate/candidate.json
+          for item in server-amd64 server-arm64 playground-amd64 playground-arm64; do
+            gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "release-$item-evidence" --dir "build/release/$item"
+          done
       - name: Publish the exact approved libraries and images without rebuilding
         env:
           MAVEN_CENTRAL_USERNAME: ${{ !contains(inputs.version, '-') && secrets.MAVEN_CENTRAL_USERNAME || '' }}

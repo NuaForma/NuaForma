@@ -64,3 +64,7 @@ For rotation, generate a replacement, update this one GitHub secret, verify a sc
 SonarScanner for Gradle 7.5.0.8588 is LGPL-3.0 and JaCoCo 0.8.15 is EPL-2.0. The approved tools are unmodified build/test dependencies only, excluded from published libraries, service/Playground distributions and shipped SBOM runtime inventories. Preserve their upstream licenses/notices and applicable source obligations if redistributing the tooling itself. See [dependency review](../DEPENDENCIES.md) and [third-party notices](../THIRD_PARTY.md). No application, contract, Playground UI, renderer or validation behavior changes are introduced.
 
 Primary setup references: [SonarScanner for Gradle](https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/scanners/sonarscanner-for-gradle), [personal tokens](https://docs.sonarsource.com/sonarqube-cloud/managing-your-account/managing-tokens) and [scoped organization token availability](https://docs.sonarsource.com/sonarqube-cloud/administering-sonarcloud/managing-organization/scoped-organization-tokens).
+
+## Reusing completed qualification
+
+For identical tested inputs, the approved [release procedure](release-process.md) reuses the original full Java/native receipts and actual Sonar Quality Gate instead of rerunning all checks on a merge/version-only revision. Required current check names validate that binding and expose the analyzed source/run in their summary. No new Sonar status is fabricated, and changed/missing qualification requires full checks.

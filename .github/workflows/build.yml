@@ -18,6 +18,8 @@ jobs:
   build:
     permissions:
       contents: read
+      actions: read
+      checks: read
     name: Build (Java ${{ matrix.java }})
     strategy:
       fail-fast: false
@@ -36,29 +38,39 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Reuse successful qualification for identical inputs
+        id: reuse
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/release/ci_evidence.py select --kind java
+
       - name: Determine Sonar analysis eligibility
-        if: matrix.java == '25'
+        if: steps.reuse.outputs.reuse != 'true' && (matrix.java == '25')
         id: sonar
         run: python3 tools/quality/sonar_event.py
 
       - name: Install the other compilation toolchain
+        if: steps.reuse.outputs.reuse != 'true'
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: ${{ matrix.other-java }}
 
       - name: Set up build Java ${{ matrix.java }}
+        if: steps.reuse.outputs.reuse != 'true'
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
 
       - name: Validate Gradle Wrapper
+        if: steps.reuse.outputs.reuse != 'true'
         run: |
           echo '7a9ce74cff467ca1bf60a4fcd9f05185acceda4d0f382434d393e17864262c5d  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check --strict
           test -x gradlew
 
       - name: Build and test all modules
+        if: steps.reuse.outputs.reuse != 'true'
         env:
           COVERAGE: ${{ matrix.java == '25' && 'true' || 'false' }}
         run: |
@@ -70,18 +82,19 @@ jobs:
           fi
 
       - name: Check dependency-free Playground request composition
+        if: steps.reuse.outputs.reuse != 'true'
         run: node --test nuaforma-playground/src/test/javascript/builder.test.cjs
 
       - name: Verify independent Java 17 library consumers
-        if: matrix.java == '17'
+        if: steps.reuse.outputs.reuse != 'true' && (matrix.java == '17')
         run: ./gradlew --no-daemon verifyEmbeddedConsumers --warning-mode=fail
 
       - name: Verify dependency rejection behavior
-        if: matrix.java == '17'
+        if: steps.reuse.outputs.reuse != 'true' && (matrix.java == '17')
         run: python3 tools/quality/probe_dependency_verification.py
 
       - name: Analyze with SonarQube Cloud
-        if: matrix.java == '25' && steps.sonar.outputs.analyze == 'true'
+        if: steps.reuse.outputs.reuse != 'true' && (matrix.java == '25' && steps.sonar.outputs.analyze == 'true')
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
@@ -90,6 +103,25 @@ jobs:
             exit 1
           fi
           ./gradlew --no-daemon sonar -Pcoverage=true -x test -x coverageReport --warning-mode=fail
+
+      - name: Record completed full qualification inputs
+        id: evidence
+        if: steps.reuse.outputs.reuse != 'true'
+        env:
+          HEAD_SOURCE: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          git diff --quiet HEAD --
+          python3 tools/release/ci_evidence.py record --kind java --lane ${{ matrix.java }} --output build/ci-evidence/qualification.json
+      - name: Retain reusable full qualification evidence
+        if: steps.reuse.outputs.reuse != 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: qualification-java-${{ matrix.java }}-${{ steps.evidence.outputs.fingerprint }}
+          path: build/ci-evidence/qualification.json
+          overwrite: true
+          if-no-files-found: error
+          retention-days: 90
 
   snapshot:
     name: Publish develop snapshot
