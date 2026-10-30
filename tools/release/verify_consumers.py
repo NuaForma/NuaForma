@@ -53,7 +53,7 @@ def main():
     consumer_repository = output / "m2" / args.version / candidate_digest.hexdigest()
     run(["mvn", "-B", "-U", "-ntp", "-f", "examples/embedded/maven/pom.xml", "-Dmaven.repo.local=" + str(consumer_repository),
          "-Dnuaforma.repository=" + repository.as_uri(), "-Dnuaforma.version=" + args.version,
-         "install", "org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy-dependencies", "-DincludeScope=runtime", "-Dmdep.overWriteSnapshots=true", "-Dmdep.overWriteReleases=true", "-DskipTests"],
+         "clean", "install", "org.apache.maven.plugins:maven-dependency-plugin:3.11.0:copy-dependencies", "-DincludeScope=runtime", "-Dmdep.overWriteSnapshots=true", "-Dmdep.overWriteReleases=true", "-DskipTests"],
         root, output / "maven.log")
     records = []
     for module, entrypoint, own in (

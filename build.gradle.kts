@@ -39,7 +39,7 @@ val archunit = libs.archunit
 val annotations = libs.annotations
 val testTransitives = listOf(libs.byte.buddy, libs.byte.buddy.agent, libs.objenesis, libs.jspecify, libs.coroutines.bom, libs.coroutines.core, libs.slf4j.api)
 val docxRuntimeUpgrades = listOf(libs.commons.codec, libs.commons.collections, libs.commons.lang, libs.istack, libs.jaxb.plugins,
-    libs.checker.qual, libs.error.prone.annotations, libs.slf4j.jcl, libs.slf4j.api).map { it.get() }
+    libs.checker.qual, libs.error.prone.annotations, libs.slf4j.jcl, libs.slf4j.api, libs.xmlgraphics, libs.rhino).map { it.get() }
 
 subprojects {
     val jvmVersion = if (name in setOf("nuaforma-server", "nuaforma-playground")) 25 else 17

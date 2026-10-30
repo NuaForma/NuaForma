@@ -17,21 +17,22 @@ def main():
         assert args.notices is not None
         with tarfile.open(args.notices / "java-release.tar") as archive:
             release = archive.extractfile(next(member for member in archive if member.isfile())).read().decode()
-        assert 'BUILD_SOURCE="git:e6ba7dec3d07654074559310376a3ae89da5f4ac"' in release
-        assert 'SOURCE=".:git:79597447bd94"' in release
+        assert 'BUILD_SOURCE="git:1cf43d7a3e77886bfea7d550a902e151a87d724d"' in release
+        assert 'SOURCE=".:git:551f220d8884"' in release
+        assert 'JAVA_RUNTIME_VERSION="17.0.21+9"' in release
         server_release = args.notices / "server-java-release.tar"
         if server_release.is_file():
             with tarfile.open(server_release) as archive:
                 release = archive.extractfile(next(member for member in archive if member.isfile())).read().decode()
-            assert 'BUILD_SOURCE="git:e6ba7dec3d07654074559310376a3ae89da5f4ac"' in release
-            assert 'SOURCE=".:git:520406d87195"' in release
-            assert 'JAVA_RUNTIME_VERSION="25.0.4.1+1-LTS"' in release
+            assert 'BUILD_SOURCE="git:1cf43d7a3e77886bfea7d550a902e151a87d724d"' in release
+            assert 'SOURCE=".:git:7ec19fb1eda7"' in release
+            assert 'JAVA_RUNTIME_VERSION="25.0.5+8-LTS"' in release
     args.output.mkdir(parents=True, exist_ok=False)
     urls = {
-        "temurin-build-e6ba7dec3d07654074559310376a3ae89da5f4ac.tar.gz": "https://api.github.com/repos/adoptium/temurin-build/tarball/e6ba7dec3d07654074559310376a3ae89da5f4ac",
-        "temurin-build-containers-511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07.tar.gz": "https://api.github.com/repos/adoptium/containers/tarball/511f9356dc4d50932a0a5f8cfb0f87ed1aef4f07",
-        "docx4j-17.3.2-LICENSE": "https://raw.githubusercontent.com/plutext/docx4j/VERSION_17_3_2/legals/LICENSE",
-        "docx4j-17.3.2-NOTICE": "https://raw.githubusercontent.com/plutext/docx4j/VERSION_17_3_2/legals/NOTICE",
+        "temurin-build-1cf43d7a3e77886bfea7d550a902e151a87d724d.tar.gz": "https://api.github.com/repos/adoptium/temurin-build/tarball/1cf43d7a3e77886bfea7d550a902e151a87d724d",
+        "temurin-build-containers-86e89ce20ba391b588e243844d0c0d996071b3ed.tar.gz": "https://api.github.com/repos/adoptium/containers/tarball/86e89ce20ba391b588e243844d0c0d996071b3ed",
+        "docx4j-17.3.4-LICENSE": "https://raw.githubusercontent.com/plutext/docx4j/VERSION_17_3_4/legals/LICENSE",
+        "docx4j-17.3.4-NOTICE": "https://raw.githubusercontent.com/plutext/docx4j/VERSION_17_3_4/legals/NOTICE",
         "antlr-2.7.7.tar.gz": "https://www.antlr2.org/download/antlr-2.7.7.tar.gz",
         "antlr-2-license.html": "https://www.antlr2.org/license.html",
         "antlr-2.7.7-copyright": "https://sources.debian.org/data/main/a/antlr/2.7.7%2Bdfsg-6/debian/copyright",
@@ -41,8 +42,8 @@ def main():
     }
     records = []
     expected = {
-        "docx4j-17.3.2-LICENSE": "8376f47fa872ae6142a7c08f66f13a7ab32ad2c4554e118a3e462c8c8ee68468",
-        "docx4j-17.3.2-NOTICE": "82f67e5b9014706d0893390281efb9a9efbc127f8974ba811348b95b932c5e77",
+        "docx4j-17.3.4-LICENSE": "8376f47fa872ae6142a7c08f66f13a7ab32ad2c4554e118a3e462c8c8ee68468",
+        "docx4j-17.3.4-NOTICE": "6ebab83ef4ba80b201729e252bb19a4c8ef20bba582aaddc6d5c112a2aeb6c96",
         "antlr-2.7.7.tar.gz": "853aeb021aef7586bda29e74a6b03006bcb565a755c86b66032d8ec31b67dbb9",
         "antlr-2-license.html": "72d8ba2e86ccc57b65d83f0af10ae0cade32f5305eb2b95b4aed71e1eb891752",
         "antlr-2.7.7-copyright": "bc290c0e5bc791362aeb044a137e135a008f6f60bb72ed443d3aa36627df3aa3",

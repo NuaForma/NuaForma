@@ -88,12 +88,12 @@ def collect_debian(source, version, packages, destination):
 
 def collect_upstream(destination):
     records = []
-    for major, version in ((17, "17.0.20.1"), (25, "25.0.4.1")):
-        base = f"https://github.com/adoptium/temurin{major}-binaries/releases/download/jdk-{version}%2B1/"
-        name = f"OpenJDK{major}U-jdk-sources_{version}_1.tar.gz"
+    for major, version, build in ((17, "17.0.21", 9), (25, "25.0.5", 8)):
+        base = f"https://github.com/adoptium/temurin{major}-binaries/releases/download/jdk-{version}%2B{build}/"
+        name = f"OpenJDK{major}U-jdk-sources_{version}_{build}.tar.gz"
         expected = read_url(base + name + ".sha256.txt").decode("ascii").split()[0]
-        pinned = {17: "21e2a065d244ab048e737f21af5d1fc74daaeb6707de36477ead8db1dca71214",
-                  25: "cb9e50d2eb3de72ffd28466d7c511b4039b4bc4bd8f0d276d1e4cf81e30fdf09"}
+        pinned = {17: "89a455fa83b19e3a166bca47a465d51712441be607543dd465083ef2437a426d",
+                  25: "f331d870d998f9c144c361c220960f8ad2de169dc1b1c4dc4145291c501c2341"}
         assert expected == pinned[major], "Temurin source changed; explicit input review required"
         path = destination / "temurin" / name
         record = download(base + name, path, "sha256", expected)

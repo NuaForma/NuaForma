@@ -7,11 +7,34 @@ import urllib.request
 import zipfile
 
 
+def verify_validator_classes(runtime):
+    """The isolated validator needs one javax API generation, regardless of Maven artifact names."""
+    required = ("javax/xml/bind/JAXBContext.class", "javax/activation/DataHandler.class")
+    forbidden = ("jakarta/xml/bind/JAXBContext.class", "jakarta/activation/DataHandler.class")
+    owners = {name: [] for name in required}
+    class_owners = {}
+    for binary in runtime.glob("*.jar"):
+        with zipfile.ZipFile(binary) as jar:
+            names = set(jar.namelist())
+            for name in names:
+                if name.endswith(".class") and not name.endswith("module-info.class"):
+                    class_owners.setdefault(name, []).append(binary.name)
+            assert not names.intersection(forbidden), "The isolated validator must retain javax APIs: " + binary.name
+            for name in required:
+                if name in names:
+                    owners[name].append(binary.name)
+    for name, files in owners.items():
+        assert len(files) == 1, "Expected exactly one validator API owner for " + name + ": " + ", ".join(files)
+    duplicates = sorted(name for name, files in class_owners.items() if len(files) > 1)
+    assert not duplicates, "Duplicate validator class entries: " + ", ".join(duplicates[:3])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("runtime", type=pathlib.Path)
     args = parser.parse_args()
     runtime = args.runtime.resolve()
+    verify_validator_classes(runtime)
     components = json.loads((runtime / "components.json").read_text(encoding="utf-8"))
     destination = runtime / "materials"
     destination.mkdir(parents=True, exist_ok=True)

@@ -127,6 +127,17 @@
       "coordinates": [
         "com.fasterxml.jackson",
         "jackson-base",
+        "2.22.1",
+        "jackson-base-2.22.1.pom"
+      ],
+      "sha256": "3f5f597c7474d90fe27060477f243b804bec705dc60feca4de27ca326386448a",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-base/2.22.1/jackson-base-2.22.1.pom",
+      "bytes": 13361
+    },
+    {
+      "coordinates": [
+        "com.fasterxml.jackson",
+        "jackson-base",
         "2.22.2",
         "jackson-base-2.22.2.pom"
       ],
@@ -143,6 +154,17 @@
       ],
       "sha256": "1991ff35885b389eb29c23ae318c8eca66562915205bdeea53c722a5bd1b3bcb",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-base/2.22.3/jackson-base-2.22.3.pom",
+      "bytes": 13361
+    },
+    {
+      "coordinates": [
+        "com.fasterxml.jackson",
+        "jackson-base",
+        "2.22.4",
+        "jackson-base-2.22.4.pom"
+      ],
+      "sha256": "51b5cc57df78f50a43210e577075f68399e31dde7150455e179d249e637582a1",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-base/2.22.4/jackson-base-2.22.4.pom",
       "bytes": 13361
     },
     {
@@ -198,6 +220,17 @@
       ],
       "sha256": "8f499c6a8c017bb987a1a73b91f705c22fe24ec2777e7055c7a2a913f14b5440",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-bom/2.22.3/jackson-bom-2.22.3.pom",
+      "bytes": 20225
+    },
+    {
+      "coordinates": [
+        "com.fasterxml.jackson",
+        "jackson-bom",
+        "2.22.4",
+        "jackson-bom-2.22.4.pom"
+      ],
+      "sha256": "a3c00688a7bf8e128451137b68f90d9137957a372756083d74555a47241d1636",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/jackson-bom/2.22.4/jackson-bom-2.22.4.pom",
       "bytes": 20225
     },
     {
@@ -302,6 +335,39 @@
     {
       "coordinates": [
         "com.fasterxml.jackson.core",
+        "jackson-core",
+        "2.22.4",
+        "jackson-core-2.22.4.jar"
+      ],
+      "sha256": "2d30c375cddea9657a1e1ef97547a2694b663b355facb4de53a097782b312d1a",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.22.4/jackson-core-2.22.4.jar",
+      "bytes": 599548
+    },
+    {
+      "coordinates": [
+        "com.fasterxml.jackson.core",
+        "jackson-core",
+        "2.22.4",
+        "jackson-core-2.22.4.module"
+      ],
+      "sha256": "f48a33005b4950f90af0aed735c29c9e7e43df9e2a4d649db7a2dc2e90ce96f5",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-core/2.22.4/jackson-core-2.22.4.module",
+      "bytes": 2426
+    },
+    {
+      "coordinates": [
+        "com.fasterxml.jackson.core",
+        "jackson-databind",
+        "2.22.1",
+        "jackson-databind-2.22.1.module"
+      ],
+      "sha256": "054f10501bd363e5fd88223b6a8280109f8bfa0c7610681e58669d5720b71ab2",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.22.1/jackson-databind-2.22.1.module",
+      "bytes": 4812
+    },
+    {
+      "coordinates": [
+        "com.fasterxml.jackson.core",
         "jackson-databind",
         "2.22.2",
         "jackson-databind-2.22.2.jar"
@@ -345,6 +411,28 @@
     },
     {
       "coordinates": [
+        "com.fasterxml.jackson.core",
+        "jackson-databind",
+        "2.22.4",
+        "jackson-databind-2.22.4.jar"
+      ],
+      "sha256": "d4cbf8947087f305869826801913abdc50735a1fab2074a1993e7bc67ca974a3",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.22.4/jackson-databind-2.22.4.jar",
+      "bytes": 1714464
+    },
+    {
+      "coordinates": [
+        "com.fasterxml.jackson.core",
+        "jackson-databind",
+        "2.22.4",
+        "jackson-databind-2.22.4.module"
+      ],
+      "sha256": "fdf629a455277b8696a0e79533d99531bea7f5f5edaf6cab38646608b8cbb9c3",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/core/jackson-databind/2.22.4/jackson-databind-2.22.4.module",
+      "bytes": 4812
+    },
+    {
+      "coordinates": [
         "com.fasterxml.jackson.dataformat",
         "jackson-dataformat-xml",
         "2.22.2",
@@ -375,6 +463,17 @@
       "sha256": "d4dd9c8d437373b90dad0f89eb86214748c758433a2ec313740d540427a44a4f",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.18.4/jackson-dataformat-yaml-2.18.4.module",
       "bytes": 3557
+    },
+    {
+      "coordinates": [
+        "com.fasterxml.jackson.dataformat",
+        "jackson-dataformat-yaml",
+        "2.22.1",
+        "jackson-dataformat-yaml-2.22.1.module"
+      ],
+      "sha256": "f418430283e67ac37487e372d7abc2fbde763fe39e00ad3a63e8644356d1a46e",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.22.1/jackson-dataformat-yaml-2.22.1.module",
+      "bytes": 5172
     },
     {
       "coordinates": [
@@ -423,6 +522,28 @@
     {
       "coordinates": [
         "com.fasterxml.jackson.dataformat",
+        "jackson-dataformat-yaml",
+        "2.22.4",
+        "jackson-dataformat-yaml-2.22.4.jar"
+      ],
+      "sha256": "2f55e2b864f6354b24d4bcccd488f7c4a3fce4977f8c8dbad07242a68e11dde9",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.22.4/jackson-dataformat-yaml-2.22.4.jar",
+      "bytes": 63706
+    },
+    {
+      "coordinates": [
+        "com.fasterxml.jackson.dataformat",
+        "jackson-dataformat-yaml",
+        "2.22.4",
+        "jackson-dataformat-yaml-2.22.4.module"
+      ],
+      "sha256": "a5df18de7021c89a16609350d009e084347bb9aaaf1a171fb75b7897a801a997",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.22.4/jackson-dataformat-yaml-2.22.4.module",
+      "bytes": 5172
+    },
+    {
+      "coordinates": [
+        "com.fasterxml.jackson.dataformat",
         "jackson-dataformats-text",
         "2.18.4",
         "jackson-dataformats-text-2.18.4.pom"
@@ -430,6 +551,17 @@
       "sha256": "ce6ecb853758a944cba2c926a7eec83720fc058dba88f2503975ccc6fe00d78f",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformats-text/2.18.4/jackson-dataformats-text-2.18.4.pom",
       "bytes": 3679
+    },
+    {
+      "coordinates": [
+        "com.fasterxml.jackson.dataformat",
+        "jackson-dataformats-text",
+        "2.22.1",
+        "jackson-dataformats-text-2.22.1.pom"
+      ],
+      "sha256": "8168041b51313716c4fdaaa046376b0efee78b1c42ce73a2a5d1c4af8a1ba0b6",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformats-text/2.22.1/jackson-dataformats-text-2.22.1.pom",
+      "bytes": 3475
     },
     {
       "coordinates": [
@@ -451,6 +583,17 @@
       ],
       "sha256": "8cf73665c9bd9ff974349bf1579ec0a7fab1c0e96ef9e71e3399984e704e112f",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformats-text/2.22.3/jackson-dataformats-text-2.22.3.pom",
+      "bytes": 3475
+    },
+    {
+      "coordinates": [
+        "com.fasterxml.jackson.dataformat",
+        "jackson-dataformats-text",
+        "2.22.4",
+        "jackson-dataformats-text-2.22.4.pom"
+      ],
+      "sha256": "57ca2b45f3b4015ee42e8bcea4b886baa8569eab4bc34654cbf3410bcbb7a8fe",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/dataformat/jackson-dataformats-text/2.22.4/jackson-dataformats-text-2.22.4.pom",
       "bytes": 3475
     },
     {
@@ -477,6 +620,28 @@
     },
     {
       "coordinates": [
+        "com.fasterxml.jackson.datatype",
+        "jackson-datatype-jsr310",
+        "2.22.4",
+        "jackson-datatype-jsr310-2.22.4.jar"
+      ],
+      "sha256": "ec961697cbd631935b6fb6f673406861c75243521fb67fec10b59f1412ac50f7",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-jsr310/2.22.4/jackson-datatype-jsr310-2.22.4.jar",
+      "bytes": 136876
+    },
+    {
+      "coordinates": [
+        "com.fasterxml.jackson.datatype",
+        "jackson-datatype-jsr310",
+        "2.22.4",
+        "jackson-datatype-jsr310-2.22.4.module"
+      ],
+      "sha256": "72b7dda0fe250d022c9de456fc26047f3656b27f31cb9aeda5d3ab18c97c21ff",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/datatype/jackson-datatype-jsr310/2.22.4/jackson-datatype-jsr310-2.22.4.module",
+      "bytes": 5230
+    },
+    {
+      "coordinates": [
         "com.fasterxml.jackson.module",
         "jackson-modules-java8",
         "2.22.3",
@@ -484,6 +649,17 @@
       ],
       "sha256": "19aa2e1fa4a541bd20815f110f80e9232bc3dee87d2492bb04e56cdfc4f28bb6",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-modules-java8/2.22.3/jackson-modules-java8-2.22.3.pom",
+      "bytes": 3067
+    },
+    {
+      "coordinates": [
+        "com.fasterxml.jackson.module",
+        "jackson-modules-java8",
+        "2.22.4",
+        "jackson-modules-java8-2.22.4.pom"
+      ],
+      "sha256": "20cdf333d224a91e6a4b548f8f4515790e34efc19cadc41f06173f51d97ac70d",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/fasterxml/jackson/module/jackson-modules-java8/2.22.4/jackson-modules-java8-2.22.4.pom",
       "bytes": 3067
     },
     {
@@ -676,6 +852,28 @@
     {
       "coordinates": [
         "com.google.errorprone",
+        "error_prone_annotations",
+        "2.51.0",
+        "error_prone_annotations-2.51.0.jar"
+      ],
+      "sha256": "51a6d8348c7e307e47183859c07597dc8a2899c5d1b6f18a471bccaa3203d5cf",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.51.0/error_prone_annotations-2.51.0.jar",
+      "bytes": 20730
+    },
+    {
+      "coordinates": [
+        "com.google.errorprone",
+        "error_prone_annotations",
+        "2.51.0",
+        "error_prone_annotations-2.51.0.pom"
+      ],
+      "sha256": "77314f3f9bc693cbdf14b9bd8ba9a02d9a2c336431541bf798ef5c71cff483f3",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_annotations/2.51.0/error_prone_annotations-2.51.0.pom",
+      "bytes": 4252
+    },
+    {
+      "coordinates": [
+        "com.google.errorprone",
         "error_prone_parent",
         "2.27.0",
         "error_prone_parent-2.27.0.pom"
@@ -705,6 +903,17 @@
       "sha256": "abf45a019db125b50ff55134ec2af94ae3519761038adf0a60b9bd7b4b8b6254",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_parent/2.50.0/error_prone_parent-2.50.0.pom",
       "bytes": 15882
+    },
+    {
+      "coordinates": [
+        "com.google.errorprone",
+        "error_prone_parent",
+        "2.51.0",
+        "error_prone_parent-2.51.0.pom"
+      ],
+      "sha256": "124642638c795ab1a030a56cc01017957de4415468f47c89109973d63c7643eb",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/google/errorprone/error_prone_parent/2.51.0/error_prone_parent-2.51.0.pom",
+      "bytes": 15889
     },
     {
       "coordinates": [
@@ -851,6 +1060,28 @@
     },
     {
       "coordinates": [
+        "com.sun.activation",
+        "jakarta.activation",
+        "1.2.2",
+        "jakarta.activation-1.2.2.jar"
+      ],
+      "sha256": "02156773e4ae9d048d14a56ad35d644bee9f1052a791d072df3ded3c656e6e1a",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/sun/activation/jakarta.activation/1.2.2/jakarta.activation-1.2.2.jar",
+      "bytes": 68453
+    },
+    {
+      "coordinates": [
+        "com.sun.activation",
+        "jakarta.activation",
+        "1.2.2",
+        "jakarta.activation-1.2.2.pom"
+      ],
+      "sha256": "a8c937450f84f637f624923ba39392bf645c2d5eb2ffc7a1821d7f2e85561028",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/sun/activation/jakarta.activation/1.2.2/jakarta.activation-1.2.2.pom",
+      "bytes": 4621
+    },
+    {
+      "coordinates": [
         "com.sun.istack",
         "istack-commons",
         "4.2.0",
@@ -907,6 +1138,17 @@
     {
       "coordinates": [
         "com.sun.xml.bind",
+        "jaxb-bom-ext",
+        "2.3.9",
+        "jaxb-bom-ext-2.3.9.pom"
+      ],
+      "sha256": "9303226533f81956c18167e7c89491aa00a465edad2fe05f44531a9a2a74b1ca",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/sun/xml/bind/jaxb-bom-ext/2.3.9/jaxb-bom-ext-2.3.9.pom",
+      "bytes": 3474
+    },
+    {
+      "coordinates": [
+        "com.sun.xml.bind",
         "jaxb-core",
         "2.3.0.1",
         "jaxb-core-2.3.0.1.jar"
@@ -950,6 +1192,28 @@
     },
     {
       "coordinates": [
+        "com.sun.xml.bind",
+        "jaxb-impl",
+        "2.3.9",
+        "jaxb-impl-2.3.9.jar"
+      ],
+      "sha256": "3ba42e1fe670bc9d04409f2493f5482dc96cac21caa11adb27b897e57386fef6",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/sun/xml/bind/jaxb-impl/2.3.9/jaxb-impl-2.3.9.jar",
+      "bytes": 1117377
+    },
+    {
+      "coordinates": [
+        "com.sun.xml.bind",
+        "jaxb-impl",
+        "2.3.9",
+        "jaxb-impl-2.3.9.pom"
+      ],
+      "sha256": "599c7c596773f5e32cdcd9e17d641f1b0453c86889c1dbfc1da616719299f173",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/sun/xml/bind/jaxb-impl/2.3.9/jaxb-impl-2.3.9.pom",
+      "bytes": 14038
+    },
+    {
+      "coordinates": [
         "com.sun.xml.bind.mvn",
         "jaxb-bundles",
         "2.3.0.1",
@@ -973,6 +1237,17 @@
     {
       "coordinates": [
         "com.sun.xml.bind.mvn",
+        "jaxb-bundles",
+        "2.3.9",
+        "jaxb-bundles-2.3.9.pom"
+      ],
+      "sha256": "7a2d9a13945f5071d6b7f176421682cb6cf0c070f56d44af782b183efcd1a544",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/sun/xml/bind/mvn/jaxb-bundles/2.3.9/jaxb-bundles-2.3.9.pom",
+      "bytes": 1317
+    },
+    {
+      "coordinates": [
+        "com.sun.xml.bind.mvn",
         "jaxb-parent",
         "2.3.0.1",
         "jaxb-parent-2.3.0.1.pom"
@@ -991,6 +1266,17 @@
       "sha256": "20dd6dc34ab7549ac40da1d82e92222ec4347ad0ec0cb118ef6c5703bed53a18",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/com/sun/xml/bind/mvn/jaxb-parent/2.3.2/jaxb-parent-2.3.2.pom",
       "bytes": 29746
+    },
+    {
+      "coordinates": [
+        "com.sun.xml.bind.mvn",
+        "jaxb-parent",
+        "2.3.9",
+        "jaxb-parent-2.3.9.pom"
+      ],
+      "sha256": "b7702d52de04c73507c6b3fb06a82d8c7e3f2521950e13dd2628b439252179b6",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/com/sun/xml/bind/mvn/jaxb-parent/2.3.9/jaxb-parent-2.3.9.pom",
+      "bytes": 32139
     },
     {
       "coordinates": [
@@ -1150,6 +1436,28 @@
       "coordinates": [
         "commons-logging",
         "commons-logging",
+        "1.3.0",
+        "commons-logging-1.3.0.jar"
+      ],
+      "sha256": "66d3c980470b99b0c511dad3dfc0ae7b265ec1fb144e96bc0253a8a175fd34d9",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/commons-logging/commons-logging/1.3.0/commons-logging-1.3.0.jar",
+      "bytes": 70816
+    },
+    {
+      "coordinates": [
+        "commons-logging",
+        "commons-logging",
+        "1.3.0",
+        "commons-logging-1.3.0.pom"
+      ],
+      "sha256": "8defda7ceb4888ffe4d4e63278956a1a3c514b75b8363d6716a1bd66fe962c7f",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/commons-logging/commons-logging/1.3.0/commons-logging-1.3.0.pom",
+      "bytes": 27310
+    },
+    {
+      "coordinates": [
+        "commons-logging",
+        "commons-logging",
         "1.4.0",
         "commons-logging-1.4.0.jar"
       ],
@@ -1226,6 +1534,17 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-client-apache5",
+        "3.6.1",
+        "ktor-client-apache5-3.6.1.module"
+      ],
+      "sha256": "fdbd68473ea886db73d9b15f1315bf066d6e582f3e3d85241ab9593e642146f0",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-apache5/3.6.1/ktor-client-apache5-3.6.1.module",
+      "bytes": 4144
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-client-apache5-jvm",
         "3.6.0",
         "ktor-client-apache5-jvm-3.6.0.jar"
@@ -1248,12 +1567,45 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-client-apache5-jvm",
+        "3.6.1",
+        "ktor-client-apache5-jvm-3.6.1.jar"
+      ],
+      "sha256": "6e4c9a13324121e9e8eb579b99a4dae93f9e5f1c1367e4e7fc67991a97943e5a",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-apache5-jvm/3.6.1/ktor-client-apache5-jvm-3.6.1.jar",
+      "bytes": 46191
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-client-apache5-jvm",
+        "3.6.1",
+        "ktor-client-apache5-jvm-3.6.1.module"
+      ],
+      "sha256": "e9f8b5cd5d1968d8ff9afd9e208b3493665530d67d27dd899c3c1649bf63e3a8",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-apache5-jvm/3.6.1/ktor-client-apache5-jvm-3.6.1.module",
+      "bytes": 4801
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-client-cio",
         "3.6.0",
         "ktor-client-cio-3.6.0.module"
       ],
       "sha256": "99943bad9a2547c42e233b595c22f8ab21d6c113a67cab3df83b3fa7bfc88d6c",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-cio/3.6.0/ktor-client-cio-3.6.0.module",
+      "bytes": 41527
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-client-cio",
+        "3.6.1",
+        "ktor-client-cio-3.6.1.module"
+      ],
+      "sha256": "7bffa0c6e925377abf89aabfb1502bd816c29bcb80aee9373f6f31eab895d6dd",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-cio/3.6.1/ktor-client-cio-3.6.1.module",
       "bytes": 41527
     },
     {
@@ -1281,12 +1633,45 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-client-cio-jvm",
+        "3.6.1",
+        "ktor-client-cio-jvm-3.6.1.jar"
+      ],
+      "sha256": "6f2b3194e8fbb28250b84e8868b1064731b54f1a950379b2a1c6d83c59e1d018",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-cio-jvm/3.6.1/ktor-client-cio-jvm-3.6.1.jar",
+      "bytes": 144787
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-client-cio-jvm",
+        "3.6.1",
+        "ktor-client-cio-jvm-3.6.1.module"
+      ],
+      "sha256": "83350c880b168cbe0e40a5b06e7211a71b2c5f20cec918620bdea6c0607c8160",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-cio-jvm/3.6.1/ktor-client-cio-jvm-3.6.1.module",
+      "bytes": 5349
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-client-core",
         "3.6.0",
         "ktor-client-core-3.6.0.module"
       ],
       "sha256": "d2a2379ec3df89022ec3c43816110d1fc559d6357aa53317492d66d953658f8e",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-core/3.6.0/ktor-client-core-3.6.0.module",
+      "bytes": 41871
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-client-core",
+        "3.6.1",
+        "ktor-client-core-3.6.1.module"
+      ],
+      "sha256": "7c0f633c81f4ede0c247838a0af400d0b29a96b06389f5c3a24682654762b1b2",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-core/3.6.1/ktor-client-core-3.6.1.module",
       "bytes": 41871
     },
     {
@@ -1314,6 +1699,28 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-client-core-jvm",
+        "3.6.1",
+        "ktor-client-core-jvm-3.6.1.jar"
+      ],
+      "sha256": "3a288b4d75a52d3b2460765067c2fc035bcd18ffcaa0a2296f4b9983cd2f041f",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-core-jvm/3.6.1/ktor-client-core-jvm-3.6.1.jar",
+      "bytes": 965730
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-client-core-jvm",
+        "3.6.1",
+        "ktor-client-core-jvm-3.6.1.module"
+      ],
+      "sha256": "424e2f37486872c9cdf02d3ab452427136275fe4e7ddee82b93d6256c052029e",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-client-core-jvm/3.6.1/ktor-client-core-jvm-3.6.1.module",
+      "bytes": 5842
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-events",
         "3.6.0",
         "ktor-events-3.6.0.module"
@@ -1331,6 +1738,28 @@
       ],
       "sha256": "da99a810911b6d5437a9df3807db7f8696d7b1ead3909b5031980e7f370fc1cd",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-events/3.6.0/ktor-events-3.6.0.pom",
+      "bytes": 2051
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-events",
+        "3.6.1",
+        "ktor-events-3.6.1.module"
+      ],
+      "sha256": "586f13dbfdbb53a47598b50ac4bd830d7e444f5357c076c660112861188686bd",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-events/3.6.1/ktor-events-3.6.1.module",
+      "bytes": 40285
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-events",
+        "3.6.1",
+        "ktor-events-3.6.1.pom"
+      ],
+      "sha256": "c01960e5671a6111511e857e7246d4c70acb10ffaa165dde4b2d54513995a5a8",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-events/3.6.1/ktor-events-3.6.1.pom",
       "bytes": 2051
     },
     {
@@ -1369,6 +1798,39 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-events-jvm",
+        "3.6.1",
+        "ktor-events-jvm-3.6.1.jar"
+      ],
+      "sha256": "9759d0e39dcb8682479c5303625180b90b9cff94d70a5caf78081ba33f78d154",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-events-jvm/3.6.1/ktor-events-jvm-3.6.1.jar",
+      "bytes": 6399
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-events-jvm",
+        "3.6.1",
+        "ktor-events-jvm-3.6.1.module"
+      ],
+      "sha256": "ff6e90ea13c90636a4b42355257fd0904cc2ed9316add1ea88598c31bf626a63",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-events-jvm/3.6.1/ktor-events-jvm-3.6.1.module",
+      "bytes": 4356
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-events-jvm",
+        "3.6.1",
+        "ktor-events-jvm-3.6.1.pom"
+      ],
+      "sha256": "50bac3d0c139b63d801a2ec266f5049a33ba0e561a551527224b41f4e4cfb837",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-events-jvm/3.6.1/ktor-events-jvm-3.6.1.pom",
+      "bytes": 2231
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-http",
         "3.6.0",
         "ktor-http-3.6.0.module"
@@ -1391,6 +1853,28 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-http",
+        "3.6.1",
+        "ktor-http-3.6.1.module"
+      ],
+      "sha256": "5485d58d8338a93535ad2d92648381aad6fd709cfc0a9964f00af836846a3b0d",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-http/3.6.1/ktor-http-3.6.1.module",
+      "bytes": 40089
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-http",
+        "3.6.1",
+        "ktor-http-3.6.1.pom"
+      ],
+      "sha256": "237cc5af3d471a6e22ee9ec81de201f874df6b53a694518c0ca8b1fe042867e2",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-http/3.6.1/ktor-http-3.6.1.pom",
+      "bytes": 2248
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-http-cio",
         "3.6.0",
         "ktor-http-cio-3.6.0.module"
@@ -1408,6 +1892,28 @@
       ],
       "sha256": "4c657800bcc220b3f42392ce858e7df5da9245f6eea000c7267a84c4747ff16c",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-http-cio/3.6.0/ktor-http-cio-3.6.0.pom",
+      "bytes": 2221
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-http-cio",
+        "3.6.1",
+        "ktor-http-cio-3.6.1.module"
+      ],
+      "sha256": "2849d4dce9d49f9e5dc1a28c229e2b92328e6b7851f4920444db7a29703731c6",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-http-cio/3.6.1/ktor-http-cio-3.6.1.module",
+      "bytes": 40817
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-http-cio",
+        "3.6.1",
+        "ktor-http-cio-3.6.1.pom"
+      ],
+      "sha256": "106eeaa2aa7b38e94934a4bd0fca88fee4ebe538e81fd0ffcb9b3a3a39c441cb",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-http-cio/3.6.1/ktor-http-cio-3.6.1.pom",
       "bytes": 2221
     },
     {
@@ -1446,6 +1952,39 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-http-cio-jvm",
+        "3.6.1",
+        "ktor-http-cio-jvm-3.6.1.jar"
+      ],
+      "sha256": "cef2c4f69393eea3937bf3deeca4622a048951b76f38f699ea1d706ef5f5d3b7",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-http-cio-jvm/3.6.1/ktor-http-cio-jvm-3.6.1.jar",
+      "bytes": 135756
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-http-cio-jvm",
+        "3.6.1",
+        "ktor-http-cio-jvm-3.6.1.module"
+      ],
+      "sha256": "b1e45db6962b36fb5ff13c0ecc279dfcb3405fc7f90f0c6ac6245f739161c3a3",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-http-cio-jvm/3.6.1/ktor-http-cio-jvm-3.6.1.module",
+      "bytes": 4983
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-http-cio-jvm",
+        "3.6.1",
+        "ktor-http-cio-jvm-3.6.1.pom"
+      ],
+      "sha256": "cb7f6153d1b8f223753949719edc687dbc3f893b9f09fe1c182181f0e75a32c4",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-http-cio-jvm/3.6.1/ktor-http-cio-jvm-3.6.1.pom",
+      "bytes": 2581
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-http-jvm",
         "3.6.0",
         "ktor-http-jvm-3.6.0.jar"
@@ -1479,6 +2018,39 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-http-jvm",
+        "3.6.1",
+        "ktor-http-jvm-3.6.1.jar"
+      ],
+      "sha256": "77bcd2f92be9c226c2434bcda04c95edc5d407fc3d1b3774a6401b8d95b7f671",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-http-jvm/3.6.1/ktor-http-jvm-3.6.1.jar",
+      "bytes": 458957
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-http-jvm",
+        "3.6.1",
+        "ktor-http-jvm-3.6.1.module"
+      ],
+      "sha256": "5fe3e78baef5aaba9853b3e34a963a84f128ef59f243168f72fe7f312211b2ab",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-http-jvm/3.6.1/ktor-http-jvm-3.6.1.module",
+      "bytes": 4710
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-http-jvm",
+        "3.6.1",
+        "ktor-http-jvm-3.6.1.pom"
+      ],
+      "sha256": "b3110916eb4588547a8721c03b9f0bbac99b67c8c240e9da2c01bd34ce0c70af",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-http-jvm/3.6.1/ktor-http-jvm-3.6.1.pom",
+      "bytes": 2432
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-io",
         "3.6.0",
         "ktor-io-3.6.0.module"
@@ -1496,6 +2068,28 @@
       ],
       "sha256": "4194c0a1d329e4d4f8fd30136acd6cd5eb1ef10b7c694add62adbb6baebbcc05",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-io/3.6.0/ktor-io-3.6.0.pom",
+      "bytes": 2062
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-io",
+        "3.6.1",
+        "ktor-io-3.6.1.module"
+      ],
+      "sha256": "7ef4e017e19c2bff17dacbce69559de2596ae7084effdc9469d88d30af35c255",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-io/3.6.1/ktor-io-3.6.1.module",
+      "bytes": 39543
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-io",
+        "3.6.1",
+        "ktor-io-3.6.1.pom"
+      ],
+      "sha256": "4947e69335646e8707dd172dbbf0fb2e2c7f0e46846414801ca2c1b769fc3f1a",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-io/3.6.1/ktor-io-3.6.1.pom",
       "bytes": 2062
     },
     {
@@ -1534,6 +2128,39 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-io-jvm",
+        "3.6.1",
+        "ktor-io-jvm-3.6.1.jar"
+      ],
+      "sha256": "94934d96b37c38f17dd7dfaaf9c50cd9c0255bea5ae60fd4cd2476838bd525d8",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-io-jvm/3.6.1/ktor-io-jvm-3.6.1.jar",
+      "bytes": 306620
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-io-jvm",
+        "3.6.1",
+        "ktor-io-jvm-3.6.1.module"
+      ],
+      "sha256": "354532e313384c0f7c605a511ccadb7aaf339b3fc9df7db67828cd0f3954b54d",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-io-jvm/3.6.1/ktor-io-jvm-3.6.1.module",
+      "bytes": 4363
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-io-jvm",
+        "3.6.1",
+        "ktor-io-jvm-3.6.1.pom"
+      ],
+      "sha256": "8c8ed416ec453037a95ed8b324b8b44d7268c645afeb58cde1e96e96a3daf0d6",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-io-jvm/3.6.1/ktor-io-jvm-3.6.1.pom",
+      "bytes": 2242
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-network",
         "3.6.0",
         "ktor-network-3.6.0.module"
@@ -1551,6 +2178,28 @@
       ],
       "sha256": "ec27f2353620cec624b3386d612f581dd3f4c99de9d230bdb6c6e894dcfcfa96",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-network/3.6.0/ktor-network-3.6.0.pom",
+      "bytes": 2053
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-network",
+        "3.6.1",
+        "ktor-network-3.6.1.module"
+      ],
+      "sha256": "dc4d0112c751819fa89b59c3cf2c28b9d5616e559a2da9f91d8187f245bf93d9",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-network/3.6.1/ktor-network-3.6.1.module",
+      "bytes": 40479
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-network",
+        "3.6.1",
+        "ktor-network-3.6.1.pom"
+      ],
+      "sha256": "e7c1873f22ca97ed3c0bd1436745687157da292abf68a545de08fde9d1458827",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-network/3.6.1/ktor-network-3.6.1.pom",
       "bytes": 2053
     },
     {
@@ -1589,6 +2238,39 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-network-jvm",
+        "3.6.1",
+        "ktor-network-jvm-3.6.1.jar"
+      ],
+      "sha256": "3d1c8dba07e2d8939015fdb8436e2d28f3c7465e578ab938f9ff67cba5a4f535",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-network-jvm/3.6.1/ktor-network-jvm-3.6.1.jar",
+      "bytes": 202149
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-network-jvm",
+        "3.6.1",
+        "ktor-network-jvm-3.6.1.module"
+      ],
+      "sha256": "56217fddbe096959efbdb673e23714a86169dec337092c2efdb585908506ce56",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-network-jvm/3.6.1/ktor-network-jvm-3.6.1.module",
+      "bytes": 4370
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-network-jvm",
+        "3.6.1",
+        "ktor-network-jvm-3.6.1.pom"
+      ],
+      "sha256": "ecf1690fe82a032f7d9e79bf2c6a04be4210c0c3bc8a4f628dbafb36f3d6b35e",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-network-jvm/3.6.1/ktor-network-jvm-3.6.1.pom",
+      "bytes": 2233
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-network-tls",
         "3.6.0",
         "ktor-network-tls-3.6.0.module"
@@ -1600,12 +2282,34 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-network-tls",
+        "3.6.1",
+        "ktor-network-tls-3.6.1.module"
+      ],
+      "sha256": "1345bde425fab4b93cc3a5b134d63a9c32b0fbbeb9a63f83f770d1efbdee8f89",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-network-tls/3.6.1/ktor-network-tls-3.6.1.module",
+      "bytes": 41547
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-network-tls-certificates",
         "3.6.0",
         "ktor-network-tls-certificates-3.6.0.module"
       ],
       "sha256": "658cacc95c631e0b187ce58c84a923deee0b5826c987d52a5f2143bca67b0826",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-network-tls-certificates/3.6.0/ktor-network-tls-certificates-3.6.0.module",
+      "bytes": 4284
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-network-tls-certificates",
+        "3.6.1",
+        "ktor-network-tls-certificates-3.6.1.module"
+      ],
+      "sha256": "d27c3fb09a1c854dbcdf0856f83f3db3367e0d6968e4e4b45263a8e64293dcf6",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-network-tls-certificates/3.6.1/ktor-network-tls-certificates-3.6.1.module",
       "bytes": 4284
     },
     {
@@ -1633,6 +2337,28 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-network-tls-certificates-jvm",
+        "3.6.1",
+        "ktor-network-tls-certificates-jvm-3.6.1.jar"
+      ],
+      "sha256": "90a2d77d100fb14cebf9acc6938f0a504fdd977acdf82ac1f9993dc8037df242",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-network-tls-certificates-jvm/3.6.1/ktor-network-tls-certificates-jvm-3.6.1.jar",
+      "bytes": 30127
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-network-tls-certificates-jvm",
+        "3.6.1",
+        "ktor-network-tls-certificates-jvm-3.6.1.module"
+      ],
+      "sha256": "8b90db11334d699d85b817c49d981f1c21a502322094e88cd522275667c47ead",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-network-tls-certificates-jvm/3.6.1/ktor-network-tls-certificates-jvm-3.6.1.module",
+      "bytes": 4532
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-network-tls-jvm",
         "3.6.0",
         "ktor-network-tls-jvm-3.6.0.jar"
@@ -1655,6 +2381,28 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-network-tls-jvm",
+        "3.6.1",
+        "ktor-network-tls-jvm-3.6.1.jar"
+      ],
+      "sha256": "6491dfadbcd02cbe05660b42d841305044ad1a92d31f229037d2fe32a23550f8",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-network-tls-jvm/3.6.1/ktor-network-tls-jvm-3.6.1.jar",
+      "bytes": 198305
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-network-tls-jvm",
+        "3.6.1",
+        "ktor-network-tls-jvm-3.6.1.module"
+      ],
+      "sha256": "8936b679ab2a20fd43a0cf8dd4dd20d4079e8e9744be83f200634c0994c616d0",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-network-tls-jvm/3.6.1/ktor-network-tls-jvm-3.6.1.module",
+      "bytes": 5016
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-serialization",
         "3.6.0",
         "ktor-serialization-3.6.0.module"
@@ -1672,6 +2420,28 @@
       ],
       "sha256": "2c8fc09f2af0c6d2016ba43df68ed98b3ea45c8cf5ead977014e945a26f68d1a",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-serialization/3.6.0/ktor-serialization-3.6.0.pom",
+      "bytes": 2070
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-serialization",
+        "3.6.1",
+        "ktor-serialization-3.6.1.module"
+      ],
+      "sha256": "54345eebbc6d806ec806c395d6e8a16f1f5e2b6ac1ee2dfad82a9e76ca62ee9c",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-serialization/3.6.1/ktor-serialization-3.6.1.module",
+      "bytes": 41627
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-serialization",
+        "3.6.1",
+        "ktor-serialization-3.6.1.pom"
+      ],
+      "sha256": "9652082efe0c2ab2c1b756e882154c88f48f23fdda08773ed41face384b87cf7",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-serialization/3.6.1/ktor-serialization-3.6.1.pom",
       "bytes": 2070
     },
     {
@@ -1710,6 +2480,39 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-serialization-jvm",
+        "3.6.1",
+        "ktor-serialization-jvm-3.6.1.jar"
+      ],
+      "sha256": "c453ea5c53456c10b0cca4c86477190885042cfd92c68596bd36e34832da4e57",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-serialization-jvm/3.6.1/ktor-serialization-jvm-3.6.1.jar",
+      "bytes": 23009
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-serialization-jvm",
+        "3.6.1",
+        "ktor-serialization-jvm-3.6.1.module"
+      ],
+      "sha256": "29dea67e007e14ec088b7ded297c5cd53de9109dfa3bea8064309b6a71d5bebc",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-serialization-jvm/3.6.1/ktor-serialization-jvm-3.6.1.module",
+      "bytes": 4431
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-serialization-jvm",
+        "3.6.1",
+        "ktor-serialization-jvm-3.6.1.pom"
+      ],
+      "sha256": "c8a804bb880e7472ae6194640439cbeeddd86be724587f9ac2f53fb54b646eee",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-serialization-jvm/3.6.1/ktor-serialization-jvm-3.6.1.pom",
+      "bytes": 2250
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-server-body-limit-jvm",
         "3.6.0",
         "ktor-server-body-limit-jvm-3.6.0.jar"
@@ -1743,12 +2546,56 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-server-body-limit-jvm",
+        "3.6.1",
+        "ktor-server-body-limit-jvm-3.6.1.jar"
+      ],
+      "sha256": "2e23a79099ae55959e86f63675e7c99080afc29c4018736313c0a2867c67862e",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-body-limit-jvm/3.6.1/ktor-server-body-limit-jvm-3.6.1.jar",
+      "bytes": 13881
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-body-limit-jvm",
+        "3.6.1",
+        "ktor-server-body-limit-jvm-3.6.1.module"
+      ],
+      "sha256": "5f45254217446dcad02a6670b480044cf773a442c1ce0be3bfc411999314e181",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-body-limit-jvm/3.6.1/ktor-server-body-limit-jvm-3.6.1.module",
+      "bytes": 4469
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-body-limit-jvm",
+        "3.6.1",
+        "ktor-server-body-limit-jvm-3.6.1.pom"
+      ],
+      "sha256": "d09e408775d8a265c7a10c61ea49e01dcd55d6b4a2069420d17871a1891b5e96",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-body-limit-jvm/3.6.1/ktor-server-body-limit-jvm-3.6.1.pom",
+      "bytes": 2259
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-server-call-logging",
         "3.6.0",
         "ktor-server-call-logging-3.6.0.module"
       ],
       "sha256": "ecd9d3afbc3ed393531196847de7094a6a9b2c78f7e5945d8ae24c35e4b2db21",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-call-logging/3.6.0/ktor-server-call-logging-3.6.0.module",
+      "bytes": 4372
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-call-logging",
+        "3.6.1",
+        "ktor-server-call-logging-3.6.1.module"
+      ],
+      "sha256": "2f7cb9d58acecb16d238692067d4f03f20a9644be655cd7a5591721941ad61ae",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-call-logging/3.6.1/ktor-server-call-logging-3.6.1.module",
       "bytes": 4372
     },
     {
@@ -1771,6 +2618,28 @@
       ],
       "sha256": "cd6fc7eaf139ae3cbd5af6c25bff976be298861e42e47cc77aadb0d19b5001a8",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-call-logging-jvm/3.6.0/ktor-server-call-logging-jvm-3.6.0.module",
+      "bytes": 4828
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-call-logging-jvm",
+        "3.6.1",
+        "ktor-server-call-logging-jvm-3.6.1.jar"
+      ],
+      "sha256": "17eea8847b35416bad440bacfc35f69f3bcc22df47ed256d00821376081d7081",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-call-logging-jvm/3.6.1/ktor-server-call-logging-jvm-3.6.1.jar",
+      "bytes": 55076
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-call-logging-jvm",
+        "3.6.1",
+        "ktor-server-call-logging-jvm-3.6.1.module"
+      ],
+      "sha256": "a9b60d5bf5a54c472b8de1d3bb4ec6ccc5027a851ba6657dd3ba9464735886fd",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-call-logging-jvm/3.6.1/ktor-server-call-logging-jvm-3.6.1.module",
       "bytes": 4828
     },
     {
@@ -1809,6 +2678,39 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-server-cio-jvm",
+        "3.6.1",
+        "ktor-server-cio-jvm-3.6.1.jar"
+      ],
+      "sha256": "41616d699ed2d8033b0b8ccf8d9af759ec7cc04e00b0b45711a3341618d81fce",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-cio-jvm/3.6.1/ktor-server-cio-jvm-3.6.1.jar",
+      "bytes": 119056
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-cio-jvm",
+        "3.6.1",
+        "ktor-server-cio-jvm-3.6.1.module"
+      ],
+      "sha256": "9e6433055dc41a14d3ea80278da59c5774db61e4e1d7a8d9df65e0d57c342ce9",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-cio-jvm/3.6.1/ktor-server-cio-jvm-3.6.1.module",
+      "bytes": 5341
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-cio-jvm",
+        "3.6.1",
+        "ktor-server-cio-jvm-3.6.1.pom"
+      ],
+      "sha256": "219d6ffb2f245da96de452f49456e09be0731b66b29af5264f86f40b06af623e",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-cio-jvm/3.6.1/ktor-server-cio-jvm-3.6.1.pom",
+      "bytes": 2777
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-server-core",
         "3.6.0",
         "ktor-server-core-3.6.0.module"
@@ -1826,6 +2728,28 @@
       ],
       "sha256": "99b14a41f35e4aab05011c797dc5f87271cd9e8784da242d97771b1dfc944a73",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-core/3.6.0/ktor-server-core-3.6.0.pom",
+      "bytes": 3115
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-core",
+        "3.6.1",
+        "ktor-server-core-3.6.1.module"
+      ],
+      "sha256": "8be4b543a888d561e995176d9ab87f7ddcbe033c585596ebb9c7fe0244492ca0",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-core/3.6.1/ktor-server-core-3.6.1.module",
+      "bytes": 42190
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-core",
+        "3.6.1",
+        "ktor-server-core-3.6.1.pom"
+      ],
+      "sha256": "75967a60788fd46f8501b66466b6abb331e48c6c20beb7d1c5d588839e666b6e",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-core/3.6.1/ktor-server-core-3.6.1.pom",
       "bytes": 3115
     },
     {
@@ -1864,6 +2788,39 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-server-core-jvm",
+        "3.6.1",
+        "ktor-server-core-jvm-3.6.1.jar"
+      ],
+      "sha256": "273c891aab65cb5548734209b28d7e4220b5369b012ec4a56057103ed83ec272",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-core-jvm/3.6.1/ktor-server-core-jvm-3.6.1.jar",
+      "bytes": 1021169
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-core-jvm",
+        "3.6.1",
+        "ktor-server-core-jvm-3.6.1.module"
+      ],
+      "sha256": "64bb83832b7a854a72aa343dcc6633b9acd90f75ebb5f75177a79e4348906d8b",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-core-jvm/3.6.1/ktor-server-core-jvm-3.6.1.module",
+      "bytes": 6607
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-core-jvm",
+        "3.6.1",
+        "ktor-server-core-jvm-3.6.1.pom"
+      ],
+      "sha256": "f95789839c6b3e825878cf906c873b20fe359c7c2d2673f143ab751bb4c3d33d",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-core-jvm/3.6.1/ktor-server-core-jvm-3.6.1.pom",
+      "bytes": 3486
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-server-status-pages-jvm",
         "3.6.0",
         "ktor-server-status-pages-jvm-3.6.0.jar"
@@ -1897,6 +2854,39 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-server-status-pages-jvm",
+        "3.6.1",
+        "ktor-server-status-pages-jvm-3.6.1.jar"
+      ],
+      "sha256": "43c425237efb6a0c1c07e9f14fe4e2905544be5f1b32fe8e912a03fbd9c62962",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-status-pages-jvm/3.6.1/ktor-server-status-pages-jvm-3.6.1.jar",
+      "bytes": 35310
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-status-pages-jvm",
+        "3.6.1",
+        "ktor-server-status-pages-jvm-3.6.1.module"
+      ],
+      "sha256": "7e97b1fbec75bb3798a2b32f7b56eb8112bfd090ae085ae2d124bda946849073",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-status-pages-jvm/3.6.1/ktor-server-status-pages-jvm-3.6.1.module",
+      "bytes": 4487
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-status-pages-jvm",
+        "3.6.1",
+        "ktor-server-status-pages-jvm-3.6.1.pom"
+      ],
+      "sha256": "44991ef68b0d3e8336f27be5a7b9a6cd0cf5310cdc8638f7b72c99993c577da9",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-status-pages-jvm/3.6.1/ktor-server-status-pages-jvm-3.6.1.pom",
+      "bytes": 2263
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-server-test-host-jvm",
         "3.6.0",
         "ktor-server-test-host-jvm-3.6.0.jar"
@@ -1919,12 +2909,45 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-server-test-host-jvm",
+        "3.6.1",
+        "ktor-server-test-host-jvm-3.6.1.jar"
+      ],
+      "sha256": "608ce4457e16c3344fdbca5e599ebbff67811f640837fb4e0346f659ac9f9b4b",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-test-host-jvm/3.6.1/ktor-server-test-host-jvm-3.6.1.jar",
+      "bytes": 173069
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-test-host-jvm",
+        "3.6.1",
+        "ktor-server-test-host-jvm-3.6.1.module"
+      ],
+      "sha256": "4bc270ac2a5aaf590927d5308ff03d9b33647341be4f1550b0ce4e8c5e1719e4",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-test-host-jvm/3.6.1/ktor-server-test-host-jvm-3.6.1.module",
+      "bytes": 7238
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-server-websockets",
         "3.6.0",
         "ktor-server-websockets-3.6.0.module"
       ],
       "sha256": "bc8860c2c7c6a9823043c37c3ac5cd82d38389bc1911001a2de70597e69b3f14",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-websockets/3.6.0/ktor-server-websockets-3.6.0.module",
+      "bytes": 42719
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-websockets",
+        "3.6.1",
+        "ktor-server-websockets-3.6.1.module"
+      ],
+      "sha256": "1fcd9b8b07274407e5b92f623fe793dae19a353bad1f6a5692351999e55fec52",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-websockets/3.6.1/ktor-server-websockets-3.6.1.module",
       "bytes": 42719
     },
     {
@@ -1952,12 +2975,45 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-server-websockets-jvm",
+        "3.6.1",
+        "ktor-server-websockets-jvm-3.6.1.jar"
+      ],
+      "sha256": "58d843a1dde40f39082446a95aba014c2afe6970f91670cb57ea40a18f61d9eb",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-websockets-jvm/3.6.1/ktor-server-websockets-jvm-3.6.1.jar",
+      "bytes": 56403
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-server-websockets-jvm",
+        "3.6.1",
+        "ktor-server-websockets-jvm-3.6.1.module"
+      ],
+      "sha256": "de0ae2132b2d0b027a4cc59f24c1ab08327ae8ab7d718bd61afe015bffe6ac51",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-server-websockets-jvm/3.6.1/ktor-server-websockets-jvm-3.6.1.module",
+      "bytes": 5124
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-sse",
         "3.6.0",
         "ktor-sse-3.6.0.module"
       ],
       "sha256": "21cb845bf7ea6286d5e7877f102df1dd85c0b7f7310dff33a19a161e2ca80025",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-sse/3.6.0/ktor-sse-3.6.0.module",
+      "bytes": 39712
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-sse",
+        "3.6.1",
+        "ktor-sse-3.6.1.module"
+      ],
+      "sha256": "c6e6a380c755b8cfbaf3d59b9bf800df5d8df58ffa3f894f188d9653869526d0",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-sse/3.6.1/ktor-sse-3.6.1.module",
       "bytes": 39712
     },
     {
@@ -1985,12 +3041,45 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-sse-jvm",
+        "3.6.1",
+        "ktor-sse-jvm-3.6.1.jar"
+      ],
+      "sha256": "365f54d957081de3a7c4d17937a9ece27ad8cc3140ae35a5e8159ea019508445",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-sse-jvm/3.6.1/ktor-sse-jvm-3.6.1.jar",
+      "bytes": 8417
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-sse-jvm",
+        "3.6.1",
+        "ktor-sse-jvm-3.6.1.module"
+      ],
+      "sha256": "ff4fdc2e0275d09b7a6548f5982b529773398c57748299a97fb7563ff5840e60",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-sse-jvm/3.6.1/ktor-sse-jvm-3.6.1.module",
+      "bytes": 4329
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-test-dispatcher",
         "3.6.0",
         "ktor-test-dispatcher-3.6.0.module"
       ],
       "sha256": "920bc2cbb7e90fd2618d2969e1314f2ba73d64ae19fef3671ba58cd321d7c52f",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-test-dispatcher/3.6.0/ktor-test-dispatcher-3.6.0.module",
+      "bytes": 42184
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-test-dispatcher",
+        "3.6.1",
+        "ktor-test-dispatcher-3.6.1.module"
+      ],
+      "sha256": "6582ffcee55bd992c5929a559ff55df7834a8185d78181c891143c51a0323ea5",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-test-dispatcher/3.6.1/ktor-test-dispatcher-3.6.1.module",
       "bytes": 42184
     },
     {
@@ -2018,6 +3107,28 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-test-dispatcher-jvm",
+        "3.6.1",
+        "ktor-test-dispatcher-jvm-3.6.1.jar"
+      ],
+      "sha256": "9beb3ca21153b8057f367ff8ac2aa6502e942360bef21ec6b5578abd83e363a5",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-test-dispatcher-jvm/3.6.1/ktor-test-dispatcher-jvm-3.6.1.jar",
+      "bytes": 6964
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-test-dispatcher-jvm",
+        "3.6.1",
+        "ktor-test-dispatcher-jvm-3.6.1.module"
+      ],
+      "sha256": "3d3eec24d58f7689bee3adc0f7069f6f600b74f61d2c76f5fd82158ec436d548",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-test-dispatcher-jvm/3.6.1/ktor-test-dispatcher-jvm-3.6.1.module",
+      "bytes": 4493
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-utils",
         "3.6.0",
         "ktor-utils-3.6.0.module"
@@ -2035,6 +3146,28 @@
       ],
       "sha256": "c261ca3201a99f3d34b4fee8da1393dfcb4f32cf75088c74421e13eaffd85449",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-utils/3.6.0/ktor-utils-3.6.0.pom",
+      "bytes": 2247
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-utils",
+        "3.6.1",
+        "ktor-utils-3.6.1.module"
+      ],
+      "sha256": "1e24c46c6ed70892f6c2c503296180596a9a94673c144c4757cc25e4cdd4a8a0",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-utils/3.6.1/ktor-utils-3.6.1.module",
+      "bytes": 40277
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-utils",
+        "3.6.1",
+        "ktor-utils-3.6.1.pom"
+      ],
+      "sha256": "637e31f4a049966704b1c82a4bf7d25ebac60652dcf0e3dba7adf45dcd26b966",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-utils/3.6.1/ktor-utils-3.6.1.pom",
       "bytes": 2247
     },
     {
@@ -2073,12 +3206,56 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-utils-jvm",
+        "3.6.1",
+        "ktor-utils-jvm-3.6.1.jar"
+      ],
+      "sha256": "0df228f4d134facd49218a5a309fb20a16ff53759dbcdf52714b7129572beafc",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-utils-jvm/3.6.1/ktor-utils-jvm-3.6.1.jar",
+      "bytes": 398138
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-utils-jvm",
+        "3.6.1",
+        "ktor-utils-jvm-3.6.1.module"
+      ],
+      "sha256": "d487f14279a7b475437f5af09bbf0fdc9b917c24b49e92b73146ebe1b39870be",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-utils-jvm/3.6.1/ktor-utils-jvm-3.6.1.module",
+      "bytes": 4713
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-utils-jvm",
+        "3.6.1",
+        "ktor-utils-jvm-3.6.1.pom"
+      ],
+      "sha256": "ea89e4eff3faae4d83e47d4d3f0b9097f9b34398d4252d2d2b639c446e8edb0a",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-utils-jvm/3.6.1/ktor-utils-jvm-3.6.1.pom",
+      "bytes": 2431
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-websocket-serialization",
         "3.6.0",
         "ktor-websocket-serialization-3.6.0.module"
       ],
       "sha256": "54a43463f695183405abfca51e9c20bb21200f490a9374595cbd68b5f6fdb1b0",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-websocket-serialization/3.6.0/ktor-websocket-serialization-3.6.0.module",
+      "bytes": 43540
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-websocket-serialization",
+        "3.6.1",
+        "ktor-websocket-serialization-3.6.1.module"
+      ],
+      "sha256": "2ff9d057fae62ffef6588535670a89d8243b31bf962264f221ab7f03d895343c",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-websocket-serialization/3.6.1/ktor-websocket-serialization-3.6.1.module",
       "bytes": 43540
     },
     {
@@ -2106,6 +3283,28 @@
     {
       "coordinates": [
         "io.ktor",
+        "ktor-websocket-serialization-jvm",
+        "3.6.1",
+        "ktor-websocket-serialization-jvm-3.6.1.jar"
+      ],
+      "sha256": "d8dd32ed720cd6f940ef5df74a9f081a42c6c537e6b0a3762bc79f68730d868e",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-websocket-serialization-jvm/3.6.1/ktor-websocket-serialization-jvm-3.6.1.jar",
+      "bytes": 7270
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-websocket-serialization-jvm",
+        "3.6.1",
+        "ktor-websocket-serialization-jvm-3.6.1.module"
+      ],
+      "sha256": "6fa2ab3290f2ec03ffc36f11d2728bc86ed473db651c0c6dbb9d441e321b98c3",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-websocket-serialization-jvm/3.6.1/ktor-websocket-serialization-jvm-3.6.1.module",
+      "bytes": 4525
+    },
+    {
+      "coordinates": [
+        "io.ktor",
         "ktor-websockets",
         "3.6.0",
         "ktor-websockets-3.6.0.module"
@@ -2123,6 +3322,28 @@
       ],
       "sha256": "47bc49dcc1d7a6a2594e5492b2dbef429960a644b6ae72377c5415441e404ae2",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-websockets/3.6.0/ktor-websockets-3.6.0.pom",
+      "bytes": 2228
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-websockets",
+        "3.6.1",
+        "ktor-websockets-3.6.1.module"
+      ],
+      "sha256": "3d01376e324b5d28f9dbb1d5926e008b02212a0d54c68fc3292aa350202c368a",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-websockets/3.6.1/ktor-websockets-3.6.1.module",
+      "bytes": 41202
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-websockets",
+        "3.6.1",
+        "ktor-websockets-3.6.1.pom"
+      ],
+      "sha256": "ce7d3ef79c8a73be90328976ab98d900f15ae1f3dd6ea1ec904d166483dea9e9",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-websockets/3.6.1/ktor-websockets-3.6.1.pom",
       "bytes": 2228
     },
     {
@@ -2156,6 +3377,39 @@
       ],
       "sha256": "618974e33d5d951373d4018cca625a8edaececd23367cb06fb9791cfe37be683",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-websockets-jvm/3.6.0/ktor-websockets-jvm-3.6.0.pom",
+      "bytes": 2412
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-websockets-jvm",
+        "3.6.1",
+        "ktor-websockets-jvm-3.6.1.jar"
+      ],
+      "sha256": "58a3b887d3f220bfcf1e6405386409dbc8eccc5072ff9bb1e75c70cf6388fb2d",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-websockets-jvm/3.6.1/ktor-websockets-jvm-3.6.1.jar",
+      "bytes": 192984
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-websockets-jvm",
+        "3.6.1",
+        "ktor-websockets-jvm-3.6.1.module"
+      ],
+      "sha256": "188ea6b91488c06eac0b15584759116be7de0a828ac0328218cf662000d45c10",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-websockets-jvm/3.6.1/ktor-websockets-jvm-3.6.1.module",
+      "bytes": 4699
+    },
+    {
+      "coordinates": [
+        "io.ktor",
+        "ktor-websockets-jvm",
+        "3.6.1",
+        "ktor-websockets-jvm-3.6.1.pom"
+      ],
+      "sha256": "daf488ce1d8d59897c2ac4b6495e6d065b2214980c725c34f22afe9c15e847f2",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/io/ktor/ktor-websockets-jvm/3.6.1/ktor-websockets-jvm-3.6.1.pom",
       "bytes": 2412
     },
     {
@@ -2755,6 +4009,28 @@
     {
       "coordinates": [
         "net.bytebuddy",
+        "byte-buddy",
+        "1.18.16",
+        "byte-buddy-1.18.16.jar"
+      ],
+      "sha256": "666e4b302cea0baf5c43484675a15e1ad8537101c63cdfcc95fdbcfab35cf24a",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy/1.18.16/byte-buddy-1.18.16.jar",
+      "bytes": 4663771
+    },
+    {
+      "coordinates": [
+        "net.bytebuddy",
+        "byte-buddy",
+        "1.18.16",
+        "byte-buddy-1.18.16.pom"
+      ],
+      "sha256": "65fb3648f9cbf6d8ed26f102af3d913397a2c0e69dd353e5dff8bc3df97d72f0",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy/1.18.16/byte-buddy-1.18.16.pom",
+      "bytes": 21175
+    },
+    {
+      "coordinates": [
+        "net.bytebuddy",
         "byte-buddy-agent",
         "1.18.14",
         "byte-buddy-agent-1.18.14.jar"
@@ -2777,6 +4053,28 @@
     {
       "coordinates": [
         "net.bytebuddy",
+        "byte-buddy-agent",
+        "1.18.16",
+        "byte-buddy-agent-1.18.16.jar"
+      ],
+      "sha256": "5506dc7c87fb1ee940be7f79840b49e5212025b240d9a4f3fcc8b1012b26cbef",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy-agent/1.18.16/byte-buddy-agent-1.18.16.jar",
+      "bytes": 291380
+    },
+    {
+      "coordinates": [
+        "net.bytebuddy",
+        "byte-buddy-agent",
+        "1.18.16",
+        "byte-buddy-agent-1.18.16.pom"
+      ],
+      "sha256": "32f41d498a801f1aa2860e8a12758623ba3a0a419397c8fdee268e5e4331c7f6",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy-agent/1.18.16/byte-buddy-agent-1.18.16.pom",
+      "bytes": 15539
+    },
+    {
+      "coordinates": [
+        "net.bytebuddy",
         "byte-buddy-parent",
         "1.18.14",
         "byte-buddy-parent-1.18.14.pom"
@@ -2784,6 +4082,17 @@
       "sha256": "49760cc69a72f350e8ff0b150a78e7e85c6bcb3bf8caba89d4322caed5330a53",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy-parent/1.18.14/byte-buddy-parent-1.18.14.pom",
       "bytes": 82413
+    },
+    {
+      "coordinates": [
+        "net.bytebuddy",
+        "byte-buddy-parent",
+        "1.18.16",
+        "byte-buddy-parent-1.18.16.pom"
+      ],
+      "sha256": "f80ec5e9735e8c32125e595e0d1e9976010b981132f1eb7e07d00234bb47dd4f",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/net/bytebuddy/byte-buddy-parent/1.18.16/byte-buddy-parent-1.18.16.pom",
+      "bytes": 82412
     },
     {
       "coordinates": [
@@ -2872,6 +4181,28 @@
       "sha256": "3e9603f6f0e7a49c88378d2a82bcaf53e33ad67dbc90a8d5a27e09a9736fce50",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/net/java/dev/jna/jna-platform/5.19.1/jna-platform-5.19.1.pom",
       "bytes": 2251
+    },
+    {
+      "coordinates": [
+        "net.sf.saxon",
+        "Saxon-HE",
+        "12.10",
+        "Saxon-HE-12.10.jar"
+      ],
+      "sha256": "b571af282f25d7301059f788b9a149aab8b5cdc14ef3d212dc5425d3dcbb9a97",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/net/sf/saxon/Saxon-HE/12.10/Saxon-HE-12.10.jar",
+      "bytes": 5793277
+    },
+    {
+      "coordinates": [
+        "net.sf.saxon",
+        "Saxon-HE",
+        "12.10",
+        "Saxon-HE-12.10.pom"
+      ],
+      "sha256": "bf33b6583a588dc68610db6b0db390967047093c14533bfbf118be81d7c37b8f",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/net/sf/saxon/Saxon-HE/12.10/Saxon-HE-12.10.pom",
+      "bytes": 3247
     },
     {
       "coordinates": [
@@ -2971,6 +4302,17 @@
       "sha256": "b2b0fc69e22a650c3892f1c366d77076f29575c6738df4c7a70a44844484cdf9",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/org/apache/apache/27/apache-27.pom",
       "bytes": 20363
+    },
+    {
+      "coordinates": [
+        "org.apache",
+        "apache",
+        "31",
+        "apache-31.pom"
+      ],
+      "sha256": "555d0c9eaa69c042aff924927b9381e8f8174136d355eead445224452e6291cc",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/apache/apache/31/apache-31.pom",
+      "bytes": 23531
     },
     {
       "coordinates": [
@@ -3125,6 +4467,17 @@
       "sha256": "31a68daabb4b361453788b9045ac87a6ae87c705e578facd99e4d9ddb6a481e9",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/105/commons-parent-105.pom",
       "bytes": 80140
+    },
+    {
+      "coordinates": [
+        "org.apache.commons",
+        "commons-parent",
+        "65",
+        "commons-parent-65.pom"
+      ],
+      "sha256": "6cf3495fc2e6ac913a2b7f2e03fb5908fb3f229fb06d3358dc45678d5af3e36e",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/apache/commons/commons-parent/65/commons-parent-65.pom",
+      "bytes": 77926
     },
     {
       "coordinates": [
@@ -3997,6 +5350,28 @@
     },
     {
       "coordinates": [
+        "org.apache.xmlgraphics",
+        "xmlgraphics-commons",
+        "2.12",
+        "xmlgraphics-commons-2.12.jar"
+      ],
+      "sha256": "85be03f2f47e08007130db9efbcc587afd3ae08dd13c704ecf472dd88867e061",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/apache/xmlgraphics/xmlgraphics-commons/2.12/xmlgraphics-commons-2.12.jar",
+      "bytes": 692214
+    },
+    {
+      "coordinates": [
+        "org.apache.xmlgraphics",
+        "xmlgraphics-commons",
+        "2.12",
+        "xmlgraphics-commons-2.12.pom"
+      ],
+      "sha256": "4847c201900b3c4ae958ef514d5ccfeef500964c0c80fb2ab23a461a428ec237",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/apache/xmlgraphics/xmlgraphics-commons/2.12/xmlgraphics-commons-2.12.pom",
+      "bytes": 11520
+    },
+    {
+      "coordinates": [
         "org.apiguardian",
         "apiguardian-api",
         "1.1.2",
@@ -4339,6 +5714,28 @@
     {
       "coordinates": [
         "org.docx4j",
+        "docx4j-JAXB-ReferenceImpl",
+        "17.3.4",
+        "docx4j-JAXB-ReferenceImpl-17.3.4.jar"
+      ],
+      "sha256": "697ac1cd83a0e7e98019e48009b7e20aadb8e0b62c242b6dfbafbac5d866b991",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/docx4j/docx4j-JAXB-ReferenceImpl/17.3.4/docx4j-JAXB-ReferenceImpl-17.3.4.jar",
+      "bytes": 6761
+    },
+    {
+      "coordinates": [
+        "org.docx4j",
+        "docx4j-JAXB-ReferenceImpl",
+        "17.3.4",
+        "docx4j-JAXB-ReferenceImpl-17.3.4.pom"
+      ],
+      "sha256": "abd92163e8eeb48abfda4c0ce536b928a60c0758620f7960286d56702b293b82",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/docx4j/docx4j-JAXB-ReferenceImpl/17.3.4/docx4j-JAXB-ReferenceImpl-17.3.4.pom",
+      "bytes": 19047
+    },
+    {
+      "coordinates": [
+        "org.docx4j",
         "docx4j-copy",
         "17.3.2",
         "docx4j-copy-17.3.2.jar"
@@ -4356,6 +5753,28 @@
       ],
       "sha256": "8f6eaa2a30d13b6f9950d8af6c62ed4acb8ee527efbe90f472df159ca5efb05a",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/org/docx4j/docx4j-copy/17.3.2/docx4j-copy-17.3.2.pom",
+      "bytes": 3852
+    },
+    {
+      "coordinates": [
+        "org.docx4j",
+        "docx4j-copy",
+        "17.3.4",
+        "docx4j-copy-17.3.4.jar"
+      ],
+      "sha256": "cfe48377d6a0d8d5cb178767f87da6f691b75329c25a5d1f4081f97508119725",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/docx4j/docx4j-copy/17.3.4/docx4j-copy-17.3.4.jar",
+      "bytes": 4800
+    },
+    {
+      "coordinates": [
+        "org.docx4j",
+        "docx4j-copy",
+        "17.3.4",
+        "docx4j-copy-17.3.4.pom"
+      ],
+      "sha256": "8a50fc3ee820ecee750c01cd6c2f56c3dcd61b8efd50b5e00a5f4dcb2d3d62ad",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/docx4j/docx4j-copy/17.3.4/docx4j-copy-17.3.4.pom",
       "bytes": 3852
     },
     {
@@ -4383,6 +5802,28 @@
     {
       "coordinates": [
         "org.docx4j",
+        "docx4j-core",
+        "17.3.4",
+        "docx4j-core-17.3.4.jar"
+      ],
+      "sha256": "70d6f1f4782732d5a67ae6a81d0fcc7a2b0c87609030f9ebd6db6f456f88e9ee",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/docx4j/docx4j-core/17.3.4/docx4j-core-17.3.4.jar",
+      "bytes": 6165399
+    },
+    {
+      "coordinates": [
+        "org.docx4j",
+        "docx4j-core",
+        "17.3.4",
+        "docx4j-core-17.3.4.pom"
+      ],
+      "sha256": "885a638fe1e78af84e10dbf581f9912b90e732802f495059080f55a748836eda",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/docx4j/docx4j-core/17.3.4/docx4j-core-17.3.4.pom",
+      "bytes": 13210
+    },
+    {
+      "coordinates": [
+        "org.docx4j",
         "docx4j-generated-objects",
         "17.3.2",
         "docx4j-generated-objects-17.3.2.jar"
@@ -4400,6 +5841,28 @@
       ],
       "sha256": "199afa6a4de14321d7117aa646ca6f9dcbee15a81c356ae4191c79779e00efba",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/org/docx4j/docx4j-generated-objects/17.3.2/docx4j-generated-objects-17.3.2.pom",
+      "bytes": 4848
+    },
+    {
+      "coordinates": [
+        "org.docx4j",
+        "docx4j-generated-objects",
+        "17.3.4",
+        "docx4j-generated-objects-17.3.4.jar"
+      ],
+      "sha256": "f71451c88a87bc53320fd9ce5e2aa73c4fdb5b7ed3207b88088f24ab354a49d6",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/docx4j/docx4j-generated-objects/17.3.4/docx4j-generated-objects-17.3.4.jar",
+      "bytes": 4503073
+    },
+    {
+      "coordinates": [
+        "org.docx4j",
+        "docx4j-generated-objects",
+        "17.3.4",
+        "docx4j-generated-objects-17.3.4.pom"
+      ],
+      "sha256": "a7690edd74b907d564c28299957d33e1468633ead5ea1d4985d0a9916dbc3eaf",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/docx4j/docx4j-generated-objects/17.3.4/docx4j-generated-objects-17.3.4.pom",
       "bytes": 4848
     },
     {
@@ -4511,6 +5974,17 @@
       "sha256": "205c039a42cbae3556efbeb04a483eb3a3cf9550bd75bf84260dc8f28218f105",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/org/eclipse/ee4j/project/1.0.7/project-1.0.7.pom",
       "bytes": 14181
+    },
+    {
+      "coordinates": [
+        "org.eclipse.ee4j",
+        "project",
+        "1.0.8",
+        "project-1.0.8.pom"
+      ],
+      "sha256": "0d0c7b6e54a35eaf6c246e107eb1a8c7ac8ff0a0b84c489b07a357713adf674b",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/eclipse/ee4j/project/1.0.8/project-1.0.8.pom",
+      "bytes": 14582
     },
     {
       "coordinates": [
@@ -4659,6 +6133,17 @@
       "coordinates": [
         "org.glassfish.jaxb",
         "jaxb-bom",
+        "2.3.9",
+        "jaxb-bom-2.3.9.pom"
+      ],
+      "sha256": "f6309a594bbb341bae56d1746d37ce8aad1f6ce222ddb602c680c74899ad434e",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/glassfish/jaxb/jaxb-bom/2.3.9/jaxb-bom-2.3.9.pom",
+      "bytes": 10903
+    },
+    {
+      "coordinates": [
+        "org.glassfish.jaxb",
+        "jaxb-bom",
         "4.0.9",
         "jaxb-bom-4.0.9.pom"
       ],
@@ -4801,6 +6286,28 @@
     {
       "coordinates": [
         "org.jacoco",
+        "org.jacoco.agent",
+        "0.8.16",
+        "org.jacoco.agent-0.8.16.jar"
+      ],
+      "sha256": "1193f482f6c590137c753ed4f0119d8e13b3445e70288acf1eb01a3eb95ed990",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jacoco/org.jacoco.agent/0.8.16/org.jacoco.agent-0.8.16.jar",
+      "bytes": 286348
+    },
+    {
+      "coordinates": [
+        "org.jacoco",
+        "org.jacoco.agent",
+        "0.8.16",
+        "org.jacoco.agent-0.8.16.pom"
+      ],
+      "sha256": "fb5e9989bc1c335c87448d15901420fc08da95455f896d72cb102046a243e659",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jacoco/org.jacoco.agent/0.8.16/org.jacoco.agent-0.8.16.pom",
+      "bytes": 4334
+    },
+    {
+      "coordinates": [
+        "org.jacoco",
         "org.jacoco.ant",
         "0.8.15",
         "org.jacoco.ant-0.8.15.jar"
@@ -4823,6 +6330,28 @@
     {
       "coordinates": [
         "org.jacoco",
+        "org.jacoco.ant",
+        "0.8.16",
+        "org.jacoco.ant-0.8.16.jar"
+      ],
+      "sha256": "4ccb16230a4d0d4ce0a83cbead913ae2194a7817c2fa7199a536909a2b6efbac",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jacoco/org.jacoco.ant/0.8.16/org.jacoco.ant-0.8.16.jar",
+      "bytes": 35284
+    },
+    {
+      "coordinates": [
+        "org.jacoco",
+        "org.jacoco.ant",
+        "0.8.16",
+        "org.jacoco.ant-0.8.16.pom"
+      ],
+      "sha256": "5d31842d4ba1a88df283b02f795f9e6970c50f3fa0e5e084c67d922a4c3e8a1e",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jacoco/org.jacoco.ant/0.8.16/org.jacoco.ant-0.8.16.pom",
+      "bytes": 5187
+    },
+    {
+      "coordinates": [
+        "org.jacoco",
         "org.jacoco.build",
         "0.8.15",
         "org.jacoco.build-0.8.15.pom"
@@ -4830,6 +6359,17 @@
       "sha256": "3a2c89f80c2ab9caf1b403a62da4bcbd909ee52ea53747391267a5cdc968c123",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jacoco/org.jacoco.build/0.8.15/org.jacoco.build-0.8.15.pom",
       "bytes": 49565
+    },
+    {
+      "coordinates": [
+        "org.jacoco",
+        "org.jacoco.build",
+        "0.8.16",
+        "org.jacoco.build-0.8.16.pom"
+      ],
+      "sha256": "f62f6bd34ade08e6fa990e3ac703dfea2e755f1882fac012ea31ac7c643333f7",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jacoco/org.jacoco.build/0.8.16/org.jacoco.build-0.8.16.pom",
+      "bytes": 50312
     },
     {
       "coordinates": [
@@ -4856,6 +6396,28 @@
     {
       "coordinates": [
         "org.jacoco",
+        "org.jacoco.core",
+        "0.8.16",
+        "org.jacoco.core-0.8.16.jar"
+      ],
+      "sha256": "5d2db23c5d698e5645f47f07d1b6019ccd03e15cc933d60d1d4e798ac6bd1f84",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jacoco/org.jacoco.core/0.8.16/org.jacoco.core-0.8.16.jar",
+      "bytes": 234698
+    },
+    {
+      "coordinates": [
+        "org.jacoco",
+        "org.jacoco.core",
+        "0.8.16",
+        "org.jacoco.core-0.8.16.pom"
+      ],
+      "sha256": "d1bb691f14e44a451fc4e5bb658439c31e6879732dda631a7ebddf27fab4b23c",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jacoco/org.jacoco.core/0.8.16/org.jacoco.core-0.8.16.pom",
+      "bytes": 2086
+    },
+    {
+      "coordinates": [
+        "org.jacoco",
         "org.jacoco.report",
         "0.8.15",
         "org.jacoco.report-0.8.15.jar"
@@ -4873,6 +6435,28 @@
       ],
       "sha256": "a1ea901ca04547f1dc24e75dde104b3a7171ff9d0c2b8f43b3153be09ac3c08a",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jacoco/org.jacoco.report/0.8.15/org.jacoco.report-0.8.15.pom",
+      "bytes": 1884
+    },
+    {
+      "coordinates": [
+        "org.jacoco",
+        "org.jacoco.report",
+        "0.8.16",
+        "org.jacoco.report-0.8.16.jar"
+      ],
+      "sha256": "c8e51b392b3689312e72ded4887fdbccb091ceed93207846e14d27f3b82e5f55",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jacoco/org.jacoco.report/0.8.16/org.jacoco.report-0.8.16.jar",
+      "bytes": 131080
+    },
+    {
+      "coordinates": [
+        "org.jacoco",
+        "org.jacoco.report",
+        "0.8.16",
+        "org.jacoco.report-0.8.16.pom"
+      ],
+      "sha256": "ff41b6f19f90f4455c462ca53b2067c6d7a325824daa7660b99d2a79a44e42e1",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jacoco/org.jacoco.report/0.8.16/org.jacoco.report-0.8.16.pom",
       "bytes": 1884
     },
     {
@@ -6165,6 +7749,17 @@
     {
       "coordinates": [
         "org.jetbrains.kotlinx",
+        "kotlinx-serialization-bom",
+        "1.12.0",
+        "kotlinx-serialization-bom-1.12.0.pom"
+      ],
+      "sha256": "923d2c3d93ced44b3d4545150bc428808bcde086af56fbbc611853c424feef39",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-bom/1.12.0/kotlinx-serialization-bom-1.12.0.pom",
+      "bytes": 4132
+    },
+    {
+      "coordinates": [
+        "org.jetbrains.kotlinx",
         "kotlinx-serialization-core",
         "1.11.0",
         "kotlinx-serialization-core-1.11.0.module"
@@ -6182,6 +7777,28 @@
       ],
       "sha256": "3133773fbcf9822a7f3a5e85ab19941e67bd289bf5fc3182d9db4d1cab86eb22",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-core/1.11.0/kotlinx-serialization-core-1.11.0.pom",
+      "bytes": 2112
+    },
+    {
+      "coordinates": [
+        "org.jetbrains.kotlinx",
+        "kotlinx-serialization-core",
+        "1.12.0",
+        "kotlinx-serialization-core-1.12.0.module"
+      ],
+      "sha256": "0e74ba5add11f16d3e6d1310b060c5b761def1fff44bb323a64b4bfcc667447c",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-core/1.12.0/kotlinx-serialization-core-1.12.0.module",
+      "bytes": 47226
+    },
+    {
+      "coordinates": [
+        "org.jetbrains.kotlinx",
+        "kotlinx-serialization-core",
+        "1.12.0",
+        "kotlinx-serialization-core-1.12.0.pom"
+      ],
+      "sha256": "fb4a9f16bd9b6f6ec5f5bd5524153fac1580c2dd0d1390433b5091e27e3d664b",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-core/1.12.0/kotlinx-serialization-core-1.12.0.pom",
       "bytes": 2112
     },
     {
@@ -6220,6 +7837,39 @@
     {
       "coordinates": [
         "org.jetbrains.kotlinx",
+        "kotlinx-serialization-core-jvm",
+        "1.12.0",
+        "kotlinx-serialization-core-jvm-1.12.0.jar"
+      ],
+      "sha256": "bcfddcac76159058ba0953af05938c17111d238cd41be7191874656454d62f1a",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-core-jvm/1.12.0/kotlinx-serialization-core-jvm-1.12.0.jar",
+      "bytes": 416396
+    },
+    {
+      "coordinates": [
+        "org.jetbrains.kotlinx",
+        "kotlinx-serialization-core-jvm",
+        "1.12.0",
+        "kotlinx-serialization-core-jvm-1.12.0.module"
+      ],
+      "sha256": "ed766d51d7e3aa9052bab28f2698f4b878f9b96316b13b884f7be2b3bd62f774",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-core-jvm/1.12.0/kotlinx-serialization-core-jvm-1.12.0.module",
+      "bytes": 4164
+    },
+    {
+      "coordinates": [
+        "org.jetbrains.kotlinx",
+        "kotlinx-serialization-core-jvm",
+        "1.12.0",
+        "kotlinx-serialization-core-jvm-1.12.0.pom"
+      ],
+      "sha256": "16483c676ede344e09addfecb4b228238aa8ebd111eef201bbe9e490c0c6e384",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-core-jvm/1.12.0/kotlinx-serialization-core-jvm-1.12.0.pom",
+      "bytes": 2068
+    },
+    {
+      "coordinates": [
+        "org.jetbrains.kotlinx",
         "kotlinx-serialization-json-jvm",
         "1.11.0",
         "kotlinx-serialization-json-jvm-1.11.0.jar"
@@ -6248,6 +7898,39 @@
       ],
       "sha256": "dc6ffce390f328d9bca740a63b91092afd09f4473a1f2a80d77d64b3c5b505d3",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-json-jvm/1.11.0/kotlinx-serialization-json-jvm-1.11.0.pom",
+      "bytes": 2279
+    },
+    {
+      "coordinates": [
+        "org.jetbrains.kotlinx",
+        "kotlinx-serialization-json-jvm",
+        "1.12.0",
+        "kotlinx-serialization-json-jvm-1.12.0.jar"
+      ],
+      "sha256": "879eb73e46cb63253ab0fa7cca4448f5c96bca1a16ff377abcb71ebab60e0631",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-json-jvm/1.12.0/kotlinx-serialization-json-jvm-1.12.0.jar",
+      "bytes": 306230
+    },
+    {
+      "coordinates": [
+        "org.jetbrains.kotlinx",
+        "kotlinx-serialization-json-jvm",
+        "1.12.0",
+        "kotlinx-serialization-json-jvm-1.12.0.module"
+      ],
+      "sha256": "a6d8fd7b35fa7f0f3747bdb512a831667dc1781cef26edf7de7e8f6f45ac64fc",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-json-jvm/1.12.0/kotlinx-serialization-json-jvm-1.12.0.module",
+      "bytes": 4529
+    },
+    {
+      "coordinates": [
+        "org.jetbrains.kotlinx",
+        "kotlinx-serialization-json-jvm",
+        "1.12.0",
+        "kotlinx-serialization-json-jvm-1.12.0.pom"
+      ],
+      "sha256": "4965002d7bc71f7a2db201f07d30c579ff12f20a050f7b307d3e2a2b12d3ded7",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/jetbrains/kotlinx/kotlinx-serialization-json-jvm/1.12.0/kotlinx-serialization-json-jvm-1.12.0.pom",
       "bytes": 2279
     },
     {
@@ -6725,6 +8408,39 @@
     },
     {
       "coordinates": [
+        "org.mozilla",
+        "rhino",
+        "1.9.2",
+        "rhino-1.9.2.jar"
+      ],
+      "sha256": "0d28c18bb7d60c736556700ac2d51e2e1bf11b173fe5a16f9893092abc7e3d90",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/mozilla/rhino/1.9.2/rhino-1.9.2.jar",
+      "bytes": 1677086
+    },
+    {
+      "coordinates": [
+        "org.mozilla",
+        "rhino",
+        "1.9.2",
+        "rhino-1.9.2.module"
+      ],
+      "sha256": "eec8a783bd41a73f27534239ba84f2bf6d0c16a5ae692f4c5adaf9d2406f21aa",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/mozilla/rhino/1.9.2/rhino-1.9.2.module",
+      "bytes": 1866
+    },
+    {
+      "coordinates": [
+        "org.mozilla",
+        "rhino",
+        "1.9.2",
+        "rhino-1.9.2.pom"
+      ],
+      "sha256": "6a6a73aa90d6f9c9435be9a2d72db7381e0a7cf382ce607c3f802c7868d16fce",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/mozilla/rhino/1.9.2/rhino-1.9.2.pom",
+      "bytes": 1695
+    },
+    {
+      "coordinates": [
         "org.objenesis",
         "objenesis",
         "3.6",
@@ -6814,12 +8530,45 @@
     {
       "coordinates": [
         "org.ow2.asm",
+        "asm",
+        "9.11.1",
+        "asm-9.11.1.jar"
+      ],
+      "sha256": "ae4e6e10d59d0a1500317764b21881ad883f8550e33c66e6142f7032c6fb566c",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.11.1/asm-9.11.1.jar",
+      "bytes": 131138
+    },
+    {
+      "coordinates": [
+        "org.ow2.asm",
+        "asm",
+        "9.11.1",
+        "asm-9.11.1.pom"
+      ],
+      "sha256": "11fbc3d89590bf8a8c76012d4588aa03aacf54fbacfbe94b1e765a77f86c219a",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.11.1/asm-9.11.1.pom",
+      "bytes": 2373
+    },
+    {
+      "coordinates": [
+        "org.ow2.asm",
         "asm-bom",
         "9.10.1",
         "asm-bom-9.10.1.pom"
       ],
       "sha256": "709472d69cf785d4b679eee0e6e0575d4b104476ddf35265ef1117e73c129cd4",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-bom/9.10.1/asm-bom-9.10.1.pom",
+      "bytes": 3272
+    },
+    {
+      "coordinates": [
+        "org.ow2.asm",
+        "asm-bom",
+        "9.11.1",
+        "asm-bom-9.11.1.pom"
+      ],
+      "sha256": "8e174bf73b59be9e1337ffb585ebd05a09117f3fad5829e520b5e743213a084a",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-bom/9.11.1/asm-bom-9.11.1.pom",
       "bytes": 3272
     },
     {
@@ -6847,6 +8596,28 @@
     {
       "coordinates": [
         "org.ow2.asm",
+        "asm-commons",
+        "9.11.1",
+        "asm-commons-9.11.1.jar"
+      ],
+      "sha256": "6a5095ec53726156a78b2cd2efd45bc4e877754eca7c234f61224a53d6bfa661",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.11.1/asm-commons-9.11.1.jar",
+      "bytes": 77923
+    },
+    {
+      "coordinates": [
+        "org.ow2.asm",
+        "asm-commons",
+        "9.11.1",
+        "asm-commons-9.11.1.pom"
+      ],
+      "sha256": "24e6c516ab9da57ad117369c8e915d106a3979cdb0ac41249010d7d5d7e55b01",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-commons/9.11.1/asm-commons-9.11.1.pom",
+      "bytes": 2797
+    },
+    {
+      "coordinates": [
+        "org.ow2.asm",
         "asm-tree",
         "9.10.1",
         "asm-tree-9.10.1.jar"
@@ -6864,6 +8635,28 @@
       ],
       "sha256": "963eebdea6e2e1ff25c9068b64a238e1585c99f8acd455595ac159a7f52b6c41",
       "repositoryUrl": "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-tree/9.10.1/asm-tree-9.10.1.pom",
+      "bytes": 2598
+    },
+    {
+      "coordinates": [
+        "org.ow2.asm",
+        "asm-tree",
+        "9.11.1",
+        "asm-tree-9.11.1.jar"
+      ],
+      "sha256": "2b15c3c1b288a9fad3bb2cd6d988ba9521554914ed1f2a2029141fa3f483154a",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-tree/9.11.1/asm-tree-9.11.1.jar",
+      "bytes": 51957
+    },
+    {
+      "coordinates": [
+        "org.ow2.asm",
+        "asm-tree",
+        "9.11.1",
+        "asm-tree-9.11.1.pom"
+      ],
+      "sha256": "c3725048603f7c9c6891c252b95a5585320aa821a1e3c08ec00826c0b97d5ff7",
+      "repositoryUrl": "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-tree/9.11.1/asm-tree-9.11.1.pom",
       "bytes": 2598
     },
     {

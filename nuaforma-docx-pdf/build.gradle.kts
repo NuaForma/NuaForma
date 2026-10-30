@@ -35,6 +35,8 @@ dependencies {
 
 tasks.test {
     dependsOn(":nuaforma-pdf:prepareOwnEngineValidation")
+    inputs.files(fileTree(project(":nuaforma-pdf").layout.buildDirectory.dir("pdfa-validation")) { include("*.jar") })
+        .withPropertyName("validatorRuntimeJars").withPathSensitivity(PathSensitivity.RELATIVE)
     systemProperty("java.awt.headless", "true")
     doFirst {
         systemProperty("nuaforma.pdf.validation", project(":nuaforma-pdf").layout.buildDirectory.dir("pdfa-validation").get().asFile.absolutePath)
@@ -656,13 +658,20 @@ val veraPdfRuntime = configurations.create("veraPdfRuntime") {
     isCanBeConsumed = false
     isCanBeResolved = true
     exclude(group = "net.java.dev.stax-utils", module = "stax-utils")
+    // Legacy Activation supplies its javax API and implementation together; do not stage a duplicate API.
+    exclude(group = "javax.activation", module = "javax.activation-api")
+    // The newer implementation includes the old core; retain one compatible javax API provider.
+    exclude(group = "com.sun.xml.bind", module = "jaxb-core")
+    exclude(group = "javax.xml.bind", module = "jaxb-api")
 }
 dependencies {
     add(veraPdfRuntime.name, libs.verapdf.model)
     constraints {
-        add(veraPdfRuntime.name, "javax.xml.bind:jaxb-api:2.3.1") {
-            version { strictly("2.3.1") }
-            because("Match the verified official CLI instead of a historical transitive JAXB beta")
+        add(veraPdfRuntime.name, libs.saxon.validator)
+        add(veraPdfRuntime.name, libs.jaxb.validator)
+        add(veraPdfRuntime.name, libs.jaxb.api.validator) {
+            version { strictly(libs.versions.jaxb.api.validator.get()) }
+            because("Keep the validator on one javax JAXB 2.3 API; Jakarta 3+ changes its namespace")
         }
     }
 }
