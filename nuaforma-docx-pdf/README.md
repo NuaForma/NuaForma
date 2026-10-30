@@ -57,3 +57,7 @@ The DOCX stage evaluates only print-view text and removes resolved hidden runs f
 ## Rich-text source feature
 
 The source after alpha.4 accepts the same filled [`richText("rtf")`](../docs/rich-text.md) document for standard PDF and PDF/A-1b/2b/3b, including single strikeout. Native layout/script restrictions, font embedding and independent validation remain mandatory. The owning guide explains scope and limits; alpha.4 does not contain this pipe.
+
+## Passive bibliography metadata
+
+Current source qualifies bibliography `Sources` parts reached through document `customXml` relationships, with optional validated datastore properties. The conversion copy excludes only these identified passive metadata trees and relationships from its print model; the owning DOCX generator retains them. Bibliography text cannot change text direction, template evaluation or printed content. Unknown linked custom XML, orphan parts in the conversion copy, duplicate IDs, foreign namespaces and external property targets reject explicitly. Before conversion, the owning DOCX serializer omits unreachable ZIP members; this does not admit arbitrary linked custom XML. Existing archive/XML/deadline limits remain. Citation fields and arbitrary custom-XML data binding are not added by this profile.

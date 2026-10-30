@@ -18,6 +18,8 @@ import org.docx4j.openpackaging.exceptions.Docx4JException
 import org.docx4j.openpackaging.packages.WordprocessingMLPackage
 import org.docx4j.openpackaging.parts.JaxbXmlPart
 import org.docx4j.XmlUtils
+import jakarta.xml.bind.JAXBElement
+import jakarta.xml.bind.annotation.XmlRootElement
 import jakarta.xml.bind.JAXBException
 import java.io.InputStream
 import java.io.OutputStream
@@ -101,8 +103,12 @@ internal object Docx4jDocuments {
                                 }
                                 val reader = factory.createXMLStreamReader(source)
                                 try {
+                                    val root = unmarshaller.unmarshal(reader)
+                                    val value = XmlUtils.unwrap(root)
+                                    // Generated types without XmlRootElement need their QName wrapper when saved.
+                                    val element = if (root is JAXBElement<*> && (value == null || !value.javaClass.isAnnotationPresent(XmlRootElement::class.java))) root else value
                                     @Suppress("UNCHECKED_CAST")
-                                    (part as JaxbXmlPart<Any>).jaxbElement = XmlUtils.unwrap(unmarshaller.unmarshal(reader))
+                                    (part as JaxbXmlPart<Any>).jaxbElement = element
                                 } catch (_: JAXBException) {
                                     throw GenerationException(listOf(dev.nuaforma.contracts.Diagnostic(DiagnosticCodes.INVALID_TEMPLATE,
                                         RejectionReason.DOCX_CONTAINS_UNSUPPORTED_OR_INVALID_STRUCTURED_XML_REPAIR_OR,

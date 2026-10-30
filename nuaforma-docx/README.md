@@ -271,3 +271,7 @@ The additive `DocxProvider.generateForConversion(request, output, context)` faca
 ## Rich-text source feature
 
 The source after alpha.4 adds [`richText("rtf")`](../docs/rich-text.md) for ordinary text-only paragraphs, including supported table/text-box/header/footer contexts. The owning guide defines character formatting, independent boundary trims, inline placement, limits and font revalidation after insertion. It is not in the published alpha.4 artifacts.
+
+## Bibliography source metadata
+
+Current source preserves the QName wrapper of strictly bound bibliography custom-XML roots during round-trip, generation and diagnostic-copy serialization (#54). Empty and populated bibliography Sources parts and their property relationships remain document metadata; their text never activates template instructions. Unknown bibliography elements and malformed bound XML remain errors, with no partial output. This preserves metadata rather than implementing citation-field generation.
