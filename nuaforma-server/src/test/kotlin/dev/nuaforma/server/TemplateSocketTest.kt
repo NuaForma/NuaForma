@@ -66,6 +66,14 @@ class TemplateSocketTest {
                         assertTrue(PDFTextStripper().getText(pdf).contains("28-10-2026"))
                         assertTrue(pdf.getPage(0).resources.fontNames.all { pdf.getPage(0).resources.getFont(it).isEmbedded })
                     }
+                    val hiddenMarker = "{name}</w:t></w:r><w:r><w:rPr><w:vanish/></w:rPr><w:t>{HIDDEN_LITERAL"
+                    val hidden = send(hiddenMarker)
+                    assertEquals(200, hidden.statusCode(), if (hidden.statusCode() == 200) "" else hidden.body().decodeToString())
+                    Loader.loadPDF(hidden.body()).use { pdf ->
+                        val text = PDFTextStripper().getText(pdf)
+                        assertTrue(text.contains("Ada"), text)
+                        assertFalse(text.contains("HIDDEN_LITERAL"), text)
+                    }
                     val rejected = send("{trim(name,)}")
                     assertEquals(422, rejected.statusCode())
                     val json = com.fasterxml.jackson.databind.ObjectMapper().readTree(rejected.body())
@@ -94,6 +102,9 @@ class TemplateSocketTest {
                             assertTrue(text.contains("UNCLOSED_TEMPLATE_MARKER"), text)
                             assertTrue(pdf.numberOfPages >= 2)
                         }
+                        val hiddenValid = send(hiddenMarker, "/api/v1/diagnostics/template")
+                        assertEquals(422, hiddenValid.statusCode())
+                        assertTrue(hiddenValid.body().decodeToString().contains("TEMPLATE_DIAGNOSTIC_REQUIRES_PARSER_ERROR"))
                         val valid = send("{name}", "/api/v1/diagnostics/template")
                         assertEquals(422, valid.statusCode())
                         assertTrue(valid.body().decodeToString().contains("TEMPLATE_DIAGNOSTIC_REQUIRES_PARSER_ERROR"))

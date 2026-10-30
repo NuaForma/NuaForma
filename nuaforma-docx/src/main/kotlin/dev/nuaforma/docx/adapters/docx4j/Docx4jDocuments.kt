@@ -39,6 +39,7 @@ internal object Docx4jDocuments {
                 val diagnostic = error.diagnostics.firstOrNull { it.code == DiagnosticCodes.INVALID_TEMPLATE && it.location?.startsWith("template:") == true }
                     ?: throw error
                 fault.annotate(document, diagnostic, family)
+                omitHidden(document, context)
                 result = diagnostic
             }
             if (result == null) DocxFailure.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.TEMPLATE_DIAGNOSTIC_REQUIRES_PARSER_ERROR)
@@ -51,12 +52,24 @@ internal object Docx4jDocuments {
         open(request.template, context) {
             if (request.requirements.output.options["fontSelection"] != "used") WordFonts.apply(it, request, context)
             val watermark = WordTemplates(request.data, request.requirements.options, context, pipes, valuePipes).apply(it)
+            if (detachWatermark) omitHidden(it, context)
             decoration = watermark to watermark?.let { _ -> WordWatermarks.fontFamily(it) }
             if (!detachWatermark) WordWatermarks(context).apply(it, watermark)
             if (request.requirements.output.options["fontSelection"] == "used") AutomaticWordFonts(it, request, context, deploymentFonts).apply()
         }
             .use { it.writeTo(output) }
         return decoration
+    }
+
+    private fun omitHidden(document: WordprocessingMLPackage, context: GenerationContext) {
+        val visibility = WordVisibility(document, context)
+        document.parts.parts.values.filterIsInstance<JaxbXmlPart<*>>().forEach { part ->
+            if (part is org.docx4j.openpackaging.parts.WordprocessingML.MainDocumentPart ||
+                part is org.docx4j.openpackaging.parts.WordprocessingML.HeaderPart ||
+                part is org.docx4j.openpackaging.parts.WordprocessingML.FooterPart ||
+                part is org.docx4j.openpackaging.parts.WordprocessingML.FootnotesPart ||
+                part is org.docx4j.openpackaging.parts.WordprocessingML.EndnotesPart) visibility.removeHidden(part.jaxbElement)
+        }
     }
 
     fun open(input: InputStream, context: GenerationContext, transform: (WordprocessingMLPackage) -> Unit = {}): DocxDocument {
