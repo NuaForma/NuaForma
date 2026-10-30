@@ -78,4 +78,22 @@ jobs:
           ./gradlew verifyEmbeddedConsumers --warning-mode=fail
           python3 tools/release/verify_embedded_pdf.py --docker docker --image nuaforma:native-candidate --source build/native-container/qualification/document.docx --output build/native-container/embedded-pdf
 
+
+      - name: Retain exact source-review inventories without container binaries
+        run: |
+          python3 tools/container/collect_inventory.py --image nuaforma:native-candidate --destination build/native-container/inventory/server
+          python3 tools/container/collect_inventory.py --image nuaforma-playground:native-candidate --destination build/native-container/inventory/playground
+          python3 - <<'PY'
+          import json, os, pathlib
+          identity = {key: os.environ[key] for key in ('GITHUB_REPOSITORY', 'GITHUB_SHA', 'GITHUB_RUN_ID')}
+          pathlib.Path('build/native-container/inventory/source.json').write_text(json.dumps(identity, indent=2) + '\n')
+          PY
+      - name: Upload only non-executable inventory and source identity evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-source-inventory-${{ matrix.architecture }}
+          path: build/native-container/inventory/
+          if-no-files-found: error
+          retention-days: 30
+
 # No binary artifacts, registry writes, image push or security-policy bypass.

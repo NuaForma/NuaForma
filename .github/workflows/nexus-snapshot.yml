@@ -1,6 +1,27 @@
-name: Publish snapshot to Nexus (manual)
+name: Publish signed snapshot to Nexus
 
 on:
+  workflow_call:
+    inputs:
+      version:
+        description: Optional explicit snapshot version; automatic calls derive it from the source version
+        type: string
+        default: ''
+      confirmation:
+        type: string
+        required: true
+      ci_run:
+        type: string
+        required: true
+    secrets:
+      NEXUS_USERNAME:
+        required: true
+      NEXUS_PASSWORD:
+        required: true
+      MAVEN_SIGNING_KEY:
+        required: true
+      MAVEN_SIGNING_PASSWORD:
+        required: true
   workflow_dispatch:
     inputs:
       version:
@@ -16,6 +37,7 @@ permissions: {}
 
 concurrency:
   group: nexus-snapshot-publication
+  queue: max
   cancel-in-progress: false
 
 jobs:
@@ -28,17 +50,38 @@ jobs:
       actions: read
       checks: read
     env:
-      SNAPSHOT_VERSION: ${{ inputs.version }}
+      REQUESTED_VERSION: ${{ inputs.version }}
+      CI_RUN_ID: ${{ inputs.ci_run }}
       PYTHONDONTWRITEBYTECODE: '1'
     steps:
       - name: Check out the selected develop source without persistent credentials
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Select the explicit or next development snapshot version
+        run: |
+          python3 - <<'PY'
+          import os, sys
+          sys.path.insert(0, 'tools/release')
+          import pathlib, re
+          def project_version():
+              values = re.findall(r"(?m)^version=(.+)$", pathlib.Path("gradle.properties").read_text())
+              require(len(values) == 1, "Require one source version")
+              return values[0]
+          from snapshot_gate import automatic_version
+          from maven_destination import destination, require
+          version = os.environ['REQUESTED_VERSION'] or automatic_version(project_version())
+          require(destination(version)['kind'] == 'snapshot', 'Require canonical X.Y.Z-SNAPSHOT')
+          with open(os.environ['GITHUB_ENV'], 'a', encoding='utf-8') as output:
+              output.write('SNAPSHOT_VERSION=' + version + '\n')
+          PY
       - name: Require exact signed develop source and green CI before loading publishing secrets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 tools/release/snapshot_gate.py --repository NuaForma/NuaForma --version "$SNAPSHOT_VERSION"
+        run: |
+          arguments=(--repository NuaForma/NuaForma --version "$SNAPSHOT_VERSION")
+          if [ -n "$CI_RUN_ID" ]; then arguments+=(--ci-run "$CI_RUN_ID"); fi
+          python3 tools/release/snapshot_gate.py "${arguments[@]}"
       - name: Select Java 17 publication toolchain
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
