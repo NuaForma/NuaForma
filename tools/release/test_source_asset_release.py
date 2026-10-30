@@ -34,7 +34,10 @@ class SourceAssetReleaseTest(unittest.TestCase):
             (self.root / "release-materials" / (self.version + suffix + ".json")).write_text(json.dumps(data))
 
     def response(self, url, timeout):
-        result = io.BytesIO(self.payload)
+        result = io.BytesIO(json.dumps({"tag_name": self.records["server"].get("assetTag", "v" + self.version),
+            "draft": False, "assets": [{"browser_download_url": a["url"], "state": "uploaded",
+                                        "size": len(self.payload), "digest": "sha256:" + hashlib.sha256(self.payload).hexdigest()}
+                                       for a in self.records["server"]["sourceMaterials"]]}).encode())
         result.url = url
         return result
 
@@ -53,7 +56,8 @@ class SourceAssetReleaseTest(unittest.TestCase):
     def test_sources_only_tag_allows_all_three_exact_public_archives(self):
         with patch.object(candidate.urllib.request, "urlopen", side_effect=self.response) as download:
             assets = candidate.sources(self.version)
-        self.assertEqual(3, download.call_count)
+        self.assertEqual(1, download.call_count)
+        self.assertIn("api.github.com/repos/NuaForma/NuaForma/releases/tags/", download.call_args.args[0])
         self.assertEqual(sorted(self.assets, key=lambda a: a["url"]), assets)
         self.assertEqual("sources-v" + self.version, candidate.source_asset_tag(self.version))
 
@@ -106,3 +110,16 @@ class SourceAssetReleaseTest(unittest.TestCase):
         notice.write_text("unexpected notice template")
         with self.assertRaises(ValueError):
             candidate.source_notice({"sourceBaseline": self.version}, notice)
+
+    def test_public_source_metadata_cannot_omit_or_change_reviewed_assets(self):
+        original = json.loads(self.response("", 1).getvalue())
+        for field, value in (("digest", None), ("digest", "sha256:" + "0" * 64),
+                             ("state", "pending"), ("size", 0), ("size", 3 * 1024**3)):
+            changed = copy.deepcopy(original)
+            changed["assets"][0][field] = value
+            with self.subTest(field=field), patch.object(candidate, "public_source_release", return_value=changed), self.assertRaises(ValueError):
+                candidate.sources(self.version)
+        for changed in (dict(original, draft=True), dict(original, tag_name="other"),
+                        dict(original, assets=original["assets"] + [original["assets"][0]])):
+            with patch.object(candidate, "public_source_release", return_value=changed), self.assertRaises(ValueError):
+                candidate.sources(self.version)

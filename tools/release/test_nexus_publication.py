@@ -148,6 +148,27 @@ class NexusPublicationTest(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError):
             NoRedirect().redirect_request(urllib.request.Request(PRERELEASES), None, 302, "redirect", {}, "https://elsewhere.invalid/")
 
+    def test_parallel_failure_retains_all_in_flight_outcomes_and_never_retries_writes(self):
+        failed = sorted(self.files)[1]
+        writes = []
+        def transport(operation, timeout):
+            if operation.method == "PUT":
+                name = operation.full_url.removeprefix(PRERELEASES)
+                writes.append(name)
+                if name == failed:
+                    raise urllib.error.URLError("SYNTHETIC_SECRET_MUST_NOT_BE_LOGGED")
+            return self.transport(operation, timeout)
+        with self.assertRaises(RuntimeError) as caught:
+            publish_bundle(self.bundle, self.version, (self.module,), self.hashes, self.digest,
+                           "synthetic-authorization", self.receipt, opener=transport, workers=6)
+        self.assertNotIn("SYNTHETIC_SECRET", str(caught.exception))
+        self.assertEqual(10, len(writes))
+        self.assertEqual(len(writes), len(set(writes)))
+        record = json.loads(self.receipt.read_text())
+        self.assertEqual([failed], record["pending"])
+        self.assertEqual(9, len(record["uploaded"]))
+        self.assertFalse(record["publicBytesMatch"])
+
     def test_anonymous_changed_bytes_fail_after_publication_without_reupload(self):
         def transport(operation, timeout):
             response = self.transport(operation, timeout)

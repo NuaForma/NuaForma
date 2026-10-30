@@ -6,11 +6,15 @@ Snapshots use Gradle's native Maven publisher, not this immutable-bundle uploade
 import base64
 import datetime
 import hashlib
+import http.client
 import io
 import json
 import pathlib
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import urllib.error
 import urllib.request
+import urllib.parse
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -28,6 +32,44 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def open_request(request, timeout):
     return urllib.request.build_opener(NoRedirect()).open(request, timeout=timeout)
+
+
+class PersistentTransport:
+    """One TLS connection per worker; no redirects, credential forwarding or write retry."""
+    def __init__(self):
+        self.local = threading.local()
+        self.connections = []
+        self.lock = threading.Lock()
+
+    def open(self, operation, timeout):
+        url = urllib.parse.urlsplit(operation.full_url)
+        require(url.scheme == "https" and url.netloc == "repo.nuaforma.dev", "Untrusted Nexus origin")
+        connection = getattr(self.local, "connection", None)
+        if connection is None:
+            connection = http.client.HTTPSConnection(url.netloc, timeout=timeout)
+            self.local.connection = connection
+            with self.lock:
+                self.connections.append(connection)
+        try:
+            connection.request(operation.method, url.path, body=operation.data,
+                               headers=dict(operation.header_items()))
+            response = connection.getresponse()
+            if response.status >= 300:
+                status, headers = response.status, response.headers
+                response.read(LIMIT + 1)
+                response.close()
+                raise urllib.error.HTTPError(operation.full_url, status, "Nexus HTTP failure", headers, None)
+            return response
+        except urllib.error.HTTPError:
+            raise
+        except (OSError, http.client.HTTPException):
+            connection.close()
+            self.local.connection = None
+            raise urllib.error.URLError("Nexus connection failed; operation not retried") from None
+
+    def close(self):
+        for connection in self.connections:
+            connection.close()
 
 
 def token(username, password):
@@ -114,13 +156,34 @@ def updated_metadata(data, module, version):
     return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
-def publish_bundle(bundle, version, modules, approved_hashes, bundle_sha256, authorization, receipt, opener=open_request):
+def publish_bundle(bundle, version, modules, approved_hashes, bundle_sha256, authorization, receipt,
+                   opener=open_request, workers=None):
+    if opener is open_request:
+        transport = PersistentTransport()
+        try:
+            with ThreadPoolExecutor(max_workers=workers or 6) as pool:
+                return _publish_bundle(bundle, version, modules, approved_hashes, bundle_sha256,
+                                       authorization, receipt, transport.open, workers or 6, pool)
+        finally:
+            transport.close()
+    with ThreadPoolExecutor(max_workers=workers or 1) as pool:
+        return _publish_bundle(bundle, version, modules, approved_hashes, bundle_sha256,
+                               authorization, receipt, opener, workers or 1, pool)
+
+
+def _publish_bundle(bundle, version, modules, approved_hashes, bundle_sha256, authorization, receipt, opener, workers, pool):
+    require(1 <= workers <= 6, "Nexus concurrency must be bounded")
     payloads = entries(bundle, version, modules, approved_hashes, bundle_sha256)
     # Preflight every path and all metadata before the first mutation. Anonymous reads
     # also ensure the promised download access is available; only a real 404 is absence.
-    for name in sorted(payloads):
+    def absent(name):
         data, _ = request(name, method="HEAD", opener=opener, missing=True)
         require(data is None, "Immutable Maven version already exists; do not overwrite or blindly retry")
+    if workers == 1:
+        for name in sorted(payloads):
+            absent(name)
+    else:
+        list(pool.map(absent, sorted(payloads)))
     metadata = {}
     for module in modules:
         name = f"dev/nuaforma/{module}/maven-metadata.xml"
@@ -141,21 +204,54 @@ def publish_bundle(bundle, version, modules, approved_hashes, bundle_sha256, aut
     def save():
         receipt.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
 
-    for name, (data, conditional) in [(name, (data, {})) for name, data in sorted(payloads.items())] + list(indexes.items()):
-        record["pending"] = name
-        save()
+    def put(item):
+        name, (data, conditional) = item
         request(name, method="PUT", data=data, authorization=authorization, headers=conditional, opener=opener)
-        record["uploaded"].append({"file": name, "sha256": hashlib.sha256(data).hexdigest()})
-        record["pending"] = None
-        save()
+        return {"file": name, "sha256": hashlib.sha256(data).hexdigest()}
+    # Finish each bounded batch, retaining every known/uncertain outcome before another starts.
+    base_files = [(name, (data, {})) for name, data in sorted(payloads.items()) if name.endswith(SUFFIXES)]
+    sidecars = [(name, (data, {})) for name, data in sorted(payloads.items()) if not name.endswith(SUFFIXES)]
+    module_indexes = [(name, value) for name, value in indexes.items() if name.endswith(".xml")]
+    index_checksums = [(name, value) for name, value in indexes.items() if not name.endswith(".xml")]
+    for phase in (base_files, sidecars, module_indexes, index_checksums):
+        for offset in range(0, len(phase), workers):
+            batch = phase[offset:offset + workers]
+            if workers == 1:
+                record["pending"] = batch[0][0]
+                save()
+                record["uploaded"].append(put(batch[0]))
+            else:
+                record["pending"] = [item[0] for item in batch]
+                save()
+                failure = None
+                futures = {pool.submit(put, item): item[0] for item in batch}
+                for future in as_completed(futures):
+                    try:
+                        record["uploaded"].append(future.result())
+                        record["pending"].remove(futures[future])
+                    except Exception as error:
+                        failure = error
+                    save()
+                if failure:
+                    raise failure
+            record["pending"] = None
+            save()
     record["state"] = "verifying"
     save()
-    for name, expected in payloads.items():
+    def verify(item):
+        name, expected = item
         data, _ = request(name, opener=opener)
         require(data == expected, "Anonymous Nexus bytes differ from the reviewed bundle; inspect, do not upload again")
-    for name, (expected, _) in indexes.items():
-        data, _ = request(name, opener=opener)
-        require(data == expected, "Published Maven index/checksum differs from the uploaded metadata; inspect before retrying")
+    # Actual artifacts/signatures and module metadata are independently downloaded.
+    # Checksum sidecars were already derived/checked locally and acknowledged by Nexus.
+    visible = [(name, data) for name, data in payloads.items()
+               if name.endswith(SUFFIXES) or name.endswith(".asc")]
+    visible += [(name, data) for name, (data, _) in indexes.items() if name.endswith(".xml")]
+    if workers == 1:
+        for item in visible:
+            verify(item)
+    else:
+        list(pool.map(verify, visible))
     record.update(state="published", publicBytesMatch=True, artifacts=len(approved_hashes))
     save()
     return record

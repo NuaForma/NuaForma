@@ -21,7 +21,7 @@ class ContainerPackagingTest {
         val matrix = ((job["strategy"] as Map<*, *>)["matrix"] as Map<*, *>)["include"] as List<*>
         assertEquals(setOf("17", "25"), matrix.map { (it as Map<*, *>)["java"] }.toSet())
         val steps = (job["steps"] as List<*>).map { it as Map<*, *> }
-        assertTrue(steps.any { it["if"] == "matrix.java == '17'" && it["run"].toString().contains("verifyEmbeddedConsumers") })
+        assertTrue(steps.any { it["if"] == "steps.reuse.outputs.reuse != 'true' && (matrix.java == '17')" && it["run"].toString().contains("verifyEmbeddedConsumers") })
     }
 
     @Test fun `compose preserves the required isolation and explicit contexts`() {
@@ -84,18 +84,23 @@ class ContainerPackagingTest {
 
     @Test fun `native candidates exercise both platforms without publishing`() {
         val workflow = yaml(".github/workflows/native-container.yml")
-        assertEquals(mapOf("contents" to "read"), workflow["permissions"])
+        assertEquals(emptyMap<String, String>(), workflow["permissions"])
         val job = (workflow["jobs"] as Map<*, *>)["qualify"] as Map<*, *>
+        assertEquals(mapOf("contents" to "read", "actions" to "read"), job["permissions"])
         assertEquals("\${{ matrix.runner }}", job["runs-on"])
         val matrix = ((job["strategy"] as Map<*, *>)["matrix"] as Map<*, *>)["include"] as List<*>
         assertEquals(setOf("amd64", "arm64"), matrix.map { (it as Map<*, *>)["architecture"] }.toSet())
         val steps = (job["steps"] as List<*>).map { it as Map<*, *> }
         val uploads = steps.filter { (it["uses"] as? String)?.startsWith("actions/upload-artifact@") == true }
-        assertEquals(1, uploads.size)
-        val inventoryUpload = uploads.single()["with"] as Map<*, *>
+        assertEquals(2, uploads.size)
+        val inventoryUpload = uploads.first()["with"] as Map<*, *>
         assertEquals("build/native-container/inventory/", inventoryUpload["path"])
         assertEquals("error", inventoryUpload["if-no-files-found"])
         assertEquals("native-source-inventory-\${{ matrix.architecture }}", inventoryUpload["name"])
+        val qualificationUpload = uploads.last()["with"] as Map<*, *>
+        assertEquals("build/ci-evidence/qualification.json", qualificationUpload["path"])
+        assertEquals("qualification-native-\${{ matrix.architecture }}-\${{ steps.evidence.outputs.fingerprint }}", qualificationUpload["name"])
+        assertEquals("error", qualificationUpload["if-no-files-found"])
         val commands = steps.joinToString("\n") { it["run"].toString() }
         listOf("verify_native_platform.py", "qualify_service.py", "qualify_java_runtime.py", "qualify_endpoints.py", "verify_embedded_pdf.py").forEach {
             assertTrue(commands.contains(it), it)

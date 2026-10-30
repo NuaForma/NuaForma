@@ -157,6 +157,11 @@ def publish_libraries(root, record, receipts):
     return requested
 
 
+def require_publishable(record):
+    if record.get("preparationOnly", False) is not False:
+        raise ValueError("A preparation-only rehearsal can never be published")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=pathlib.Path, required=True)
@@ -167,7 +172,8 @@ def main():
     root = args.root
     receipts = root / "receipts"
     receipts.mkdir(exist_ok=False)
-    record = read(root / "verified.json")
+    record = read(root / "candidate/candidate.json")
+    require_publishable(record)
     # Reconstruct approval binding from the exact transferred bytes; no rebuilding.
     reconstructed = assemble(root, receipts / "candidate.json")
     if reconstructed != record or record["sourceCommit"] != os.environ["GITHUB_SHA"]:
