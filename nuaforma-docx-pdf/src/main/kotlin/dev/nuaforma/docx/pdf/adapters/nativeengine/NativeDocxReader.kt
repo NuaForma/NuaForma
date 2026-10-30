@@ -813,7 +813,7 @@ internal class NativeDocxReader(
 
     private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>): Face {
         if (property == null) return initial
-        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign"))
+        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden"))
         var result = initial
         property.one("vertAlign")?.let {
             attributes(it, setOf("val")); children(it, emptySet())
@@ -844,6 +844,10 @@ internal class NativeDocxReader(
         }
         property.one("sz")?.let { result = result.copy(size = number(it.value("val")) / 2) }
         fun enabled(node: XmlElement): Boolean = when (node.value("val")) { null, "true", "1", "on" -> true; "false", "0", "off" -> false; else -> reject("Invalid toggle") }
+        // Hidden runs were removed from the private DOCX intermediary using resolved Word hidden-text formatting.
+        for (name in listOf("vanish", "webHidden")) property.one(name)?.let {
+            attributes(it, setOf("val")); children(it, emptySet()); enabled(it)
+        }
         property.one("rtl")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty(), "Invalid run direction"); result = result.copy(rtl = enabled(it)) }
         property.one("b")?.let { result = result.copy(bold = enabled(it)) }
         property.one("i")?.let { result = result.copy(italic = enabled(it)) }

@@ -90,6 +90,7 @@ internal class WordTemplateFault(private val context: GenerationContext) {
                 content.add(R().apply {
                     rPr = RPr().apply {
                         rFonts = RFonts().apply { ascii = family; hAnsi = family }
+                        vanish = BooleanDefaultTrue().apply { isVal = false }
                         sz = HpsMeasure().apply { `val` = java.math.BigInteger.valueOf(22) }
                         b = BooleanDefaultTrue().apply { isVal = false }
                         i = BooleanDefaultTrue().apply { isVal = false }

@@ -49,3 +49,7 @@ The engine's reviewed golden files and Word-export comparison documents remain p
 The [registered-provider integration trials](../tools/pdf-evaluation/own-engine/NATIVE-INTEGRATION.md) retain six new Word-matched pages, including an 80-row conditional report, with per-page content/geometry results and visual review.
 
 Full repository/consumer, Word/golden, REST/Playground and native AMD64/ARM64 checks qualify the bounded source profile. Each release still requires exact-candidate validation, signing, source/notices and website handoff. See the [roadmap](../docs/architecture/own-engine-roadmap.md) and [shared engine guide](../nuaforma-pdf/README.md).
+
+### Hidden template text (source fix #154)
+
+The DOCX stage evaluates only print-view text and removes resolved hidden runs from its private PDF intermediary before automatic font collection and native reading. Hidden text does not enter the PDF, and fonts used only by removed hidden runs are not required; ordinary DOCX output retains the source runs and their formatting. This also applies to development diagnostic PDFs. Visibility uses the [Word template rules](../nuaforma-docx/README.md#word-template-rules), including inherited toggles and explicit overrides; it does not infer visibility from color, position or the operator’s Word display settings. Existing golden files remain unchanged. This source change is not included in the immutable alpha.4 release.

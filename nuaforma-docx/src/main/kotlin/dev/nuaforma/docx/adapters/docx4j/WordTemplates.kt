@@ -7,7 +7,6 @@ import dev.nuaforma.template.TemplateSession
 import dev.nuaforma.template.ContentTemplates
 import dev.nuaforma.template.ContentTemplateSession
 import dev.nuaforma.template.TemplatePipes
-import org.docx4j.TraversalUtil
 import org.docx4j.XmlUtils
 import org.docx4j.openpackaging.packages.WordprocessingMLPackage
 import org.docx4j.openpackaging.parts.WordprocessingML.HeaderPart
@@ -23,8 +22,13 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
     private lateinit var owner: org.docx4j.openpackaging.parts.Part
     private val paragraphs = java.util.IdentityHashMap<P, Int>()
     private var paragraphIndex = 0
+    private lateinit var visibility: WordVisibility
+    private var currentParagraph: P? = null
+    private var currentTable: Tbl? = null
+    private fun visible(run: R) = !visibility.hidden(run, currentParagraph, currentTable)
 
     fun apply(document: WordprocessingMLPackage, inspection: Boolean = false): TextWatermark? {
+        visibility = WordVisibility(document, context)
         watermark?.let { root.validateText(it.text) }
         images = WordImages(document, identities, context)
         val parts = listOf(document.mainDocumentPart to document.mainDocumentPart.jaxbElement.body) + document.parts.parts.values.mapNotNull {
@@ -60,20 +64,27 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         }
     }
 
-    private fun rejectUnsupportedContent(raw: Any, depth: Int) {
+    private fun rejectUnsupportedContent(raw: Any, depth: Int, paragraph: P? = null, table: Tbl? = null) {
         context.checkActive()
         if (++visits > 1_000_000 || depth > 128) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.DOCX_STRUCTURE_EXCEEDS_PROCESSING_LIMITS)
         val node = XmlUtils.unwrap(raw)
+        val p = node as? P ?: paragraph
+        val t = node as? Tbl ?: table
+        if (node is R && visibility.hidden(node, p, t)) return
         val content = children(node)
         if (node is P || node is P.Hyperlink) {
-            val text = WordRuns.detectionSource(content)
+            val text = WordRuns.detectionSource(content) { !visibility.hidden(it, p, t) }
             if (ContentTemplates.containsContentMarker(text, valuePipes, context)) invalid(RejectionReason.CONTENT_PIPES_ARE_UNSUPPORTED_IN_COMMENTS_FOOTNOTES_OR_ENDNOTES)
         }
-        content.forEach { rejectUnsupportedContent(it, depth + 1) }
+        content.forEach { rejectUnsupportedContent(it, depth + 1, p, t) }
     }
 
     private fun process(raw: Any, session: ContentTemplateSession, validateOnly: Boolean, depth: Int, inlineHandled: Boolean = false) {
         val node = XmlUtils.unwrap(raw)
+        val previousParagraph = currentParagraph
+        val previousTable = currentTable
+        if (node is P) currentParagraph = node
+        if (node is Tbl) currentTable = node
         val paragraph = (node as? P)?.let { paragraphs[it] }
         try {
             if (paragraph != null) DocxFailure.inParagraph(paragraph) { processNode(raw, session, validateOnly, depth, inlineHandled) }
@@ -81,6 +92,9 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         } catch (error: GenerationException) {
             if (node is P) fault?.paragraph(node)
             throw error
+        } finally {
+            currentParagraph = previousParagraph
+            currentTable = previousTable
         }
     }
 
@@ -96,12 +110,13 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         context.checkActive()
         if (++visits > 1_000_000 || depth > 128) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.DOCX_STRUCTURE_EXCEEDS_PROCESSING_LIMITS)
         val node = XmlUtils.unwrap(raw)
+        if (node is R && !visible(node)) return
         val children = children(node)
         if (validateOnly && node is R && WordRuns.plain(node) && !inlineHandled &&
             ContentTemplates.containsContentMarker(WordRuns.source(listOf(node)), valuePipes, context)) {
             invalid(RejectionReason.CONTENT_PIPES_REQUIRE_ORDINARY_PARAGRAPH_OR_HYPERLINK_TEXT_NOT)
         }
-        if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context, valuePipes, fault) { images.drawing(it, owner) }
+        if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context, valuePipes, ::visible, fault) { images.drawing(it, owner) }
         if (node is R) WordRuns.mixed(node, session, validateOnly, context, valuePipes, fault)
         if (node is Body || node is Hdr || node is Ftr || node is Tc || node is Tbl || node is CTTxbxContent ||
             node is org.docx4j.vml.CTTextbox || modernTextBox(node)) blocks(children, session, validateOnly, depth)
@@ -232,8 +247,13 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
             }
             else -> return null
         }
-        if (!paragraph.content.all { WordRuns.plain(it) }) return null
-        val source = WordRuns.source(paragraph.content).trim()
+        val indices = paragraph.content.indices.filter { index ->
+            (XmlUtils.unwrap(paragraph.content[index]) as? R)?.let { !visibility.hidden(it, paragraph, currentTable) } ?: true
+        }
+        if (indices.isEmpty()) return null
+        val content = paragraph.content.subList(indices.first(), indices.last() + 1)
+        if (!content.all { WordRuns.plain(it) && !visibility.hidden(XmlUtils.unwrap(it) as R, paragraph, currentTable) }) return null
+        val source = WordRuns.source(content).trim()
         if (!source.startsWith('{') || !source.endsWith('}')) return null
         val marker = source.substring(1, source.length - 1).trim()
         if (!(marker.startsWith('#') || marker.startsWith('/')) || '{' in marker || '}' in marker) return null
@@ -242,16 +262,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         return marker
     }
 
-    private fun children(node: Any): MutableList<Any> {
-        // The generic traversal skips the mutable modern text-box container; use its real content list.
-        val graphic = when (node) {
-            is org.docx4j.dml.wordprocessingDrawing.Inline -> node.graphic
-            is org.docx4j.dml.wordprocessingDrawing.Anchor -> node.graphic
-            else -> null
-        }
-        graphic?.graphicData?.wordprocessingShape?.txbx?.txbxContent?.let { return it.content }
-        return TraversalUtil.getChildrenImpl(node) ?: mutableListOf()
-    }
+    private fun children(node: Any) = WordVisibility.children(node)
 
     private fun modernTextBox(node: Any): Boolean = when (node) {
         is org.docx4j.dml.wordprocessingDrawing.Inline -> node.graphic?.graphicData?.wordprocessingShape?.txbx != null
