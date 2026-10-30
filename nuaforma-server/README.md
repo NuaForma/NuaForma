@@ -177,3 +177,7 @@ Successful attachments use DOCX/PDF media types, `Content-Disposition`, `Cache-C
 REST tests exercise actual DOCX processing, embedded parity with only generated watermark UUIDs normalized, unknown/duplicate/deep JSON, media types/filenames/options, multipart limits/duplicates, output limits, concurrent data isolation, capacity, cancellation and cleanup. ArchUnit checks HTTP/coroutine/JSON adapter ownership with passing and deliberately violating fixtures.
 
 `PdfRestQualification` is an explicit test-only real-socket entry point staged by `prepareEngineQualification`, not a production server API. In the qualified one-container runtime it submits a DOCX template plus private font resources over HTTP, generates two tenant-specific barcode PDFs and a five-page dynamic-watermark PDF, and checks private-file cleanup. Independent Poppler raster/font inspection and barcode decoding compare all nine pages with the embedded reference. No Office application, renderer changes, global font install or published container is required by this check. Keep its synthetic outputs and private QA fonts ignored; do not include them in distributions.
+
+## Rich-text source feature
+
+The source after alpha.4 reports [`richText("rtf")`](../docs/rich-text.md) through the existing provider catalog, including typed arguments, defaults, media type, support combinations and `missingAsNull`. Generation uses the existing data envelope and multipart endpoint. This is a source feature, not an alpha.4 capability.

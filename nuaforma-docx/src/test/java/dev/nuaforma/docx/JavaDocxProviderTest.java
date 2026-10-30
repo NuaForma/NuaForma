@@ -6,6 +6,23 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class JavaDocxProviderTest {
     @Test
+    void builtInRichTextWorksThroughExistingJavaFacadeAndMetadataConstructors() throws Exception {
+        var parts = new java.util.LinkedHashMap<>(SyntheticDocx.INSTANCE.parts("Java {details | richText(\"rtf\")}"));
+        var output = new java.io.ByteArrayOutputStream();
+        var requirements = new GenerationRequirements(new FormatRequest(DocumentFormat.DOCX), new FormatRequest(DocumentFormat.DOCX));
+        var request = new GenerationRequest(new java.io.ByteArrayInputStream(SyntheticDocx.INSTANCE.zip(parts)), requirements,
+            java.util.Map.of("details", "{\\rtf1\\b inserted\\b0\\par Second}", "customer", java.util.Map.of("name", "Ada"), "reference", "NF001"));
+        var provider = new DocxProvider();
+        provider.generate(request, output, new GenerationContext());
+        var document = new String(SyntheticDocx.INSTANCE.unzip(output.toByteArray()).get("word/document.xml"), java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(document.contains(">inserted</w:t>"));
+        assertTrue(document.contains(">Second</w:t>"));
+        var definition = provider.contentPipes().stream().filter(pipe -> pipe.getName().equals("richText")).findFirst().orElseThrow();
+        assertTrue(definition.getMissingAsNull());
+        assertEquals(java.util.Set.of("application/rtf"), definition.getContentTypes());
+        assertFalse(new ContentPipeDefinition("legacy", "Legacy Java constructor").getMissingAsNull());
+    }
+    @Test
     void usedFontSelectionUsesExplicitJavaCatalogWithoutDeclarations(@org.junit.jupiter.api.io.TempDir java.nio.file.Path root) throws Exception {
         try (var source = getClass().getResourceAsStream("/fonts/LibreBarcode39-Regular.ttf")) {
             java.nio.file.Files.copy(source, root.resolve("opaque.ttf"));

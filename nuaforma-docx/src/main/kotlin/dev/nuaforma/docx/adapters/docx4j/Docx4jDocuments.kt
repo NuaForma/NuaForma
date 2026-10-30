@@ -51,7 +51,10 @@ internal object Docx4jDocuments {
         var decoration: Pair<TextWatermark?, String?> = null to null
         open(request.template, context) {
             if (request.requirements.output.options["fontSelection"] != "used") WordFonts.apply(it, request, context)
-            val watermark = WordTemplates(request.data, request.requirements.options, context, pipes, valuePipes).apply(it)
+            val templates = WordTemplates(request.data, request.requirements.options, context, pipes, valuePipes)
+            val watermark = templates.apply(it)
+            if (templates.richTextUsed && request.requirements.output.options["fontSelection"] != "used")
+                WordFonts.validateDeclaredFamilies(it, request, context)
             if (detachWatermark) omitHidden(it, context)
             decoration = watermark to watermark?.let { _ -> WordWatermarks.fontFamily(it) }
             if (!detachWatermark) WordWatermarks(context).apply(it, watermark)

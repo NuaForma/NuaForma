@@ -27,8 +27,7 @@ internal object WordFonts {
         val policy = FontPolicy.read(request.requirements.output.options)
         if (request.resources.keys != policy.fonts.map { it.resource }.toSet()) fail(RejectionReason.SUPPLY_EXACTLY_THE_DECLARED_FONT_RESOURCES_UNUSED_OR_MISSING)
         if (policy.mode == "preserve") return
-        val declared = declaredFonts(document, context)
-        if (!policy.fonts.filter { it.face == "regular" }.map { it.family }.toSet().containsAll(declared)) fail(RejectionReason.A_DECLARED_TEMPLATE_FONT_FAMILY_HAS_NO_SUPPLIED_REGULAR)
+        validateDeclaredFamilies(document, request, context)
         var total = 0L
         val inspected = mutableListOf<Pair<FontPolicy.FontResource, ByteArray>>()
         policy.fonts.forEach { font ->
@@ -47,6 +46,15 @@ internal object WordFonts {
             context.checkActive()
             embed(document, font, bytes)
         }
+    }
+
+    /** Recheck inserted font names without reopening caller resources or embedding the same face twice. */
+    fun validateDeclaredFamilies(document: WordprocessingMLPackage, request: GenerationRequest, context: GenerationContext) {
+        val policy = FontPolicy.read(request.requirements.output.options)
+        if (policy.mode == "preserve") return
+        val declared = declaredFonts(document, context)
+        if (!policy.fonts.filter { it.face == "regular" }.map { it.family }.toSet().containsAll(declared))
+            fail(RejectionReason.A_DECLARED_TEMPLATE_FONT_FAMILY_HAS_NO_SUPPLIED_REGULAR)
     }
 
     private fun declaredFonts(document: WordprocessingMLPackage, context: GenerationContext): Set<String> {

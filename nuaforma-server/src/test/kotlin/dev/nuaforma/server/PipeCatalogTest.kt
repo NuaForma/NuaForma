@@ -34,6 +34,12 @@ class PipeCatalogTest {
             assertEquals(setOf("image/jpeg", "image/png"), image.path("contentTypes").map { it.asText() }.toSet())
             assertEquals(listOf("maxWidthMm", "maxHeightMm", "keepRatio"), image.path("arguments").map { it.path("name").asText() })
             assertEquals(listOf("inline"), image.path("contexts").map { it.asText() })
+            assertFalse(image.path("missingAsNull").asBoolean())
+            val rich = provider.path("contentPipes").path("entries").single { it.path("name").asText() == "richText" }
+            assertTrue(rich.path("missingAsNull").asBoolean())
+            assertEquals(listOf("application/rtf"), rich.path("contentTypes").map { it.asText() })
+            assertEquals(listOf("format", "trimStart", "trimEnd", "inline"), rich.path("arguments").map { it.path("name").asText() })
+            assertEquals(listOf(true, true, true), rich.path("arguments").drop(1).map { it.path("defaultValue").asBoolean() })
             val writes = provider.path("available").path("writeFormats").map { it.asText() }.toSet()
             assertTrue(image.path("availableSupport").all { it.path("output").asText() in writes })
             assertTrue(image.path("declaredSupport").any { it.path("output").asText() == "docx" })

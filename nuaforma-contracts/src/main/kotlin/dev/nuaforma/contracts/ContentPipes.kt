@@ -32,6 +32,9 @@ class ContentPipeDefinition @JvmOverloads constructor(
     val chainable: Boolean get() = false
     val contexts: Set<ContentInsertionContext> = setOf(ContentInsertionContext.INLINE)
     private var declaredContentTypes: Set<String> = emptySet()
+    private var declaredMissingAsNull = false
+    /** Explicit opt-in; ordinary placeholders and existing content pipes keep strict missing-value behavior. */
+    val missingAsNull: Boolean get() = declaredMissingAsNull
     /** Accepted source media types, not a generic document representation or MIME-based dispatch. */
     val contentTypes: Set<String> get() = declaredContentTypes
 
@@ -42,6 +45,11 @@ class ContentPipeDefinition @JvmOverloads constructor(
             it.length <= 127 && it.matches(Regex("[a-z][a-z0-9.+-]*/[a-z0-9][a-z0-9.+-]*"))
         })
         declaredContentTypes = java.util.Collections.unmodifiableSet(LinkedHashSet(contentTypes))
+    }
+    constructor(name: String, description: String, arguments: List<OptionDefinition>, support: List<ContentPipeSupport>,
+                nullBehavior: String, contentTypes: Set<String>, missingAsNull: Boolean) :
+        this(name, description, arguments, support, nullBehavior, contentTypes) {
+        declaredMissingAsNull = missingAsNull
     }
     init {
         require(name.matches(Regex("[A-Za-z_][A-Za-z0-9_]{0,63}")) && name !in setOf("number", "date"))

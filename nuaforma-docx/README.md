@@ -64,7 +64,7 @@ All supported syntax is validated before generation, including unselected branch
 
 ## Generator content pipes
 
-Trusted generators/extensions may explicitly register `ContentPipe` implementations through the additive two-argument `DocxProvider(deploymentFonts, pipes)` constructor. Existing constructor JVM entry points and ordinary template behavior remain unchanged. The built-in `image` pipe is always registered; an empty custom list adds no other pipes. Up to 127 custom pipes fit alongside it within the 128-registration ceiling.
+Trusted generators/extensions may explicitly register `ContentPipe` implementations through the additive two-argument `DocxProvider(deploymentFonts, pipes)` constructor. Existing constructor JVM entry points and ordinary template behavior remain unchanged. The built-in `image` and source `richText` pipes are always registered; an empty custom list adds no operator pipes. Up to 126 custom pipes fit alongside them within the 128-registration ceiling. The rich-text source feature is not in alpha.4.
 
 ```kotlin
 val companyLabel = object : ContentPipe {
@@ -267,3 +267,7 @@ A renamed, checksum-correct QA derivative whose family was never installed also 
 ## Preparing content for another output format
 
 The additive `DocxProvider.generateForConversion(request, output, context)` facade performs the same assessment, template expansion and bounded transactional DOCX serialization, returning `DocxConversionResult`. It leaves the resolved watermark out of the private intermediate DOCX and returns its immutable `TextWatermark` and selected default font family separately. Resolution shares the document session, so validation, budgets, value pipes and literal inserted values retain their existing behavior. A downstream format adapter owns decoration placement. Ordinary `generate` and DOCX output still place their existing header shapes. No document-library object or renderer is exposed through this facade.
+
+## Rich-text source feature
+
+The source after alpha.4 adds [`richText("rtf")`](../docs/rich-text.md) for ordinary text-only paragraphs, including supported table/text-box/header/footer contexts. The owning guide defines character formatting, independent boundary trims, inline placement, limits and font revalidation after insertion. It is not in the published alpha.4 artifacts.

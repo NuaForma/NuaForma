@@ -267,15 +267,59 @@ data class PdfColor(val red: Int, val green: Int, val blue: Int) {
     init { require(red in 0..255 && green in 0..255 && blue in 0..255) { "RGB components must be between 0 and 255" } }
 }
 
-data class PdfTextStyle @JvmOverloads constructor(
+/** Immutable value style. Explicit copy/components preserve the original six-property JVM API. */
+class PdfTextStyle private constructor(
     val fontId: String,
     val size: Float,
-    val color: PdfColor = PdfColor(0, 0, 0),
-    val languageTag: String? = null,
-    val underline: Boolean = false,
+    val color: PdfColor,
+    val languageTag: String?,
+    val underline: Boolean,
     /** Positive values raise glyphs relative to the paragraph baseline; units are PDF points. */
-    val baselineShift: Float = 0f,
+    val baselineShift: Float,
+    private val decoration: Decoration,
 ) {
+    private enum class Decoration { NONE, STRIKE }
+    val strikethrough: Boolean get() = decoration == Decoration.STRIKE
+
+    @JvmOverloads
+    constructor(fontId: String, size: Float, color: PdfColor = PdfColor(0, 0, 0), languageTag: String? = null,
+                underline: Boolean = false, baselineShift: Float = 0f) :
+        this(fontId, size, color, languageTag, underline, baselineShift, Decoration.NONE)
+
+    constructor(fontId: String, size: Float, color: PdfColor, languageTag: String?, underline: Boolean,
+                baselineShift: Float, strikethrough: Boolean) :
+        this(fontId, size, color, languageTag, underline, baselineShift, if (strikethrough) Decoration.STRIKE else Decoration.NONE)
+
+    fun withStrikethrough(value: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, value)
+
+    /** Keep Kotlin's original copy and copy$default descriptors, retaining additional decorations. */
+    fun copy(fontId: String = this.fontId, size: Float = this.size, color: PdfColor = this.color,
+             languageTag: String? = this.languageTag, underline: Boolean = this.underline,
+             baselineShift: Float = this.baselineShift): PdfTextStyle =
+        PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, strikethrough)
+
+    operator fun component1(): String = fontId
+    operator fun component2(): Float = size
+    operator fun component3(): PdfColor = color
+    operator fun component4(): String? = languageTag
+    operator fun component5(): Boolean = underline
+    operator fun component6(): Float = baselineShift
+    operator fun component7(): Boolean = strikethrough
+
+    override fun equals(other: Any?): Boolean = other is PdfTextStyle && fontId == other.fontId &&
+        java.lang.Float.compare(size, other.size) == 0 && color == other.color && languageTag == other.languageTag &&
+        underline == other.underline && java.lang.Float.compare(baselineShift, other.baselineShift) == 0 && strikethrough == other.strikethrough
+
+    override fun hashCode(): Int {
+        var result = fontId.hashCode()
+        result = 31 * result + size.hashCode(); result = 31 * result + color.hashCode()
+        result = 31 * result + (languageTag?.hashCode() ?: 0); result = 31 * result + underline.hashCode()
+        result = 31 * result + baselineShift.hashCode()
+        return if (strikethrough) 31 * result + true.hashCode() else result
+    }
+    override fun toString(): String = "PdfTextStyle(fontId=$fontId, size=$size, color=$color, languageTag=$languageTag, underline=$underline, baselineShift=$baselineShift" +
+        (if (strikethrough) ", strikethrough=true)" else ")")
+
     init {
         require(languageTag == null || languageTag.length <= 64 && languageTag.matches(Regex("[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*"))) { "Invalid text language tag" }
         require(fontId.matches(Regex("[A-Za-z0-9_-]{1,64}"))) { "Invalid font ID" }

@@ -87,7 +87,7 @@ internal object OpenApiContract {
             "ValuePipe" to obj(mapOf("name" to string(), "description" to string(), "chainable" to mapOf("type" to "boolean", "enum" to listOf(true)),
                 "arguments" to array(ref("OptionDefinition")), "nullBehavior" to string(), "available" to mapOf("type" to "boolean"))),
             "ContentPipe" to obj(mapOf("name" to string(), "description" to string(), "chainable" to mapOf("type" to "boolean", "enum" to listOf(false)),
-                "arguments" to array(ref("OptionDefinition")), "nullBehavior" to string(), "contexts" to array(string()), "contentTypes" to array(string()),
+                "arguments" to array(ref("OptionDefinition")), "nullBehavior" to string(), "contexts" to array(string()), "contentTypes" to array(string()), "missingAsNull" to mapOf("type" to "boolean"),
                 "declaredSupport" to array(ref("PipeSupport")), "availableSupport" to array(ref("PipeSupport")))),
             "ValuePipeCatalog" to obj(mapOf("status" to (string() + mapOf("enum" to listOf("AVAILABLE", "UNSUPPORTED", "UNAVAILABLE"))),
                 "entries" to (array(ref("ValuePipe")) + mapOf("maxItems" to 128)), "diagnostics" to array(ref("Diagnostic")))),
