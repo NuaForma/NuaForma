@@ -1,7 +1,7 @@
 import copy
 import unittest
 
-from snapshot_gate import automatic_version, successful_run, wait_for_sonar
+from snapshot_gate import automatic_version, successful_run, wait_for_builds, wait_for_sonar
 
 
 class AutomaticSnapshotTest(unittest.TestCase):
@@ -73,3 +73,44 @@ class SonarGateTest(unittest.TestCase):
                            "a" * 40, attempts=1)
         with self.assertRaises(ValueError):
             wait_for_sonar(lambda: {"total_count": 101, "check_runs": [self.check()]}, "a" * 40, attempts=1)
+
+
+class JavaJobPropagationTest(unittest.TestCase):
+    def setUp(self):
+        self.run = {"id": 123, "head_sha": "a" * 40, "head_branch": "develop", "event": "push",
+                    "path": ".github/workflows/build.yml", "repository": {"full_name": "NuaForma/NuaForma"}}
+        self.jobs = [{"name": name, "status": "completed", "conclusion": "success"}
+                     for name in ("Build (Java 17)", "Build (Java 25)")]
+
+    @staticmethod
+    def response(jobs):
+        return {"total_count": len(jobs), "jobs": jobs}
+
+    def wait(self, fetch, **options):
+        return wait_for_builds(fetch, self.run, "NuaForma/NuaForma", "a" * 40, "123", **options)
+
+    def test_delayed_jobs_and_completion_propagate_without_rebuilding_or_publishing(self):
+        pending = copy.deepcopy(self.jobs)
+        pending[1].update(status="in_progress", conclusion=None)
+        responses = iter((self.response([]), self.response(pending), self.response(self.jobs)))
+        pauses = []
+        self.wait(lambda: next(responses), attempts=3, pause=pauses.append)
+        self.assertEqual([10, 10], pauses)
+
+    def test_failure_skipped_cancelled_and_duplicate_jobs_fail_without_waiting(self):
+        for conclusion in ("failure", "skipped", "cancelled"):
+            bad = copy.deepcopy(self.jobs)
+            bad[1]["conclusion"] = conclusion
+            with self.subTest(conclusion=conclusion), self.assertRaises(ValueError):
+                self.wait(lambda: self.response(bad), pause=lambda seconds: self.fail("Failure must stop immediately"))
+        with self.assertRaises(ValueError):
+            self.wait(lambda: self.response(self.jobs + [self.jobs[0]]), attempts=1)
+
+    def test_timeout_overflow_and_wrong_source_never_pass(self):
+        with self.assertRaises(ValueError):
+            self.wait(lambda: self.response([]), attempts=1)
+        with self.assertRaises(ValueError):
+            self.wait(lambda: {"total_count": 101, "jobs": self.jobs}, attempts=1)
+        self.run["head_sha"] = "b" * 40
+        with self.assertRaises(ValueError):
+            self.wait(lambda: self.response([]), attempts=1)
