@@ -1,0 +1,65 @@
+name: Publish snapshot to Nexus (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Explicit canonical X.Y.Z-SNAPSHOT version
+        required: true
+        type: string
+      confirmation:
+        description: Type PUBLISH_SNAPSHOT to publish a new timestamped development snapshot
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: nexus-snapshot-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'NuaForma/NuaForma' && github.ref == 'refs/heads/develop' && inputs.confirmation == 'PUBLISH_SNAPSHOT'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    env:
+      SNAPSHOT_VERSION: ${{ inputs.version }}
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Check out the selected develop source without persistent credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require exact signed develop source and green CI before loading publishing secrets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/release/snapshot_gate.py --repository NuaForma/NuaForma --version "$SNAPSHOT_VERSION"
+      - name: Select Java 17 publication toolchain
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Publish one signed Maven snapshot generation using native timestamp metadata
+        env:
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+          MAVEN_SIGNING_KEY: ${{ secrets.MAVEN_SIGNING_KEY }}
+          MAVEN_SIGNING_PASSWORD: ${{ secrets.MAVEN_SIGNING_PASSWORD }}
+        run: |
+          ./gradlew --no-daemon stageLibraries publishSnapshots -Pversion="$SNAPSHOT_VERSION" -PpublishSnapshots=true -PsignArtifacts=true --no-build-cache --no-configuration-cache --warning-mode=fail
+      - name: Verify anonymous downloads of all artifacts and signatures without credentials
+        run: |
+          python3 tools/release/verify_snapshot.py --repository build/library-repository --version "$SNAPSHOT_VERSION" --modules nuaforma-contracts nuaforma-core nuaforma-template nuaforma-docx nuaforma-pdf nuaforma-docx-pdf --output build/snapshot-publication.json
+      - name: Retain only anonymous verification hashes
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nexus-snapshot-verification-${{ github.run_id }}
+          path: build/snapshot-publication.json
+          if-no-files-found: warn
+          retention-days: 14

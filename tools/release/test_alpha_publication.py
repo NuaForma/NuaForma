@@ -97,7 +97,7 @@ class PortalTest(unittest.TestCase):
     def test_final_publish_requires_validated_exact_coordinates_and_artifact_bytes(self):
         identity = "12345678-1234-1234-1234-123456789abc"
         content = b"synthetic staged artifact"
-        version = "0.2.0-alpha.1"
+        version = "0.2.0"
         review = dict(version=version, libraryHashes={module + "-" + version + suffix: hashlib.sha256(content).hexdigest()
             for module in MODULES for suffix in (".pom", ".jar", "-sources.jar", "-javadoc.jar")})
         state = dict(deploymentId=identity, deploymentState="VALIDATED",
@@ -141,14 +141,14 @@ class PortalTest(unittest.TestCase):
                 response.status = 201
                 return response
             digest = hashlib.sha256(bundle.read_bytes()).hexdigest()
-            record = upload(bundle, "0.1.0-alpha.1", digest, "synthetic-token", opener)
+            record = upload(bundle, "0.1.0", digest, "synthetic-token", opener)
             self.assertEqual(identity, record["deploymentId"])
             self.assertFalse(record["published"])
             self.assertEqual(1, len(requests))
             self.assertIn("publishingType=USER_MANAGED", requests[0].full_url)
             self.assertEqual("Bearer synthetic-token", requests[0].get_header("Authorization"))
             self.assertIn(b'name="bundle"', requests[0].data)
-            with self.assertRaises(AssertionError): upload(bundle, "0.1.0-alpha.1", "0" * 64, "synthetic-token", opener)
+            with self.assertRaises(AssertionError): upload(bundle, "0.1.0", "0" * 64, "synthetic-token", opener)
             self.assertEqual(1, len(requests))
 
     def test_http_failure_is_sanitized_and_never_retried(self):
@@ -160,7 +160,7 @@ class PortalTest(unittest.TestCase):
                 calls.append(request)
                 raise urllib.error.HTTPError(request.full_url, 403, "synthetic private diagnostic", {}, None)
             with self.assertRaisesRegex(RuntimeError, "HTTP 403; no automatic retry"):
-                upload(bundle, "0.1.0-alpha.1", hashlib.sha256(bundle.read_bytes()).hexdigest(), "synthetic-token", opener)
+                upload(bundle, "0.1.0", hashlib.sha256(bundle.read_bytes()).hexdigest(), "synthetic-token", opener)
             self.assertEqual(1, len(calls))
 
 

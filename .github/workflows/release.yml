@@ -188,8 +188,10 @@ jobs:
           cmp build/release/verified.json build/release/candidate/candidate.json
       - name: Publish the exact approved libraries and images without rebuilding
         env:
-          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
-          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MAVEN_CENTRAL_USERNAME: ${{ !contains(inputs.version, '-') && secrets.MAVEN_CENTRAL_USERNAME || '' }}
+          MAVEN_CENTRAL_PASSWORD: ${{ !contains(inputs.version, '-') && secrets.MAVEN_CENTRAL_PASSWORD || '' }}
+          NEXUS_USERNAME: ${{ contains(inputs.version, '-') && secrets.NEXUS_USERNAME || '' }}
+          NEXUS_PASSWORD: ${{ contains(inputs.version, '-') && secrets.NEXUS_PASSWORD || '' }}
           REGISTRY_TOKEN: ${{ github.token }}
         run: python3 tools/release/publish_candidate.py --root build/release --confirm-publish
       - name: Retain publication identities even when a remote operation needs recovery

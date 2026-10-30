@@ -37,6 +37,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          python3 tools/release/maven_destination.py --central "$RELEASE_VERSION"
           python3 tools/release/check_environment.py
           python3 tools/release/validate_library_release.py --version "$RELEASE_VERSION" --review "release-approvals/$RELEASE_VERSION.json" --companion-review "release-approvals/$RELEASE_VERSION-playground.json"
       - name: Verify staged bytes and request publication once

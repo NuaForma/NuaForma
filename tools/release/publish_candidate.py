@@ -15,6 +15,8 @@ from central_publish import publish
 from check_multiarch_index import check as check_index
 from release_candidate import APPLICATIONS, assemble, command, digest, read, write
 from verify_libraries import MODULES
+from maven_destination import destination
+from nexus_repository import publish_bundle, token as nexus_token
 
 
 def run(*args, **kwargs):
@@ -99,7 +101,7 @@ def require_absent(record):
         raise ValueError("Release already exists or its absence cannot be established; inspect before recovery")
     # Reject an already visible Maven version; require every expected name to be absent.
     for module in MODULES:
-        url = f"https://repo.maven.apache.org/maven2/dev/nuaforma/{module}/{record['version']}/{module}-{record['version']}.pom"
+        url = record["mavenPublication"]["repository"] + f"dev/nuaforma/{module}/{record['version']}/{module}-{record['version']}.pom"
         try:
             with urllib.request.urlopen(url, timeout=30):
                 raise ValueError("Maven version already exists; do not upload again")
@@ -138,6 +140,23 @@ def publish_images(root, record, receipts):
     return result
 
 
+def publish_libraries(root, record, receipts):
+    target = destination(record["version"])
+    if target["kind"] == "snapshot" or record.get("mavenPublication") != target:
+        raise ValueError("Maven destination differs from the approved immutable release candidate")
+    if target["kind"] == "prerelease":
+        authorization = nexus_token(os.environ.get("NEXUS_USERNAME"), os.environ.get("NEXUS_PASSWORD"))
+        return publish_bundle(root / "jvm/central.zip", record["version"], MODULES, record["libraryHashes"],
+                              record["bundleSha256"], authorization, receipts / "nexus-publication.json")
+    token = base64.b64encode((os.environ["MAVEN_CENTRAL_USERNAME"] + ":" + os.environ["MAVEN_CENTRAL_PASSWORD"]).encode()).decode("ascii")
+    deployment = upload(root / "jvm/central.zip", record["version"], record["bundleSha256"], token)
+    write(receipts / "deployment.json", deployment)
+    validated(deployment["deploymentId"], token)
+    requested = publish(deployment["deploymentId"], record, token)
+    write(receipts / "maven-publish-request.json", requested)
+    return requested
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=pathlib.Path, required=True)
@@ -155,17 +174,12 @@ def main():
         raise ValueError("Approved candidate differs from current source")
     require_absent(record)
     load_images(root, record)
-    token = base64.b64encode((os.environ["MAVEN_CENTRAL_USERNAME"] + ":" + os.environ["MAVEN_CENTRAL_PASSWORD"]).encode()).decode("ascii")
-    deployment = upload(root / "jvm/central.zip", record["version"], record["bundleSha256"], token)
-    write(receipts / "deployment.json", deployment)
-    validated(deployment["deploymentId"], token)
-    requested = publish(deployment["deploymentId"], record, token)
-    write(receipts / "maven-publish-request.json", requested)
+    publish_libraries(root, record, receipts)
     # Registry password remains process memory/stdin; never pass it as a command argument.
     run("docker", "login", "ghcr.io", "--username", os.environ["GITHUB_ACTOR"], "--password-stdin",
         input=os.environ["REGISTRY_TOKEN"].encode())
     containers = publish_images(root, record, receipts)
-    public = verify_public_libraries(record)
+    public = verify_public_libraries(record) if record["mavenPublication"]["kind"] == "stable" else read(receipts / "nexus-publication.json")
     write(receipts / "maven-public.json", public)
     notes = pathlib.Path("release-notes") / (record["version"] + ".md")
     if not notes.is_file():
