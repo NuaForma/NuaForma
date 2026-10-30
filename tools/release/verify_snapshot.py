@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import os
 import pathlib
 import re
 import xml.etree.ElementTree as ET
@@ -52,7 +53,8 @@ def verify(repository, version, modules):
                 digest = hashlib.sha256(file.read_bytes()).hexdigest()
                 require(hashlib.sha256(data).hexdigest() == digest, "Anonymous snapshot differs from the locally signed publication; inspect before retrying")
                 hashes[name] = digest
-    return {"version": version, "repository": SNAPSHOTS, "publicBytesMatch": True, "sha256": hashes}
+    return {"version": version, "repository": SNAPSHOTS, "publicBytesMatch": True, "sha256": hashes,
+            "sourceCommit": os.environ.get("GITHUB_SHA"), "workflowRun": os.environ.get("GITHUB_RUN_ID")}
 
 
 if __name__ == "__main__":

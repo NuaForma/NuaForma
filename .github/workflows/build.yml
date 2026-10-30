@@ -7,15 +7,17 @@ on:
     branches: [main, develop]
   workflow_dispatch:
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: build-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  queue: max
+  cancel-in-progress: false
 
 jobs:
   build:
+    permissions:
+      contents: read
     name: Build (Java ${{ matrix.java }})
     strategy:
       fail-fast: false
@@ -88,3 +90,21 @@ jobs:
             exit 1
           fi
           ./gradlew --no-daemon sonar -Pcoverage=true -x test -x coverageReport --warning-mode=fail
+
+  snapshot:
+    name: Publish develop snapshot
+    needs: build
+    if: github.repository == 'NuaForma/NuaForma' && github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    uses: ./.github/workflows/nexus-snapshot.yml
+    with:
+      confirmation: PUBLISH_SNAPSHOT
+      ci_run: ${{ github.run_id }}
+    secrets:
+      NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+      MAVEN_SIGNING_KEY: ${{ secrets.MAVEN_SIGNING_KEY }}
+      MAVEN_SIGNING_PASSWORD: ${{ secrets.MAVEN_SIGNING_PASSWORD }}
