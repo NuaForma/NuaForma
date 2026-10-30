@@ -66,4 +66,4 @@ Preparation, publication and website deployment are separate actions. These guid
 
 ## Development Maven publications
 
-See [Nexus publishing](nexus-publishing.md) for stable-versus-prerelease routing, manual signed snapshots, repository setup and anonymous Maven/Gradle consumption. [The release procedure](release-process.md) retains the single final approval for immutable product releases.
+See [Nexus publishing](nexus-publishing.md) for stable-versus-prerelease routing, automatic develop snapshots and manual dispatch, repository setup and anonymous Maven/Gradle consumption. [The release procedure](release-process.md) retains the single final approval for immutable product releases.

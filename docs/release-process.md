@@ -1,6 +1,6 @@
 # Release with one final approval
 
-**Publication policy:** stable releases go to Maven Central; alphas and other immutable prereleases go to Nexus. Snapshots use a separate, manual develop-only workflow. See [Nexus setup, snapshots, integrity and consumer configuration](nexus-publishing.md). The existing one final `release` approval still covers immutable releases and the matching site.
+**Publication policy:** stable releases go to Maven Central; alphas and other immutable prereleases go to Nexus. Snapshots publish automatically after each green develop push, with manual dispatch also available. See [Nexus setup, snapshots, integrity and consumer configuration](nexus-publishing.md). The existing one final `release` approval still covers immutable releases and the matching site.
 
 This is the normal release procedure from `0.3.0-alpha.2`, approved by the maintainer on 2026-10-27. It supersedes the repeated preparation, exact-container qualification and separate upload/publication approvals described by the legacy Maven/container recovery guides. Existing CI remains mandatory; this changes release orchestration, not product quality gates or license obligations.
 
