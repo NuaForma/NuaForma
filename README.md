@@ -9,6 +9,8 @@
 # NuaForma
 
 [![Maven Central](https://img.shields.io/maven-central/v/dev.nuaforma/nuaforma-core?strategy=highestVersion&label=Maven%20Central&color=008b90)](https://central.sonatype.com/artifact/dev.nuaforma/nuaforma-core)
+[![Nexus prerelease](https://img.shields.io/nexus/nuaforma-prereleases/dev.nuaforma/nuaforma-core?server=https%3A%2F%2Frepo.nuaforma.dev&label=Nexus%20prerelease&color=008b90&cacheSeconds=300)](https://repo.nuaforma.dev/#browse/browse:nuaforma-prereleases:dev%2Fnuaforma%2Fnuaforma-core)
+[![Nexus snapshot](https://img.shields.io/nexus/nuaforma-snapshots/dev.nuaforma/nuaforma-core?server=https%3A%2F%2Frepo.nuaforma.dev&label=Nexus%20snapshot&color=52688f&cacheSeconds=300)](https://repo.nuaforma.dev/#browse/browse:nuaforma-snapshots:dev%2Fnuaforma%2Fnuaforma-core)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=NuaForma_NuaForma&metric=alert_status&branch=develop)](https://sonarcloud.io/dashboard?id=NuaForma_NuaForma&branch=develop)
 
 **Turn templates and structured data into documents.**
