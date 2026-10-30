@@ -31,11 +31,11 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
     private val docx = DocxProvider(deploymentFonts, this.pipes, valuePipes)
 
     override fun templatePipes(): List<TemplatePipeDefinition> = docx.templatePipes()
-    override fun contentPipes(): List<ContentPipeDefinition> = listOf(docx.contentPipes().first { it.name == "image" }.let { definition ->
+    override fun contentPipes(): List<ContentPipeDefinition> = docx.contentPipes().filter { it.name in setOf("image", "richText") }.map { definition ->
         ContentPipeDefinition(definition.name, definition.description, definition.arguments,
             definition.support + ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.PDF, PdfOutputProfile.entries.map { it.id }.toSet()),
-            definition.nullBehavior, definition.contentTypes)
-    }) + pipes.map { it.definition }
+            definition.nullBehavior, definition.contentTypes, definition.missingAsNull)
+    } + pipes.map { it.definition }
 
     override fun fontCatalog(context: GenerationContext): FontCatalog {
         context.checkActive()

@@ -49,7 +49,7 @@ class TemplateSocketTest {
                     val uri = URI("http://127.0.0.1:$port/api/v1/documents")
                     fun send(marker: String, path: String = "/api/v1/documents"): HttpResponse<ByteArray> {
                         val template = insert(source, marker)
-                        val envelope = """{"input":{"format":"docx"},"output":{"format":"pdf","options":{"profile":"standard"}},"data":{"day":"2026-10-28","name":"Ada"}}"""
+                        val envelope = """{"input":{"format":"docx"},"output":{"format":"pdf","options":{"profile":"standard"}},"data":{"day":"2026-10-28","name":"Ada","description":"{\\rtf1\\ansi\\ansicpg1251 HTTP {\\b rich} Caf\\u233? \\'c6\\par second}"}}"""
                         val body = ByteArrayOutputStream()
                         for ((name, media, bytes) in listOf(Triple("request", "application/json", envelope.toByteArray()), Triple("template", "application/octet-stream", template))) {
                             body.write("--SYNTAX144\r\nContent-Disposition: form-data; name=\"$name\"; filename=\"synthetic\"\r\nContent-Type: $media\r\n\r\n".toByteArray())
@@ -65,6 +65,24 @@ class TemplateSocketTest {
                     Loader.loadPDF(success.body()).use { pdf ->
                         assertTrue(PDFTextStripper().getText(pdf).contains("28-10-2026"))
                         assertTrue(pdf.getPage(0).resources.fontNames.all { pdf.getPage(0).resources.getFont(it).isEmbedded })
+                    }
+                    val rich = send("{description | richText(\"rtf\")}")
+                    assertEquals(200, rich.statusCode(), if (rich.statusCode() == 200) "" else rich.body().decodeToString())
+                    Loader.loadPDF(rich.body()).use { pdf ->
+                        val text = PDFTextStripper().getText(pdf)
+                        assertTrue(text.contains("HTTP rich Café Ж"), text)
+                        assertTrue(text.contains("second"), text)
+                        assertTrue((0 until pdf.numberOfPages).all { page -> pdf.getPage(page).resources.fontNames.all { pdf.getPage(page).resources.getFont(it).isEmbedded } })
+                    }
+                    val missingRich = send("{optional | richText(\"rtf\")}")
+                    assertEquals(200, missingRich.statusCode(), if (missingRich.statusCode() == 200) "" else missingRich.body().decodeToString())
+                    val hiddenMarker = "{name}</w:t></w:r><w:r><w:rPr><w:vanish/></w:rPr><w:t>{HIDDEN_LITERAL"
+                    val hidden = send(hiddenMarker)
+                    assertEquals(200, hidden.statusCode(), if (hidden.statusCode() == 200) "" else hidden.body().decodeToString())
+                    Loader.loadPDF(hidden.body()).use { pdf ->
+                        val text = PDFTextStripper().getText(pdf)
+                        assertTrue(text.contains("Ada"), text)
+                        assertFalse(text.contains("HIDDEN_LITERAL"), text)
                     }
                     val rejected = send("{trim(name,)}")
                     assertEquals(422, rejected.statusCode())
@@ -94,6 +112,9 @@ class TemplateSocketTest {
                             assertTrue(text.contains("UNCLOSED_TEMPLATE_MARKER"), text)
                             assertTrue(pdf.numberOfPages >= 2)
                         }
+                        val hiddenValid = send(hiddenMarker, "/api/v1/diagnostics/template")
+                        assertEquals(422, hiddenValid.statusCode())
+                        assertTrue(hiddenValid.body().decodeToString().contains("TEMPLATE_DIAGNOSTIC_REQUIRES_PARSER_ERROR"))
                         val valid = send("{name}", "/api/v1/diagnostics/template")
                         assertEquals(422, valid.statusCode())
                         assertTrue(valid.body().decodeToString().contains("TEMPLATE_DIAGNOSTIC_REQUIRES_PARSER_ERROR"))

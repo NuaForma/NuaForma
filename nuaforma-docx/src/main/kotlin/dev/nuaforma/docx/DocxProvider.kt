@@ -5,6 +5,7 @@ import dev.nuaforma.docx.adapters.docx4j.Docx4jDocuments
 import dev.nuaforma.docx.internal.FontPolicy
 import dev.nuaforma.docx.internal.WatermarkPolicy
 import dev.nuaforma.docx.internal.ImagePipe
+import dev.nuaforma.docx.internal.RichTextPipe
 import java.io.OutputStream
 import dev.nuaforma.template.TemplatePipes
 
@@ -23,7 +24,7 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
         registerContent(pipes)
     }
     private fun registerContent(pipes: List<ContentPipe>) {
-        require(pipes.size <= 127) { "Content pipe registrations exceed the generator limit including built-in image" }
+        require(pipes.size <= 126) { "Content pipe registrations exceed the generator limit including built-in image and richText" }
         this.pipes = java.util.Collections.unmodifiableList(pipes.map { implementation ->
             val captured = implementation.definition
             object : ContentPipe {
@@ -33,7 +34,7 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
             }
         })
         definitions = this.pipes.map { it.definition }
-        require(definitions.map { it.name }.distinct().size == definitions.size && definitions.none { it.name == "image" }) { "Content pipe registrations must be unique; image is reserved" }
+        require(definitions.map { it.name }.distinct().size == definitions.size && definitions.none { it.name in setOf("image", "richText") }) { "Content pipe registrations must be unique; image and richText are reserved" }
         checkPipeNames()
         require(definitions.all { definition -> definition.support.any {
             it.input == DocumentFormat.DOCX && it.output == DocumentFormat.DOCX && it.profiles.isEmpty()
@@ -41,15 +42,15 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
     }
     init { checkPipeNames() }
     private fun checkPipeNames() {
-        require(valuePipes.definitions().none { value -> value.name == "image" || definitions.any { it.name == value.name } }) {
+        require(valuePipes.definitions().none { value -> value.name in setOf("image", "richText") || definitions.any { it.name == value.name } }) {
             "Value and content pipe names must not collide"
         }
     }
     override fun templatePipes(): List<TemplatePipeDefinition> = valuePipes.definitions()
-    override fun contentPipes(): List<ContentPipeDefinition> = java.util.Collections.unmodifiableList(listOf(ImagePipe.DEFINITION) + definitions.map { definition ->
+    override fun contentPipes(): List<ContentPipeDefinition> = java.util.Collections.unmodifiableList(listOf(ImagePipe.DEFINITION, RichTextPipe.DEFINITION) + definitions.map { definition ->
         ContentPipeDefinition(definition.name, definition.description, definition.arguments,
             definition.support.filter { it.input == DocumentFormat.DOCX && it.output == DocumentFormat.DOCX && it.profiles.isEmpty() }, definition.nullBehavior,
-            definition.contentTypes)
+            definition.contentTypes, definition.missingAsNull)
     })
     override fun fontCatalog(context: GenerationContext): FontCatalog { context.checkActive(); deploymentFonts.reportFailures(context.logging); return deploymentFonts.catalog }
     override fun capabilities() = ProviderCapabilities(setOf(DocumentFormat.DOCX), setOf(DocumentFormat.DOCX),
@@ -93,14 +94,14 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
     /** Explicit development copy: validate template syntax, mark the original source and leave instructions literal. */
     @Throws(GenerationException::class, java.io.IOException::class)
     fun diagnosticCopy(request: GenerationRequest, output: OutputStream, context: GenerationContext, explanationFontFamily: String): Diagnostic =
-        Docx4jDocuments.diagnosticCopy(request, output, context, listOf(ImagePipe(context)) + pipes, valuePipes, explanationFontFamily)
+        Docx4jDocuments.diagnosticCopy(request, output, context, listOf(ImagePipe(context), RichTextPipe(context)) + pipes, valuePipes, explanationFontFamily)
 
     private fun generateDocument(request: GenerationRequest, output: OutputStream, context: GenerationContext, detachWatermark: Boolean): DocxConversionResult {
         context.checkActive()
         deploymentFonts.reportFailures(context.logging)
         val assessment = assess(request.requirements)
         if (assessment.status != AssessmentStatus.SUPPORTED) throw GenerationException(assessment.diagnostics)
-        val decoration = Docx4jDocuments.generate(deploymentFonts.bind(request), output, context, listOf(ImagePipe(context)) + pipes, valuePipes, deploymentFonts, detachWatermark)
+        val decoration = Docx4jDocuments.generate(deploymentFonts.bind(request), output, context, listOf(ImagePipe(context), RichTextPipe(context)) + pipes, valuePipes, deploymentFonts, detachWatermark)
         return DocxConversionResult(GenerationResult(request.requirements.output), decoration.first, decoration.second)
     }
 }

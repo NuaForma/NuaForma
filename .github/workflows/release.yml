@@ -46,11 +46,11 @@ jobs:
           SOURCE_BASELINE: ${{ inputs.source_baseline }}
         run: |
           python3 tools/release/release_candidate.py gate --version "$RELEASE_VERSION" --baseline "$SOURCE_BASELINE" --native-run "$NATIVE_RUN" --output build/release/jvm/gate.json
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: '25'
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: '17'
@@ -112,7 +112,7 @@ jobs:
           tar -xzf build/release/jvm/runtime-inputs.tar.gz
           # Exact third-party component inventories must still match this baseline below.
           # The generated notice points recipients to already-public matching sources.
-          python3 -c 'import os,pathlib; p=pathlib.Path("deployment/pdf-runtime/SOURCES.md"); p.write_text(p.read_text().replace("0.1.0-alpha.1",os.environ["SOURCE_BASELINE"]).replace("The native source version is not yet published.","Image labels identify this application release; matching third-party sources are linked below."))'
+          python3 tools/release/release_candidate.py source-notice --gate build/release/jvm/gate.json --notice deployment/pdf-runtime/SOURCES.md
       - name: Build each native image once without repeating container qualification
         run: |
           docker build --platform "linux/$ARCHITECTURE" --file deployment/pdf-runtime/Dockerfile \
@@ -188,8 +188,10 @@ jobs:
           cmp build/release/verified.json build/release/candidate/candidate.json
       - name: Publish the exact approved libraries and images without rebuilding
         env:
-          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
-          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MAVEN_CENTRAL_USERNAME: ${{ !contains(inputs.version, '-') && secrets.MAVEN_CENTRAL_USERNAME || '' }}
+          MAVEN_CENTRAL_PASSWORD: ${{ !contains(inputs.version, '-') && secrets.MAVEN_CENTRAL_PASSWORD || '' }}
+          NEXUS_USERNAME: ${{ contains(inputs.version, '-') && secrets.NEXUS_USERNAME || '' }}
+          NEXUS_PASSWORD: ${{ contains(inputs.version, '-') && secrets.NEXUS_PASSWORD || '' }}
           REGISTRY_TOKEN: ${{ github.token }}
         run: python3 tools/release/publish_candidate.py --root build/release --confirm-publish
       - name: Retain publication identities even when a remote operation needs recovery

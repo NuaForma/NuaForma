@@ -70,6 +70,24 @@ class PdfOutputTest {
         }
     }
 
+    @Test fun `single strikeout and combined underlining preserve searchable Unicode and pass every archival profile`() {
+        val style = PdfTextStyle("regular", 13f, PdfColor(20, 50, 90), underline = true).withStrikethrough(true)
+        val model = PdfDocument(model().page, listOf(PdfParagraph(listOf(PdfTextRun("Café Русский crossed", style)))))
+        val engine = PdfEngine(validator())
+        for (profile in PdfOutputProfile.entries) {
+            val bytes = engine.render(model, FoundationLetter.fonts(), PdfOutputOptions(profile))
+            Loader.loadPDF(bytes).use { pdf ->
+                assertEquals("Café Русский crossed", PDFTextStripper().getText(pdf).trim())
+                assertTrue(pdf.getPage(0).resources.fontNames.all { pdf.getPage(0).resources.getFont(it).isEmbedded })
+                val tokens = org.apache.pdfbox.pdfparser.PDFStreamParser(pdf.getPage(0)).parse()
+                val glyphSpans = tokens.count { it is org.apache.pdfbox.contentstream.operator.Operator && it.name == "Tj" }
+                assertTrue(glyphSpans > 0)
+                assertEquals(2 * glyphSpans, tokens.count { it is org.apache.pdfbox.contentstream.operator.Operator && it.name == "re" })
+            }
+        }
+        assertEquals(0, Files.list(temporary).use { it.count() })
+    }
+
     @Test fun `opaque RGB images pass all archival profiles while transparency is rejected only for 1b`() {
         val engine = PdfEngine(validator())
         for (profile in PdfOutputProfile.entries.filter { it != PdfOutputProfile.STANDARD }) {

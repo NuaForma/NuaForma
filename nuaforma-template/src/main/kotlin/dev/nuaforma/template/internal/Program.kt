@@ -183,7 +183,8 @@ internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOp
                     offset = node.offset
                     val fragments = capturedContent ?: Safety.fail(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.CONTENT_PIPES_REQUIRE_A_DOCUMENT_INSERTION_CONTEXT, offset)
                     if (++contentCalls > minOf(context.limits.maxRepetitions, 4096L)) Safety.limit()
-                    val value = node.expression.evaluate(this, scope)
+                    val evaluated = node.expression.evaluate(this, scope)
+                    val value = if (evaluated === Missing && content.missingAsNull(node.name)) null else evaluated
                     present(value)
                     val arguments = node.arguments.map { it.evaluate(this, scope).also(::present) }
                     tracePipe(node.name, value, arguments, "[structured content]")

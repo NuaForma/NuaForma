@@ -26,12 +26,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          python3 tools/release/maven_destination.py --central "0.1.0-alpha.1"
           python3 tools/release/check_environment.py
           python3 tools/release/validate_release_gate.py --version 0.1.0-alpha.1 --review release-approvals/0.1.0-alpha.1.json
           cp release-approvals/0.1.0-alpha.1.json "$RUNNER_TEMP/alpha-review.json"
           git checkout --detach v0.1.0-alpha.1
       - name: Set up Java 17
-        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: '17'

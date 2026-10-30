@@ -39,6 +39,8 @@ Import `dev.nuaforma.core.ProviderRegistry` and the `dev.nuaforma.contracts` req
 
 ## Word template rules
 
+Selected alpha.5 fix #154: only print-view text activates template instructions. Runs hidden by `w:vanish` remain literal in DOCX, including malformed markers and data/pipe references. Visibility resolves document defaults, base table styles, paragraph/character styles and their bounded `basedOn` chains, with Word style-toggle semantics and absolute direct overrides (`w:vanish w:val="false"` makes the run visible). Hidden runs remain span boundaries, like fields: a visible marker cannot cross them. A hidden directive does not open/close a structural block. Parent blocks controlled by visible directives still govern their full contents. `webHidden` alone applies to web view and does not hide print-view text; white text, off-page placement and graphical occlusion are not hidden-text formatting. Conditional table-style visibility is rejected rather than guessed. This fix is included in the selected alpha.5 release; earlier artifacts remain immutable. The cascade follows Microsoft’s [hidden-text and style-toggle definition](https://learn.microsoft.com/en-us/office/open-xml/word/how-to-remove-hidden-text-from-a-word-processing-document); [webHidden](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.webhidden) applies only to web view.
+
 Placeholders and inline conditions/repetitions work across adjacent ordinary text runs in a paragraph or hyperlink. Replacement text inherits the opening marker's run properties; retained literal text keeps its original properties. Repeated inline fragments are emitted in evaluation order, including mixed bold/italic runs. Inserted values remain literal and are never evaluated again. Tabs, breaks, drawings, fields and range boundaries are barriers: a marker cannot span them. Text within a mixed text/control run may be replaced within each adjacent text span without moving its other objects.
 
 For structural conditions or repeats, place each opening, alternative and closing marker alone in its own text-only paragraph. Markers must open and close within the same container. They can surround paragraphs or complete tables, and may nest. A table-row marker uses a dedicated row with one cell containing exactly one marker paragraph; merge that cell across the table's columns in the template editor when necessary. Actual repeated rows retain their own cell formatting. Row markers cannot be ordinary populated data rows.
@@ -62,7 +64,7 @@ All supported syntax is validated before generation, including unselected branch
 
 ## Generator content pipes
 
-Trusted generators/extensions may explicitly register `ContentPipe` implementations through the additive two-argument `DocxProvider(deploymentFonts, pipes)` constructor. Existing constructor JVM entry points and ordinary template behavior remain unchanged. The built-in `image` pipe is always registered; an empty custom list adds no other pipes. Up to 127 custom pipes fit alongside it within the 128-registration ceiling.
+Trusted generators/extensions may explicitly register `ContentPipe` implementations through the additive two-argument `DocxProvider(deploymentFonts, pipes)` constructor. Existing constructor JVM entry points and ordinary template behavior remain unchanged. The built-in `image` and source `richText` pipes are always registered; an empty custom list adds no operator pipes. Up to 126 custom pipes fit alongside them within the 128-registration ceiling. The rich-text source feature is not in alpha.4.
 
 ```kotlin
 val companyLabel = object : ContentPipe {
@@ -265,3 +267,11 @@ A renamed, checksum-correct QA derivative whose family was never installed also 
 ## Preparing content for another output format
 
 The additive `DocxProvider.generateForConversion(request, output, context)` facade performs the same assessment, template expansion and bounded transactional DOCX serialization, returning `DocxConversionResult`. It leaves the resolved watermark out of the private intermediate DOCX and returns its immutable `TextWatermark` and selected default font family separately. Resolution shares the document session, so validation, budgets, value pipes and literal inserted values retain their existing behavior. A downstream format adapter owns decoration placement. Ordinary `generate` and DOCX output still place their existing header shapes. No document-library object or renderer is exposed through this facade.
+
+## Rich-text source feature
+
+The source after alpha.4 adds [`richText("rtf")`](../docs/rich-text.md) for ordinary text-only paragraphs, including supported table/text-box/header/footer contexts. The owning guide defines character formatting, independent boundary trims, inline placement, limits and font revalidation after insertion. It is not in the published alpha.4 artifacts.
+
+## Bibliography source metadata
+
+Current source preserves the QName wrapper of strictly bound bibliography custom-XML roots during round-trip, generation and diagnostic-copy serialization (#54). Empty and populated bibliography Sources parts and their property relationships remain document metadata; their text never activates template instructions. Unknown bibliography elements and malformed bound XML remain errors, with no partial output. This preserves metadata rather than implementing citation-field generation.

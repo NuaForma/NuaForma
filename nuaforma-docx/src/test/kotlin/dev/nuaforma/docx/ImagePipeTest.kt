@@ -48,9 +48,9 @@ class ImagePipeTest {
             assertNotEquals(0, small.bytes()[0].toInt())
         }
         assertSame(ContentResult.Empty, apply(null))
-        assertEquals("image", DocxProvider().contentPipes().single().name)
-        assertFalse(DocxProvider().contentPipes().single().chainable)
-        assertEquals(setOf("image/png", "image/jpeg"), DocxProvider().contentPipes().single().contentTypes)
+        assertEquals("image", DocxProvider().contentPipes().single { it.name == "image" }.name)
+        assertFalse(DocxProvider().contentPipes().single { it.name == "image" }.chainable)
+        assertEquals(setOf("image/png", "image/jpeg"), DocxProvider().contentPipes().single { it.name == "image" }.contentTypes)
     }
 
     @Test

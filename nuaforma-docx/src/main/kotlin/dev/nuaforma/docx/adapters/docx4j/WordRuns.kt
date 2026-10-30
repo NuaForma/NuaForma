@@ -8,6 +8,7 @@ import dev.nuaforma.template.ContentTemplates
 import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.docx.internal.DocxFailure
 import dev.nuaforma.docx.internal.ImageContent
+import dev.nuaforma.docx.internal.richtext.RichTextContent
 import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.template.TemplatePipes
 import jakarta.xml.bind.JAXBElement
@@ -27,7 +28,7 @@ internal object WordRuns {
         (XmlUtils.unwrap(raw) as R).content.joinToString("") { (XmlUtils.unwrap(it) as Text).value }
     }
 
-    fun detectionSource(content: List<Any>): String = content.mapNotNull { XmlUtils.unwrap(it) as? R }
+    fun detectionSource(content: List<Any>, visible: (R) -> Boolean = { true }): String = content.mapNotNull { XmlUtils.unwrap(it) as? R }.filter(visible)
         .joinToString("") { run -> run.content.mapNotNull { XmlUtils.unwrap(it) as? Text }.joinToString("") { it.value } }
 
     fun mixed(run: R, session: TemplateSession, validateOnly: Boolean, context: GenerationContext, valuePipes: TemplatePipes, fault: WordTemplateFault? = null) {
@@ -59,11 +60,12 @@ internal object WordRuns {
         }
     }
 
-    fun apply(content: MutableList<Any>, session: ContentTemplateSession, validateOnly: Boolean, context: GenerationContext, valuePipes: TemplatePipes,
-              fault: WordTemplateFault? = null, image: (ImageContent) -> org.docx4j.wml.Drawing) {
+    fun apply(content: MutableList<Any>, session: ContentTemplateSession, validateOnly: Boolean, context: GenerationContext, valuePipes: TemplatePipes, visible: (R) -> Boolean,
+              fault: WordTemplateFault? = null, richText: (RichTextContent, R, String, Int, Int) -> Any,
+              image: (ImageContent) -> org.docx4j.wml.Drawing) {
         if (validateOnly) {
             val instructions = content.joinToString("") { raw -> when (val node = XmlUtils.unwrap(raw)) {
-                is R -> node.content.filterIsInstance<JAXBElement<*>>().filter { it.name.localPart != "t" && it.value is Text }
+                is R -> if (!visible(node)) "" else node.content.filterIsInstance<JAXBElement<*>>().filter { it.name.localPart != "t" && it.value is Text }
                     .joinToString("") { (it.value as Text).value }
                 is org.docx4j.wml.CTSimpleField -> node.instr ?: ""
                 else -> ""
@@ -75,9 +77,9 @@ internal object WordRuns {
         var index = 0
         while (index < content.size) {
             context.checkActive()
-            if (!plain(content[index])) { index++; continue }
+            if (!plain(content[index]) || !visible(XmlUtils.unwrap(content[index]) as R)) { index++; continue }
             val start = index
-            while (index < content.size && plain(content[index])) index++
+            while (index < content.size && plain(content[index]) && visible(XmlUtils.unwrap(content[index]) as R)) index++
             val originals = content.subList(start, index).toList()
             val source = source(originals)
             if ('{' !in source && '}' !in source) continue
@@ -124,6 +126,10 @@ internal object WordRuns {
                 } else {
                     val anchor = segments[segmentIndex(fragment.sourceStart)]
                     val structured = fragment.content
+                    if (structured is RichTextContent) {
+                        replacements.add(richText(structured, anchor.run, source, fragment.sourceStart, fragment.sourceEnd))
+                        continue
+                    }
                     if (structured is ImageContent) {
                         val run = XmlUtils.deepCopy(anchor.run)
                         run.content.clear()

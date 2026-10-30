@@ -175,7 +175,7 @@ def main():
         if args.expected_version:
             status, headers, body = http(base, "/api/v1/version")
             identity = json.loads(body)
-            assert status == 200 and identity["version"] == args.expected_version and identity["contractVersion"] == "0.6"
+            assert status == 200 and identity["version"] == args.expected_version and identity["contractVersion"] == "0.7"
             assert set(identity) == {"version", "contractVersion", "commit"}
             assert headers.get("Cache-Control") == "no-store"
             (args.output / "version.json").write_text(json.dumps(identity, indent=2), encoding="utf-8")

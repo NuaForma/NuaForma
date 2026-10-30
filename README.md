@@ -9,15 +9,19 @@
 # NuaForma
 
 [![Maven Central](https://img.shields.io/maven-central/v/dev.nuaforma/nuaforma-core?strategy=highestVersion&label=Maven%20Central&color=008b90)](https://central.sonatype.com/artifact/dev.nuaforma/nuaforma-core)
+[![Nexus prerelease](https://img.shields.io/nexus/nuaforma-prereleases/dev.nuaforma/nuaforma-core?server=https%3A%2F%2Frepo.nuaforma.dev&label=Nexus%20prerelease&color=008b90&cacheSeconds=300)](https://repo.nuaforma.dev/#browse/browse:nuaforma-prereleases:dev%2Fnuaforma%2Fnuaforma-core)
+[![Nexus snapshot](https://img.shields.io/nexus/nuaforma-snapshots/dev.nuaforma/nuaforma-core?server=https%3A%2F%2Frepo.nuaforma.dev&label=Nexus%20snapshot&color=52688f&cacheSeconds=300)](https://repo.nuaforma.dev/#browse/browse:nuaforma-snapshots:dev%2Fnuaforma%2Fnuaforma-core)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=NuaForma_NuaForma&metric=alert_status&branch=develop)](https://sonarcloud.io/dashboard?id=NuaForma_NuaForma&branch=develop)
 
 **Turn templates and structured data into documents.**
 
 NuaForma is an open-source document-generation engine. Combine a Word template, structured data and generation options to produce DOCX or PDF documents. Embed the Java-17-compatible libraries in your application, or run the REST service in your own infrastructure.
 
-> **Native PDF engine:** selected release `0.3.0-alpha.4` converts DOCX with NuaForma's own shared PDF engine. LibreOffice, Microsoft Word and a cloud conversion service are not runtime requirements. Consult the [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.3.0-alpha.4) for matching published libraries, images and source materials once publication completes. APIs remain an evaluation draft.
+> **Native PDF engine:** selected release `0.3.0-alpha.5` converts DOCX with NuaForma's own shared PDF engine. LibreOffice, Microsoft Word and a cloud conversion service are not runtime requirements. Consult the [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.3.0-alpha.5) for matching published libraries, images and source materials once publication completes. APIs remain an evaluation draft.
 
-The alpha.4 update adds a development-only marked template diagnostic PDF: locate the first parser failure in a literal Word-template copy and read the explanation beside it. The Playground keeps the original error and offers the separate download; production does not register the operation. Mixed expression quotes, detailed syntax excerpts, passive attached-template handling and the native PDF profile remain available. See the [diagnostic guide](docs/template-diagnostic-pdf.md), [template reference](nuaforma-template/README.md) and [Playground guide](nuaforma-playground/README.md).
+The alpha.5 update ignores hidden Word text when evaluating template markers, adds bounded RTF insertion through `richText("rtf")`, and admits validated passive bibliography metadata in DOCX and PDF input. Runtime dependencies, Debian packages and both Java runtimes are refreshed. New development libraries publish through Nexus; stable releases use Maven Central. The development-only marked diagnostic PDF remains available. See the [rich-text guide](docs/rich-text.md), [diagnostic guide](docs/template-diagnostic-pdf.md) and [Playground guide](nuaforma-playground/README.md).
+
+New alpha/beta/RC Maven versions and snapshots use the [NuaForma Nexus repositories](docs/nexus-publishing.md); stable releases use Maven Central. Existing Central publications remain available.
 
 ## What it supports
 

@@ -18,6 +18,8 @@ import org.docx4j.openpackaging.exceptions.Docx4JException
 import org.docx4j.openpackaging.packages.WordprocessingMLPackage
 import org.docx4j.openpackaging.parts.JaxbXmlPart
 import org.docx4j.XmlUtils
+import jakarta.xml.bind.JAXBElement
+import jakarta.xml.bind.annotation.XmlRootElement
 import jakarta.xml.bind.JAXBException
 import java.io.InputStream
 import java.io.OutputStream
@@ -39,6 +41,7 @@ internal object Docx4jDocuments {
                 val diagnostic = error.diagnostics.firstOrNull { it.code == DiagnosticCodes.INVALID_TEMPLATE && it.location?.startsWith("template:") == true }
                     ?: throw error
                 fault.annotate(document, diagnostic, family)
+                omitHidden(document, context)
                 result = diagnostic
             }
             if (result == null) DocxFailure.fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.TEMPLATE_DIAGNOSTIC_REQUIRES_PARSER_ERROR)
@@ -50,13 +53,28 @@ internal object Docx4jDocuments {
         var decoration: Pair<TextWatermark?, String?> = null to null
         open(request.template, context) {
             if (request.requirements.output.options["fontSelection"] != "used") WordFonts.apply(it, request, context)
-            val watermark = WordTemplates(request.data, request.requirements.options, context, pipes, valuePipes).apply(it)
+            val templates = WordTemplates(request.data, request.requirements.options, context, pipes, valuePipes)
+            val watermark = templates.apply(it)
+            if (templates.richTextUsed && request.requirements.output.options["fontSelection"] != "used")
+                WordFonts.validateDeclaredFamilies(it, request, context)
+            if (detachWatermark) omitHidden(it, context)
             decoration = watermark to watermark?.let { _ -> WordWatermarks.fontFamily(it) }
             if (!detachWatermark) WordWatermarks(context).apply(it, watermark)
             if (request.requirements.output.options["fontSelection"] == "used") AutomaticWordFonts(it, request, context, deploymentFonts).apply()
         }
             .use { it.writeTo(output) }
         return decoration
+    }
+
+    private fun omitHidden(document: WordprocessingMLPackage, context: GenerationContext) {
+        val visibility = WordVisibility(document, context)
+        document.parts.parts.values.filterIsInstance<JaxbXmlPart<*>>().forEach { part ->
+            if (part is org.docx4j.openpackaging.parts.WordprocessingML.MainDocumentPart ||
+                part is org.docx4j.openpackaging.parts.WordprocessingML.HeaderPart ||
+                part is org.docx4j.openpackaging.parts.WordprocessingML.FooterPart ||
+                part is org.docx4j.openpackaging.parts.WordprocessingML.FootnotesPart ||
+                part is org.docx4j.openpackaging.parts.WordprocessingML.EndnotesPart) visibility.removeHidden(part.jaxbElement)
+        }
     }
 
     fun open(input: InputStream, context: GenerationContext, transform: (WordprocessingMLPackage) -> Unit = {}): DocxDocument {
@@ -85,8 +103,12 @@ internal object Docx4jDocuments {
                                 }
                                 val reader = factory.createXMLStreamReader(source)
                                 try {
+                                    val root = unmarshaller.unmarshal(reader)
+                                    val value = XmlUtils.unwrap(root)
+                                    // Generated types without XmlRootElement need their QName wrapper when saved.
+                                    val element = if (root is JAXBElement<*> && (value == null || !value.javaClass.isAnnotationPresent(XmlRootElement::class.java))) root else value
                                     @Suppress("UNCHECKED_CAST")
-                                    (part as JaxbXmlPart<Any>).jaxbElement = XmlUtils.unwrap(unmarshaller.unmarshal(reader))
+                                    (part as JaxbXmlPart<Any>).jaxbElement = element
                                 } catch (_: JAXBException) {
                                     throw GenerationException(listOf(dev.nuaforma.contracts.Diagnostic(DiagnosticCodes.INVALID_TEMPLATE,
                                         RejectionReason.DOCX_CONTAINS_UNSUPPORTED_OR_INVALID_STRUCTURED_XML_REPAIR_OR,

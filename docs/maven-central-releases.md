@@ -1,5 +1,7 @@
 # Maven Central release preparation
 
+**Current routing:** only stable `X.Y.Z` versions may mutate Maven Central. New alphas, betas and RCs publish to Nexus; snapshots publish after green develop pushes and also support manual dispatch. See [Nexus publication and setup](nexus-publishing.md). Previously published Central artifacts and their read-only verification remain available. Central-specific procedures below apply only to stable releases.
+
 For normal releases from `0.3.0-alpha.2`, follow the [single-final-approval release procedure](release-process.md). The workflows and repeated qualification/review steps below are legacy recovery instructions; they are not additional gates for the unified workflow. Original source/license, identity and immutability obligations remain in force.
 
 Target namespace: `dev.nuaforma`, verified by the maintainer through ownership of `nuaforma.dev`. The project website is hosted at `nuaforma.dev` through GitHub Pages. Those registrations are not artifact publication, website deployment or permission to distribute a container.

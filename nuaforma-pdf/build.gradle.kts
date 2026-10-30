@@ -15,10 +15,18 @@ val veraPdfRuntime = configurations.create("veraPdfRuntime") {
     isCanBeConsumed = false
     isCanBeResolved = true
     exclude(group = "net.java.dev.stax-utils", module = "stax-utils")
+    exclude(group = "javax.activation", module = "javax.activation-api")
+    // The newer implementation includes the old core; retain one compatible javax API provider.
+    exclude(group = "com.sun.xml.bind", module = "jaxb-core")
+    exclude(group = "javax.xml.bind", module = "jaxb-api")
 }
 dependencies {
     add(veraPdfRuntime.name, libs.verapdf.model)
-    constraints { add(veraPdfRuntime.name, "javax.xml.bind:jaxb-api:2.3.1") { version { strictly("2.3.1") } } }
+    constraints {
+        add(veraPdfRuntime.name, libs.saxon.validator)
+        add(veraPdfRuntime.name, libs.jaxb.validator)
+        add(veraPdfRuntime.name, libs.jaxb.api.validator) { version { strictly(libs.versions.jaxb.api.validator.get()) } }
+    }
 }
 configurations.compileOnly { extendsFrom(veraPdfRuntime) }
 val prepareOwnEngineValidation = tasks.register<Sync>("prepareOwnEngineValidation") {
@@ -31,6 +39,8 @@ val prepareOwnEngineValidation = tasks.register<Sync>("prepareOwnEngineValidatio
 tasks.test {
     systemProperty("java.awt.headless", "true")
     dependsOn(prepareOwnEngineValidation)
+    inputs.files(fileTree(layout.buildDirectory.dir("pdfa-validation")) { include("*.jar") })
+        .withPropertyName("validatorRuntimeJars").withPathSensitivity(PathSensitivity.RELATIVE)
     val validatorCoverage = layout.buildDirectory.dir("jacoco/validator")
     val instrumentation = extensions.getByType<org.gradle.testing.jacoco.plugins.JacocoTaskExtension>()
     outputs.dir(validatorCoverage)

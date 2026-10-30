@@ -6,6 +6,30 @@ import org.junit.jupiter.api.Test
 import java.util.concurrent.Executors
 
 class ContentPipesTest {
+    @Test
+    fun `missing values become null only for an opted-in content pipe and never for arguments or ordinary placeholders`() {
+        var calls = 0
+        val nullable = object : ContentPipe {
+            override val definition = ContentPipeDefinition("nullable", "Missing-as-null content insertion", listOf(
+                OptionDefinition("flag", OptionType.BOOLEAN, "Optional flag", defaultValue = true)), emptyList(),
+                "Null inserts empty content", emptySet(), true)
+            override fun apply(value: Any?, arguments: List<Any?>, context: ContentPipeContext): ContentResult {
+                calls++; assertNull(value); return ContentResult.Empty
+            }
+        }
+        val session = ContentTemplates.open(mapOf("explicit" to null), listOf(nullable, pipe()))
+        assertSame(ContentResult.Empty, session.expandContent("{missing | nullable()}").single().content)
+        assertSame(ContentResult.Empty, session.expandContent("{explicit | nullable()}").single().content)
+        assertEquals(2, calls)
+        for (source in listOf("{missing}", "{missing | label()}", "{explicit | nullable(missing)}")) {
+            assertEquals(DiagnosticCodes.MISSING_VALUE, assertThrows(GenerationException::class.java) {
+                session.expandContent(source)
+            }.diagnostics.single().code)
+        }
+        assertEquals(2, calls)
+        assertFalse(pipe().definition.missingAsNull)
+        assertFalse(ContentPipeDefinition("legacy", "Legacy media-type constructor", emptyList(), emptyList(), "Strict missing", setOf("text/plain")).missingAsNull)
+    }
     private fun pipe(action: (Any?, List<Any?>) -> ContentResult = { value, args -> ContentResult.Text("${args[0]}$value") }): ContentPipe =
         object : ContentPipe {
             override val definition = ContentPipeDefinition("label", "Synthetic inline content",

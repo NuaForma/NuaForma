@@ -77,7 +77,7 @@ The current source runtime contract is `0.5` (template syntax context); publishe
 | [nuaforma-server](../nuaforma-server/README.md) | REST transport and operational endpoints |
 | [nuaforma-playground](../nuaforma-playground/README.md) | Separate development GUI over the public server composition facade |
 
-The first six source modules are independently publishable libraries; the new `nuaforma-pdf` is local/source-only and has not been added to existing releases. Server and Playground are separate Java 25 applications; production does not depend on Playground or the experimental PDF engine. Keep external integrations behind component-specific `adapters` packages and use public contracts across module boundaries. [ARCHITECTURE.md](../ARCHITECTURE.md) is authoritative for the dependency and compatibility rules.
+Six modules are independently publishable Java 17 libraries, including the shared `nuaforma-pdf` engine used by the production DOCX/PDF provider. Server and Playground are separate Java 25 applications; production does not depend on Playground. Keep external integrations behind component-specific `adapters` packages and use public contracts across module boundaries. [ARCHITECTURE.md](../ARCHITECTURE.md) is authoritative for dependency and compatibility rules.
 
 ## Dependencies and releases
 

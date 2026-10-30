@@ -30,11 +30,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: '25'
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: '17'
@@ -77,5 +77,23 @@ jobs:
         run: |
           ./gradlew verifyEmbeddedConsumers --warning-mode=fail
           python3 tools/release/verify_embedded_pdf.py --docker docker --image nuaforma:native-candidate --source build/native-container/qualification/document.docx --output build/native-container/embedded-pdf
+
+
+      - name: Retain exact source-review inventories without container binaries
+        run: |
+          python3 tools/container/collect_inventory.py --image nuaforma:native-candidate --destination build/native-container/inventory/server
+          python3 tools/container/collect_inventory.py --image nuaforma-playground:native-candidate --destination build/native-container/inventory/playground
+          python3 - <<'PY'
+          import json, os, pathlib
+          identity = {key: os.environ[key] for key in ('GITHUB_REPOSITORY', 'GITHUB_SHA', 'GITHUB_RUN_ID')}
+          pathlib.Path('build/native-container/inventory/source.json').write_text(json.dumps(identity, indent=2) + '\n')
+          PY
+      - name: Upload only non-executable inventory and source identity evidence
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-source-inventory-${{ matrix.architecture }}
+          path: build/native-container/inventory/
+          if-no-files-found: error
+          retention-days: 30
 
 # No binary artifacts, registry writes, image push or security-policy bypass.

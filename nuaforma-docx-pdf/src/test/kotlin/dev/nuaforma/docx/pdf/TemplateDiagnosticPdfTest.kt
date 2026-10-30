@@ -107,4 +107,52 @@ class TemplateDiagnosticPdfTest {
             assertTrue(text.contains("{trim(name,"))
         }
     }
+    @Test fun `hidden invalid markers and unavailable fonts are omitted before validated PDF rendering`() {
+        fun withHidden(bytes: ByteArray): ByteArray = ByteArrayOutputStream().also { target ->
+            ZipOutputStream(target).use { zip -> ZipInputStream(bytes.inputStream()).use { input ->
+                while (true) {
+                    val entry = input.nextEntry ?: break
+                    val original = input.readBytes()
+                    zip.putNextEntry(ZipEntry(entry.name))
+                    val changed = if (entry.name == "word/document.xml") original.decodeToString()
+                        .replaceFirst("<w:rPr>", "<w:rPr><w:vanish w:val=\"false\"/><w:webHidden/>")
+                        .replaceFirst("</w:t></w:r></w:p>",
+                        "</w:t></w:r><w:r><w:rPr><w:vanish/><w:rFonts w:ascii=\"Missing Hidden Font\" w:hAnsi=\"Missing Hidden Font\"/></w:rPr><w:t>{HIDDEN_BAD(</w:t></w:r></w:p>").toByteArray() else original
+                    zip.write(changed); zip.closeEntry()
+                }
+            } }
+        }.toByteArray()
+        val requirements = GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.PDF))
+        fun generate(bytes: ByteArray): ByteArray = ByteArrayOutputStream().also {
+            provider().generate(GenerationRequest(bytes.inputStream(), requirements, mapOf("name" to "Ada")), it, GenerationContext())
+        }.toByteArray()
+        val ordinary = template("Visible {name}")
+        val expected = generate(ordinary)
+        val actual = generate(withHidden(ordinary))
+        val directory = Files.createDirectories(Path.of("build/154-hidden-text"))
+        Files.write(directory.resolve("visible.pdf"), actual)
+        Loader.loadPDF(expected).use { baseline -> Loader.loadPDF(actual).use { pdf ->
+            val text = PDFTextStripper().getText(pdf)
+            assertTrue(text.contains("Visible Ada"), text)
+            assertFalse(text.contains("HIDDEN_BAD"), text)
+            assertEquals(baseline.numberOfPages, pdf.numberOfPages)
+            val left = PDFRenderer(baseline); val right = PDFRenderer(pdf)
+            for (page in 0 until pdf.numberOfPages) {
+                val image = right.renderImageWithDPI(page, 96f)
+                ImageIO.write(image, "png", directory.resolve("page-${page + 1}.png").toFile())
+                assertImagesMatch(left.renderImageWithDPI(page, 96f), image, "Hidden text page ${page + 1}") {
+                    pixelTolerance = 0.0; allowedDifferentPixelsPercent = 0.0; threshold = 1
+                }
+            }
+        } }
+        val diagnostic = ByteArrayOutputStream()
+        provider().diagnoseTemplate(GenerationRequest(withHidden(template("Visible {broken")).inputStream(), requirements), diagnostic,
+            GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT)))
+        Loader.loadPDF(diagnostic.toByteArray()).use { pdf ->
+            val text = PDFTextStripper().getText(pdf)
+            assertTrue(text.contains("[ERROR 1] {broken"), text)
+            assertFalse(text.contains("HIDDEN_BAD"), text)
+        }
+    }
+
 }

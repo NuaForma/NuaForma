@@ -39,7 +39,15 @@ val archunit = libs.archunit
 val annotations = libs.annotations
 val testTransitives = listOf(libs.byte.buddy, libs.byte.buddy.agent, libs.objenesis, libs.jspecify, libs.coroutines.bom, libs.coroutines.core, libs.slf4j.api)
 val docxRuntimeUpgrades = listOf(libs.commons.codec, libs.commons.collections, libs.commons.lang, libs.istack, libs.jaxb.plugins,
-    libs.checker.qual, libs.error.prone.annotations, libs.slf4j.jcl, libs.slf4j.api).map { it.get() }
+    libs.checker.qual, libs.error.prone.annotations, libs.slf4j.jcl, libs.slf4j.api, libs.xmlgraphics, libs.rhino).map { it.get() }
+
+// Remote snapshot publishing is explicit; ordinary builds retain only local staging.
+val publishSnapshots = providers.gradleProperty("publishSnapshots").map { it.toBooleanStrict() }.orElse(false).get()
+if (publishSnapshots) {
+    require(Regex("(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)-SNAPSHOT").matches(version.toString())) {
+        "Nexus snapshots require canonical X.Y.Z-SNAPSHOT"
+    }
+}
 
 subprojects {
     val jvmVersion = if (name in setOf("nuaforma-server", "nuaforma-playground")) 25 else 17
@@ -125,6 +133,16 @@ subprojects {
                     name = "Staging"
                     url = rootProject.layout.buildDirectory.dir("library-repository").get().asFile.toURI()
                 }
+                if (publishSnapshots) {
+                    maven {
+                        name = "NexusSnapshots"
+                        url = uri("https://repo.nuaforma.dev/repository/nuaforma-snapshots/")
+                        credentials {
+                            username = providers.environmentVariable("NEXUS_USERNAME").orNull
+                            password = providers.environmentVariable("NEXUS_PASSWORD").orNull
+                        }
+                    }
+                }
             }
             publications {
                 create<MavenPublication>("mavenJava") {
@@ -159,6 +177,13 @@ subprojects {
             }
         }
         val signArtifacts = providers.gradleProperty("signArtifacts").orNull
+        tasks.withType<org.gradle.api.publish.maven.tasks.PublishToMavenRepository>().configureEach {
+            doFirst {
+                require(repository.name != "NexusSnapshots" || signArtifacts == "true") {
+                    "Remote snapshot publication requires in-memory artifact signing"
+                }
+            }
+        }
         require(signArtifacts == null || signArtifacts in setOf("true", "false")) { "signArtifacts must be true or false" }
         if (signArtifacts == "true") {
             apply(plugin = "signing")
@@ -235,6 +260,13 @@ tasks.register("verifySonarConfiguration") {
 }
 
 val libraryModules = subprojects.filter { it.name !in setOf("nuaforma-server", "nuaforma-playground") }
+if (publishSnapshots) {
+    tasks.register("publishSnapshots") {
+        group = "publishing"
+        description = "Publish signed development snapshots using Maven timestamp metadata (explicit opt-in)."
+        dependsOn(libraryModules.map { "${it.path}:publishMavenJavaPublicationToNexusSnapshotsRepository" })
+    }
+}
 tasks.register("writeLibraryRuntimeInventory") {
     group = "verification"
     val output = layout.buildDirectory.file("library-runtime-files.json")
