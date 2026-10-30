@@ -150,4 +150,4 @@ Requested watermarks work with standard PDF, PDF/A-2b and PDF/A-3b. PDF/A-1b rej
 
 ## Rich-text source feature
 
-The source after alpha.4 adds immutable single strikeout through `PdfTextStyle.withStrikethrough`. The writer uses OpenType OS/2 metrics. Original six-property Java/Kotlin constructor/copy/destructuring descriptors remain executable; value methods are explicit and Kotlin reflection no longer reports a data class. See [the compatibility and qualification guide](../docs/rich-text.md). The RTF parser stays outside this neutral library.
+The selected alpha.5 release adds immutable single strikeout through `PdfTextStyle.withStrikethrough`. The writer uses OpenType OS/2 metrics. Original six-property Java/Kotlin constructor/copy/destructuring descriptors remain executable; value methods are explicit and Kotlin reflection no longer reports a data class. See [the compatibility and qualification guide](../docs/rich-text.md). The RTF parser stays outside this neutral library.
