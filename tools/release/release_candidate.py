@@ -10,7 +10,7 @@ import sys
 import urllib.request
 
 from check_bundle_review import check as check_bundle
-from check_container_source_coverage import verify_inventory
+from check_container_source_coverage import reviewed_asset_tag, verify_inventory
 from prepare_central_bundle import release_version
 from verify_libraries import MODULES
 
@@ -81,15 +81,15 @@ def require_native(run, jobs):
 
 
 def source_asset_tag(baseline):
+    if destination(baseline)["kind"] == "snapshot":
+        raise ValueError("Source coverage requires an immutable baseline")
     tags = set()
     for application in APPLICATIONS:
         suffix = "-playground" if application == "playground" else ""
         record = read(ROOT / "release-materials" / (baseline + suffix + ".json"))
         if record.get("version") != baseline or record.get("application") != application:
             raise ValueError("Wrong baseline source review")
-        tag = record.get("assetTag", "v" + baseline)
-        if tag not in {"v" + baseline, "sources-v" + baseline}:
-            raise ValueError("Unexpected source-only release tag")
+        tag = reviewed_asset_tag(record, baseline)
         tags.add(tag)
     if len(tags) != 1:
         raise ValueError("Both applications require the same source asset release")

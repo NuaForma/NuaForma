@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 
 import release_candidate as candidate
+from check_container_source_coverage import reviewed_asset_tag
 
 
 class SourceAssetReleaseTest(unittest.TestCase):
@@ -36,6 +37,18 @@ class SourceAssetReleaseTest(unittest.TestCase):
         result = io.BytesIO(self.payload)
         result.url = url
         return result
+
+    def test_standalone_source_coverage_validator_uses_the_same_tag_rules(self):
+        self.assertEqual("v" + self.version, reviewed_asset_tag({}, self.version))
+        self.assertEqual("sources-v" + self.version, reviewed_asset_tag(self.records["server"], self.version))
+        for tag in ("other", "../sources", "https://other.invalid/", "sources-v0.3.0-alpha.6"):
+            with self.assertRaises(ValueError):
+                reviewed_asset_tag({"assetTag": tag}, self.version)
+
+    def test_source_baseline_rejects_path_fragments_before_file_access(self):
+        for value in ("../0.3.0", "0.3.0/other", "0.3.0+mutable", "0.3.0-SNAPSHOT"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                candidate.source_asset_tag(value)
 
     def test_sources_only_tag_allows_all_three_exact_public_archives(self):
         with patch.object(candidate.urllib.request, "urlopen", side_effect=self.response) as download:
