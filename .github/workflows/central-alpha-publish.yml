@@ -31,6 +31,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          python3 tools/release/maven_destination.py --central "0.1.0-alpha.1"
           python3 tools/release/check_environment.py
           python3 tools/release/validate_release_gate.py --version 0.1.0-alpha.1 --review release-approvals/0.1.0-alpha.1.json
       - name: Verify staged bytes and request publication once

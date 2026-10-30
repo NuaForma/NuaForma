@@ -63,3 +63,7 @@ XLSX, ODT and ODS, external template retrieval, signable PDF fields, PDF/A level
 - [Bundled runtime licensing/source provision](runtime-distribution.md).
 
 Preparation, publication and website deployment are separate actions. These guides do not authorize a release or deploy the site.
+
+## Development Maven publications
+
+See [Nexus publishing](nexus-publishing.md) for stable-versus-prerelease routing, manual signed snapshots, repository setup and anonymous Maven/Gradle consumption. [The release procedure](release-process.md) retains the single final approval for immutable product releases.

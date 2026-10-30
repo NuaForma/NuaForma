@@ -10,7 +10,7 @@ import urllib.parse
 import urllib.request
 import uuid
 
-from prepare_central_bundle import release_version
+from maven_destination import stable_version
 
 BASE = "https://central.sonatype.com/api/v1/publisher/"
 
@@ -25,7 +25,7 @@ def open_request(request, timeout):
 
 
 def upload(bundle, version, expected_sha256, token, opener=open_request):
-    release_version(version)
+    stable_version(version)
     assert 0 < bundle.stat().st_size <= 512 * 1024 * 1024
     data = bundle.read_bytes()
     assert hashlib.sha256(data).hexdigest() == expected_sha256, "Bundle identity changed"
@@ -57,6 +57,7 @@ def main():
     args = parser.parse_args()
     assert not args.output.exists(), "Retain the prior deployment record; do not blindly retry"
     record = json.loads(args.record.read_text(encoding="utf-8"))
+    stable_version(record["version"])
     username = os.environ.get("MAVEN_CENTRAL_USERNAME")
     password = os.environ.get("MAVEN_CENTRAL_PASSWORD")
     assert username and password, "Central credentials are required"

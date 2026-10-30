@@ -14,7 +14,10 @@ from check_container_source_coverage import verify_inventory
 from prepare_central_bundle import release_version
 from verify_libraries import MODULES
 
+from maven_destination import destination
+
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+
 APPLICATIONS = {"server": "nuaforma", "playground": "nuaforma-playground"}
 FINGERPRINT = "74317C6CE9C61B80A2A1C0B40F736E8D598CB08B"
 
@@ -200,7 +203,11 @@ def assemble(root, output):
                     or digest(directory / expected_file) != image["sha256"]):
                 raise ValueError("Container identity or archive changed in transit")
             images.append(image)
-    record = dict(gate_record, libraryHashes=hashes, bundleSha256=bundle["sha256"], images=images)
+    publication = destination(gate_record["version"])
+    if publication["kind"] == "snapshot":
+        raise ValueError("Use the dedicated snapshot workflow; release candidates must be immutable")
+    record = dict(gate_record, libraryHashes=hashes, bundleSha256=bundle["sha256"], images=images,
+                  mavenPublication=publication)
     write(output, record)
     return record
 
@@ -233,7 +240,8 @@ def main():
                 target.write(f"## Ready for one final approval: {record['version']}\n\nSource: `{record['sourceCommit']}`.\n\n")
                 target.write("All 24 signed library artifacts and four native image archives are built; full tests are reused from green CI.\n\n")
                 target.write(record["runtimeReview"] + ".\n\n")
-                target.write("Approval authorizes Maven Central, both container indexes, GitHub release and the matching website. No rebuild follows approval.\n")
+                target.write(f"Maven destination: `{record['mavenPublication']['repository']}` ({record['mavenPublication']['kind']}).\n\n")
+                target.write("Approval authorizes publication to that Maven destination, both container indexes, GitHub release and the matching website. No rebuild follows approval.\n")
         print("Complete candidate manifest verified")
 
 

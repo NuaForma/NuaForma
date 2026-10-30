@@ -10,13 +10,13 @@ import urllib.request
 import uuid
 
 from central_portal import BASE, open_request
-from prepare_central_bundle import release_version
+from maven_destination import stable_version
 from verify_libraries import MODULES
 
 
 def publish(identity, review, token, opener=open_request):
     assert str(uuid.UUID(identity)) == identity
-    version = release_version(review["version"])
+    version = stable_version(review["version"])
     expected_names = {module + "-" + version + suffix for module in MODULES
                       for suffix in (".pom", ".jar", "-sources.jar", "-javadoc.jar")}
     assert set(review["libraryHashes"]) == expected_names, "Require every reviewed library artifact"
@@ -53,9 +53,11 @@ if __name__ == "__main__":
     parser.add_argument("--confirm-publish", required=True, action="store_true")
     args = parser.parse_args()
     assert not args.output.exists()
+    review = json.loads(args.review.read_text())
+    stable_version(review["version"])
     identity = os.environ["CENTRAL_DEPLOYMENT_ID"]
     token = base64.b64encode((os.environ["MAVEN_CENTRAL_USERNAME"] + ":" + os.environ["MAVEN_CENTRAL_PASSWORD"]).encode()).decode("ascii")
-    result = publish(identity, json.loads(args.review.read_text()), token)
+    result = publish(identity, review, token)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2), encoding="utf-8")
     print("Publish request accepted; public availability must still be verified")

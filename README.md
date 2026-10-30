@@ -19,6 +19,8 @@ NuaForma is an open-source document-generation engine. Combine a Word template, 
 
 The alpha.4 update adds a development-only marked template diagnostic PDF: locate the first parser failure in a literal Word-template copy and read the explanation beside it. The Playground keeps the original error and offers the separate download; production does not register the operation. Mixed expression quotes, detailed syntax excerpts, passive attached-template handling and the native PDF profile remain available. See the [diagnostic guide](docs/template-diagnostic-pdf.md), [template reference](nuaforma-template/README.md) and [Playground guide](nuaforma-playground/README.md).
 
+New alpha/beta/RC Maven versions and snapshots use the [NuaForma Nexus repositories](docs/nexus-publishing.md); stable releases use Maven Central. Existing Central publications remain available.
+
 ## What it supports
 
 - Preserve supported styles, branding, tables, headers/footers, text boxes and page geometry while filling templates.

@@ -2,6 +2,8 @@
 
 Build one Java 17 extension JAR containing three stateless pipes: `prefix`, `uppercase` and `select`. It uses published NuaForma **0.3.0-alpha.2** from Maven Central, so no product checkout or private repository is needed. Maven and Gradle build the same sources; choose either, not both. The Gradle build uses Kotlin DSL; the pipe implementations are Java.
 
+This starter deliberately keeps its published alpha.2 dependencies on Maven Central. New alphas/betas/RCs use the public Nexus prerelease repository; snapshots use the separate snapshot repository. See the [Maven and Gradle repository guide](https://nuaforma.dev/repositories.html) before choosing a newer development version. Downloads need no username or password. Keep all NuaForma dependency versions aligned when upgrading.
+
 Prerequisites: JDK 17 and Maven 3.9.6+ for the Maven variant. The downloadable Gradle variant includes the product's pinned Gradle wrapper (Gradle itself requires JDK 17+). First builds download public build tools/dependencies. Nothing is published and no container is started.
 
 ```sh

@@ -42,7 +42,7 @@ class LibraryReleaseTest(unittest.TestCase):
                 response = io.BytesIO(b'12345678-1234-1234-1234-123456789abc')
                 response.status = 201
                 return response
-            result = upload(bundle, '0.2.0-alpha.1', hashlib.sha256(bundle.read_bytes()).hexdigest(), 'synthetic-only', opener)
+            result = upload(bundle, '0.2.0', hashlib.sha256(bundle.read_bytes()).hexdigest(), 'synthetic-only', opener)
             self.assertFalse(result['published'])
             self.assertEqual(1, len(requests))
             self.assertIn('USER_MANAGED', requests[0].full_url)
