@@ -43,7 +43,7 @@ def main():
         image = json.loads(runtime.command("image", "inspect", args.image))[0]
         engine = json.loads(runtime.command("info", "--format", "{{json .}}"))
         verify(image, engine, args.architecture)
-        for role, path, version in (("server", "server", "25.0.4.1"), ("validator", "openjdk", "17.0.20.1")):
+        for role, path, version in (("server", "server", "25.0.5"), ("validator", "openjdk", "17.0.21")):
             result = runtime.command("exec", runtime.name, f"/opt/java/{path}/bin/java", "-version")
             assert re.search(r'openjdk version "' + re.escape(version) + r'"', result), (role, result)
             checks.append(role + "-java-" + version)

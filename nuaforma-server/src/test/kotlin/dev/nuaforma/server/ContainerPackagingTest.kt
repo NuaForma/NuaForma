@@ -172,7 +172,13 @@ class ContainerPackagingTest {
         listOf("--core=0", "--fsize=16777216", "--cpu=30", "-XX:MaxDirectMemorySize=64m", "-XX:MaxMetaspaceSize=128m", "-XX:CompressedClassSpaceSize=64m", "-XX:ReservedCodeCacheSize=64m", "-XX:ActiveProcessorCount=2", "-Xss512k").forEach { assertTrue(launcher.contains(it), it) }
         assertFalse(launcher.contains("/opt/java/server"))
         val dockerfile = Files.readString(root.resolve("deployment/pdf-runtime/Dockerfile"))
-        assertTrue(dockerfile.contains("eclipse-temurin:17-jre-noble@sha256:"))
+        val java17Downloads = Regex("ADD --checksum=sha256:[a-f0-9]{64} https://github\\.com/adoptium/temurin17-binaries/releases/download/[^ ]+ /jre\\.tar\\.gz").findAll(dockerfile).map { it.value }.toList()
+        assertEquals(2, java17Downloads.size)
+        listOf("x64", "aarch64").forEach { architecture ->
+            assertEquals(1, java17Downloads.count { it.contains("OpenJDK17U-jre_${architecture}_linux_hotspot_17.0.21_9.tar.gz") })
+        }
+        assertTrue(dockerfile.contains("FROM java17-\${TARGETARCH} AS java17-archive"))
+        assertTrue(dockerfile.contains("COPY --from=java17-archive /jre.tar.gz /tmp/jre.tar.gz"))
         assertTrue(dockerfile.contains("eclipse-temurin:25-jre-noble@sha256:"))
         assertTrue(dockerfile.contains("COPY --from=server-java-runtime /opt/java/openjdk /opt/java/server/"))
     }

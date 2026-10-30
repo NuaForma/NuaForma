@@ -10,6 +10,10 @@ For an older-version exception, record the selected and newer versions, the test
 
 The pinned Java runtime inputs and approved patch exceptions are recorded in [runtime compatibility](docs/java-runtime-compatibility.md). Reassess them before each release; review exact sources, native AMD64/ARM64 availability, security impact and qualification in [issue #105](https://github.com/NuaForma/NuaForma/issues/105). Do not mix architecture patch levels or bypass source/native checks.
 
+## Current source update — 2026-10-30 (#51)
+
+The maintainer approved the compatible dependency/runtime update set documented in the [dated review](docs/runtime-dependency-review-2026-10-30.md). It records complete before-update availability, selected source versions, isolated namespace/ABI exceptions, exact official checksum/signature evidence and current residual native findings. The Java 17/25 baselines remain unchanged. Later implementation/qualification results in that review supersede historical freshness counts below; no older alpha risk acceptance or publication is implied.
+
 ## Own PDF engine M0 reuse — 2026-10-24
 
 `nuaforma-pdf` reuses the existing locked/reviewed Apache PDFBox 3.0.8 dependency and its existing FontBox/IO/Commons Logging graph. Upstream identifies 3.0.8 as the stable 3.x release (2026-07-11); no new Java dependency coordinate/version or verification trust exception is introduced. The native DOCX/PDF provider delegates to this shared module, which is present in the server runtime through the PDF provider. Runtime licensing follows the existing [PDFBox notice review](THIRD_PARTY.md). Three test-only Liberation Sans 2.1.5 faces from Debian `fonts-liberation` `1:2.1.5-3` retain unmodified bytes and complete SIL-OFL-1.1 material; provenance/hashes are recorded beside the fixtures. Fixture font files remain test-only; the native container separately bundles its reviewed Liberation font package. Reassess current stable versions and all exact-candidate obligations before a future engine release.

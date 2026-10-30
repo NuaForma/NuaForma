@@ -140,7 +140,7 @@ def gate(version, baseline, native_run, output):
     record = {"version": version, "sourceCommit": source, "tagObject": tag_object,
               "nativeCiRun": int(native_run), "nativeCiSource": tested, "sourceBaseline": baseline,
               "sourceMaterials": sources(baseline), "qualification": "existing-ci-no-release-retest",
-              "runtimeException": "Approval accepts unchanged Java 17.0.20.1+1 / 25.0.4.1+1 and open #51 findings for this evaluation alpha only"}
+              "runtimeReview": "Current inputs are Temurin 17.0.21+9 / 25.0.5+8. Review the source disposition of residual #51 findings for this release; historical evaluation acceptances are not reused"}
     write(output, record)
     print("Signed source, current JVM/Sonar CI, unchanged native CI inputs and public corresponding sources: PASS")
 
@@ -232,7 +232,7 @@ def main():
             with open(summary, "a", encoding="utf-8") as target:
                 target.write(f"## Ready for one final approval: {record['version']}\n\nSource: `{record['sourceCommit']}`.\n\n")
                 target.write("All 24 signed library artifacts and four native image archives are built; full tests are reused from green CI.\n\n")
-                target.write(record["runtimeException"] + ". **The final approval explicitly accepts this exception.**\n\n")
+                target.write(record["runtimeReview"] + ".\n\n")
                 target.write("Approval authorizes Maven Central, both container indexes, GitHub release and the matching website. No rebuild follows approval.\n")
         print("Complete candidate manifest verified")
 

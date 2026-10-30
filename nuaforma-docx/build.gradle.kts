@@ -21,4 +21,6 @@ dependencies {
     implementation(libs.error.prone.annotations)
     implementation(libs.slf4j.jcl)
     implementation(libs.slf4j.api)
+    implementation(libs.xmlgraphics) { exclude(group = "commons-logging", module = "commons-logging") }
+    implementation(libs.rhino)
 }

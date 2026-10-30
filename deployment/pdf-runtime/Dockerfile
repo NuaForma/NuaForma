@@ -1,8 +1,9 @@
 # syntax=docker/dockerfile:1@sha256:4edf897a3ffa55b89f906fc8cc78afdb3f1834cc9c7083565e611a8a7d5fe99e
 # Local qualification/service targets. Binary redistribution remains gated by
 # the candidate-specific distribution audit and first-release prerequisites.
-# The pinned index retains the qualified amd64 child and adds its arm64 sibling.
-FROM debian:trixie-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS base
+# Pinned multi-platform inputs; both architectures require native qualification.
+ARG TARGETARCH
+FROM debian:trixie-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4 AS base
 ARG TARGETARCH
 RUN case "$TARGETARCH" in amd64|arm64) ;; *) echo "Unsupported runtime architecture: $TARGETARCH" >&2; exit 64 ;; esac \
     && test "$(dpkg --print-architecture)" = "$TARGETARCH"
@@ -13,14 +14,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3
 
 # Both JVMs use the ordinary non-root container boundary and its default host policies.
 FROM base AS runtime-system
-RUN apt-get update && apt-get install -y --no-install-recommends libstdc++6 zlib1g libfreetype6 libfontconfig1 fonts-liberation \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends libstdc++6 zlib1g libfreetype6 libfontconfig1 fonts-liberation \
     && test -x /usr/bin/prlimit
 
-# Both architectures use the same Java 17.0.20.1+1 release.
-FROM eclipse-temurin:17-jre-noble@sha256:900322f4cc1b9da9d730ae4bb56d8a1dabbaa9cfa32809fc8b542b600370a045 AS java-runtime
+# Official signed Temurin 17.0.21+9 archives; architecture-specific hashes are reviewed inputs.
+FROM scratch AS java17-amd64
+ADD --checksum=sha256:9f41bf88c7900c7097444a1bdeb84146ae692bc08842490ab098063c74bf9a8a https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jre_x64_linux_hotspot_17.0.21_9.tar.gz /jre.tar.gz
+FROM scratch AS java17-arm64
+ADD --checksum=sha256:1114f09d6174f54270c3117410b5e4022b43ebc0b43b751af08b927c55ed7bb5 https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jre_aarch64_linux_hotspot_17.0.21_9.tar.gz /jre.tar.gz
+FROM java17-${TARGETARCH} AS java17-archive
+FROM base AS java-runtime
+COPY --from=java17-archive /jre.tar.gz /tmp/jre.tar.gz
+RUN mkdir -p /opt/java/openjdk \
+    && tar -xzf /tmp/jre.tar.gz --strip-components=1 -C /opt/java/openjdk \
+    && rm /tmp/jre.tar.gz
 
-# Server Java 25 is separate from the deliberately unchanged bounded validators.
-FROM eclipse-temurin:25-jre-noble@sha256:d9a39a23634650173f1e2bbc176227af9728587ecf0f4b62d53e9355cd7a19ab AS server-java-runtime
+# Server Java 25 is separate from the bounded Java 17 validators.
+FROM eclipse-temurin:25-jre-noble@sha256:2ef7a81085e0502d7d4ff7e7c0257b6d4f46433f8ea6021180aa3c8a2b9ca3ec AS server-java-runtime
 
 FROM runtime-system AS qualification
 ARG NUAFORMA_CONTAINER_VERSION=0.3.0-alpha.1
