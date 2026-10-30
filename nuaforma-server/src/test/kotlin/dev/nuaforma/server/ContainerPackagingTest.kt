@@ -90,12 +90,17 @@ class ContainerPackagingTest {
         val matrix = ((job["strategy"] as Map<*, *>)["matrix"] as Map<*, *>)["include"] as List<*>
         assertEquals(setOf("amd64", "arm64"), matrix.map { (it as Map<*, *>)["architecture"] }.toSet())
         val steps = (job["steps"] as List<*>).map { it as Map<*, *> }
-        assertFalse(steps.any { (it["uses"] as? String)?.startsWith("actions/upload-artifact@") == true })
+        val uploads = steps.filter { (it["uses"] as? String)?.startsWith("actions/upload-artifact@") == true }
+        assertEquals(1, uploads.size)
+        val inventoryUpload = uploads.single()["with"] as Map<*, *>
+        assertEquals("build/native-container/inventory/", inventoryUpload["path"])
+        assertEquals("error", inventoryUpload["if-no-files-found"])
+        assertEquals("native-source-inventory-\${{ matrix.architecture }}", inventoryUpload["name"])
         val commands = steps.joinToString("\n") { it["run"].toString() }
         listOf("verify_native_platform.py", "qualify_service.py", "qualify_java_runtime.py", "qualify_endpoints.py", "verify_embedded_pdf.py").forEach {
             assertTrue(commands.contains(it), it)
         }
-        listOf("docker push", "docker login", "--privileged", "seccomp=", "--apparmor", "check_renderer_filter.py", "qualify_sandbox.py", "apparmor_parser").forEach {
+        listOf("docker push", "docker login", "docker save", "docker export", "--privileged", "seccomp=", "--apparmor", "check_renderer_filter.py", "qualify_sandbox.py", "apparmor_parser").forEach {
             assertFalse(commands.contains(it), it)
         }
     }
