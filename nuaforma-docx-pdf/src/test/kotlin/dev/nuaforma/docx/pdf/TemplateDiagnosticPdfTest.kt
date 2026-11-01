@@ -44,6 +44,39 @@ class TemplateDiagnosticPdfTest {
         GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.PDF, mapOf("profile" to "pdfa-1b"))),
         mapOf("name" to "PRIVATE_DATA_MUST_NOT_BE_INSERTED"))
 
+    @Test fun `passive Word markers preserve actual generated PDF text and pixels`() {
+        val split = "{na</w:t></w:r><w:bookmarkStart w:id=\"77\" w:name=\"split\"/>" +
+            "<w:proofErr w:type=\"spellStart\"/><w:r><w:rPr><w:rFonts w:ascii=\"Liberation Sans\" w:hAnsi=\"Liberation Sans\"/></w:rPr>" +
+            "<w:t>me</w:t><w:lastRenderedPageBreak/><w:t>}</w:t></w:r>" +
+            "<w:proofErr w:type=\"spellEnd\"/><w:bookmarkEnd w:id=\"77\"/>" +
+            "<w:r><w:rPr><w:rFonts w:ascii=\"Liberation Sans\" w:hAnsi=\"Liberation Sans\"/></w:rPr><w:t>"
+        val engine = provider()
+        fun generate(bytes: ByteArray): ByteArray {
+            val output = ByteArrayOutputStream()
+            try {
+                engine.generate(GenerationRequest(bytes.inputStream(), GenerationRequirements(FormatRequest(DocumentFormat.DOCX),
+                    FormatRequest(DocumentFormat.PDF, mapOf("profile" to "standard"))), mapOf("name" to "Ada")), output,
+                    GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT)))
+            } catch (error: GenerationException) {
+                fail<Nothing>(error.diagnostics.joinToString { "${it.rejectionReason}: ${it.sourceContext?.explanation}" }, error)
+            }
+            return output.toByteArray()
+        }
+        Loader.loadPDF(generate(template("Ada"))).use { expected ->
+            Loader.loadPDF(generate(template(split))).use { actual ->
+                assertEquals(PDFTextStripper().getText(expected), PDFTextStripper().getText(actual))
+                assertEquals(expected.numberOfPages, actual.numberOfPages)
+                for (page in 0 until actual.numberOfPages) {
+                    val before = PDFRenderer(expected).renderImageWithDPI(page, 96f)
+                    val after = PDFRenderer(actual).renderImageWithDPI(page, 96f)
+                    assertImagesMatch(before, after, "Passive Word markers page ${page + 1}") {
+                        pixelTolerance = 0.0; allowedDifferentPixelsPercent = 0.0; threshold = 1
+                    }
+                }
+            }
+        }
+    }
+
     @Test fun `validated literal diagnostic PDF marks original content and matches reviewed page images`() {
         val output = ByteArrayOutputStream()
         val result = provider().diagnoseTemplate(request("Prefix {broken"), output, GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT)))

@@ -9,6 +9,7 @@ import java.util.concurrent.Executors
 
 class TemplateDiagnosticCopyTest {
     private val requirements = GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.DOCX))
+    private val data = mapOf("name" to "Ada", "customer" to mapOf("name" to "Example"), "reference" to "REF", "empty" to "")
     private fun development() = GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT))
     private fun paragraph(text: String) = "<w:p><w:r><w:t>$text</w:t></w:r></w:p>"
     private fun source(body: String, part: String = "word/document.xml"): ByteArray {
@@ -129,16 +130,128 @@ class TemplateDiagnosticCopyTest {
     }
     private fun preview(body: String): String {
         val output = ByteArrayOutputStream()
-        DocxProvider().inspectionCopy(GenerationRequest(source(body).inputStream(), requirements, mapOf("name" to "Ada", "customer" to mapOf("name" to "Example"), "reference" to "REF")),
+        DocxProvider().inspectionCopy(GenerationRequest(source(body).inputStream(), requirements, data),
             output, development(), null, true)
         return SyntheticDocx.unzip(output.toByteArray()).getValue("word/document.xml").decodeToString()
+    }
+
+    @Test fun `passive markers inside a visible expression do not cause preview errors`() {
+        val body = "<w:p><w:r><w:rPr><w:b/></w:rPr><w:t>Before {na</w:t></w:r>" +
+            "<w:bookmarkStart w:id=\"70\" w:name=\"inside\"/><w:proofErr w:type=\"spellStart\"/>" +
+            "<w:r><w:t>me</w:t><w:lastRenderedPageBreak/><w:t>}</w:t></w:r>" +
+            "<w:proofErr w:type=\"spellEnd\"/><w:bookmarkEnd w:id=\"70\"/>" +
+            "<w:r><w:rPr><w:i/></w:rPr><w:t> after</w:t></w:r></w:p>"
+        val xml = preview(body)
+        assertTrue(visibleText(xml).contains("Before Ada after"), xml)
+        assertFalse(xml.contains("[ERROR"), xml)
+        for (marker in listOf("bookmarkStart", "bookmarkEnd", "proofErr", "lastRenderedPageBreak"))
+            assertTrue(xml.contains(marker), xml)
+        assertTrue(xml.contains("w:b"), xml)
+        assertTrue(xml.contains("w:i"), xml)
+        val output = ByteArrayOutputStream()
+        val events = mutableListOf<String>()
+        val context = GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT, null, GenerationLogSink { events.add(it.text) }))
+        try { DocxProvider().generate(GenerationRequest(source(body).inputStream(), requirements, data), output, context) }
+        catch (error: GenerationException) { fail<Nothing>(error.diagnostics.joinToString { it.rejectionReason?.name.orEmpty() } + events.joinToString(), error) }
+        val generated = SyntheticDocx.unzip(output.toByteArray()).getValue("word/document.xml").decodeToString()
+        assertTrue(visibleText(generated).contains("Before Ada after"), generated)
+        assertTrue(generated.contains("w:name=\"inside\""), generated)
+    }
+
+    @Test fun `passive marker positions retain bookmark order around literals replacements and empty values`() {
+        val expression = "{name}"
+        for (position in 1 until expression.length) {
+            val metadata = "<w:bookmarkStart w:id=\"71\" w:name=\"position\"/><w:bookmarkEnd w:id=\"71\"/>" +
+                "<w:proofErr w:type=\"gramStart\"/><w:proofErr w:type=\"gramEnd\"/>"
+            val body = "<w:p><w:r><w:t>Prefix ${expression.take(position)}</w:t></w:r>" + metadata +
+                "<w:r><w:t>${expression.drop(position)} suffix</w:t></w:r></w:p>"
+            val xml = preview(body)
+            assertTrue(visibleText(xml).contains("Prefix Ada suffix"), xml)
+            assertFalse(xml.contains("[ERROR"), xml)
+            assertTrue(xml.indexOf("bookmarkStart") < xml.indexOf("bookmarkEnd"), xml)
+            assertEquals(1, Regex("w:bookmarkStart ").findAll(xml).count(), xml)
+        }
+        val body = "<w:p><w:r><w:t>Prefix {empty</w:t></w:r><w:bookmarkStart w:id=\"72\" w:name=\"empty\"/>" +
+            "<w:r><w:t>}</w:t></w:r><w:bookmarkEnd w:id=\"72\"/><w:r><w:t> suffix</w:t></w:r></w:p>"
+        val xml = preview(body)
+        assertTrue(visibleText(xml).contains("Prefix  suffix"), xml)
+        assertTrue(xml.indexOf("bookmarkStart") < xml.indexOf("bookmarkEnd"), xml)
+    }
+
+    @Test fun `passive structural markers work but cannot detach bookmark ranges`() {
+        val opening = "<w:p><w:r><w:t>{#i</w:t></w:r><w:proofErr w:type=\"spellStart\"/>" +
+            "<w:r><w:t>f true}</w:t></w:r><w:proofErr w:type=\"spellEnd\"/></w:p>"
+        val body = opening + paragraph("Hello {name}") + paragraph("{/if}")
+        val output = ByteArrayOutputStream()
+        DocxProvider().generate(GenerationRequest(source(body).inputStream(), requirements, data), output, development())
+        val result = SyntheticDocx.unzip(output.toByteArray()).getValue("word/document.xml").decodeToString()
+        assertEquals("Hello Ada", visibleText(result))
+        val crossing = body.replace("<w:proofErr w:type=\"spellStart\"/>", "<w:bookmarkStart w:id=\"73\" w:name=\"crossing\"/>")
+            .replace("<w:proofErr w:type=\"spellEnd\"/>", "") + "<w:p><w:bookmarkEnd w:id=\"73\"/></w:p>"
+        val rejected = ByteArrayOutputStream()
+        assertThrows(GenerationException::class.java) {
+            DocxProvider().generate(GenerationRequest(source(crossing).inputStream(), requirements), rejected, development())
+        }
+        assertEquals(0, rejected.size())
+    }
+
+    @Test fun `real breaks fields hidden text and paragraph boundaries still interrupt markers`() {
+        val prefix = "<w:r><w:t>{na</w:t></w:r>"
+        val suffix = "<w:r><w:t>me}</w:t></w:r>"
+        for (body in listOf(
+            "<w:p><w:r><w:t>{na</w:t><w:br/><w:t>me}</w:t></w:r></w:p>",
+            "<w:p><w:r><w:t>{na</w:t><w:tab/><w:t>me}</w:t></w:r></w:p>",
+            "<w:p>$prefix<w:r><w:rPr><w:vanish/></w:rPr><w:t>ignored</w:t></w:r>$suffix</w:p>",
+            "<w:p>$prefix<w:fldSimple w:instr=\"PAGE\"><w:r><w:t>1</w:t></w:r></w:fldSimple>$suffix</w:p>",
+            "<w:p>$prefix</w:p><w:p>$suffix</w:p>",
+            "<w:p>$prefix<w:hyperlink>$suffix</w:hyperlink></w:p>"
+        )) {
+            val output = ByteArrayOutputStream()
+            val error = assertThrows(GenerationException::class.java) {
+                DocxProvider().generate(GenerationRequest(source(body).inputStream(), requirements, data), output, development())
+            }
+            assertEquals(DiagnosticCodes.INVALID_TEMPLATE, error.diagnostics.first().code)
+            assertEquals(0, output.size())
+        }
+    }
+
+    @Test fun `cached page hints never create visible content for empty replacements`() {
+        val xml = preview("<w:p><w:r><w:t>{empty</w:t><w:lastRenderedPageBreak/><w:t>}</w:t></w:r></w:p>")
+        assertFalse(xml.contains("lastRenderedPageBreak"), xml)
+        assertFalse(xml.contains("[ERROR"), xml)
+        assertFalse(visibleText(xml).contains("{empty}"), xml)
+    }
+
+    @Test fun `preview does not duplicate a supplied original parser diagnostic`() {
+        val input = source(paragraph("Prefix {broken"))
+        val diagnostic = copy(input).first
+        val output = ByteArrayOutputStream()
+        DocxProvider().inspectionCopy(GenerationRequest(input.inputStream(), requirements, data), output, development(), diagnostic, true)
+        val text = visibleText(SyntheticDocx.unzip(output.toByteArray()).getValue("word/document.xml").decodeToString())
+        assertEquals(1, Regex("\\[ERROR 1]").findAll(text).count(), text)
+        assertTrue(text.contains("Prefix [ERROR 1] {broken"), text)
+        assertTrue(text.contains("UNCLOSED_TEMPLATE_MARKER"), text)
+    }
+
+    @Test fun `preview marks only the first failure at its actual brace and reports the reason`() {
+        val xml = preview(paragraph("Good {name}") + paragraph("Long valid prefix {broken") +
+            paragraph("Another {broken") + paragraph("After {name}"))
+        val text = visibleText(xml)
+        assertTrue(text.contains("Long valid prefix [ERROR 1] {broken"), text)
+        assertEquals(1, Regex("\\[ERROR 1]").findAll(text).count(), text)
+        assertFalse(text.contains("[ERROR]"), text)
+        assertTrue(text.contains("UNCLOSED_TEMPLATE_MARKER"), text)
+        assertTrue(text.contains("word/document.xml"), text)
+        assertTrue(text.contains("paragraph:2"), text)
+        assertTrue(text.contains("After Ada"), text)
+        assertTrue(text.contains("Another {broken"), text)
     }
 
     @Test fun `preview preserves malformed spans and evaluates only independent valid text`() {
         val xml = preview(paragraph("Hello {name}") + paragraph("Broken {name") + paragraph("After {name}"))
         assertTrue(visibleText(xml).contains("Hello Ada"), xml)
-        assertTrue(xml.contains("Broken {name"), xml)
-        assertTrue(xml.contains("[ERROR]"), xml)
+        assertTrue(visibleText(xml).contains("Broken [ERROR 1] {name"), xml)
+        assertTrue(xml.contains("[ERROR 1]"), xml)
         assertTrue(visibleText(xml).contains("After Ada"), xml)
         assertTrue(xml.contains("NOT A GENERATED DOCUMENT"), xml)
         val strict = ByteArrayOutputStream()
