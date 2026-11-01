@@ -233,6 +233,23 @@ class TemplateDiagnosticCopyTest {
         assertTrue(text.contains("UNCLOSED_TEMPLATE_MARKER"), text)
     }
 
+    @Test fun `cached hints are transparent within mixed runs while tabs and real breaks stay intact`() {
+        for (control in listOf("tab", "br")) {
+            val body = "<w:p><w:r><w:t>Before {na</w:t><w:lastRenderedPageBreak/><w:t>me}</w:t>" +
+                "<w:$control/><w:t>After {name}</w:t></w:r></w:p>"
+            val xml = preview(body)
+            assertTrue(visibleText(xml).contains("Before AdaAfter Ada"), xml)
+            assertTrue(xml.contains("w:$control"), xml)
+            assertTrue(xml.contains("lastRenderedPageBreak"), xml)
+            assertFalse(xml.contains("[ERROR"), xml)
+            val output = ByteArrayOutputStream()
+            DocxProvider().generate(GenerationRequest(source(body).inputStream(), requirements, data), output, development())
+            val generated = SyntheticDocx.unzip(output.toByteArray()).getValue("word/document.xml").decodeToString()
+            assertTrue(visibleText(generated).contains("Before AdaAfter Ada"), generated)
+            assertTrue(generated.contains("w:$control"), generated)
+        }
+    }
+
     @Test fun `preview marks only the first failure at its actual brace and reports the reason`() {
         val xml = preview(paragraph("Good {name}") + paragraph("Long valid prefix {broken") +
             paragraph("Another {broken") + paragraph("After {name}"))

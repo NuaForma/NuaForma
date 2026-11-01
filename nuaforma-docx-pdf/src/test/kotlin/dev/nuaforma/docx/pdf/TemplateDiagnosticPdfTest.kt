@@ -62,15 +62,19 @@ class TemplateDiagnosticPdfTest {
             }
             return output.toByteArray()
         }
-        Loader.loadPDF(generate(template("Ada"))).use { expected ->
-            Loader.loadPDF(generate(template(split))).use { actual ->
-                assertEquals(PDFTextStripper().getText(expected), PDFTextStripper().getText(actual))
-                assertEquals(expected.numberOfPages, actual.numberOfPages)
-                for (page in 0 until actual.numberOfPages) {
-                    val before = PDFRenderer(expected).renderImageWithDPI(page, 96f)
-                    val after = PDFRenderer(actual).renderImageWithDPI(page, 96f)
-                    assertImagesMatch(before, after, "Passive Word markers page ${page + 1}") {
-                        pixelTolerance = 0.0; allowedDifferentPixelsPercent = 0.0; threshold = 1
+        val mixed = "{na</w:t><w:lastRenderedPageBreak/><w:t>me}</w:t><w:tab/><w:t>Tail"
+        val literal = "Ada</w:t><w:tab/><w:t>Tail"
+        for ((input, control) in listOf(split to "Ada", mixed to literal)) {
+            Loader.loadPDF(generate(template(control))).use { expected ->
+                Loader.loadPDF(generate(template(input))).use { actual ->
+                    assertEquals(PDFTextStripper().getText(expected), PDFTextStripper().getText(actual))
+                    assertEquals(expected.numberOfPages, actual.numberOfPages)
+                    for (page in 0 until actual.numberOfPages) {
+                        val before = PDFRenderer(expected).renderImageWithDPI(page, 96f)
+                        val after = PDFRenderer(actual).renderImageWithDPI(page, 96f)
+                        assertImagesMatch(before, after, "Passive Word markers page ${page + 1}") {
+                            pixelTolerance = 0.0; allowedDifferentPixelsPercent = 0.0; threshold = 1
+                        }
                     }
                 }
             }

@@ -63,29 +63,31 @@ internal object WordRuns {
         }
         var index = 0
         while (index < run.content.size) {
-            fun ordinary(raw: Any) = raw is JAXBElement<*> && raw.name.localPart == "t" && raw.value is Text
             if (!ordinary(run.content[index])) { index++; continue }
             val start = index
-            while (index < run.content.size && ordinary(run.content[index])) index++
-            val text = run.content.subList(start, index).joinToString("") { (XmlUtils.unwrap(it) as Text).value }
+            while (index < run.content.size && (ordinary(run.content[index]) || pageHint(run.content[index]))) index++
+            val values = run.content.subList(start, index).filter { ordinary(it) }
+            val text = values.joinToString("") { (XmlUtils.unwrap(it) as Text).value }
             if ('{' !in text && '}' !in text) continue
             val previewFailure = if (preview) previewError(session, text) else null
             if (previewFailure != null) {
-                if (!validateOnly) fault?.mixed(run, run.content.subList(start, index).toList(), text, previewFailure)
+                if (!validateOnly) fault?.mixed(run, values, text, previewFailure)
                 continue
             }
             if (validateOnly) {
                 try { if (session is ContentTemplateSession) session.validateText(text) else session.validate(text) }
                 catch (error: dev.nuaforma.contracts.GenerationException) {
-                    fault?.mixed(run, run.content.subList(start, index).toList(), text, error)
+                    fault?.mixed(run, values, text, error)
                     throw error
                 }
                 continue
             }
             val replacement = session.expand(text).joinToString("") { it.text }
             (XmlUtils.unwrap(run.content[start]) as Text).apply { value = replacement; space = "preserve" }
+            val hints = run.content.subList(start + 1, index).filter { pageHint(it) }
             run.content.subList(start + 1, index).clear()
-            index = start + 1
+            run.content.addAll(start + 1, hints)
+            index = start + 1 + hints.size
         }
     }
 
