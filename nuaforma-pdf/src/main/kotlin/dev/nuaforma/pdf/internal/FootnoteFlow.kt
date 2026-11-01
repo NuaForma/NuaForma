@@ -37,7 +37,7 @@ internal class FootnoteFlow(document: PdfDocument, private val measurer: TextMea
             control.checkActive()
             if (paragraph.format.pageBreakBefore) unsupported("Explicit page breaks inside notes are not qualified")
             val measured = FlowLayouter.paragraph(paragraph, width, measurer, previous = note.paragraphs.getOrNull(index - 1), next = note.paragraphs.getOrNull(index + 1))
-            val before = if (paragraph.format.collapseSpacing) maxOf(0f, paragraph.spaceBefore - previousAfter) else paragraph.spaceBefore
+            val before = ParagraphSpacing.before(paragraph, previousAfter, index == 0)
             measured.lines.forEachIndexed { line, elements ->
                 val gap = if (line == 0) before else 0f
                 lines += Line(elements, gap + measured.heights[line] + if (line == measured.lines.lastIndex) paragraph.spaceAfter else 0f,
@@ -130,14 +130,19 @@ internal class FootnoteFlow(document: PdfDocument, private val measurer: TextMea
     }
 
     companion object {
+
         fun separator(policy: PdfNoteSeparator, continuation: Boolean, page: PdfPage, top: Float, target: MutableList<PositionedElement>) {
             val available = page.width - page.margins.left - page.margins.right
             val width = if (continuation) policy.continuationWidth ?: available else policy.width
             if (width > available + .001f) unsupported("Note separator leaves the text area")
             target += PositionedRectangle(page.margins.left, top + policy.offset, width, policy.stroke.width, policy.stroke.color, null)
         }
+
         private fun overflow(): Nothing = throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, "A protected note fragment does not fit")
+
         private fun limit(): Nothing = throw PdfRenderException(PdfFailureCode.RESOURCE_LIMIT, "Note line budget exceeded")
+
         private fun unsupported(message: String): Nothing = throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, message)
+
     }
 }

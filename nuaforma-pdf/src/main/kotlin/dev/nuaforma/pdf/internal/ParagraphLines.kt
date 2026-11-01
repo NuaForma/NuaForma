@@ -11,8 +11,10 @@ internal object ParagraphLines {
     }
 
     fun frame(p: PdfParagraph, previous: PdfParagraph? = null, next: PdfParagraph? = null, owner: PdfParagraph = p): Frame {
+
         fun matches(other: PdfParagraph?) = p.borders != null && p.borders.connectAdjacent && other?.borders == p.borders &&
-            other.format.leftIndent == p.format.leftIndent && other.format.rightIndent == p.format.rightIndent
+            other.format.leftIndent == p.format.leftIndent && other.format.rightIndent == p.format.rightIndent && other.pageOffset == p.pageOffset
+
         return Frame(p.borders, matches(previous) && !p.format.pageBreakBefore, matches(next) && next?.format?.pageBreakBefore != true, owner, next)
     }
 
@@ -24,7 +26,7 @@ internal object ParagraphLines {
             val inset = if (index == 0) frame.before else 0f
             val marks = mutableListOf<PositionedElement>()
             strokes(p, frame, width, inset, height, index == 0, index == raw.lastIndex, marks)
-            marks + elements.map { FlowLayouter.translate(it, 0f, inset) }
+            marks.map { ParagraphPageOffsets.mark(it, p.pageOffset) } + elements.map { FlowLayouter.translate(it, 0f, inset) }
         }
         return FlowLayouter.MeasuredParagraph(p, lines, height, heights)
     }
@@ -38,20 +40,24 @@ internal object ParagraphLines {
         val outerRight = right + (b?.right?.let { it.space + it.stroke.extent } ?: 0f)
         val a = textTop - if (first) frame.before else 0f
         val z = textTop + height + if (last) frame.after + if (frame.next) p.spaceAfter else 0f else 0f
+
         fun horizontal(edge: PdfParagraphEdge?, y: Float) {
             edge ?: return
             target += PositionedStroke(outerLeft, y, outerRight, y, edge.stroke)
         }
+
         if (first && !frame.previous) b?.top?.let { horizontal(it, textTop - it.space - it.stroke.extent / 2) }
         if (last) {
             if (frame.next) b?.between?.let { horizontal(it, textTop + height + p.spaceAfter + it.space + it.stroke.extent / 2) }
             else b?.bottom?.let { horizontal(it, textTop + height + it.space + it.stroke.extent / 2) }
         }
+
         fun side(edge: PdfParagraphEdge, x: Float) {
             target += PositionedStroke(x, a, x, z, edge.stroke,
                 joinOwner = if (first && frame.previous) frame.owner else null,
                 joinFollowing = if (last && frame.next) frame.following else null)
         }
+
         b?.left?.let { side(it, left - it.space - it.stroke.extent / 2) }
         b?.right?.let { side(it, right + it.space + it.stroke.extent / 2) }
         if (first) p.lines.forEach { line ->
@@ -79,4 +85,5 @@ internal object ParagraphLines {
             }
         }
     }
+
 }

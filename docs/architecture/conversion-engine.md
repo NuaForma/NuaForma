@@ -162,6 +162,13 @@ Add a small ODT proof early, inside test/prototype code until the future adapter
 
 The initial scope is tested Dutch/English and Latin-script fonts. Reject unsupported complex scripts and vertical writing until shaping and PDF encoding are proven. Do not rasterize text as a workaround. PDFBox/FontBox provide primitives; they do not by themselves prove a complete shaping pipeline. A Java TextLayout or other open-source shaping candidate must prove correct glyph emission and Unicode extraction on Java 17 before adoption.
 
+The #184 source increment qualifies the JDK 17 physical-font `layoutGlyphVector`
+path for explicit standard ligatures and OpenType kerning with caller-supplied
+TrueType bytes, plus FontBox classic pair kerning. Exact glyph emission, Unicode
+cluster/alias encoding, subset/full embedding and independent PDF/A validation are
+covered by the [formatting proof](../../tools/pdf-evaluation/own-engine/FORMATTING.md).
+This bounded adoption does not qualify complex-script shaping or font fallback.
+
 ### Blocks and pagination
 
 Measure and reserve header/footer regions for each master. Use resumable cursors for paragraphs, rows and cells. Apply keep-with-next, keep-together and widow/orphan rules with bounded backtracking. A keep group larger than a page needs an explicit relaxation diagnostic or rejection. An oversized unsplittable object must fail rather than create infinite blank pages or shrink silently.

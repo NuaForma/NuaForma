@@ -4,6 +4,7 @@ import dev.nuaforma.pdf.*
 import kotlin.math.*
 
 internal object BoxLayouter {
+
     fun layout(box: PdfTextBox, page: PdfPage, paragraphTop: Float, measurer: TextMeasurer): PositionedBox {
         if (box.paragraphs.any { p -> p.runs.filterIsInstance<PdfTextRun>().any { it.navigation != null } })
             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Navigation in text frames is not qualified")
@@ -23,7 +24,7 @@ internal object BoxLayouter {
             if (p.format.pageBreakBefore) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Page breaks inside frames are unsupported")
             if (p.runs.any { it is PdfPageField }) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Frame page fields are unsupported")
             val measured = FlowLayouter.paragraph(p, width, measurer, previous = box.paragraphs.getOrNull(index - 1), next = box.paragraphs.getOrNull(index + 1))
-            used += (if (p.format.collapseSpacing) maxOf(0f, p.spaceBefore - after) else p.spaceBefore) + measured.height() + p.spaceAfter
+            used += ParagraphSpacing.before(p, after, index == 0) + measured.height() + p.spaceAfter
             after = p.spaceAfter
         }
         val available = box.height - box.padding.top - box.padding.bottom
@@ -34,5 +35,7 @@ internal object BoxLayouter {
         val elements = listOf(PositionedRectangle(0f, 0f, box.width, box.height, box.fill, box.border)) + local.elements
         return PositionedBox(box, x, y, elements)
     }
+
     private fun overflow(): Nothing = throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, "Text frame exceeds its content area or physical page")
+
 }

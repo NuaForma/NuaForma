@@ -59,6 +59,10 @@ Gradle with Kotlin DSL is the selected build system. Install JDK 17 and JDK 25: 
 - For documentation-only changes, inspect the diff and check referenced paths and commands. A build is not required unless documentation generation or executable examples are affected.
 - Report commands actually run and their results. If a required check cannot run, state the limitation; never describe an unexecuted check as passing.
 
+## Code readability
+
+- Separate every function declaration from surrounding code with a blank line before and after it, including local functions and expression-bodied helpers. Keep its documentation, comments and annotations attached to the function; place the separating blank line outside that group.
+
 ## Tests and reference documents
 
 - Use JUnit Jupiter with the newest stable JUnit release compatible with Java 17 and the chosen test stack when establishing or updating the build. Pin the selected version for reproducible builds; do not use dynamic latest-version selectors or prereleases by default. The test framework choice is not fixed to JUnit 5.
@@ -103,7 +107,7 @@ Gradle with Kotlin DSL is the selected build system. Install JDK 17 and JDK 25: 
 
 ## Own PDF engine branch scope
 
-The own-engine integration track was merged into `develop` through PR #120 on 2026-10-26, with explicit maintainer authorization. New release preparation and subsequent work use the normal `develop` branch/PR policy above. The earlier `feature/own-pdf-engine` starting point and target are historical; do not recreate or target that deleted integration branch. The agreed shared package structure and qualified source limits remain documented in the [design](docs/architecture/conversion-engine.md) and [roadmap](docs/architecture/own-engine-roadmap.md). The approved next release is `0.3.0-alpha.2`. The maintainer approved the [single-final-approval release procedure](docs/release-process.md): reuse green CI, build once and retain lightweight identity/signature/source checks instead of repeating full qualification during release. Only the final publication job requires environment review; the same approval covers the matching website.
+The own-engine integration track was merged into `develop` through PR #120 on 2026-10-26, with explicit maintainer authorization. New release preparation and subsequent work use the normal `develop` branch/PR policy above. The earlier `feature/own-pdf-engine` starting point and target are historical; do not recreate or target that deleted integration branch. The agreed shared package structure and qualified source limits remain documented in the [design](docs/architecture/conversion-engine.md) and [roadmap](docs/architecture/own-engine-roadmap.md). The approved next release is `0.4.0-alpha.1`. The maintainer approved the [single-final-approval release procedure](docs/release-process.md): reuse green CI, build once and retain lightweight identity/signature/source checks instead of repeating full qualification during release. Only the final publication job requires environment review; the same approval covers the matching website.
 
 ## Boundaries
 

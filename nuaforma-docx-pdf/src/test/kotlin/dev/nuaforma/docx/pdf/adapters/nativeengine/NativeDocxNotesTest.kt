@@ -55,4 +55,13 @@ class NativeDocxNotesTest {
         val separator = "<w:footnote w:type=\"separator\" w:id=\"-1\"><w:p><w:r><w:separator/></w:r></w:p></w:footnote>"
         assertNotNull(notes(separator, properties("<w:footnote w:id=\"-1\"/>")))
     }
+
+    @Test fun `separator failures focus the actual note instead of a later unrelated note part`() {
+        val root = xml("""<w:footnotes xmlns:w="$namespace"><w:footnote w:type="separator" w:id="-1"><w:p unexpected="1"><w:r><w:separator/></w:r></w:p></w:footnote></w:footnotes>""")
+        var focused: dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement? = null
+        assertThrows(IllegalArgumentException::class.java) {
+            NativeDocxNotes(mapOf(PdfNoteKind.FOOTNOTE to root), NativeDocxNotes.defaults(), ::fail) { focused = it }
+        }
+        assertSame(root.elements().single(), focused)
+    }
 }
