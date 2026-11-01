@@ -34,7 +34,7 @@ internal object NoteResolver {
                 }
                 else -> run
             } }
-            listOf(PdfParagraph(runs, p.spaceBefore, p.spaceAfter, p.format, p.listLabel, p.anchoredImages, p.semantics, p.contents))
+            listOf(PdfParagraph(runs, p.spaceBefore, p.spaceAfter, p.format, p.listLabel, p.anchoredImages, p.semantics, p.contents, p.borders, p.lines))
         }
         val targets = document.notes.map { note ->
             val marker = note.paragraphs.first().runs.first() as? PdfNoteLabel ?: unsupported("A note label was already resolved")

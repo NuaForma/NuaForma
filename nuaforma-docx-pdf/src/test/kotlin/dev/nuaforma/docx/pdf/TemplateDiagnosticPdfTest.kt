@@ -155,7 +155,7 @@ class TemplateDiagnosticPdfTest {
         }
     }
 
-    @Test fun `unsupported paragraph border has concrete coordinates and a marked DOCX despite rejected PDF`() {
+    @Test fun `unsupported paragraph shading has concrete coordinates and a marked DOCX despite rejected PDF`() {
         val raw = template("Source paragraph")
         val modified = ByteArrayOutputStream().also { target -> ZipOutputStream(target).use { zip ->
             ZipInputStream(raw.inputStream()).use { input ->
@@ -164,7 +164,7 @@ class TemplateDiagnosticPdfTest {
                     val bytes = input.readBytes()
                     zip.putNextEntry(ZipEntry(entry.name))
                     zip.write(if (entry.name == "word/document.xml") bytes.decodeToString().replaceFirst("<w:p>",
-                        "<w:p><w:pPr><w:pBdr><w:bottom w:val=\"single\"/></w:pBdr></w:pPr>").toByteArray() else bytes)
+                        "<w:p><w:pPr><w:shd w:fill=\"008B90\"/></w:pPr>").toByteArray() else bytes)
                     zip.closeEntry()
                 }
             }
@@ -177,19 +177,19 @@ class TemplateDiagnosticPdfTest {
         assertEquals(RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED, diagnostic.rejectionReason)
         assertEquals("paragraph:1", diagnostic.documentLocation)
         assertEquals("word/document.xml", diagnostic.part)
-        assertEquals("w:pBdr", diagnostic.sourceContext?.construct)
-        assertTrue(diagnostic.sourceContext!!.path?.endsWith("/w:p[1]/w:pPr[1]/w:pBdr[1]") == true)
+        assertEquals("w:shd", diagnostic.sourceContext?.construct)
+        assertTrue(diagnostic.sourceContext!!.path?.endsWith("/w:p[1]/w:pPr[1]/w:shd[1]") == true)
         assertEquals("Source paragraph", diagnostic.sourceContext!!.excerpt)
         val output = ByteArrayOutputStream()
         val result = provider().diagnoseDocument(request(), output, development, false)
         assertEquals(DocumentFormat.DOCX, result.output.format)
-        Files.write(Files.createDirectories(Path.of("build/170-inspection")).resolve("unsupported-border.docx"), output.toByteArray())
+        Files.write(Files.createDirectories(Path.of("build/170-inspection")).resolve("unsupported-shading.docx"), output.toByteArray())
         val xml = ZipInputStream(output.toByteArray().inputStream()).use { zip ->
             generateSequence { zip.nextEntry }.map { it.name to zip.readBytes().decodeToString() }.toMap().getValue("word/document.xml")
         }
         assertTrue(xml.contains("[ERROR 1]"), xml)
         assertTrue(xml.contains("Source paragraph"), xml)
-        assertTrue(xml.contains("pBdr"), xml)
+        assertTrue(xml.contains("shd"), xml)
     }
 
     @Test fun `DOCX preview needs neither PDF validator nor fonts and remains development only bounded and private`() {

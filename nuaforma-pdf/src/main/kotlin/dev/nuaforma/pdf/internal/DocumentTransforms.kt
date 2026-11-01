@@ -29,7 +29,7 @@ internal object DocumentTransforms {
                         if (run is PdfImageRun) PdfImageRun(image(run.image, semanticChildId(key, "image$runIndex"))) else run
                     }, block.spaceBefore, block.spaceAfter, block.format, block.listLabel,
                         block.anchoredImages.mapIndexed { anchorIndex, anchor -> PdfAnchoredImage(image(anchor.image, semanticChildId(key, "anchor$anchorIndex")),
-                            anchor.left, anchor.top, anchor.anchor, anchor.wrap, anchor.distances) }, own, block.contents) else block
+                            anchor.left, anchor.top, anchor.anchor, anchor.wrap, anchor.distances) }, own, block.contents, block.borders, block.lines) else block
                     if (input.contents != null && scope != Scope.BODY) unsupported("Contents require a body block")
                     paragraph(input, key, scope).also { output ->
                         textSize += output.sumOf { p -> p.runs.sumOf { when (it) { is PdfTextRun -> it.text.length.toLong(); is PdfPageField -> 4L; else -> 0L } } + (p.listLabel?.value?.text?.length ?: 0) }

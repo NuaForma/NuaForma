@@ -21,14 +21,14 @@ internal object ParagraphKeeps {
                     val before = if (index == start) 0f else if (block.format.collapseSpacing) maxOf(0f, block.spaceBefore - previousAfter) else block.spaceBefore
                     val prefix = full + before
                     val count = measured.lines.size
-                    full = prefix + count * measured.lineHeight
+                    full = prefix + measured.height()
                     val protectedLines = when {
                         block.format.keepLines || block.format.keepWithNext -> count
                         !block.format.widowControl -> minOf(count, 1)
                         count == 3 -> 3 // Neither 1+2 nor 2+1 satisfies widow/orphan control.
                         else -> minOf(count, 2)
                     }
-                    minimum = prefix + protectedLines * measured.lineHeight
+                    minimum = prefix + measured.height(0, protectedLines)
                     if (!block.format.keepWithNext || index == blocks.lastIndex) return if (index == start) null else Group(minimum, index)
                     previousAfter = block.spaceAfter
                     full += block.spaceAfter

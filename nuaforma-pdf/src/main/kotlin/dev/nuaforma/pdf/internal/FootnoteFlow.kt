@@ -36,11 +36,11 @@ internal class FootnoteFlow(document: PdfDocument, private val measurer: TextMea
         for ((index, paragraph) in note.paragraphs.withIndex()) {
             control.checkActive()
             if (paragraph.format.pageBreakBefore) unsupported("Explicit page breaks inside notes are not qualified")
-            val measured = FlowLayouter.paragraph(paragraph, width, measurer)
+            val measured = FlowLayouter.paragraph(paragraph, width, measurer, previous = note.paragraphs.getOrNull(index - 1), next = note.paragraphs.getOrNull(index + 1))
             val before = if (paragraph.format.collapseSpacing) maxOf(0f, paragraph.spaceBefore - previousAfter) else paragraph.spaceBefore
             measured.lines.forEachIndexed { line, elements ->
                 val gap = if (line == 0) before else 0f
-                lines += Line(elements, gap + measured.lineHeight + if (line == measured.lines.lastIndex) paragraph.spaceAfter else 0f,
+                lines += Line(elements, gap + measured.heights[line] + if (line == measured.lines.lastIndex) paragraph.spaceAfter else 0f,
                     gap, index, line, measured.lines.size, paragraph.format)
             }
             previousAfter = paragraph.spaceAfter
