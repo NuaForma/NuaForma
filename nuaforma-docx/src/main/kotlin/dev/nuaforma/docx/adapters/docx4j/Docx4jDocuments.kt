@@ -34,8 +34,9 @@ internal object Docx4jDocuments {
         if (context.logging.mode != dev.nuaforma.contracts.LoggingMode.DEVELOPMENT)
             DocxFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, RejectionReason.TEMPLATE_DIAGNOSTICS_REQUIRE_DEVELOPMENT)
         open(request.template, context) { document ->
-            if (preview) WordTemplates(request.data, request.requirements.options, context, pipes, valuePipes, preview = true).apply(document)
-            diagnostic?.let { WordDiagnosticDocument.annotate(document, it, context) }
+            val processor = if (preview) WordTemplates(request.data, request.requirements.options, context, pipes, valuePipes, preview = true) else null
+            processor?.apply(document)
+            if (processor?.previewDiagnosticMarked != true) diagnostic?.let { WordDiagnosticDocument.annotate(document, it, context) }
             if (preview) document.mainDocumentPart.jaxbElement.body.content.add(org.docx4j.wml.P().apply {
                 content.add(WordDiagnosticDocument.label("DIAGNOSTIC PREVIEW - NOT A GENERATED DOCUMENT. Error fragments and structural blocks remain literal."))
             })

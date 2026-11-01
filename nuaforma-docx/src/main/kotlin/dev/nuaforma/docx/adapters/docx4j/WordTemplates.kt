@@ -14,6 +14,9 @@ import org.docx4j.openpackaging.parts.WordprocessingML.FooterPart
 import org.docx4j.wml.*
 
 internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, private val context: GenerationContext, pipes: List<ContentPipe>, private val valuePipes: TemplatePipes, private val fault: WordTemplateFault? = null, private val preview: Boolean = false) {
+    private val previewFault = if (preview) WordTemplateFault(context) else null
+    var previewDiagnosticMarked = false
+        private set
     private val root = ContentTemplates.open(data, pipes, valuePipes, options, context)
     private val watermark = options.watermark
     private val identities = WordIdentities(context)
@@ -60,6 +63,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         } }
         if (inspection) return null
         parts.forEach { (part, value) -> DocxFailure.inPart(part.getPartName().name.removePrefix("/")) { owner = part; process(value, root, false, 1) } }
+        previewDiagnosticMarked = previewFault?.finishPreview(document) == true
         return watermark?.let { requested ->
             val text = StringBuilder()
             root.expand(requested.text).forEach { fragment ->
@@ -129,7 +133,8 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         val rich = if (node is P && !validateOnly && children.any { rawChild ->
             (XmlUtils.unwrap(rawChild) as? R)?.content?.any { (XmlUtils.unwrap(it) as? Text)?.value?.contains('|') == true } == true
         }) WordRichParagraphs(node, context, ::visible) { richSplitAllowed(node) } else null
-        if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context, valuePipes, ::visible, fault, preview,
+        previewFault?.locatePreview(owner.getPartName().name.removePrefix("/"), currentParagraph?.let { paragraphs[it] })
+        if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context, valuePipes, ::visible, previewFault ?: fault, preview,
             { value, anchor, source, start, end ->
                 rich?.accept(value, anchor, source, start, end) ?: DocxFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.UNSUPPORTED_RICH_TEXT_PLACEMENT)
             }) { images.drawing(it, owner) }
@@ -138,7 +143,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
             richReplacements[node as P] = rich.finish()
             return // Every source child was ordinary text, already evaluated once. Finalized data is never parsed again.
         }
-        if (node is R) WordRuns.mixed(node, session, validateOnly, context, valuePipes, fault, preview)
+        if (node is R) WordRuns.mixed(node, session, validateOnly, context, valuePipes, previewFault ?: fault, preview)
         if (node is Body || node is Hdr || node is Ftr || node is Tc || node is Tbl || node is CTTxbxContent ||
             node is org.docx4j.vml.CTTextbox || modernTextBox(node)) blocks(children, session, validateOnly, depth)
         else {
@@ -387,13 +392,14 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         }
         if (indices.isEmpty()) return null
         val content = paragraph.content.subList(indices.first(), indices.last() + 1)
-        if (!content.all { WordRuns.plain(it) && !visibility.hidden(XmlUtils.unwrap(it) as R, paragraph, currentTable) }) return null
+        if (!content.all { WordRuns.passive(it) || WordRuns.spanRun(it) && !visibility.hidden(XmlUtils.unwrap(it) as R, paragraph, currentTable) }) return null
         val source = WordRuns.source(content).trim()
         if (!source.startsWith('{') || !source.endsWith('}')) return null
         val marker = source.substring(1, source.length - 1).trim()
         if (!(marker.startsWith('#') || marker.startsWith('/')) || '{' in marker || '}' in marker) return null
         if (marker.length > 4096) DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.DOCX_STRUCTURAL_MARKER_EXCEEDS_THE_LANGUAGE_LIMIT)
         if (paragraph.pPr?.sectPr != null) invalid(RejectionReason.BLOCK_MARKER_PARAGRAPHS_CANNOT_CONTAIN_SECTION_BREAKS)
+        if (content.any { WordRuns.passive(it) }) identities.boundary(paragraph, false)
         return marker
     }
 
