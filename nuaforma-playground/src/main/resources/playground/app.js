@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 const elements = {provider: $('provider'), input: $('input-format'), output: $('output-format')};
-let capabilities, contract, routes = {}, optionGroups = [], running, downloadUrl;
+let capabilities, contract, routes = {}, optionGroups = [], running, downloadUrl, documentInspectionUrl;
 const create = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
 const objectText = (value, name) => {
   const parsed = JSON.parse(value);
@@ -401,9 +401,9 @@ function offerDocumentDiagnostic(failedRequest) {
         if (response.headers.get('NuaForma-Diagnostic-Artifact') !== 'document-error' ||
             !response.headers.get('Content-Type')?.startsWith('application/vnd.openxmlformats-officedocument.wordprocessingml.document'))
           throw Error('The server did not return a diagnostic DOCX.');
-        if (downloadUrl) URL.revokeObjectURL(downloadUrl);
-        downloadUrl = URL.createObjectURL(await response.blob());
-        const link = create('a', caption); link.href = downloadUrl; link.download = preview ? 'diagnostic-preview.docx' : 'document-diagnostic.docx';
+        if (documentInspectionUrl) URL.revokeObjectURL(documentInspectionUrl);
+        documentInspectionUrl = URL.createObjectURL(await response.blob());
+        const link = create('a', caption); link.href = documentInspectionUrl; link.download = preview ? 'diagnostic-preview.docx' : 'document-diagnostic.docx';
         status.replaceChildren(create('span', 'Inspection only. Normal generation remains unsuccessful. '), link);
       } catch (error) { status.textContent = error.name === 'AbortError' ? 'Inspection cancelled.' : `Diagnostic DOCX unavailable. ${error.message}`; }
       finally { button.disabled = false; running = null; $('cancel').hidden = true; updateRequest(); }
@@ -454,7 +454,10 @@ function formatDiagnostics(diagnostics) {
     item.remediation && `Try: ${item.remediation}`
   ].filter(Boolean).join('\n')).join('\n\n');
 }
-function showResult(message) { $('result').textContent = message; $('result').hidden = false; }
+function showResult(message) {
+  if (documentInspectionUrl) { URL.revokeObjectURL(documentInspectionUrl); documentInspectionUrl = null; }
+  $('result').textContent = message; $('result').hidden = false;
+}
 
 $('builder').addEventListener('input', updateRequest);
 $('builder').addEventListener('submit', event => { event.preventDefault(); send(true); });

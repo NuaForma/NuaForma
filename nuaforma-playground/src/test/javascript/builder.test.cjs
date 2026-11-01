@@ -213,15 +213,15 @@ test('DOCX diagnostic buttons keep the failed request and separate preview from 
     const node=id=>{if(!nodes.has(id))nodes.set(id,make());return nodes.get(id);};
     node('result').textContent='Original unsupported document error';
     const original={originalFile:'captured-upload'};
-    let sent;
+    let sent; const revoked=[];
     const context=vm.createContext({document:{getElementById:node,createElement:make},AbortController,
-      URL:{createObjectURL:()=> 'blob:docx',revokeObjectURL:()=>{}},
+      URL:{createObjectURL:()=> 'blob:docx',revokeObjectURL:url=>revoked.push(url)},
       fetch:async(url,options)=>{sent={url,options};return {ok:true,
         headers:{get:name=>({'NuaForma-Diagnostic-Artifact':'document-error','Content-Type':'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}[name])},
         blob:async()=>({size:1024})};},JSON,Error,Set,Boolean,Number});
     const source=fs.readFileSync(path.join(__dirname,'../../main/resources/playground/app.js'),'utf8');
     vm.runInContext(source.slice(0,source.indexOf("$('builder').addEventListener")),context);
-    vm.runInContext('routes={diagnoseDocument:"/api/v1/diagnostics/document"}; updateRequest=()=>true;',context);
+    vm.runInContext('downloadUrl="blob:existing-pdf"; routes={diagnoseDocument:"/api/v1/diagnostics/document"}; updateRequest=()=>true;',context);
     vm.runInContext('offerDocumentDiagnostic',context)(original);
     const buttons=node('result').children.filter(child=>child.type==='button');
     await buttons[preview?1:0].events.click();
@@ -232,5 +232,8 @@ test('DOCX diagnostic buttons keep the failed request and separate preview from 
     const status=node('result').children[0];
     assert.equal(status.children.at(-1).download,preview?'diagnostic-preview.docx':'document-diagnostic.docx');
     assert.equal(node('cancel').hidden,true);
+    assert.deepEqual(revoked,[]);
+    vm.runInContext('showResult("Next request")',context);
+    assert.deepEqual(revoked,['blob:docx']);
   }
 });
