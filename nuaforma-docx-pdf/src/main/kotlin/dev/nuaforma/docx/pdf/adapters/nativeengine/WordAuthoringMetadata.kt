@@ -9,11 +9,13 @@ internal object WordAuthoringMetadata {
     private const val MC = "http://schemas.openxmlformats.org/markup-compatibility/2006"
     private const val WP14 = "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
 
-    fun normalize(root: XmlElement, part: String, complexText: Boolean) {
-        fun reject(): Nothing = throw NativeDocxReadException("Unsupported Word authoring or compatibility settings", part)
+    fun normalize(root: XmlElement, part: String, complexText: Boolean, failure: ((XmlElement) -> NativeDocxReadException)? = null) {
+        var current = root
+        fun reject(): Nothing = throw (failure?.invoke(current) ?: NativeDocxReadException("Unsupported Word authoring or compatibility settings", part))
         fun XmlElement.value(name: String) = attribute(W, name)
         val nodes = root.descendants().toList()
         for (node in nodes) {
+            current = node
             node.attributes.keys.removeIf { name ->
                 name.namespaceURI == MC && name.localPart == "Ignorable" ||
                     name.namespaceURI == W && name.localPart in setOf("rsidR", "rsidRPr", "rsidDel", "rsidP", "rsidSect") ||
@@ -24,6 +26,7 @@ internal object WordAuthoringMetadata {
                 "settings" -> {
                     val ignored = setOf("zoom", "rsids", "proofState", "listSeparator", "mathPr", "themeFontLang", "shapeDefaults", "hyphenationZone")
                     for (child in node.elements()) {
+                        current = child
                         val name = child.name.localPart
                         if (child.name.namespaceURI != W) {
                             val docId = child.name.namespaceURI in setOf("http://schemas.microsoft.com/office/word/2010/wordml", "http://schemas.microsoft.com/office/word/2012/wordml") && name == "docId"
@@ -38,6 +41,7 @@ internal object WordAuthoringMetadata {
                             node.children.remove(child)
                         } else if (name == "compat") {
                             for (setting in child.elements()) {
+                                current = setting
                                 if (setting.name.namespaceURI != W || setting.name.localPart != "compatSetting" || setting.value("uri") != "http://schemas.microsoft.com/office/word") reject()
                                 val accepted = when (setting.value("name")) {
                                     "compatibilityMode" -> setting.value("val") in setOf("12", "15")

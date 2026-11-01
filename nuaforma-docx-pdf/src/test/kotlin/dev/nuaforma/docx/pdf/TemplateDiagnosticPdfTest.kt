@@ -155,4 +155,87 @@ class TemplateDiagnosticPdfTest {
         }
     }
 
+    @Test fun `unsupported paragraph border has concrete coordinates and a marked DOCX despite rejected PDF`() {
+        val raw = template("Source paragraph")
+        val modified = ByteArrayOutputStream().also { target -> ZipOutputStream(target).use { zip ->
+            ZipInputStream(raw.inputStream()).use { input ->
+                while (true) {
+                    val entry = input.nextEntry ?: break
+                    val bytes = input.readBytes()
+                    zip.putNextEntry(ZipEntry(entry.name))
+                    zip.write(if (entry.name == "word/document.xml") bytes.decodeToString().replaceFirst("<w:p>",
+                        "<w:p><w:pPr><w:pBdr><w:bottom w:val=\"single\"/></w:pBdr></w:pPr>").toByteArray() else bytes)
+                    zip.closeEntry()
+                }
+            }
+        } }.toByteArray()
+        val request = { GenerationRequest(modified.inputStream(), GenerationRequirements(FormatRequest(DocumentFormat.DOCX),
+            FormatRequest(DocumentFormat.PDF, mapOf("profile" to "standard")))) }
+        val development = GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT))
+        val error = assertThrows(GenerationException::class.java) { provider().generate(request(), ByteArrayOutputStream(), development) }
+        val diagnostic = error.diagnostics.first()
+        assertEquals(RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED, diagnostic.rejectionReason)
+        assertEquals("paragraph:1", diagnostic.documentLocation)
+        assertEquals("word/document.xml", diagnostic.part)
+        assertEquals("w:pBdr", diagnostic.sourceContext?.construct)
+        assertTrue(diagnostic.sourceContext!!.path?.endsWith("/w:p[1]/w:pPr[1]/w:pBdr[1]") == true)
+        assertEquals("Source paragraph", diagnostic.sourceContext!!.excerpt)
+        val output = ByteArrayOutputStream()
+        val result = provider().diagnoseDocument(request(), output, development, false)
+        assertEquals(DocumentFormat.DOCX, result.output.format)
+        Files.write(Files.createDirectories(Path.of("build/170-inspection")).resolve("unsupported-border.docx"), output.toByteArray())
+        val xml = ZipInputStream(output.toByteArray().inputStream()).use { zip ->
+            generateSequence { zip.nextEntry }.map { it.name to zip.readBytes().decodeToString() }.toMap().getValue("word/document.xml")
+        }
+        assertTrue(xml.contains("[ERROR 1]"), xml)
+        assertTrue(xml.contains("Source paragraph"), xml)
+        assertTrue(xml.contains("pBdr"), xml)
+    }
+
+    @Test fun `DOCX preview needs neither PDF validator nor fonts and remains development only bounded and private`() {
+        val provider = DocxPdfProvider(NativePdfConfiguration(emptyList()))
+        val development = GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT))
+        val output = ByteArrayOutputStream()
+        provider.diagnoseDocument(request("Hello {name}</w:t></w:r></w:p><w:p><w:r><w:t>{broken"), output, development, true)
+        assertTrue(output.size() > 0)
+        val previews = Files.createDirectories(Path.of("build/170-inspection"))
+        Files.write(previews.resolve("preview.docx"), output.toByteArray())
+        val fallback = ByteArrayOutputStream()
+        provider.diagnoseDocument(request("{name}"), fallback, development, false)
+        assertTrue(fallback.size() > 0)
+        for ((context, expected) in listOf(
+            GenerationContext() to DiagnosticCodes.UNSUPPORTED_OPTION,
+            GenerationContext(GenerationLimits(maxTemplateBytes = 1), CancellationToken.NONE, null, java.time.Clock.systemUTC(), GenerationLogging(LoggingMode.DEVELOPMENT)) to DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED,
+            GenerationContext(GenerationLimits(), CancellationToken { true }, null, java.time.Clock.systemUTC(), GenerationLogging(LoggingMode.DEVELOPMENT)) to DiagnosticCodes.CANCELLED,
+            GenerationContext(GenerationLimits(maxOutputBytes = 1), CancellationToken.NONE, null, java.time.Clock.systemUTC(), GenerationLogging(LoggingMode.DEVELOPMENT)) to DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED
+        )) {
+            val bytes = ByteArrayOutputStream()
+            val error = assertThrows(GenerationException::class.java) { provider.diagnoseDocument(request("{broken"), bytes, context, true) }
+            assertEquals(expected, error.diagnostics.first().code)
+            assertEquals(0, bytes.size())
+        }
+        val executor = java.util.concurrent.Executors.newFixedThreadPool(4)
+        try {
+            executor.invokeAll((1..4).map { id -> java.util.concurrent.Callable {
+                val bytes = ByteArrayOutputStream()
+                provider.diagnoseDocument(request("{broken$id"), bytes, GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT)), true)
+                val xml = ZipInputStream(bytes.toByteArray().inputStream()).use { zip -> generateSequence { zip.nextEntry }
+                    .map { it.name to zip.readBytes().decodeToString() }.toMap().getValue("word/document.xml") }
+                assertTrue(xml.contains("{broken$id"))
+                for (other in 1..4) if (id != other) assertFalse(xml.contains("{broken$other"))
+            } }).forEach { it.get() }
+        } finally { executor.shutdownNow() }
+    }
+
+    @Test fun `failure inspection refuses to label a successful document as failed`() {
+        val output = ByteArrayOutputStream()
+        val request = GenerationRequest(template("Hello {name}").inputStream(),
+            GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.PDF, mapOf("profile" to "standard"))), mapOf("name" to "Ada"))
+        val error = assertThrows(GenerationException::class.java) {
+            provider().diagnoseDocument(request, output, GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT)), false)
+        }
+        assertEquals(RejectionReason.DOCUMENT_DIAGNOSTIC_REQUIRES_FAILURE, error.diagnostics.first().rejectionReason)
+        assertEquals(0, output.size())
+    }
+
 }

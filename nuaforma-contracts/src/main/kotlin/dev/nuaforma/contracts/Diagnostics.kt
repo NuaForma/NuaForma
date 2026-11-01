@@ -37,15 +37,19 @@ class Diagnostic @JvmOverloads constructor(
         private set
     var documentLocation: String? = null
         private set
+    var sourceContext: DocumentSourceContext? = null
+        private set
 
     /** Trusted adapters may enrich a diagnostic without changing existing constructor descriptors. */
     fun withTemplateContext(value: TemplateErrorContext?): Diagnostic = copy().also { it.templateContext = value }
     fun withDocumentLocation(value: String?): Diagnostic = copy().also { it.documentLocation = value }
+    fun withSourceContext(value: DocumentSourceContext?): Diagnostic = copy().also { it.sourceContext = value }
 
     private fun copy(): Diagnostic = (rejectionReason?.let { Diagnostic(code, it, severity, location, part) }
         ?: Diagnostic(code, message, severity, location)).also {
         it.templateContext = templateContext
         it.documentLocation = documentLocation
+        it.sourceContext = sourceContext
     }
 
     /** Additive structured explanation; original String constructors retain their JVM descriptors. */

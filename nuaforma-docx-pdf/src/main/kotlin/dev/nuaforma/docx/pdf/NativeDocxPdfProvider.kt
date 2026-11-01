@@ -19,7 +19,7 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
     pipes: List<ContentPipe> = emptyList(),
     private val valuePipes: TemplatePipes = TemplatePipes.discover(),
 ) :
-    DocumentProvider, ProviderReadiness, FontCatalogProvider, ConformancePolicyProvider, TemplatePipeProvider, ContentPipeProvider, TemplateDiagnosticProvider {
+    DocumentProvider, ProviderReadiness, FontCatalogProvider, ConformancePolicyProvider, TemplatePipeProvider, ContentPipeProvider, TemplateDiagnosticProvider, DocumentDiagnosticProvider {
     private val deploymentFonts = DeploymentFonts.configured()
     private val pipes = pipes.map { implementation ->
         val definition = implementation.definition
@@ -112,7 +112,41 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
 
     override fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext): GenerationResult = render(request, output, context, false)
 
-    private fun render(request: GenerationRequest, output: OutputStream, context: GenerationContext, diagnostic: Boolean): GenerationResult {
+    override fun diagnoseDocument(request: GenerationRequest, output: OutputStream, context: GenerationContext, preview: Boolean): GenerationResult {
+        if (context.logging.mode != LoggingMode.DEVELOPMENT) fail(DiagnosticCodes.UNSUPPORTED_OPTION, RejectionReason.TEMPLATE_DIAGNOSTICS_REQUIRE_DEVELOPMENT)
+        val source = BoundedBuffer(context.limits.maxTemplateBytes, context)
+        val buffer = ByteArray(8192)
+        while (true) {
+            context.checkActive()
+            val count = request.template.read(buffer)
+            if (count < 0) break
+            source.write(buffer, 0, count)
+        }
+        val original = source.toByteArray()
+        var prepared: ByteArray? = null
+        var problem: Diagnostic? = null
+        if (!preview) {
+            try {
+                render(GenerationRequest(original.inputStream(), request.requirements, request.data, request.resources),
+                    BoundedBuffer(context.limits.maxOutputBytes, context), context, false) { prepared = it }
+            } catch (error: GenerationException) {
+                if (error.diagnostics.any { it.code in setOf(DiagnosticCodes.CANCELLED, DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED) }) throw error
+                problem = error.diagnostics.first()
+            }
+            if (problem == null) fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.DOCUMENT_DIAGNOSTIC_REQUIRES_FAILURE)
+        }
+        val input = prepared ?: original
+        val requirements = GenerationRequirements(request.requirements.input, FormatRequest(DocumentFormat.DOCX),
+            GenerationOptions(locale = request.requirements.options.locale, timeZone = request.requirements.options.timeZone))
+        val inspection = GenerationRequest(input.inputStream(), requirements, request.data, request.resources)
+        if (problem?.code == DiagnosticCodes.INVALID_TEMPLATE && problem.location?.startsWith("template:") == true && prepared == null) {
+            docx.diagnosticCopy(inspection, output, context, "Arial")
+        } else docx.inspectionCopy(inspection, output, context, problem, preview)
+        return GenerationResult(FormatRequest(DocumentFormat.DOCX))
+    }
+
+    private fun render(request: GenerationRequest, output: OutputStream, context: GenerationContext, diagnostic: Boolean,
+        onPrepared: ((ByteArray) -> Unit)? = null): GenerationResult {
         context.checkActive()
         val assessment = assess(request.requirements, context)
         if (assessment.status != AssessmentStatus.SUPPORTED) throw GenerationException(assessment.diagnostics)
@@ -134,6 +168,7 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
                 processor.diagnosticCopy(intermediate, filled, context, family)
                 null
             } else processor.generateForConversion(intermediate, filled, context)
+            onPrepared?.invoke(filled.toByteArray())
             val intermediateSize = filled.size()
             fun fontReference(family: String, bold: Boolean, italic: Boolean): String {
                 val face = when { bold && italic -> "boldItalic"; bold -> "bold"; italic -> "italic"; else -> "regular" }
@@ -185,7 +220,8 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
             throw GenerationException(listOf(Diagnostic(code, RejectionReason.NATIVE_PDF_RENDER_REJECTED)), error)
         } catch (error: NativeDocxReadException) {
             throw GenerationException(listOf(Diagnostic(DiagnosticCodes.UNSUPPORTED_INPUT,
-                RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED, location = "ooxml", part = error.part.takeIf { it != "package" })), error)
+                RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED, location = error.location, part = error.part.takeIf { it != "package" })
+                .withDocumentLocation(error.documentLocation).withSourceContext(error.sourceContext)), error)
         } catch (_: IllegalArgumentException) {
             fail(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED)
         } finally { configuration.admission.release() }

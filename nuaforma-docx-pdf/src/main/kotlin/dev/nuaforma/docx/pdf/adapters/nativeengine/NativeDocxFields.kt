@@ -68,11 +68,12 @@ internal object NativeDocxFields {
     }
 
     /** Collapse only complete complex fields; a multi-paragraph field must be a standalone TOC. */
-    fun normalize(root: XmlElement, fail: (String) -> Nothing) {
+    fun normalize(root: XmlElement, fail: (String) -> Nothing, focus: (XmlElement) -> Unit = {}) {
         fun value(node: XmlElement, name: String) = node.attribute(W, name)
         fun local(node: XmlElement, name: String) = node.name.namespaceURI == W && node.name.localPart == name
         fun control(node: XmlElement): XmlElement? = if (local(node, "r")) node.elements().singleOrNull { local(it, "fldChar") } else null
         fun validateControl(run: XmlElement, marker: XmlElement): String {
+            focus(marker)
             if (run.elements().any { it !== marker && !local(it, "rPr") } || marker.elements().isNotEmpty() ||
                 marker.attributes.keys.any { it.namespaceURI != W || it.localPart !in setOf("fldCharType", "dirty", "fldLock") } ||
                 value(marker, "fldLock") !in setOf(null, "0", "false", "off")) fail("Unsupported field control")
@@ -81,6 +82,7 @@ internal object NativeDocxFields {
         }
         // A Word-generated TOC can be wrapped in its identified built-in content control.
         for (parent in root.descendants().toList()) for (node in parent.elements().toList()) if (local(node, "sdt")) {
+            focus(node)
             val properties = node.elements().singleOrNull { local(it, "sdtPr") }
             val gallery = properties?.descendants()?.singleOrNull { local(it, "docPartGallery") }?.let { value(it, "val") }
             if (gallery != "Table of Contents") continue // Other controls remain visible to the rejecting reader.
@@ -114,9 +116,11 @@ internal object NativeDocxFields {
             var multi = false
             for (paragraph in container.elements().toList()) {
                 if (!local(paragraph, "p")) { if (depth != 0) fail("Field crosses a structural boundary"); continue }
+                focus(paragraph)
                 val output = mutableListOf<dev.nuaforma.docx.pdf.adapters.ooxml.XmlNode>()
                 if (depth != 0) multi = true
                 for (node in paragraph.children) {
+                    if (node is XmlElement) focus(node)
                     if (node !is XmlElement) { if (depth == 0) output += node; continue }
                     if (local(node, "pPr")) { output += node; continue }
                     val marker = control(node)
