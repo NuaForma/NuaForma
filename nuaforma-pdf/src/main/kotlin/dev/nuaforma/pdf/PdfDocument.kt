@@ -240,19 +240,38 @@ data class PdfPageNumber(override val style: PdfTextStyle) : PdfPageField
 data class PdfPageCount(override val style: PdfTextStyle) : PdfPageField
 data class PdfSequencePageCount(override val style: PdfTextStyle) : PdfPageField
 
-class PdfParagraph @JvmOverloads constructor(
+class PdfParagraph private constructor(
     runs: List<PdfInline>,
-    val spaceBefore: Float = 0f,
-    val spaceAfter: Float = 8f,
-    val format: PdfParagraphFormat = PdfParagraphFormat(),
-    val listLabel: PdfListLabel? = null,
-    anchoredImages: List<PdfAnchoredImage> = emptyList(),
-    override val semantics: PdfBlockSemantics? = null,
-    val contents: PdfContents? = null,
+    val spaceBefore: Float,
+    val spaceAfter: Float,
+    val format: PdfParagraphFormat,
+    val listLabel: PdfListLabel?,
+    anchoredImages: List<PdfAnchoredImage>,
+    override val semantics: PdfBlockSemantics?,
+    val contents: PdfContents?,
+    decoration: Decoration,
 ) : PdfBlock {
+    private class Decoration(val borders: PdfParagraphBorders?, val lines: List<PdfLineDrawing>)
+    /** Original constructors and Kotlin default-argument bridge remain binary compatible. */
+    @JvmOverloads constructor(runs: List<PdfInline>, spaceBefore: Float = 0f, spaceAfter: Float = 8f,
+        format: PdfParagraphFormat = PdfParagraphFormat(), listLabel: PdfListLabel? = null,
+        anchoredImages: List<PdfAnchoredImage> = emptyList(), semantics: PdfBlockSemantics? = null, contents: PdfContents? = null,
+    ) : this(runs, spaceBefore, spaceAfter, format, listLabel, anchoredImages, semantics, contents, Decoration(null, emptyList()))
+
+    @JvmOverloads constructor(runs: List<PdfInline>, spaceBefore: Float = 0f, spaceAfter: Float = 8f,
+        format: PdfParagraphFormat = PdfParagraphFormat(), listLabel: PdfListLabel? = null,
+        anchoredImages: List<PdfAnchoredImage> = emptyList(), semantics: PdfBlockSemantics? = null, contents: PdfContents? = null,
+        borders: PdfParagraphBorders?, lines: List<PdfLineDrawing> = emptyList(),
+    ) : this(runs, spaceBefore, spaceAfter, format, listLabel, anchoredImages, semantics, contents, Decoration(borders, lines))
+
+    val borders: PdfParagraphBorders? = decoration.borders
+
     val runs: List<PdfInline> = Collections.unmodifiableList(ArrayList(runs))
     val anchoredImages: List<PdfAnchoredImage> = Collections.unmodifiableList(ArrayList(anchoredImages))
+    val lines: List<PdfLineDrawing> = Collections.unmodifiableList(ArrayList(decoration.lines))
     init {
+        require(this.lines.size <= 32) { "Paragraph line budget exceeded" }
+        require(contents == null || borders == null && this.lines.isEmpty()) { "Contents markers cannot hide decorations" }
         require(this.anchoredImages.size <= 8) { "Anchored image budget exceeded" }
         require(this.runs.size in 1..1_000) { "A paragraph needs 1 to 1000 runs" }
         require(this.runs.count { it is PdfTab } <= 32) { "Paragraph tab budget exceeded" }

@@ -100,17 +100,21 @@ class TemplateSocketTest {
                         assertFalse(diagnostic.has("expression"))
                         assertTrue(captured.none { it.text.contains("trim(name,)") })
                     }
-                    val borderSource = "Before</w:t></w:r></w:p><w:p><w:pPr><w:pBdr><w:bottom w:val=\"single\"/></w:pBdr></w:pPr><w:r><w:rPr><w:rFonts w:ascii=\"Liberation Sans\" w:hAnsi=\"Liberation Sans\"/></w:rPr><w:t>Border target"
-                    val borderFailure = send(borderSource)
-                    assertEquals(422, borderFailure.statusCode())
-                    val borderDiagnostic = com.fasterxml.jackson.databind.ObjectMapper().readTree(borderFailure.body()).path("diagnostics").first()
+                    val lineSource = "Before</w:t></w:r></w:p><w:p><w:pPr><w:pBdr><w:bottom w:val=\"single\"/></w:pBdr></w:pPr><w:r><w:rPr><w:rFonts w:ascii=\"Liberation Sans\" w:hAnsi=\"Liberation Sans\"/></w:rPr><w:t>Border target"
+                    val lineOutput = send(lineSource)
+                    assertEquals(200, lineOutput.statusCode())
+                    Loader.loadPDF(lineOutput.body()).use { assertTrue(PDFTextStripper().getText(it).contains("Border target")) }
+                    val shadingSource = "Before</w:t></w:r></w:p><w:p><w:pPr><w:shd w:fill=\"008B90\"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii=\"Liberation Sans\" w:hAnsi=\"Liberation Sans\"/></w:rPr><w:t>Shading target"
+                    val shadingFailure = send(shadingSource)
+                    assertEquals(422, shadingFailure.statusCode())
+                    val shadingDiagnostic = com.fasterxml.jackson.databind.ObjectMapper().readTree(shadingFailure.body()).path("diagnostics").first()
                     if (mode == LoggingMode.DEVELOPMENT) {
-                        assertEquals("w:pBdr", borderDiagnostic.path("sourceConstruct").asText())
-                        assertEquals("paragraph:2", borderDiagnostic.path("documentLocation").asText())
-                        assertEquals("Border target", borderDiagnostic.path("sourceExcerpt").asText())
-                        val fallback = send(borderSource, "/api/v1/diagnostics/document")
+                        assertEquals("w:shd", shadingDiagnostic.path("sourceConstruct").asText())
+                        assertEquals("paragraph:2", shadingDiagnostic.path("documentLocation").asText())
+                        assertEquals("Shading target", shadingDiagnostic.path("sourceExcerpt").asText())
+                        val fallback = send(shadingSource, "/api/v1/diagnostics/document")
                         assertEquals(200, fallback.statusCode(), fallback.body().decodeToString())
-                    } else assertFalse(borderDiagnostic.has("sourceExcerpt"))
+                    } else assertFalse(shadingDiagnostic.has("sourceExcerpt"))
                     val docxInspection = send("Prefix {broken", "/api/v1/diagnostics/document")
                     val recovery = send("Hello {name}</w:t></w:r></w:p><w:p><w:r><w:t>Broken {name", "/api/v1/diagnostics/document?preview=true")
                     if (mode == LoggingMode.DEVELOPMENT) {

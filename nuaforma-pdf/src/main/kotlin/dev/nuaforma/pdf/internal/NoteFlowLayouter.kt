@@ -18,7 +18,11 @@ internal object NoteFlowLayouter {
         var closed = false
         var endnotes: PdfNoteSeparator? = null
         val measured = java.util.IdentityHashMap<PdfParagraph, FlowLayouter.MeasuredParagraph>()
-        fun paragraph(p: PdfParagraph) = measured.getOrPut(p) { FlowLayouter.paragraph(p, width, measurer) }
+        val neighbors = java.util.IdentityHashMap<PdfParagraph, Pair<PdfParagraph?, PdfParagraph?>>()
+        fun index(values: List<PdfParagraph>) { values.forEachIndexed { n, p -> neighbors[p] = values.getOrNull(n - 1) to values.getOrNull(n + 1) } }
+        document.blocks.forEachIndexed { n, b -> if (b is PdfParagraph) neighbors[b] = (document.blocks.getOrNull(n - 1) as? PdfParagraph) to (document.blocks.getOrNull(n + 1) as? PdfParagraph) }
+        document.notes.forEach { index(it.paragraphs) }
+        fun paragraph(p: PdfParagraph) = measured.getOrPut(p) { FlowLayouter.paragraph(p, width, measurer, previous = neighbors[p]?.first, next = neighbors[p]?.second) }
         fun closePage() { if (!closed) { notes.finish(pages.last()); closed = true } }
         fun nextPage() {
             closePage()
@@ -49,7 +53,7 @@ internal object NoteFlowLayouter {
             item.startNotes?.let { policy ->
                 val first = paragraph(ends.first().paragraphs.first())
                 val count = protectedStart(first)
-                reserve(policy.height + first.paragraph.spaceBefore + count * first.lineHeight, emptySet())
+                reserve(policy.height + first.paragraph.spaceBefore + first.height(0, count), emptySet())
                 endnotes = policy
                 FootnoteFlow.separator(policy, false, page, top, pages.last()); top += policy.height; after = 0f
             }
@@ -98,7 +102,7 @@ internal object NoteFlowLayouter {
                         val lines = p.lines.subList(consumed, consumed + count)
                         val gap = if (consumed == 0) before else 0f
                         val trailing = if (consumed + count == p.lines.size) block.spaceAfter else 0f
-                        if (!notes.accept(top + gap + count * p.lineHeight + trailing, lines.flatMap { NoteResolver.callIds(it) }.toSet())) {
+                        if (!notes.accept(top + gap + p.height(consumed, consumed + count) + trailing, lines.flatMap { NoteResolver.callIds(it) }.toSet())) {
                             if (bodyItems == 0 && !notes.hasPending) overflow()
                             nextPage(); before = 0f
                             // Recompute the protected start before any reservation is committed.
@@ -106,7 +110,7 @@ internal object NoteFlowLayouter {
                             continue
                         }
                         top += gap
-                        repeat(count) { FlowLayouter.placeLine(p.lines[consumed++], page.margins.left, top, pages.last()); top += p.lineHeight; bodyItems++ }
+                        repeat(count) { FlowLayouter.placeLine(p.lines[consumed], page.margins.left, top, pages.last()); top += p.heights[consumed++]; bodyItems++ }
                         onPage += count
                     }
                     top += block.spaceAfter; after = block.spaceAfter
@@ -166,7 +170,7 @@ internal object NoteFlowLayouter {
         endnotes = null
         closePage()
         while (notes.hasPending) { nextPage(); closePage() }
-        return pages.map { PageLayout(page, it.toList()) }
+        return pages.map { PageLayout(page, ParagraphLines.connect(it)) }
     }
 
     private fun protectedStart(p: FlowLayouter.MeasuredParagraph): Int = when {

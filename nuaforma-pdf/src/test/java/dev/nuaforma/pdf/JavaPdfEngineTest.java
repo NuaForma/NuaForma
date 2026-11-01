@@ -10,6 +10,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class JavaPdfEngineTest {
     @Test
+    void javaCallerCanAddParagraphBordersAndLineDrawings() throws IOException {
+        var stroke = new PdfLineStroke(1.5f, new PdfColor(0, 139, 144), PdfLineStyle.DASHED);
+        var borders = new PdfParagraphBorders(null, null, new PdfParagraphEdge(stroke, 4));
+        var line = new PdfLineDrawing(20, 30, 180, 30, stroke);
+        var paragraph = new PdfParagraph(List.of(new PdfTextRun("Java lines", new PdfTextStyle("regular", 11))),
+            0, 35, new PdfParagraphFormat(PdfAlignment.LEFT, 0, 0, 0, 16f), null, List.of(), null, null, borders, List.of(line));
+        byte[] font;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            font = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        try (var pdf = Loader.loadPDF(new PdfEngine().render(new PdfDocument(new PdfPage(240, 180,
+                new PdfMargins(20, 20, 20, 20)), List.of(paragraph)), List.of(new PdfFont("regular", font))))) {
+            assertEquals("Java lines", new PDFTextStripper().getText(pdf).trim());
+        }
+    }
+    @Test
     void javaCallerCanRenderContentsAndSymbolicCaptionReferences() throws IOException {
         var style = new PdfTextStyle("regular", 11);
         var format = new PdfParagraphFormat(PdfAlignment.LEFT, 0, 0, 0, 14f);

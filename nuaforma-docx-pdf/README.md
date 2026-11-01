@@ -44,6 +44,8 @@ Only exact `true` or `false` is accepted for the trusted `nuaforma.pdf.pdfaValid
 
 ## Qualification and references
 
+Unreleased #172 adds [paragraph borders and passive drawn lines](../tools/pdf-evaluation/own-engine/LINES.md), including inherited automatic paragraph rules, connected frames and opaque VML/DrawingML strokes in body/table/page-band paragraphs. The guide defines the qualified styles and positioning limits. This does not add arbitrary shape, wrapping-line or theme-effect support; published alpha.5 is unchanged.
+
 The engine's reviewed golden files and Word-export comparison documents remain protected references. Native adapter tests additionally exercise template expansion, a Word-saved DOCX, branding/fonts, page layout, actual independent validation, limits, concurrency and recovery. LibreOffice-specific orchestration helpers have moved out of production sources into test-only historical comparisons; their tests do not qualify the native backend.
 
 The [registered-provider integration trials](../tools/pdf-evaluation/own-engine/NATIVE-INTEGRATION.md) retain six new Word-matched pages, including an 80-row conditional report, with per-page content/geometry results and visual review.

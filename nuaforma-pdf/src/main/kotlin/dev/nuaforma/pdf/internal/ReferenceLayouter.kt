@@ -91,7 +91,7 @@ internal object ReferenceLayouter {
                 is PdfSequenceField -> PdfTextRun(values.getValue(run.id), run.style, navigation(run.navigation, null, run.id), PdfSpanSemantics(run.id, PdfSemanticRole.LABEL))
                 else -> run
             } }
-            listOf(PdfParagraph(runs, p.spaceBefore, p.spaceAfter, p.format, p.listLabel, p.anchoredImages, p.semantics, p.contents))
+            listOf(PdfParagraph(runs, p.spaceBefore, p.spaceAfter, p.format, p.listLabel, p.anchoredImages, p.semantics, p.contents, p.borders, p.lines))
         }
         val headings = DocumentTransforms.bodyParagraphs(resolved).mapNotNull { p ->
             val semantic = requireNotNull(p.semantics)
@@ -127,7 +127,7 @@ internal object ReferenceLayouter {
                 } else run
             }
             if (!attached) unsupported("A navigation target requires visible text")
-            return PdfParagraph(runs, p.spaceBefore, p.spaceAfter, p.format, p.listLabel, p.anchoredImages, p.semantics)
+            return PdfParagraph(runs, p.spaceBefore, p.spaceAfter, p.format, p.listLabel, p.anchoredImages, p.semantics, p.contents, p.borders, p.lines)
         }
         val output = DocumentTransforms.map(resolved) { p, path, _ ->
             val contents = p.contents

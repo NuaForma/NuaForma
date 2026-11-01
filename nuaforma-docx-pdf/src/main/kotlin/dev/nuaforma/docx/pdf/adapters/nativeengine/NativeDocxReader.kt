@@ -26,6 +26,7 @@ internal class NativeDocxReader(
     private var activePart = "package"
     private val source = NativeDocxSource(context)
     private val parsed = linkedMapOf<String, XmlElement>()
+    private val lineReader = NativeDocxLines({ node -> source.current = node; activePart = provenance[node] ?: activePart }, ::reject)
     private fun parse(bytes: ByteArray, part: String): XmlElement {
         activePart = part
         return parsed.getOrPut(part) { xml.read(bytes).also { root ->
@@ -248,6 +249,7 @@ internal class NativeDocxReader(
             context.checkActive()
             crossParagraphBookmarks += openBookmarks.mapNotNull { bookmarkNames[it] }
             val logicalId = "source-p${paragraphCounter++}"
+            val lineDrawings = mutableListOf<PdfLineDrawing>()
             children(paragraph, setOf("pPr", "r", "fldSimple", "hyperlink", "bookmarkStart", "bookmarkEnd"))
             val direct = paragraph.one("pPr")
             val styleChain = chain(direct?.one("pStyle")?.value("val") ?: normal, "paragraph")
@@ -329,11 +331,11 @@ internal class NativeDocxReader(
                     if (kind == PdfReferenceKind.TEXT) textReferences += requireNotNull(target)
                     return listOf(PdfReferenceField(id, kind, style, target, instruction.linked, navigation))
                 }
-                children(run, setOf("rPr", "t", "tab", "drawing", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
+                children(run, setOf("rPr", "t", "tab", "drawing", "pict", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
                 val face = faceFor(run.one("rPr"))
                 val contents = run.elements().filter { it.name.localPart != "rPr" }
                 check(contents.isNotEmpty(), "Each proof run needs content")
-                return contents.map { item -> when (item.name.localPart) {
+                return contents.mapNotNull { item -> when (item.name.localPart) {
                     "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef" -> {
                         val kind = if (item.name.localPart.startsWith("foot")) PdfNoteKind.FOOTNOTE else PdfNoteKind.ENDNOTE
                         val owning = item.name.localPart.endsWith("Reference")
@@ -367,7 +369,11 @@ internal class NativeDocxReader(
                         PdfTextRun(text.ifEmpty { " " }, textStyle(face), navigation)
                     }
                     "tab" -> { check(link == null, "Linked tabs are not qualified"); attributes(item, emptySet()); check(item.elements().isEmpty(), "Invalid tab control"); PdfTab(textStyle(face)) }
-                    "drawing" -> { check(link == null && pendingDestinations.isEmpty() && !face.underline && !face.strikethrough, "Navigation or text decorations on pictures are not qualified"); PdfImageRun(image(item, partRelations, parts)) }
+                    "pict", "drawing" -> { if (lineReader.isLine(item)) {
+                        check(link == null && pendingDestinations.isEmpty(), "Navigation on drawn lines is not qualified")
+                        check(lineDrawings.size < 32, "Paragraph line budget exceeded")
+                        lineDrawings += lineReader.drawing(item, page); null
+                    } else { check(link == null && pendingDestinations.isEmpty() && !face.underline && !face.strikethrough, "Navigation or text decorations on pictures are not qualified"); PdfImageRun(image(item, partRelations, parts)) } }
                     else -> reject("Unsupported run content")
                 } }
             }
@@ -429,7 +435,7 @@ internal class NativeDocxReader(
                     geometry.outline != null -> PdfSemanticRole.HEADING
                     styleChain.any { it.value("styleId").equals("Caption", true) || it.one("name")?.value("val").equals("caption", true) } -> PdfSemanticRole.CAPTION
                     else -> PdfSemanticRole.PARAGRAPH
-                }, geometry.outline), contents = contents)
+                }, geometry.outline), contents = contents, borders = geometry.borders, lines = lineDrawings)
         }
         fun readTable(table: XmlElement, partRelations: Map<String, String>, fields: Boolean, depth: Int = 0): PdfTable {
             source.current = table
@@ -740,7 +746,7 @@ internal class NativeDocxReader(
         fun readBlocks(root: XmlElement, partRelations: Map<String, String>, fields: Boolean): List<PdfBlock> = root.elements().filter { it.name.localPart != "sectPr" }.flatMap { block ->
             when (block.name.localPart) {
                 "p" -> {
-                    val frames = block.elements().filter { it.name.localPart == "r" }.flatMap { it.elements().filter { node -> node.name.namespaceURI == word && (node.name.localPart == "pict" || node.name.localPart == "drawing" && node.elements().any { it.name.namespaceURI == wp && it.name.localPart == "anchor" }) } }
+                    val frames = block.elements().filter { it.name.localPart == "r" }.flatMap { it.elements().filter { node -> node.name.namespaceURI == word && !lineReader.isLine(node) && (node.name.localPart == "pict" || node.name.localPart == "drawing" && node.elements().any { it.name.namespaceURI == wp && it.name.localPart == "anchor" }) } }
                     check(frames.isEmpty() || !fields, "Frames in page bands are outside this profile")
                     val plain = XmlElement(block.name, block.attributes, block.namespaces)
                     plain.children += block.children.mapNotNull { child ->
@@ -759,7 +765,7 @@ internal class NativeDocxReader(
                     val paragraph = readParagraph(plain, partRelations, fields)
                     boxes.map { if (it.name.localPart == "pict") readBox(it, partRelations) else readDrawingBox(it, partRelations) } +
                         PdfParagraph(paragraph.runs, paragraph.spaceBefore, paragraph.spaceAfter, paragraph.format, paragraph.listLabel,
-                            images.map { readAnchoredImage(it, partRelations) }, paragraph.semantics, paragraph.contents)
+                            images.map { readAnchoredImage(it, partRelations) }, paragraph.semantics, paragraph.contents, paragraph.borders, paragraph.lines)
                 }
                 "tbl" -> listOf(readTable(block, partRelations, fields))
                 else -> reject("Unsupported block")
@@ -898,11 +904,12 @@ internal class NativeDocxReader(
 
     private data class Geometry(val before: Float = 0f, val after: Float = 0f, val line: Float? = null,
         val alignment: PdfAlignment = PdfAlignment.LEFT, val left: Float = 0f, val right: Float = 0f, val first: Float = 0f,
-        val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false, val direction: PdfTextDirection? = null)
+        val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false, val direction: PdfTextDirection? = null, val borders: PdfParagraphBorders? = null)
 
     private fun paragraphProperties(property: XmlElement, initial: Geometry): Geometry {
-        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs"))
+        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr"))
         var result = initial
+        property.one("pBdr")?.let { result = result.copy(borders = lineReader.borders(it, result.borders)) }
         fun flag(node: XmlElement): Boolean {
             attributes(node, setOf("val"))
             return when (node.value("val")) { null, "true", "1", "on" -> true; "false", "0", "off" -> false; else -> reject("Invalid paragraph toggle") }

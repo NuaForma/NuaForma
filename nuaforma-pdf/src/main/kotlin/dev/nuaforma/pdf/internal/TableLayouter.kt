@@ -35,17 +35,17 @@ internal object TableLayouter {
             val pieces = mutableListOf<Piece>()
             var top = 0f
             var after = 0f
-            for (block in placement.cell.blocks) {
+            for ((blockIndex, block) in placement.cell.blocks.withIndex()) {
                 when (block) {
                     is PdfParagraph -> {
                         if (block.format.keepWithNext || block.format.keepLines || block.format.widowControl || block.format.pageBreakBefore) {
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph pagination rules inside table cells are not qualified")
                         }
-                        val p = FlowLayouter.paragraph(block, width, measurer)
+                        val p = FlowLayouter.paragraph(block, width, measurer, previous = placement.cell.blocks.getOrNull(blockIndex - 1) as? PdfParagraph, next = placement.cell.blocks.getOrNull(blockIndex + 1) as? PdfParagraph)
                         top += if (block.format.collapseSpacing) maxOf(0f, block.spaceBefore - after) else block.spaceBefore
-                        for (line in p.lines) {
-                            pieces += Piece(top, p.lineHeight, line)
-                            top += p.lineHeight
+                        for ((index, line) in p.lines.withIndex()) {
+                            pieces += Piece(top, p.heights[index], line)
+                            top += p.heights[index]
                         }
                         top += block.spaceAfter
                         after = block.spaceAfter
@@ -172,6 +172,7 @@ internal object TableLayouter {
     }
 
     private fun translate(element: PositionedElement, x: Float, y: Float): PositionedElement = when (element) {
+        is PositionedStroke -> FlowLayouter.translate(element, x, y)
         is PositionedText -> element.copy(x = element.x + x, baseline = element.baseline + y)
         is PositionedImage -> element.copy(x = element.x + x, top = element.top + y)
         is PositionedRectangle -> element.copy(x = element.x + x, top = element.top + y)
