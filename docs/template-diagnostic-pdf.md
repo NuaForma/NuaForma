@@ -15,7 +15,9 @@ Package checks, native profile restrictions, font policy, admission, byte/work l
 Source fix #154 excludes Word hidden text from syntax activation and omits it from the private PDF intermediary. Only a visible parser error can create the diagnostic; a template with only hidden errors is valid for syntax inspection and does not produce a diagnostic PDF. See the DOCX visibility rules for inherited styles, overrides and unsupported conditional table visibility. This does not establish the cause or resolution of an unrelated DOCX serialization failure.
 
 
-## Source diagnostics and DOCX inspection (unreleased #170)
+<a id="source-diagnostics-and-docx-inspection-unreleased-170"></a>
+
+## Source diagnostics and DOCX inspection (alpha.6)
 
 Current source adds development-only source details for native conversion rejections: `sourceExplanation`, `sourceConstruct`, `sourcePath` and a bounded, secret-aware `sourceExcerpt`. `part` identifies the logical DOCX part; `documentLocation` counts paragraphs from one within that part, including table cells. Indexed XML paths identify tables (`w:tbl`), rows (`w:tr`), cells (`w:tc`) and properties. XML line/column coordinates refer to the private serialized conversion copy, not Word pages or the original ZIP byte offset. Styles/settings can fail without a paragraph; the diagnostic reports their actual part/path rather than inventing a page or paragraph. Original Word page numbers cannot be established when layout fails. Block-level excerpts come from that rejected block, not an unrelated first paragraph. Legacy/unmapped checks still report their concrete application-owned rejection reason, but omit unavailable coordinates instead of inventing a source node.
 
@@ -25,4 +27,4 @@ The Playground offers **Download marked DOCX** after failed generation. `POST /a
 
 Both inspection modes return DOCX with `NuaForma-Diagnostic-Artifact: document-error`, `Cache-Control: no-store` and `nosniff`; routes are absent in production. The browser resends the captured failed upload, not subsequently edited builder state. Original diagnostics remain visible. Source excerpts and coordinates are exposed in development responses and development trace logging only; production retains restricted diagnostics. Copies contain private source/data, so protect development instances and downloaded documents.
 
-Contract 0.8 adds `DocumentDiagnosticProvider.diagnoseDocument` and immutable `DocumentSourceContext`, attached using copy-returning `Diagnostic.withSourceContext`. Existing JVM constructors and the PDF-only facet remain compatible. Built-in DOCX/PDF providers require 0.8; older compatible provider minima remain accepted. Published alpha.5 remains unchanged on contract 0.7; these additions need a subsequent release.
+Contract 0.8 adds `DocumentDiagnosticProvider.diagnoseDocument` and immutable `DocumentSourceContext`, attached using copy-returning `Diagnostic.withSourceContext`. Existing JVM constructors and the PDF-only facet remain compatible. Built-in DOCX/PDF providers require 0.8; older compatible provider minima remain accepted. The selected alpha.6 includes these additions. Earlier alpha.5 artifacts remain unchanged on contract 0.7.
