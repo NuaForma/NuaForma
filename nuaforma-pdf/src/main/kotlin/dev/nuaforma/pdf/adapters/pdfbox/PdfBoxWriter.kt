@@ -24,6 +24,7 @@ import java.nio.ByteOrder
 import org.apache.pdfbox.pdfwriter.compress.CompressParameters
 
 internal object PdfBoxWriter {
+
     fun render(document: PdfDocument, suppliedFonts: List<PdfFont>, options: PdfOutputOptions, control: PdfRenderControl, watermark: PdfWatermark?): ByteArray {
         control.checkActive()
         PDDocument().use { pdf ->
@@ -31,6 +32,7 @@ internal object PdfBoxWriter {
             ArchivalMetadata.apply(pdf, options)
             val navigation = PdfNavigationWriter(pdf)
             val lineMetrics = mutableMapOf<String, FloatArray>()
+            val fullBmpFonts = mutableSetOf<String>()
             val fonts = suppliedFonts.associate { resource ->
                 control.checkActive()
                 val bytes = resource.bytes()
@@ -41,36 +43,63 @@ internal object PdfBoxWriter {
                 } catch (_: IOException) {
                     fail(PdfFailureCode.INVALID_RESOURCE, "Cannot load the supplied TrueType font")
                 }
+                if (options.profile == PdfOutputProfile.PDFA_1B && resource.embedding == PdfFontEmbedding.FULL) {
+                    // PDFBox's full-font cmap includes unused supplementary characters and raises
+                    // the catalog to 1.5. Replace that cmap with used BMP clusters below; no font
+                    // outlines are removed. Undo only this known font-load version side effect.
+                    font.cosObject.removeItem(COSName.TO_UNICODE)
+                    if (pdf.version == 1.5f) pdf.documentCatalog.version = "1.4"
+                    fullBmpFonts += resource.id
+                }
                 resource.id to font
             }
-            val measurer = TextMeasurer { text, style ->
+            val shaper = FontShaper(suppliedFonts, fonts, control)
+            val encoding = GlyphEncoding(fonts, { shaper.enabled(it) || it in fullBmpFonts }, control,
+                options.profile == PdfOutputProfile.PDFA_1B)
+            val measurer = object : TextMeasurer {
+
+              override fun measure(text: String, style: PdfTextStyle): TextMetrics {
                 control.checkActive()
                 val font = fonts[style.fontId] ?: fail(PdfFailureCode.FONT_UNAVAILABLE, "Referenced font is not supplied")
                 val width = try {
-                    font.getStringWidth(text) * style.size / 1000f
+                    if (style.fontFeatures.active) shaper.shape(text, style).advance else font.getStringWidth(text) * style.size / 1000f
                 } catch (_: IllegalArgumentException) {
                     fail(PdfFailureCode.MISSING_GLYPH, "The supplied font cannot encode requested text")
                 }
                 val box = font.fontDescriptor.fontBoundingBox
-                TextMetrics(width, maxOf(font.fontDescriptor.ascent, box.upperRightY) * style.size / 1000f + style.baselineShift,
+                return TextMetrics(width, maxOf(font.fontDescriptor.ascent, box.upperRightY) * style.size / 1000f + style.baselineShift,
                     maxOf(-font.fontDescriptor.descent, -box.lowerLeftY) * style.size / 1000f - style.baselineShift,
                     lineMetrics[style.fontId]?.get(0)?.times(style.size)?.plus(style.baselineShift) ?: Float.NaN,
                     lineMetrics[style.fontId]?.get(1)?.times(style.size)?.minus(style.baselineShift) ?: Float.NaN,
                     lineMetrics[style.fontId]?.get(2)?.times(style.size) ?: Float.NaN)
+              }
+
+              override fun gap(before: String, spaces: String, after: String, style: PdfTextStyle): TextMetrics {
+                val width = shaper.shape(before + spaces + after, style).advance - shaper.shape(before, style).advance - shaper.shape(after, style).advance
+                if (!width.isFinite() || width < 0) fail(PdfFailureCode.INVALID_RESOURCE, "Invalid contextual font spacing")
+                return measure(spaces, style).copy(width = width)
+              }
+
             }
             val composed = if (ReferenceLayouter.active(document)) ReferenceLayouter.layout(document, measurer, control)
                 else DocumentLayouter.plain(document, measurer, control)
             DocumentLayouter.validatePlacedLinks(composed)
             val layouts = composed.pages
+
             fun decorationSize(elements: List<PositionedElement>): Long = elements.sumOf { element -> when (element) {
                 is PositionedText -> if (element.decoration) element.text.length.toLong() else 0L
                 is PositionedBox -> decorationSize(element.elements)
                 else -> 0L
             } }
+
             if (layouts.sumOf { decorationSize(it.elements) } > 100_000) fail(PdfFailureCode.RESOURCE_LIMIT, "Generated leader budget exceeded")
+
             fun borderSize(elements: List<PositionedElement>): Int = elements.sumOf { when (it) { is PositionedTableBorder -> 1; is PositionedBox -> borderSize(it.elements); else -> 0 } }
+
             if (layouts.sumOf { borderSize(it.elements) } > 20_000) fail(PdfFailureCode.RESOURCE_LIMIT, "Table border budget exceeded")
+
             fun lineSize(elements: List<PositionedElement>): Int = elements.sumOf { when (it) { is PositionedStroke -> 1; is PositionedBox -> lineSize(it.elements); else -> 0 } }
+
             if (layouts.sumOf { lineSize(it.elements) } > 20_000) fail(PdfFailureCode.RESOURCE_LIMIT, "Vector line budget exceeded")
             val usedFonts = linkedSetOf<String>()
             val decoration = watermark?.let { requested ->
@@ -79,7 +108,9 @@ internal object PdfBoxWriter {
                     fail(PdfFailureCode.RESOURCE_LIMIT, "Watermark and document text exceed the cumulative budget")
                 val font = fonts[requested.fontId] ?: fail(PdfFailureCode.FONT_UNAVAILABLE, "Watermark font is not supplied")
                 usedFonts += requested.fontId
-                PdfWatermarkPainter(requested, font, minOf(400f, document.pageSequences.minOf { minOf(it.page.width, it.page.height) } * 0.65f))
+                PdfWatermarkPainter(requested, font, minOf(400f, document.pageSequences.minOf { minOf(it.page.width, it.page.height) } * 0.65f)) {
+                    encoding.normal(requested.fontId, it)
+                }
             }
             val images = java.util.IdentityHashMap<PdfImage, PDImageXObject>()
             var decodedImageBytes = 0L
@@ -91,10 +122,13 @@ internal object PdfBoxWriter {
                 page.setContents(content)
                 content.createOutputStream(COSName.FLATE_DECODE).use { stream ->
                     val writer = ContentStreamWriter(stream)
+
                     fun command(name: String, vararg operands: Any) {
                         writer.writeTokens(operands.toList() + Operator.getOperator(name))
                     }
+
                     fun number(value: Float) = COSFloat(value)
+
                     fun paint(elements: List<PositionedElement>, canvasHeight: Float, canvasWidth: Float) {
                         for (element in elements.sortedBy { when {
                             it is PositionedStroke -> when (it.layer) { StrokeLayer.FLOW -> 0; StrokeLayer.BACKGROUND -> -1; StrokeLayer.FOREGROUND -> 1 }
@@ -173,8 +207,16 @@ internal object PdfBoxWriter {
                                     command("Tf", page.resources.add(font), number(element.style.size))
                                     command("rg", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
                                     command("Tm", number(1f), number(0f), number(0f), number(1f), number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift)))
-                                    // Write the same qualified cmap glyphs used for measurement, without a second GSUB pass.
-                                    command("Tj", COSString(font.encode(element.text)))
+                                    if (element.style.fontFeatures.active) {
+                                        val shape = shaper.shape(element.text, element.style)
+                                        encoding.record(element.style.fontId, shape)
+                                        for (glyph in shape.glyphs) {
+                                            control.checkActive()
+                                            command("Tm", number(1f), number(0f), number(0f), number(1f), number(element.x + glyph.x),
+                                                number(canvasHeight - (element.baseline - element.style.baselineShift + glyph.y)))
+                                            command("Tj", COSString(encoding.glyph(element.style.fontId, glyph)))
+                                        }
+                                    } else command("Tj", COSString(encoding.normal(element.style.fontId, element.text)))
                                     command("ET")
                                     if (element.style.underline) {
                                         val metrics = lineMetrics[element.style.fontId]
@@ -232,12 +274,14 @@ internal object PdfBoxWriter {
                         val tableBorders = TableBorderLayouter.rectangles(elements, canvasWidth, canvasHeight)
                         if (tableBorders.isNotEmpty()) paint(tableBorders, canvasHeight, canvasWidth)
                     }
+
                     decoration?.paint(page, writer, layout.page.width, layout.page.height)
                     paint(layout.elements, layout.page.height, layout.page.width)
                 }
             }
             navigation.finish()
             usedFonts.map { fonts.getValue(it) }.filter { it.willBeSubset() }.forEach { it.subset() }
+            encoding.finish(pdf)
             val output = BoundedOutput(control)
             if (options.profile == PdfOutputProfile.PDFA_1B) pdf.save(output, CompressParameters.NO_COMPRESSION) else pdf.save(output)
             control.checkActive()
@@ -283,6 +327,7 @@ internal object PdfBoxWriter {
 
     private fun naturalMetrics(bytes: ByteArray): FloatArray? {
         val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN)
+
         fun table(tag: Int, minimum: Int): Int? {
             val entries = (0 until (buffer.getShort(4).toInt() and 65535)).filter { buffer.getInt(12 + it * 16) == tag }
             if (entries.size != 1) return null
@@ -290,6 +335,7 @@ internal object PdfBoxWriter {
             if (buffer.getInt(position + 12) < minimum) return null
             return buffer.getInt(position + 8)
         }
+
         val head = table(0x68656164, 20) ?: return null
         val hhea = table(0x68686561, 10) ?: return null
         val units = buffer.getShort(head + 18).toInt() and 65535
@@ -331,13 +377,18 @@ internal object PdfBoxWriter {
     }
 
     private class BoundedOutput(private val control: PdfRenderControl) : ByteArrayOutputStream() {
+
         override fun write(value: Int) { limit(1); super.write(value) }
+
         override fun write(bytes: ByteArray, offset: Int, length: Int) { limit(length); super.write(bytes, offset, length) }
+
         private fun limit(length: Int) {
             control.checkActive()
             if (length < 0 || length.toLong() > minOf(16_777_216L, control.maxOutputBytes) - count) fail(PdfFailureCode.RESOURCE_LIMIT, "PDF output byte budget exceeded")
         }
+
     }
 
     private fun fail(code: PdfFailureCode, message: String): Nothing = throw PdfRenderException(code, message)
+
 }

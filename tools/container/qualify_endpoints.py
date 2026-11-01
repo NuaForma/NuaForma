@@ -72,6 +72,14 @@ def main():
         verify_bom(bom, args.architecture, args.application)
         (args.output / 'sbom.json').write_bytes(data)
         qualify_template_links(runtime, base, args.output)
+        # Exercise caller-font OpenType shaping inside each real Java 25 image/architecture.
+        feature_source = pathlib.Path('nuaforma-docx-pdf/src/test/resources/font-features/modern-enabled/source.docx').read_bytes()
+        feature_font = pathlib.Path('nuaforma-pdf/src/test/resources/fonts/NotoSerif-Regular.ttf').read_bytes()
+        options = {'fontMode': 'validate', 'fonts': [{'family': 'Noto Serif', 'face': 'regular', 'resource': 'noto'}]}
+        status, _, feature_pdf = generate(base, 'pdf', feature_source, {}, options, {'noto': feature_font})
+        assert status == 200 and feature_pdf.startswith(b'%PDF-'), (status, feature_pdf[:2048])
+        (args.output / 'caller-font-opentype.pdf').write_bytes(feature_pdf)
+        runtime.clean()
         status, headers, body = http(base, '/playground/')
         if args.application == 'server':
             assert status == 404

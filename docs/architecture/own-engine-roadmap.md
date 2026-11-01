@@ -12,7 +12,14 @@ The approved own-engine execution direction is **in-process conversion within th
 
 ## Ordered parts
 
-Before the next alpha, the maintainer requires the effective-formatting follow-up [#184](https://github.com/NuaForma/NuaForma/issues/184): automatic paragraph spacing, mirrored paragraph indentation, conditional table formatting and requested kerning/OpenType features, in that order. Each increment needs actual Word-export comparison and regression qualification. This extends the bounded profiles of parts 4/9; recognizing passive metadata or compatibility permissions in [#182](https://github.com/NuaForma/NuaForma/issues/182) does not implement those dependent features. Finish the metadata/diagnostic fix and Playground favicon first. Do not prepare the next alpha as complete while #184 remains outstanding.
+The #184 source increment contains the four agreed formatting increments and a
+[33-case / 60-page Word reference matrix](../../tools/pdf-evaluation/own-engine/FORMATTING.md).
+Full-build, provider/container and CI qualification are required delivery gates;
+their results and the merge are recorded in the linked issue/PR. The metadata
+and Playground favicon prerequisites are already integrated through PR #185.
+The next release/version decision and publication remain separate from this source increment.
+
+Before the next alpha, verify delivery of the effective-formatting follow-up [#184](https://github.com/NuaForma/NuaForma/issues/184): automatic paragraph spacing, mirrored paragraph indentation, conditional table formatting and requested kerning/OpenType features, in that order. Each increment needs actual Word-export comparison and regression qualification. This extends the bounded profiles of parts 4/9; recognizing passive metadata or compatibility permissions in [#182](https://github.com/NuaForma/NuaForma/issues/182) alone does not implement those dependent features. The metadata/diagnostic fix and Playground favicon were integrated first through #185. Do not prepare the next alpha as complete while #184 remains outstanding.
 
 Parts 10–13, PDF/A level B and original-scope requested watermarks are qualified. The earlier alpha-complete claim omitted watermarks; PR #128 restores them before the selected `0.3.0-alpha.1`. Bubblewrap/custom host profiles are removed, with runtime default policies retained. The watermark source passes 863 JVM tests, five consumers, both native architectures and actual Sonar analysis. Exact versioned candidate checks, source/license materials, main promotion, publication and the matching website handoff remain release work. Broader international support, tagged/level A/UA output, drawings/review policy and ODT remain later extensions.
 

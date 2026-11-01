@@ -26,6 +26,7 @@ internal class ArchitecturePolicy {
         "jakarta.xml.bind" to "dev.nuaforma.docx.adapters.docx4j",
         "javax.imageio" to "dev.nuaforma.docx.adapters.imageio",
         "org.apache.pdfbox" to "dev.nuaforma.pdf.adapters.pdfbox",
+        "org.apache.fontbox" to "dev.nuaforma.pdf.adapters.pdfbox",
         "org.verapdf" to "dev.nuaforma.pdf.adapters.verapdf",
         "io.ktor" to "dev.nuaforma.server.adapters.ktor",
         "kotlinx.coroutines" to "dev.nuaforma.server.adapters.ktor",
@@ -60,7 +61,9 @@ internal class ArchitecturePolicy {
             else -> error("Unknown architecture rule: $id")
         }
         val selectedClasses = object : DescribedPredicate<JavaClass>("selected production classes") {
+
             override fun test(input: JavaClass): Boolean = selected == null || input.name in selected
+
         }
         return classes().that(selectedClasses).should(condition).allowEmptyShould(false)
     }
@@ -69,15 +72,18 @@ internal class ArchitecturePolicy {
         description: String,
         permitted: (JavaClass, JavaClass, Dependency) -> Boolean,
     ) = object : ArchCondition<JavaClass>(description) {
+
         override fun check(item: JavaClass, events: ConditionEvents) {
             for (dependency in item.directDependenciesFromSelf) {
                 val target = baseType(dependency.targetClass)
                 if (!permitted(item, target, dependency)) events.add(SimpleConditionEvent.violated(item, dependency.description))
             }
         }
+
     }
 
     private fun apiCondition() = object : ArchCondition<JavaClass>("expose no external or implementation types through public APIs") {
+
         override fun check(item: JavaClass, events: ConditionEvents) {
             if (!exported(item)) return
             val signatures = mutableListOf<Pair<String, Set<JavaClass>>>()
@@ -97,10 +103,12 @@ internal class ArchitecturePolicy {
                 }
             }
         }
+
     }
 
     private fun cycleCondition() = object : ArchCondition<JavaClass>("have no component dependency cycles") {
         private val edges = mutableMapOf<String, MutableSet<String>>()
+
         override fun check(item: JavaClass, events: ConditionEvents) {
             val from = component(item)?.module ?: return
             for (dependency in item.directDependenciesFromSelf) {
@@ -108,7 +116,9 @@ internal class ArchitecturePolicy {
                 if (from != to) edges.getOrPut(from) { linkedSetOf() }.add(to)
             }
         }
+
         override fun finish(events: ConditionEvents) {
+
             fun visit(node: String, path: List<String>) {
                 if (node in path) {
                     events.add(SimpleConditionEvent.violated(node, "Component cycle: ${(path + node).joinToString(" -> ")}"))
@@ -116,8 +126,10 @@ internal class ArchitecturePolicy {
                 }
                 edges[node].orEmpty().sorted().forEach { visit(it, path + node) }
             }
+
             edges.keys.sorted().forEach { visit(it, emptyList()) }
         }
+
     }
 
     private fun exported(type: JavaClass): Boolean {
@@ -140,8 +152,11 @@ internal class ArchitecturePolicy {
 
     private fun platform(type: JavaClass) = type.isPrimitive || inside(type.packageName, "java") || inside(type.packageName, "kotlin") ||
         inside(type.packageName, "javax.xml.stream") || type.name == "javax.xml.namespace.QName"
+
     private fun visible(modifiers: Set<JavaModifier>) = JavaModifier.PUBLIC in modifiers || JavaModifier.PROTECTED in modifiers
+
     private fun baseType(type: JavaClass): JavaClass = if (type.isArray) baseType(type.componentType) else type
+
     private fun inside(value: String, namespace: String) = value == namespace || value.startsWith("$namespace.")
 
     companion object {

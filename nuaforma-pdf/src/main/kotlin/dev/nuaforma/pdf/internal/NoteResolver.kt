@@ -4,6 +4,7 @@ import dev.nuaforma.pdf.*
 
 /** Bind one logical occurrence to one definition before either field evaluation or pagination. */
 internal object NoteResolver {
+
     fun resolve(document: PdfDocument): PdfDocument {
         val calls = document.allParagraphs().flatMap { it.runs }.filterIsInstance<PdfNoteCall>()
         if (document.notes.isEmpty() && calls.isEmpty()) {
@@ -34,7 +35,7 @@ internal object NoteResolver {
                 }
                 else -> run
             } }
-            listOf(PdfParagraph(runs, p.spaceBefore, p.spaceAfter, p.format, p.listLabel, p.anchoredImages, p.semantics, p.contents, p.borders, p.lines))
+            listOf(p.copy(runs = runs))
         }
         val targets = document.notes.map { note ->
             val marker = note.paragraphs.first().runs.first() as? PdfNoteLabel ?: unsupported("A note label was already resolved")
@@ -53,4 +54,5 @@ internal object NoteResolver {
     }
 
     private fun unsupported(message: String): Nothing = throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, message)
+
 }

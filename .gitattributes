@@ -5,3 +5,11 @@ gradlew.bat text eol=crlf
 *.kts text eol=lf
 *.toml text eol=lf
 *.jar binary
+
+# Frozen upstream license and independent Word-export receipts retain their original bytes.
+/nuaforma-pdf/src/test/resources/fonts/NotoSerif-OFL.txt -text
+/nuaforma-docx-pdf/src/test/resources/paragraph-spacing/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/mirror-indents/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/conditional-tables/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/font-features/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/classic-kerning/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

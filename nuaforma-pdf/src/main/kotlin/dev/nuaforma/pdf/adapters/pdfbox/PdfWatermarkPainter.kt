@@ -17,7 +17,8 @@ import org.apache.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState
 import kotlin.math.cos
 import kotlin.math.sin
 
-internal class PdfWatermarkPainter(private val watermark: PdfWatermark, private val font: PDType0Font, private val width: Float) {
+internal class PdfWatermarkPainter(private val watermark: PdfWatermark, private val font: PDType0Font, private val width: Float,
+    private val encode: (String) -> ByteArray = { font.encode(it) }) {
     private val visualText: String
     private val textWidth: Float
     private val textHeight: Float
@@ -41,8 +42,11 @@ internal class PdfWatermarkPainter(private val watermark: PdfWatermark, private 
     }
 
     fun paint(page: PDPage, writer: ContentStreamWriter, pageWidth: Float, pageHeight: Float) {
+
         fun command(name: String, vararg operands: Any) = writer.writeTokens(operands.toList() + Operator.getOperator(name))
+
         fun number(value: Float) = COSFloat(value)
+
         val angle = -Math.toRadians(watermark.rotation.toDouble())
         val c = cos(angle).toFloat()
         val s = sin(angle).toFloat()
@@ -61,9 +65,10 @@ internal class PdfWatermarkPainter(private val watermark: PdfWatermark, private 
         command("Tm", number(scaleX * c), number(scaleX * s), number(-s), number(c),
             number(pageWidth / 2 - width / 2 * c + textCenter * fontSize * s),
             number(pageHeight / 2 - width / 2 * s - textCenter * fontSize * c))
-        command("Tj", COSString(font.encode(visualText)))
+        command("Tj", COSString(encode(visualText)))
         command("ET")
         command("EMC")
         command("Q")
     }
+
 }

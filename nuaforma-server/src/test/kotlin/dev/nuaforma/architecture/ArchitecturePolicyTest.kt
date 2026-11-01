@@ -29,6 +29,11 @@ class ArchitecturePolicyTest {
             "jakarta.xml.bind.ProbeNode" to "public class ProbeNode {}",
             "unassigned.vendor.ProbeUnknown" to "public class ProbeUnknown {}",
             "org.apache.pdfbox.ProbePdf" to "public class ProbePdf {}",
+            "org.apache.fontbox.ttf.ProbeFont" to "public class ProbeFont {}",
+            "dev.nuaforma.pdf.adapters.pdfbox.ProbeFontAdapter" to "public class ProbeFontAdapter { private org.apache.fontbox.ttf.ProbeFont value; }",
+            "dev.nuaforma.pdf.ProbeFontDirect" to "public class ProbeFontDirect { private org.apache.fontbox.ttf.ProbeFont value; }",
+            "dev.nuaforma.docx.adapters.pdfbox.ProbeFontWrongOwner" to "public class ProbeFontWrongOwner { private org.apache.fontbox.ttf.ProbeFont value; }",
+            "dev.nuaforma.pdf.ProbeFontLeak" to "public class ProbeFontLeak { public org.apache.fontbox.ttf.ProbeFont value; }",
             "org.verapdf.ProbeArchive" to "public class ProbeArchive {}",
             "org.slf4j.ProbeLogger" to "public class ProbeLogger {}",
             "dev.nuaforma.server.adapters.logging.ProbeLogging" to "public class ProbeLogging { private org.slf4j.ProbeLogger logger; }",
@@ -143,6 +148,9 @@ class ArchitecturePolicyTest {
         "adapters,dev.nuaforma.server.adapters.ktor.ProbeWrongJson",
         "api-leaks,dev.nuaforma.server.ProbeHttpLeak",
         "adapters,dev.nuaforma.docx.pdf.ProbePdfDirect",
+        "adapters,dev.nuaforma.pdf.ProbeFontDirect",
+        "adapters,dev.nuaforma.docx.adapters.pdfbox.ProbeFontWrongOwner",
+        "api-leaks,dev.nuaforma.pdf.ProbeFontLeak",
         "adapters,dev.nuaforma.docx.adapters.pdfbox.ProbePdfWrongOwner",
         "api-leaks,dev.nuaforma.docx.pdf.ProbePdfLeak",
         "adapters,dev.nuaforma.docx.pdf.ProbeArchiveDirect",
@@ -190,6 +198,7 @@ class ArchitecturePolicyTest {
             "dev.nuaforma.server.adapters.logging.ProbeLogging",
             "dev.nuaforma.docx.adapters.docx4j.ProbeCorrectAdapter", "dev.nuaforma.docx.ProbeCleanFacade",
             "dev.nuaforma.pdf.adapters.pdfbox.ProbePdfAdapter",
+            "dev.nuaforma.pdf.adapters.pdfbox.ProbeFontAdapter",
             "dev.nuaforma.pdf.adapters.verapdf.ProbeArchiveAdapter",
             "dev.nuaforma.pdf.adapters.verapdf.ProbeArchiveAdapter",
             "dev.nuaforma.server.adapters.ktor.ProbeHttpAdapter", "dev.nuaforma.server.adapters.json.ProbeJsonAdapter",
@@ -202,4 +211,5 @@ class ArchitecturePolicyTest {
         )
         ArchitecturePolicy.RULES.forEach { ArchitecturePolicy().rule(it, permitted).check(fixtures) }
     }
+
 }

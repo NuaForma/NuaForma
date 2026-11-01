@@ -3,14 +3,20 @@ package dev.nuaforma.pdf.internal
 import dev.nuaforma.pdf.*
 
 internal data class TextMetrics(val width: Float, val ascent: Float, val descent: Float, val naturalAscent: Float = ascent, val naturalDescent: Float = descent, val lineGap: Float = 0f)
-internal fun interface TextMeasurer { fun measure(text: String, style: PdfTextStyle): TextMetrics }
+internal fun interface TextMeasurer {
+
+    fun measure(text: String, style: PdfTextStyle): TextMetrics
+
+    fun gap(before: String, spaces: String, after: String, style: PdfTextStyle): TextMetrics = measure(spaces, style)
+
+}
 internal sealed interface PositionedElement
 internal enum class StrokeLayer { FLOW, BACKGROUND, FOREGROUND }
 internal data class PositionedStroke(val x: Float, val top: Float, val endX: Float, val endY: Float, val stroke: PdfLineStroke,
     val pageX: Boolean = false, val pageY: Boolean = false, val layer: StrokeLayer = StrokeLayer.FLOW,
-    val joinOwner: PdfParagraph? = null, val joinFollowing: PdfParagraph? = null) : PositionedElement
-internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false, val navigation: PdfTextNavigation? = null, val logicalOwner: String? = null, val span: PdfSpanSemantics? = null, val logicalOffset: Int? = null) : PositionedElement
-internal data class PositionedImage(val image: PdfImage, val x: Float, val top: Float, val foreground: Boolean = false) : PositionedElement
+    val joinOwner: PdfParagraph? = null, val joinFollowing: PdfParagraph? = null, val pageOffset: PdfParagraphPageOffset? = null) : PositionedElement
+internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false, val navigation: PdfTextNavigation? = null, val logicalOwner: String? = null, val span: PdfSpanSemantics? = null, val logicalOffset: Int? = null, val pageOffset: PdfParagraphPageOffset? = null) : PositionedElement
+internal data class PositionedImage(val image: PdfImage, val x: Float, val top: Float, val foreground: Boolean = false, val pageOffset: PdfParagraphPageOffset? = null) : PositionedElement
 internal data class PositionedRectangle(val x: Float, val top: Float, val width: Float, val height: Float, val fill: PdfColor?, val border: PdfBorder?) : PositionedElement
 internal data class PositionedTableBorder(val x: Float, val top: Float, val length: Float, val horizontal: Boolean, val stroke: PdfEdgeStroke, val group: Any) : PositionedElement
 internal data class PositionedBox(val box: PdfTextBox, val x: Float, val top: Float, val elements: List<PositionedElement>) : PositionedElement
@@ -43,6 +49,7 @@ internal object PageLayouter {
                     previousAfter = 0f
                 }
                 is PdfParagraph -> {
+                    val paragraphStart = elements.size
                     if (block.anchoredImages.isNotEmpty()) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Anchored images require body pagination")
                     if (block.format.pageBreakBefore && elements.isNotEmpty()) overflow()
                     val format = block.format
@@ -73,15 +80,19 @@ internal object PageLayouter {
                         PdfListSuffix.TAB -> label.tabStop?.takeIf { it > markerEnd + .001f }
                             ?: ((kotlin.math.floor(markerEnd / label.defaultTabInterval) + 1) * label.defaultTabInterval)
                     }
-                    top += if (format.collapseSpacing) maxOf(0f, block.spaceBefore - previousAfter) else block.spaceBefore
+                    top += ParagraphSpacing.before(block, previousAfter, top <= page.margins.top + .001f)
                     val frame = ParagraphLines.frame(block, document.blocks.getOrNull(blockIndex - 1) as? PdfParagraph, document.blocks.getOrNull(blockIndex + 1) as? PdfParagraph)
                     top += frame.before
                     val paragraphTop = top
                     var firstLine = true
                     var lineIndex = 0
+
                     fun area() = lineArea?.invoke(lineIndex) ?: (0f to width)
+
                     fun lineLeft() = maxOf(area().first, if (firstLine) firstTextLeft else format.leftIndent)
+
                     fun availableWidth() = minOf(area().first + area().second, width - format.rightIndent) - lineLeft()
+
                     if (availableWidth() <= 0 || width - format.leftIndent - format.rightIndent <= 0) overflow()
                     var line = mutableListOf<Fragment>()
                     var lineWidth = 0f
@@ -91,6 +102,7 @@ internal object PageLayouter {
                         val text = block.runs.filterIsInstance<PdfTextRun>().joinToString("") { it.text }
                         java.text.Bidi(text, if (direction == PdfTextDirection.RIGHT_TO_LEFT) java.text.Bidi.DIRECTION_RIGHT_TO_LEFT else java.text.Bidi.DIRECTION_LEFT_TO_RIGHT)
                     }
+
                     fun flush() {
                         if (line.isEmpty()) return
                         val ascent = maxOf(line.maxOf { if (automatic == null) it.metrics.ascent else it.metrics.naturalAscent }, if (firstLine) (if (automatic == null) marker?.ascent else marker?.naturalAscent) ?: 0f else 0f)
@@ -125,6 +137,7 @@ internal object PageLayouter {
                         firstLine = false
                         lineIndex++
                     }
+
                     for ((groupIndex, word) in groups.withIndex()) {
                         checkCancellation()
                         val control = word.singleOrNull()?.tab
@@ -192,6 +205,7 @@ internal object PageLayouter {
                     if (top > bottom + .001f) overflow()
                     top += block.spaceAfter
                     previousAfter = block.spaceAfter
+                    for (index in paragraphStart until elements.size) elements[index] = ParagraphPageOffsets.mark(elements[index], block.pageOffset)
                 }
             }
         }
@@ -236,7 +250,7 @@ internal object PageLayouter {
         val groups = mutableListOf<MutableList<Fragment>>()
         var sourceOffset = 0
         var previousSpace: Boolean? = null
-        for (run in runs) {
+        for (run in shapingRuns(runs)) {
             if (run is PdfPageField) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields require page-band resolution")
             if (run is PdfReferenceField || run is PdfSequenceField) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "References require document-wide resolution")
             if (run is PdfNoteCall || run is PdfNoteLabel) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Notes require document-wide resolution")
@@ -263,7 +277,45 @@ internal object PageLayouter {
             }
             sourceOffset += run.text.length
         }
+        for (index in 1 until groups.lastIndex) {
+            val gap = groups[index].singleOrNull() ?: continue
+            val style = gap.style ?: continue
+            if (!style.fontFeatures.active || gap.text.any { it != ' ' }) continue
+            val previous = groups[index - 1].lastOrNull() ?: continue
+            val next = groups[index + 1].firstOrNull() ?: continue
+            if (previous.style == style && next.style == style && previous.tab == null && next.tab == null) {
+                groups[index][0] = gap.copy(metrics = measurer.gap(previous.text, gap.text, next.text, style))
+            }
+        }
         return groups
+    }
+
+    private fun shapingRuns(runs: List<PdfInline>): List<PdfInline> {
+        if (runs.none { it is PdfTextRun && it.style.fontFeatures.active }) return runs
+        val result = mutableListOf<PdfInline>()
+        var pending: PdfTextRun? = null
+        val text = StringBuilder()
+
+        fun flush() {
+            pending?.let { result += it.copy(text = text.toString()) }
+            pending = null
+            text.setLength(0)
+        }
+
+        for (run in runs) {
+            checkCancellation()
+            if (run is PdfTextRun && run.style.fontFeatures.active) {
+                val previous = pending
+                if (previous != null && (previous.style != run.style || previous.navigation != run.navigation || previous.semantics != run.semantics)) flush()
+                if (pending == null) pending = run
+                text.append(run.text)
+            } else {
+                flush()
+                result += run
+            }
+        }
+        flush()
+        return result
     }
 
     fun requireSupportedText(text: String, bidi: Boolean = false) {
@@ -279,7 +331,9 @@ internal object PageLayouter {
     }
 
     private fun overflow(): Nothing = throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, "Content does not fit the single-page foundation profile")
+
     internal fun checkCancellation() {
         if (Thread.currentThread().isInterrupted) throw PdfRenderException(PdfFailureCode.CANCELLED, "PDF rendering cancelled")
     }
+
 }

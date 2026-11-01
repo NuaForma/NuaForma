@@ -47,6 +47,7 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
     }
 
     internal fun allParagraphs(): List<PdfParagraph> {
+
         fun collect(block: PdfBlock, depth: Int): Sequence<PdfParagraph> = when (block) {
             is PdfParagraph -> sequenceOf(block)
             is PdfImage -> emptySequence()
@@ -56,12 +57,14 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
                 block.rows.asSequence().flatMap { row -> row.cells.asSequence().flatMap { cell -> cell.blocks.asSequence().flatMap { collect(it, depth + 1) } } }
             }
         }
+
         val main = pageSequences.asSequence().flatMap { sequence ->
             (sequence.blocks + sequence.flow?.bands.orEmpty().flatMap { it.blocks }).asSequence()
         }
             .flatMap { collect(it, 0) }
         return (main + notes.asSequence().flatMap { it.paragraphs.asSequence() }).take(2_001).toList().also { require(it.size <= 2_000) { "Paragraph budget exceeded" } }
     }
+
 }
 
 /** A resolved physical page policy over a content range. Every sequence starts on a fresh page.
@@ -251,7 +254,8 @@ class PdfParagraph private constructor(
     val contents: PdfContents?,
     decoration: Decoration,
 ) : PdfBlock {
-    private class Decoration(val borders: PdfParagraphBorders?, val lines: List<PdfLineDrawing>)
+    private class Decoration(val borders: PdfParagraphBorders?, val lines: List<PdfLineDrawing>,
+        val spacing: PdfParagraphSpacing = PdfParagraphSpacing(), val pageOffset: PdfParagraphPageOffset? = null)
     /** Original constructors and Kotlin default-argument bridge remain binary compatible. */
     @JvmOverloads constructor(runs: List<PdfInline>, spaceBefore: Float = 0f, spaceAfter: Float = 8f,
         format: PdfParagraphFormat = PdfParagraphFormat(), listLabel: PdfListLabel? = null,
@@ -265,11 +269,28 @@ class PdfParagraph private constructor(
     ) : this(runs, spaceBefore, spaceAfter, format, listLabel, anchoredImages, semantics, contents, Decoration(borders, lines))
 
     val borders: PdfParagraphBorders? = decoration.borders
+    val spacing: PdfParagraphSpacing = decoration.spacing
+    val pageOffset: PdfParagraphPageOffset? = decoration.pageOffset
+
+    /** Additive immutable policy; existing public constructors retain their binary descriptors. */
+    fun withSpacing(spacing: PdfParagraphSpacing): PdfParagraph = copy(spacing = spacing)
+
+    fun withPageOffset(offset: PdfParagraphPageOffset?): PdfParagraph = copy(pageOffset = offset)
+
+    fun copy(runs: List<PdfInline> = this.runs, spaceBefore: Float = this.spaceBefore, spaceAfter: Float = this.spaceAfter,
+        format: PdfParagraphFormat = this.format, listLabel: PdfListLabel? = this.listLabel,
+        anchoredImages: List<PdfAnchoredImage> = this.anchoredImages, semantics: PdfBlockSemantics? = this.semantics,
+        contents: PdfContents? = this.contents, borders: PdfParagraphBorders? = this.borders, lines: List<PdfLineDrawing> = this.lines,
+        spacing: PdfParagraphSpacing = this.spacing, pageOffset: PdfParagraphPageOffset? = this.pageOffset,
+    ): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter, format, listLabel, anchoredImages,
+        semantics, contents, Decoration(borders, lines, spacing, pageOffset))
 
     val runs: List<PdfInline> = Collections.unmodifiableList(ArrayList(runs))
     val anchoredImages: List<PdfAnchoredImage> = Collections.unmodifiableList(ArrayList(anchoredImages))
     val lines: List<PdfLineDrawing> = Collections.unmodifiableList(ArrayList(decoration.lines))
     init {
+        require(pageOffset == null || format.leftIndent + pageOffset.x >= 0 && format.rightIndent - pageOffset.x >= 0 &&
+            format.leftIndent + format.firstLineIndent + pageOffset.x >= 0) { "Alternating offset exceeds paragraph indentation" }
         require(this.lines.size <= 32) { "Paragraph line budget exceeded" }
         require(contents == null || borders == null && this.lines.isEmpty()) { "Contents markers cannot hide decorations" }
         require(this.anchoredImages.size <= 8) { "Anchored image budget exceeded" }
@@ -297,47 +318,60 @@ class PdfTextStyle private constructor(
     val baselineShift: Float,
     private val decoration: Decoration,
 ) {
-    private enum class Decoration { NONE, STRIKE }
-    val strikethrough: Boolean get() = decoration == Decoration.STRIKE
+    private class Decoration(val strike: Boolean = false, val features: PdfFontFeatures = PdfFontFeatures())
+    val strikethrough: Boolean get() = decoration.strike
+    val fontFeatures: PdfFontFeatures get() = decoration.features
 
     @JvmOverloads
     constructor(fontId: String, size: Float, color: PdfColor = PdfColor(0, 0, 0), languageTag: String? = null,
                 underline: Boolean = false, baselineShift: Float = 0f) :
-        this(fontId, size, color, languageTag, underline, baselineShift, Decoration.NONE)
+        this(fontId, size, color, languageTag, underline, baselineShift, Decoration())
 
     constructor(fontId: String, size: Float, color: PdfColor, languageTag: String?, underline: Boolean,
                 baselineShift: Float, strikethrough: Boolean) :
-        this(fontId, size, color, languageTag, underline, baselineShift, if (strikethrough) Decoration.STRIKE else Decoration.NONE)
+        this(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough))
 
-    fun withStrikethrough(value: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, value)
+    fun withStrikethrough(value: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(value, fontFeatures))
+
+    fun withFontFeatures(features: PdfFontFeatures): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough, features))
 
     /** Keep Kotlin's original copy and copy$default descriptors, retaining additional decorations. */
     fun copy(fontId: String = this.fontId, size: Float = this.size, color: PdfColor = this.color,
              languageTag: String? = this.languageTag, underline: Boolean = this.underline,
              baselineShift: Float = this.baselineShift): PdfTextStyle =
-        PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, strikethrough)
+        PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, decoration)
 
     operator fun component1(): String = fontId
+
     operator fun component2(): Float = size
+
     operator fun component3(): PdfColor = color
+
     operator fun component4(): String? = languageTag
+
     operator fun component5(): Boolean = underline
+
     operator fun component6(): Float = baselineShift
+
     operator fun component7(): Boolean = strikethrough
+
+    operator fun component8(): PdfFontFeatures = fontFeatures
 
     override fun equals(other: Any?): Boolean = other is PdfTextStyle && fontId == other.fontId &&
         java.lang.Float.compare(size, other.size) == 0 && color == other.color && languageTag == other.languageTag &&
-        underline == other.underline && java.lang.Float.compare(baselineShift, other.baselineShift) == 0 && strikethrough == other.strikethrough
+        underline == other.underline && java.lang.Float.compare(baselineShift, other.baselineShift) == 0 && strikethrough == other.strikethrough && fontFeatures == other.fontFeatures
 
     override fun hashCode(): Int {
         var result = fontId.hashCode()
         result = 31 * result + size.hashCode(); result = 31 * result + color.hashCode()
         result = 31 * result + (languageTag?.hashCode() ?: 0); result = 31 * result + underline.hashCode()
         result = 31 * result + baselineShift.hashCode()
-        return if (strikethrough) 31 * result + true.hashCode() else result
+        if (strikethrough) result = 31 * result + true.hashCode()
+        return if (fontFeatures.active) 31 * result + fontFeatures.hashCode() else result
     }
+
     override fun toString(): String = "PdfTextStyle(fontId=$fontId, size=$size, color=$color, languageTag=$languageTag, underline=$underline, baselineShift=$baselineShift" +
-        (if (strikethrough) ", strikethrough=true)" else ")")
+        (if (strikethrough) ", strikethrough=true" else "") + (if (fontFeatures.active) ", fontFeatures=$fontFeatures)" else ")")
 
     init {
         require(languageTag == null || languageTag.length <= 64 && languageTag.matches(Regex("[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*"))) { "Invalid text language tag" }
@@ -354,7 +388,7 @@ data class PdfTextRun @JvmOverloads constructor(val text: String, val style: Pdf
     }
 }
 
-/** Caller-supplied standalone TrueType font. No filesystem or system-font lookup. */
+/** Caller-supplied standalone TrueType font. IDs never select files or host font families. */
 enum class PdfFontEmbedding { SUBSET, FULL }
 
 class PdfFont @JvmOverloads constructor(val id: String, bytes: ByteArray, val embedding: PdfFontEmbedding = PdfFontEmbedding.SUBSET) {
@@ -364,7 +398,9 @@ class PdfFont @JvmOverloads constructor(val id: String, bytes: ByteArray, val em
         require(bytes.size in 1..8_388_608) { "Font exceeds the foundation limit" }
         content = bytes.copyOf()
     }
+
     fun bytes(): ByteArray = content.copyOf()
+
     internal val byteSize: Int get() = content.size
 }
 
@@ -376,6 +412,8 @@ class PdfImage @JvmOverloads constructor(bytes: ByteArray, val width: Float, val
         require(width.isFinite() && height.isFinite() && width in 1f..14_400f && height in 1f..14_400f) { "Invalid image dimensions" }
         content = bytes.copyOf()
     }
+
     fun bytes(): ByteArray = content.copyOf()
+
     internal val byteSize: Int get() = content.size
 }

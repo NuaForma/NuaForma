@@ -6,6 +6,8 @@ import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
 
 /** Editing metadata and compatibility switches whose dependent constructs remain separately qualified. */
 internal class WordSettingsMetadata(private val context: GenerationContext) {
+    data class Formatting(val additiveParagraphSpacing: Boolean = false, val flipLegacyMirrorIndents: Boolean = false,
+        val overrideNormalTableStyle: Boolean = false, val openTypeFeatures: Boolean = false)
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private val word15 = "http://schemas.microsoft.com/office/word/2012/wordml"
     private val vml = "urn:schemas-microsoft-com:vml"
@@ -22,15 +24,19 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
         }
     }
 
-    fun normalize(parts: Map<String, XmlElement>, failure: (String, XmlElement) -> NativeDocxReadException) {
+    fun normalize(parts: Map<String, XmlElement>, failure: (String, XmlElement) -> NativeDocxReadException): Formatting {
         normalizeGrids(parts, failure)
-        val settings = parts[part] ?: return
+        val settings = parts[part] ?: return Formatting()
+        val compatibility = settings.elements().filter { it.name.namespaceURI == word && it.name.localPart == "compat" }
+        if (compatibility.size > 1) throw failure(part, compatibility[1])
+        var formatting = Formatting()
         val content = parts.filterKeys { it.startsWith("word/") && it != part }.values
-        val hasTables = content.any { root -> root.descendants().any { it.name.namespaceURI == word && it.name.localPart == "tbl" } }
         val hasVml = content.any { root -> root.descendants().any { it.name.namespaceURI == vml } }
         for (child in settings.elements()) {
             context.checkActive()
+
             fun valid(condition: Boolean) { if (!condition) throw failure(part, child) }
+
             if (child.name.namespaceURI == word15 && child.name.localPart == "chartTrackingRefBased") {
                 toggle(child, word15) { throw failure(part, child) }
                 settings.children.remove(child)
@@ -52,9 +58,10 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
                     valid(!hasVml && shapeDefaults(child))
                     settings.children.remove(child)
                 }
-                "compat" -> compatibility(child, hasTables) { failure(part, it) }
+                "compat" -> formatting = compatibility(child) { failure(part, it) }
             }
         }
+        return formatting
     }
 
     private fun normalizeGrids(parts: Map<String, XmlElement>, failure: (String, XmlElement) -> NativeDocxReadException) {
@@ -69,30 +76,39 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
         }
     }
 
-    private fun compatibility(root: XmlElement, hasTables: Boolean, failure: (XmlElement) -> NativeDocxReadException) {
+    private fun compatibility(root: XmlElement, failure: (XmlElement) -> NativeDocxReadException): Formatting {
         val names = mutableSetOf<String>()
+        var additive = false
+        var flipMirror = false
+        var overrideNormal = false
+        var openType = false
         for (setting in root.elements()) {
             context.checkActive()
+
             fun reject(): Nothing = throw failure(setting)
+
             if (setting.name.namespaceURI != word) continue
             if (setting.name.localPart == "doNotUseHTMLParagraphAutoSpacing") {
                 if (!names.add(setting.name.localPart)) reject()
                 toggle(setting, word, ::reject)
+                additive = boolean(setting.attribute(word, "val"), ::reject)
                 root.children.remove(setting)
             } else if (setting.name.localPart == "compatSetting" && setting.attribute(word, "name") in compatibilityNames) {
-                namedCompatibility(setting, names, hasTables, ::reject)
+                namedCompatibility(setting, names, ::reject)
+                if (setting.attribute(word, "name") == "doNotFlipMirrorIndents") flipMirror = !boolean(setting.attribute(word, "val"), ::reject)
+                if (setting.attribute(word, "name") == "overrideTableStyleFontSizeAndJustification") overrideNormal = boolean(setting.attribute(word, "val"), ::reject)
+                if (setting.attribute(word, "name") == "enableOpenTypeFeatures") openType = boolean(setting.attribute(word, "val"), ::reject)
                 root.children.remove(setting)
             }
         }
+        return Formatting(additive, flipMirror, overrideNormal, openType)
     }
 
-    private fun namedCompatibility(setting: XmlElement, names: MutableSet<String>, hasTables: Boolean, reject: () -> Nothing) {
+    private fun namedCompatibility(setting: XmlElement, names: MutableSet<String>, reject: () -> Nothing) {
         leaf(setting, setOf("name", "uri", "val"), reject)
         val name = setting.attribute(word, "name")!!
         if (!names.add(name) || setting.attribute(word, "uri") != "http://schemas.microsoft.com/office/word") reject()
-        val enabled = boolean(setting.attribute(word, "val") ?: reject(), reject)
-        // The reader already uses the ordinary hierarchy, not Word's legacy table-style exceptions.
-        if (name == "overrideTableStyleFontSizeAndJustification" && !enabled && hasTables) reject()
+        boolean(setting.attribute(word, "val") ?: reject(), reject)
     }
 
     private fun protection(node: XmlElement, reject: () -> Nothing) {
@@ -125,4 +141,5 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
         "false", "0", "off" -> false
         else -> reject()
     }
+
 }

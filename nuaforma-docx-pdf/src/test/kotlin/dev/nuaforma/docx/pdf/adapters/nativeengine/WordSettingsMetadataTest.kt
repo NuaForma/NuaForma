@@ -9,13 +9,16 @@ class WordSettingsMetadataTest {
     private val context = GenerationContext()
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private val word15 = "http://schemas.microsoft.com/office/word/2012/wordml"
+
     private fun xml(content: String) = ConversionXml(context).read(content.toByteArray())
+
     private fun normalize(content: String, document: String = "") = xml("""<w:settings xmlns:w="$word" xmlns:w15="$word15">$content</w:settings>""").also { root ->
         WordSettingsMetadata(context).normalize(mapOf("word/settings.xml" to root,
             "word/document.xml" to xml("""<w:document xmlns:w="$word">$document</w:document>"""))) { _, node ->
             NativeDocxReadException("Unsupported Word document settings", "word/settings.xml", location = "xml:${node.sourceLine}:${node.sourceColumn}")
         }
     }
+
     private fun compat(name: String, value: String = "1", extra: String = "") =
         """<w:compatSetting w:name="$name" w:uri="http://schemas.microsoft.com/office/word" w:val="$value" $extra/>"""
 
@@ -42,8 +45,8 @@ class WordSettingsMetadataTest {
         assertTrue(normalize("<w:compat><w15:unknown/></w:compat>").elements().single().elements().isNotEmpty())
     }
 
-    @Test fun `legacy table precedence and header shape defaults reject when their dependent content is present`() {
-        assertThrows(NativeDocxReadException::class.java) { normalize("<w:compat>${compat("overrideTableStyleFontSizeAndJustification", "0")}</w:compat>", "<w:tbl/>") }
+    @Test fun `table precedence is preserved for the reader while active header shapes still reject`() {
+        assertTrue(normalize("<w:compat>${compat("overrideTableStyleFontSizeAndJustification", "0")}</w:compat>", "<w:tbl/>").elements().single().elements().isEmpty())
         assertTrue(normalize("<w:compat>${compat("overrideTableStyleFontSizeAndJustification")}</w:compat>", "<w:tbl/>").elements().single().elements().isEmpty())
         assertThrows(NativeDocxReadException::class.java) { normalize("<w:hdrShapeDefaults/>", """<v:line xmlns:v="urn:schemas-microsoft-com:vml"/>""") }
     }
@@ -72,10 +75,13 @@ class WordSettingsMetadataTest {
     }
 
     @Test fun `inactive section grids are removed without requiring a settings part while active grids reject`() {
+
         fun document(grid: String) = xml("""<w:document xmlns:w="$word"><w:body><w:sectPr><w:pgSz w:w="12240" w:h="15840"/>$grid</w:sectPr></w:body></w:document>""")
+
         fun apply(root: dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement) {
             WordSettingsMetadata(context).normalize(mapOf("word/document.xml" to root)) { part, _ -> NativeDocxReadException("Unsupported Word document settings", part) }
         }
+
         for (grid in listOf("<w:docGrid/>", "<w:docGrid w:linePitch=\"360\"/>", "<w:docGrid w:type=\"default\" w:charSpace=\"0\"/>")) {
             val root = document(grid)
             apply(root)
@@ -87,4 +93,5 @@ class WordSettingsMetadataTest {
             assertEquals("word/document.xml", error.part)
         }
     }
+
 }
