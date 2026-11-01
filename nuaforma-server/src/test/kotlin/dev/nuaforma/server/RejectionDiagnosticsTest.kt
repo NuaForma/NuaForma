@@ -120,4 +120,17 @@ class RejectionDiagnosticsTest {
         }
     }
 
+    @Test fun `unmapped native reasons remain visible without fictional XML locations`() {
+        val diagnostic = Diagnostic(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED,
+            part = "word/footnotes.xml").withSourceContext(DocumentSourceContext("Custom footnote marks are unsupported", null, null, ""))
+        val response = ApiErrors.diagnostics(listOf(diagnostic), LoggingMode.DEVELOPMENT).single()
+        assertEquals("Custom footnote marks are unsupported", response["sourceExplanation"])
+        assertFalse(response.containsKey("sourcePath"))
+        assertFalse(response.containsKey("sourceConstruct"))
+        assertFalse(response.containsKey("documentLocation"))
+        val schemas = OpenApiSchemaChecks(ObjectMapper().readTree(ApiDocumentation().jsonText))
+        assertTrue(schemas.matches("Diagnostic", ObjectMapper().valueToTree<JsonNode>(response)))
+        assertFalse(ApiErrors.diagnostics(listOf(diagnostic)).single().containsKey("sourceExplanation"))
+    }
+
 }

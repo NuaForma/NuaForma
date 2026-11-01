@@ -178,7 +178,7 @@ class TemplateDiagnosticPdfTest {
         assertEquals("paragraph:1", diagnostic.documentLocation)
         assertEquals("word/document.xml", diagnostic.part)
         assertEquals("w:pBdr", diagnostic.sourceContext?.construct)
-        assertTrue(diagnostic.sourceContext!!.path.endsWith("/w:p[1]/w:pPr[1]/w:pBdr[1]"))
+        assertTrue(diagnostic.sourceContext!!.path?.endsWith("/w:p[1]/w:pPr[1]/w:pBdr[1]") == true)
         assertEquals("Source paragraph", diagnostic.sourceContext!!.excerpt)
         val output = ByteArrayOutputStream()
         val result = provider().diagnoseDocument(request(), output, development, false)

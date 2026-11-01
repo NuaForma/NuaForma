@@ -194,4 +194,16 @@ class TemplateDiagnosticCopyTest {
         assertTrue(xml.contains("{#if false}"), xml)
     }
 
+    @Test fun `inspection report retains unmapped rejection reasons without an invented marker`() {
+        val diagnostic = Diagnostic(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED,
+            part = "word/settings.xml").withSourceContext(DocumentSourceContext("Unsupported compatibility setting", null, null, ""))
+        val output = ByteArrayOutputStream()
+        DocxProvider().inspectionCopy(GenerationRequest(source(paragraph("Original text")).inputStream(), requirements), output, development(), diagnostic, false)
+        val xml = SyntheticDocx.unzip(output.toByteArray()).getValue("word/document.xml").decodeToString()
+        assertTrue(xml.contains("Unsupported compatibility setting"), xml)
+        assertTrue(xml.contains("No reliable XML node coordinate"), xml)
+        assertFalse(xml.contains("[ERROR 1]"), xml)
+        assertFalse(xml.contains("XML path: null"), xml)
+    }
+
 }

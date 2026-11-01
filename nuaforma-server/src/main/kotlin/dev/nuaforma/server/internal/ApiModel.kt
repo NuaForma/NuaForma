@@ -57,8 +57,8 @@ internal object ApiErrors {
         diagnostic.documentLocation?.takeIf { DOCUMENT_LOCATION.matches(it) }?.let { details["documentLocation"] = it }
         diagnostic.sourceContext?.let {
             details["sourceExplanation"] = it.explanation
-            details["sourcePath"] = it.path
-            details["sourceConstruct"] = it.construct
+            it.path?.let { path -> details["sourcePath"] = path }
+            it.construct?.let { construct -> details["sourceConstruct"] = construct }
             details["sourceExcerpt"] = it.excerpt
         }
         diagnostic.templateContext?.let {

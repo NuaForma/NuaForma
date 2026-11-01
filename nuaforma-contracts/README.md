@@ -148,3 +148,5 @@ From the repository root:
 ```
 
 Tests cover Java/Kotlin use, nested immutable data, option combinations, narrower runtime availability, diagnostics, cancellation, stream ownership, metadata validation and reading without provider initialization. ArchUnit checks production contracts depend only on their own package, the JDK, Kotlin and compiler-generated JetBrains annotations; a deliberately violating fixture verifies the rule catches an external test dependency. Synthetic provider fixtures are not document renderers and do not establish DOCX/PDF fidelity. Discovery integration tests live in core; the [repository architecture suite](../ARCHITECTURE.md#architecture-tests) adds cross-module boundary checks.
+
+`DocumentSourceContext.path` and `construct` are nullable when an internal rejection has no reliable XML node mapping. Its concrete application-owned explanation remains available in development diagnostics; absent coordinates must never be turned into fictional paragraph/page positions.

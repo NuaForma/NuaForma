@@ -1078,5 +1078,8 @@ internal class NativeDocxReader(
 }
 
 internal class NativeDocxReadException(message: String, val part: String,
-    val sourceContext: dev.nuaforma.contracts.DocumentSourceContext? = null,
-    val documentLocation: String? = null, val location: String? = null) : IllegalArgumentException(message)
+    sourceContext: dev.nuaforma.contracts.DocumentSourceContext? = null,
+    val documentLocation: String? = null, val location: String? = null) : IllegalArgumentException(message) {
+    val sourceContext: dev.nuaforma.contracts.DocumentSourceContext = sourceContext
+        ?: dev.nuaforma.contracts.DocumentSourceContext(message, null, null, "")
+}

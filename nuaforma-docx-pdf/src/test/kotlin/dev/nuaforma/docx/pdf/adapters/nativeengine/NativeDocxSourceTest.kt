@@ -13,8 +13,8 @@ class NativeDocxSourceTest {
         source.index(xml, "word/document.xml")
         source.current = xml.descendants().single { it.name.localPart == "sdt" }
         val error = source.failure("Unsupported document feature", "package")
-        assertEquals("Actual control content", error.sourceContext!!.excerpt)
-        assertTrue(error.sourceContext!!.path.endsWith("/w:sdt[1]"))
+        assertEquals("Actual control content", error.sourceContext.excerpt)
+        assertTrue(error.sourceContext.path?.endsWith("/w:sdt[1]") == true)
         assertNull(error.documentLocation)
     }
 
@@ -29,8 +29,8 @@ class NativeDocxSourceTest {
             val error = source.failure("Unsupported document feature", "package")
             assertEquals(part, error.part)
             assertEquals("paragraph:2", error.documentLocation)
-            assertEquals("/w:root[1]/w:tbl[1]/w:tr[1]/w:tc[1]/w:p[1]/w:pPr[1]/w:pBdr[1]", error.sourceContext!!.path)
-            assertEquals("Target", error.sourceContext!!.excerpt)
+            assertEquals("/w:root[1]/w:tbl[1]/w:tr[1]/w:tc[1]/w:p[1]/w:pPr[1]/w:pBdr[1]", error.sourceContext.path)
+            assertEquals("Target", error.sourceContext.excerpt)
             assertTrue(error.location!!.startsWith("xml:1:"))
         }
     }
@@ -44,8 +44,18 @@ class NativeDocxSourceTest {
         val error = source.failure("Unsupported document feature", "package")
         assertNull(error.documentLocation)
         assertEquals("word/styles.xml", error.part)
-        assertTrue(error.sourceContext!!.path.contains("/w:style[1]/"))
+        assertTrue(error.sourceContext.path?.contains("/w:style[1]/") == true)
         val sensitive = dev.nuaforma.contracts.DocumentSourceContext("Unsupported formatting", "/w:p[1]", "w:p", "password PRIVATE_VALUE")
         assertEquals("[redacted expression]", sensitive.excerpt)
     }
+    @Test fun `unmapped native failures retain the concrete reason without fabricated coordinates`() {
+        val error = NativeDocxReadException("Custom footnote marks are unsupported", "word/footnotes.xml")
+        assertEquals("Custom footnote marks are unsupported", error.sourceContext.explanation)
+        assertNull(error.sourceContext.path)
+        assertNull(error.sourceContext.construct)
+        assertNull(error.documentLocation)
+        assertNull(error.location)
+        assertEquals("", error.sourceContext.excerpt)
+    }
+
 }

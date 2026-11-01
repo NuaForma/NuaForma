@@ -26,8 +26,8 @@ internal object WordDiagnosticDocument {
         line("Part: ${diagnostic.part ?: "unavailable"}; ${diagnostic.documentLocation ?: "No paragraph coordinate: inspect the part/path below."}")
         diagnostic.sourceContext?.let { source ->
             line(source.explanation)
-            line("XML path: ${source.path}")
-            line("Source excerpt: ${source.excerpt}")
+            source.path?.let { line("XML path: $it") } ?: line("No reliable XML node coordinate is available for this check.")
+            if (source.excerpt.isNotEmpty()) line("Source excerpt: ${source.excerpt}")
         }
         diagnostic.templateContext?.let { line("Template fragment: ${it.expression}") }
     }
