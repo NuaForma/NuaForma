@@ -8,6 +8,7 @@ internal object WordAuthoringMetadata {
     private const val W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private const val MC = "http://schemas.openxmlformats.org/markup-compatibility/2006"
     private const val WP14 = "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
+    private const val W14 = "http://schemas.microsoft.com/office/word/2010/wordml"
 
     fun normalize(root: XmlElement, part: String, complexText: Boolean, failure: ((XmlElement) -> NativeDocxReadException)? = null) {
         var current = root
@@ -18,7 +19,8 @@ internal object WordAuthoringMetadata {
             current = node
             node.attributes.keys.removeIf { name ->
                 name.namespaceURI == MC && name.localPart == "Ignorable" ||
-                    name.namespaceURI == W && name.localPart in setOf("rsidR", "rsidRPr", "rsidDel", "rsidP", "rsidSect") ||
+                    name.namespaceURI == W && name.localPart in setOf("rsidR", "rsidRPr", "rsidRDefault", "rsidDel", "rsidP", "rsidSect") ||
+                    node.name.namespaceURI == W && node.name.localPart == "p" && name.namespaceURI == W14 && name.localPart in setOf("paraId", "textId") ||
                     name.namespaceURI == WP14 && name.localPart in setOf("anchorId", "editId")
             }
             if (node.name.namespaceURI != W) continue
@@ -72,11 +74,25 @@ internal object WordAuthoringMetadata {
                         child.attributes.keys.any { it.namespaceURI != W || it.localPart != "type" } || child.children.isNotEmpty()) reject()
                     node.children.remove(child)
                 }
-                "rPr" -> node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart == "noProof" }
+                "rPr" -> runMetadata(node, complexText) { child -> current = child; reject() }
                 "rFonts" -> if (!complexText) node.attributes.keys.removeIf { it.namespaceURI == W && it.localPart in setOf("cs", "eastAsia", "cstheme", "eastAsiaTheme") }
                 "lang" -> if (!complexText) node.attributes.keys.removeIf { it.namespaceURI == W && it.localPart in setOf("bidi", "eastAsia") }
                 "r" -> node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart == "lastRenderedPageBreak" }
             }
+        }
+    }
+
+    private fun runMetadata(node: XmlElement, complexText: Boolean, reject: (XmlElement) -> Nothing) {
+        node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart == "noProof" }
+        if (complexText) return
+        for (child in node.elements().filter { it.name.namespaceURI == W && it.name.localPart in setOf("szCs", "bCs", "iCs") }) {
+            if (child.elements().isNotEmpty() || child.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
+                child.attributes.keys.any { it.namespaceURI != W || it.localPart != "val" }) reject(child)
+            val value = child.attribute(W, "val")
+            val valid = if (child.name.localPart == "szCs") value?.toIntOrNull()?.let { it in 1..1_638 } == true
+                else value in setOf(null, "true", "false", "1", "0", "on", "off")
+            if (!valid) reject(child)
+            node.children.remove(child)
         }
     }
 

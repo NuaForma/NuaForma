@@ -26,4 +26,31 @@ class WordAuthoringMetadataTest {
             }
         }
     }
+
+    @Test fun `paragraph revision and collaboration identifiers do not change note separator structure`() {
+        val root = paragraph("<w:r><w:separator/></w:r>")
+        val word = root.name.namespaceURI
+        val collaboration = "http://schemas.microsoft.com/office/word/2010/wordml"
+        for ((namespace, name) in listOf(word to "rsidRDefault", collaboration to "paraId", collaboration to "textId"))
+            root.attributes[javax.xml.namespace.QName(namespace, name)] = "00000001"
+        WordAuthoringMetadata.normalize(root, "word/footnotes.xml", false)
+        assertTrue(root.attributes.isEmpty())
+        assertEquals("separator", root.elements().single().elements().single().name.localPart)
+        root.attributes[javax.xml.namespace.QName(collaboration, "unknown")] = "00000001"
+        WordAuthoringMetadata.normalize(root, "word/footnotes.xml", false)
+        assertEquals(1, root.attributes.size)
+    }
+
+    @Test fun `inactive complex script face metadata cannot change Latin size bold or italic`() {
+        val content = "<w:r><w:rPr><w:sz w:val=\"20\"/><w:szCs w:val=\"28\"/><w:bCs/><w:iCs w:val=\"1\"/></w:rPr><w:t>Latin</w:t></w:r>"
+        val root = paragraph(content)
+        WordAuthoringMetadata.normalize(root, "word/document.xml", false)
+        assertEquals(listOf("sz"), root.elements().single().elements().first().elements().map { it.name.localPart })
+        val complex = paragraph(content)
+        WordAuthoringMetadata.normalize(complex, "word/document.xml", true)
+        assertEquals(4, complex.elements().single().elements().first().elements().size)
+        for (property in listOf("<w:szCs w:val=\"bad\"/>", "<w:szCs w:val=\"0\"/>", "<w:bCs w:val=\"bad\"/>",
+            "<w:iCs unexpected=\"1\"/>", "<w:szCs w:val=\"20\"><w:t>hidden</w:t></w:szCs>"))
+            assertThrows(NativeDocxReadException::class.java) { WordAuthoringMetadata.normalize(paragraph("<w:r><w:rPr>$property</w:rPr></w:r>"), "word/document.xml", false) }
+    }
 }
