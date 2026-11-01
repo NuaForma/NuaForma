@@ -18,12 +18,12 @@ internal object BoxLayouter {
         val width = box.width - box.padding.left - box.padding.right
         var used = 0f
         var after = 0f
-        for (p in box.paragraphs) {
+        for ((index, p) in box.paragraphs.withIndex()) {
             PageLayouter.checkCancellation()
             if (p.format.pageBreakBefore) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Page breaks inside frames are unsupported")
             if (p.runs.any { it is PdfPageField }) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Frame page fields are unsupported")
-            val measured = FlowLayouter.paragraph(p, width, measurer)
-            used += (if (p.format.collapseSpacing) maxOf(0f, p.spaceBefore - after) else p.spaceBefore) + measured.lines.size * measured.lineHeight + p.spaceAfter
+            val measured = FlowLayouter.paragraph(p, width, measurer, previous = box.paragraphs.getOrNull(index - 1), next = box.paragraphs.getOrNull(index + 1))
+            used += (if (p.format.collapseSpacing) maxOf(0f, p.spaceBefore - after) else p.spaceBefore) + measured.height() + p.spaceAfter
             after = p.spaceAfter
         }
         val available = box.height - box.padding.top - box.padding.bottom

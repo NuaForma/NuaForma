@@ -44,6 +44,8 @@ Only exact `true` or `false` is accepted for the trusted `nuaforma.pdf.pdfaValid
 
 ## Qualification and references
 
+Selected alpha.6 (#172) adds [paragraph borders and passive drawn lines](../tools/pdf-evaluation/own-engine/LINES.md), including inherited automatic paragraph rules, connected frames and opaque VML/DrawingML strokes in body/table/page-band paragraphs. The guide defines the qualified styles and positioning limits. This does not add arbitrary shape, wrapping-line or theme-effect support; earlier published alphas remain unchanged.
+
 The engine's reviewed golden files and Word-export comparison documents remain protected references. Native adapter tests additionally exercise template expansion, a Word-saved DOCX, branding/fonts, page layout, actual independent validation, limits, concurrency and recovery. LibreOffice-specific orchestration helpers have moved out of production sources into test-only historical comparisons; their tests do not qualify the native backend.
 
 The [registered-provider integration trials](../tools/pdf-evaluation/own-engine/NATIVE-INTEGRATION.md) retain six new Word-matched pages, including an 80-row conditional report, with per-page content/geometry results and visual review.
@@ -61,3 +63,5 @@ The selected alpha.5 release accepts the same filled [`richText("rtf")`](../docs
 ## Passive bibliography metadata
 
 Current source qualifies bibliography `Sources` parts reached through document `customXml` relationships, with optional validated datastore properties. The conversion copy excludes only these identified passive metadata trees and relationships from its print model; the owning DOCX generator retains them. Bibliography text cannot change text direction, template evaluation or printed content. Unknown linked custom XML, orphan parts in the conversion copy, duplicate IDs, foreign namespaces and external property targets reject explicitly. Before conversion, the owning DOCX serializer omits unreachable ZIP members; this does not admit arbitrary linked custom XML. Existing archive/XML/deadline limits remain. Citation fields and arbitrary custom-XML data binding are not added by this profile.
+
+Selected alpha.6 (#170) preserves concrete native rejection details and source coordinates in development mode. The optional contract 0.8 `DocumentDiagnosticProvider` produces marked DOCX inspection copies even when native PDF conversion fails; a separate conservative preview leaves malformed fragments and structural regions literal. See the [diagnostic guide](../docs/template-diagnostic-pdf.md#source-diagnostics-and-docx-inspection-unreleased-170). Earlier published alphas remain unchanged.

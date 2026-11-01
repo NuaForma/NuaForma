@@ -134,6 +134,7 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
             post(ApiRoutes.DOCUMENTS) { guarded(call) { generate(call) } }
             if (config.loggingMode == LoggingMode.DEVELOPMENT) {
                 post(ApiRoutes.TEMPLATE_DIAGNOSTIC) { guarded(call) { generate(call, true) } }
+                post(ApiRoutes.DOCUMENT_DIAGNOSTIC) { guarded(call) { generate(call, true, true) } }
             }
         }
     }
@@ -184,7 +185,7 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
         ))), ContentType.Application.Json, HttpStatusCode.fromValue(status))
     }
 
-    private suspend fun generate(call: ApplicationCall, diagnostic: Boolean = false) {
+    private suspend fun generate(call: ApplicationCall, diagnostic: Boolean = false, documentDiagnostic: Boolean = false) {
         if (!call.request.contentType().match(ContentType.MultiPart.FormData)) throw ApiFailure(415, "UNSUPPORTED_MEDIA_TYPE", "Expected multipart/form-data")
         val directory = createPrivateDirectory()
         try {
@@ -242,7 +243,21 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
                         }
                     }
                     val generation = GenerationRequest(input, request.requirements, request.data, resources)
-                    if (diagnostic) {
+                    if (documentDiagnostic) {
+                        val preview = when (call.request.queryParameters["preview"]) {
+                            null, "false" -> false
+                            "true" -> true
+                            else -> throw ApiFailure(400, "INVALID_REQUEST", "preview must be true or false")
+                        }
+                        val provider = registry.providers.filter {
+                            (request.providerId == null || it.metadata.id == request.providerId) && it.provider is DocumentDiagnosticProvider &&
+                                request.requirements.input.format in it.capabilities.readFormats
+                        }.singleOrNull()?.provider as? DocumentDiagnosticProvider
+                            ?: throw ApiFailure(422, "UNSUPPORTED_INPUT", "Choose one document diagnostic provider")
+                        provider.diagnoseDocument(generation, bounded, context, preview).also {
+                            if (it.output.format != DocumentFormat.DOCX) throw ApiFailure(500, "INVALID_PROVIDER_RESULT", "Diagnostic provider did not return DOCX")
+                        }
+                    } else if (diagnostic) {
                         val requirements = GenerationRequirements(request.requirements.input,
                             FormatRequest(DocumentFormat.PDF, mapOf("profile" to "standard")))
                         val provider = registry.select(requirements, null, context).provider as? TemplateDiagnosticProvider
@@ -257,9 +272,9 @@ internal class KtorServer(private val registry: ProviderRegistry, private val co
             val format = result.output.format.id
             val media = when (format) { "docx" -> ContentType.parse("application/vnd.openxmlformats-officedocument.wordprocessingml.document"); "pdf" -> ContentType.Application.Pdf; else -> ContentType.Application.OctetStream }
             // Only validated tokens, never uploaded filenames or user-supplied media types.
-            val filename = if (diagnostic) "template-diagnostic.pdf" else "${request.filename}.$format"
+            val filename = if (documentDiagnostic) "document-diagnostic.docx" else if (diagnostic) "template-diagnostic.pdf" else "${request.filename}.$format"
             call.response.headers.append(HttpHeaders.ContentDisposition, "attachment; filename=\"$filename\"")
-            if (diagnostic) call.response.headers.append("NuaForma-Diagnostic-Artifact", "template-error")
+            if (diagnostic) call.response.headers.append("NuaForma-Diagnostic-Artifact", if (documentDiagnostic) "document-error" else "template-error")
             call.response.headers.append(HttpHeaders.CacheControl, "no-store")
             call.response.headers.append("X-Content-Type-Options", "nosniff")
             call.response.headers.append("NuaForma-Warning-Codes", result.warnings.map { it.code.id }.distinct().take(32).joinToString(","))

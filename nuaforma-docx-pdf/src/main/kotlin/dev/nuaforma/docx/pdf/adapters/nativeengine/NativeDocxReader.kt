@@ -24,13 +24,23 @@ internal class NativeDocxReader(
 
     private val provenance = java.util.IdentityHashMap<XmlElement, String>()
     private var activePart = "package"
+    private val source = NativeDocxSource(context)
     private val parsed = linkedMapOf<String, XmlElement>()
+    private val lineReader = NativeDocxLines({ node -> source.current = node; activePart = provenance[node] ?: activePart }, ::reject)
     private fun parse(bytes: ByteArray, part: String): XmlElement {
         activePart = part
-        return parsed.getOrPut(part) { xml.read(bytes).also { root -> root.descendants().forEach { provenance[it] = part } } }
+        return parsed.getOrPut(part) { xml.read(bytes).also { root ->
+            source.index(root, part)
+            source.current = root
+            root.descendants().forEach { provenance[it] = part }
+        } }.also { source.current = it }
     }
 
-    fun read(bytes: ByteArray): PdfDocument {
+    fun read(bytes: ByteArray): PdfDocument = try { readDocument(bytes) }
+    catch (error: NativeDocxReadException) { throw error }
+    catch (_: IllegalArgumentException) { throw source.failure("Unsupported combination of native document formatting", activePart) }
+
+    private fun readDocument(bytes: ByteArray): PdfDocument {
         val parts = unpack(bytes)
         parts.filterKeys { it.endsWith(".xml") || it.endsWith(".rels") }.forEach { (name, content) -> parse(content, name) }
         val bibliography = WordBibliographyMetadata(context).removeFromPrintModel(parsed)
@@ -42,8 +52,11 @@ internal class NativeDocxReader(
         if (compatibilityModes.size > 1) throw NativeDocxReadException("Ambiguous document compatibility mode", "word/settings.xml")
         val modernTableAlignment = compatibilityModes.singleOrNull()?.value("val") == "15"
         val complexText = WordAuthoringMetadata.containsComplexText(parsed.values)
-        parsed.forEach { (name, root) -> WordAuthoringMetadata.normalize(root, name, complexText) }
-        parsed.forEach { (name, root) -> activePart = name; NativeDocxFields.normalize(root, ::reject) }
+        parsed.forEach { (name, root) -> WordAuthoringMetadata.normalize(root, name, complexText) { node ->
+            source.current = node
+            source.failure("Unsupported Word authoring or compatibility settings", name)
+        } }
+        parsed.forEach { (name, root) -> activePart = name; source.current = root; NativeDocxFields.normalize(root, ::reject) { source.current = it } }
         for (name in listOf("word/fontTable.xml", "word/webSettings.xml")) parsed[name]?.let { root ->
             val expected = if (name.endsWith("fontTable.xml")) "fonts" else "webSettings"
             check(root.name.namespaceURI == word && root.name.localPart == expected, "Invalid font table or web settings")
@@ -83,6 +96,7 @@ internal class NativeDocxReader(
         ranges += finalSection to pending.toList()
         check(ranges.size <= 32, "Section budget exceeded")
         fun readGeometry(section: XmlElement): Pair<PdfPage, XmlElement> {
+            source.current = section
             attributes(section, emptySet())
             children(section, setOf("pgSz", "pgMar", "headerReference", "footerReference", "type", "titlePg", "pgNumType", "footnotePr", "endnotePr"))
             pageNumbering(section)
@@ -231,9 +245,11 @@ internal class NativeDocxReader(
         var linkCounter = 0
         var sequenceIndex = 0
         fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false, tableStyles: List<XmlElement> = emptyList()): PdfParagraph {
+            source.current = paragraph
             context.checkActive()
             crossParagraphBookmarks += openBookmarks.mapNotNull { bookmarkNames[it] }
             val logicalId = "source-p${paragraphCounter++}"
+            val lineDrawings = mutableListOf<PdfLineDrawing>()
             children(paragraph, setOf("pPr", "r", "fldSimple", "hyperlink", "bookmarkStart", "bookmarkEnd"))
             val direct = paragraph.one("pPr")
             val styleChain = chain(direct?.one("pStyle")?.value("val") ?: normal, "paragraph")
@@ -261,6 +277,7 @@ internal class NativeDocxReader(
             val pendingDestinations = mutableListOf<PdfDestination>()
             var contents: PdfContents? = null
             fun readRun(run: XmlElement, link: PdfLink? = null, logicalLink: String? = null): List<PdfInline> {
+            source.current = run
                 if (run.name.localPart == "fldSimple") {
                     attributes(run, setOf("instr", "dirty", "fldLock"))
                     check(run.value("fldLock") in setOf(null, "0", "false", "off"), "Locked field results are not qualified")
@@ -314,11 +331,11 @@ internal class NativeDocxReader(
                     if (kind == PdfReferenceKind.TEXT) textReferences += requireNotNull(target)
                     return listOf(PdfReferenceField(id, kind, style, target, instruction.linked, navigation))
                 }
-                children(run, setOf("rPr", "t", "tab", "drawing", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
+                children(run, setOf("rPr", "t", "tab", "drawing", "pict", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
                 val face = faceFor(run.one("rPr"))
                 val contents = run.elements().filter { it.name.localPart != "rPr" }
                 check(contents.isNotEmpty(), "Each proof run needs content")
-                return contents.map { item -> when (item.name.localPart) {
+                return contents.mapNotNull { item -> when (item.name.localPart) {
                     "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef" -> {
                         val kind = if (item.name.localPart.startsWith("foot")) PdfNoteKind.FOOTNOTE else PdfNoteKind.ENDNOTE
                         val owning = item.name.localPart.endsWith("Reference")
@@ -352,7 +369,11 @@ internal class NativeDocxReader(
                         PdfTextRun(text.ifEmpty { " " }, textStyle(face), navigation)
                     }
                     "tab" -> { check(link == null, "Linked tabs are not qualified"); attributes(item, emptySet()); check(item.elements().isEmpty(), "Invalid tab control"); PdfTab(textStyle(face)) }
-                    "drawing" -> { check(link == null && pendingDestinations.isEmpty() && !face.underline && !face.strikethrough, "Navigation or text decorations on pictures are not qualified"); PdfImageRun(image(item, partRelations, parts)) }
+                    "pict", "drawing" -> { if (lineReader.isLine(item)) {
+                        check(link == null && pendingDestinations.isEmpty(), "Navigation on drawn lines is not qualified")
+                        check(lineDrawings.size < 32, "Paragraph line budget exceeded")
+                        lineDrawings += lineReader.drawing(item, page); null
+                    } else { check(link == null && pendingDestinations.isEmpty() && !face.underline && !face.strikethrough, "Navigation or text decorations on pictures are not qualified"); PdfImageRun(image(item, partRelations, parts)) } }
                     else -> reject("Unsupported run content")
                 } }
             }
@@ -414,9 +435,10 @@ internal class NativeDocxReader(
                     geometry.outline != null -> PdfSemanticRole.HEADING
                     styleChain.any { it.value("styleId").equals("Caption", true) || it.one("name")?.value("val").equals("caption", true) } -> PdfSemanticRole.CAPTION
                     else -> PdfSemanticRole.PARAGRAPH
-                }, geometry.outline), contents = contents)
+                }, geometry.outline), contents = contents, borders = geometry.borders, lines = lineDrawings)
         }
         fun readTable(table: XmlElement, partRelations: Map<String, String>, fields: Boolean, depth: Int = 0): PdfTable {
+            source.current = table
             check(depth <= 1, "Only one nested table level is supported")
             children(table, setOf("tblPr", "tblGrid", "tr"))
             val properties = table.one("tblPr") ?: reject("Explicit table properties required")
@@ -564,9 +586,11 @@ internal class NativeDocxReader(
             return PdfTable(widths, rows, padding, border, count, physicalIndent, if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else PdfTableWidthPolicy.FIXED)
         }
         fun readBox(pict: XmlElement, partRelations: Map<String, String>): PdfTextBox {
+            source.current = pict
             val vml = "urn:schemas-microsoft-com:vml"
             val word10 = "urn:schemas-microsoft-com:office:word"
             val shape = pict.elements().singleOrNull() ?: reject("Only one shape per drawing is supported")
+            source.current = shape
             check(shape.name.namespaceURI == vml && shape.name.localPart == "rect", "Only rectangular VML text frames are supported")
             check(shape.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in setOf("id", "style", "filled", "fillcolor", "stroked", "strokecolor", "strokeweight") }, "Unsupported frame attribute")
             val declarations = (shape.attribute("", "style") ?: reject("Frame style required")).split(';').filter { it.isNotBlank() }.map {
@@ -603,6 +627,7 @@ internal class NativeDocxReader(
                 if (wrapNode == null) PdfBoxWrap.NONE else PdfBoxWrap.TOP_BOTTOM)
         }
         fun readDrawingBox(node: XmlElement, partRelations: Map<String, String>): PdfTextBox {
+            source.current = node
             val wps = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
             val anchor = node.elements().singleOrNull() ?: reject("Invalid floating drawing")
             check(anchor.name.namespaceURI == wp && anchor.name.localPart == "anchor", "Floating anchor required")
@@ -657,6 +682,7 @@ internal class NativeDocxReader(
                 when (bodyProps.attribute("", "anchor")) { "t" -> PdfVerticalAlignment.TOP; "ctr" -> PdfVerticalAlignment.CENTER; "b" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported vertical alignment") })
         }
         fun readAnchoredImage(node: XmlElement, partRelations: Map<String, String>): PdfAnchoredImage {
+            source.current = node
             val anchor = node.elements().single()
             fun one(name: String) = anchor.elements().singleOrNull { it.name.namespaceURI == wp && it.name.localPart == name } ?: reject("Missing or duplicate image anchor property")
             val keys = setOf("distT", "distB", "distL", "distR", "simplePos", "relativeHeight", "behindDoc", "locked", "layoutInCell", "allowOverlap")
@@ -720,7 +746,7 @@ internal class NativeDocxReader(
         fun readBlocks(root: XmlElement, partRelations: Map<String, String>, fields: Boolean): List<PdfBlock> = root.elements().filter { it.name.localPart != "sectPr" }.flatMap { block ->
             when (block.name.localPart) {
                 "p" -> {
-                    val frames = block.elements().filter { it.name.localPart == "r" }.flatMap { it.elements().filter { node -> node.name.namespaceURI == word && (node.name.localPart == "pict" || node.name.localPart == "drawing" && node.elements().any { it.name.namespaceURI == wp && it.name.localPart == "anchor" }) } }
+                    val frames = block.elements().filter { it.name.localPart == "r" }.flatMap { it.elements().filter { node -> node.name.namespaceURI == word && !lineReader.isLine(node) && (node.name.localPart == "pict" || node.name.localPart == "drawing" && node.elements().any { it.name.namespaceURI == wp && it.name.localPart == "anchor" }) } }
                     check(frames.isEmpty() || !fields, "Frames in page bands are outside this profile")
                     val plain = XmlElement(block.name, block.attributes, block.namespaces)
                     plain.children += block.children.mapNotNull { child ->
@@ -739,7 +765,7 @@ internal class NativeDocxReader(
                     val paragraph = readParagraph(plain, partRelations, fields)
                     boxes.map { if (it.name.localPart == "pict") readBox(it, partRelations) else readDrawingBox(it, partRelations) } +
                         PdfParagraph(paragraph.runs, paragraph.spaceBefore, paragraph.spaceAfter, paragraph.format, paragraph.listLabel,
-                            images.map { readAnchoredImage(it, partRelations) }, paragraph.semantics, paragraph.contents)
+                            images.map { readAnchoredImage(it, partRelations) }, paragraph.semantics, paragraph.contents, paragraph.borders, paragraph.lines)
                 }
                 "tbl" -> listOf(readTable(block, partRelations, fields))
                 else -> reject("Unsupported block")
@@ -878,11 +904,12 @@ internal class NativeDocxReader(
 
     private data class Geometry(val before: Float = 0f, val after: Float = 0f, val line: Float? = null,
         val alignment: PdfAlignment = PdfAlignment.LEFT, val left: Float = 0f, val right: Float = 0f, val first: Float = 0f,
-        val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false, val direction: PdfTextDirection? = null)
+        val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false, val direction: PdfTextDirection? = null, val borders: PdfParagraphBorders? = null)
 
     private fun paragraphProperties(property: XmlElement, initial: Geometry): Geometry {
-        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs"))
+        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr"))
         var result = initial
+        property.one("pBdr")?.let { result = result.copy(borders = lineReader.borders(it, result.borders)) }
         fun flag(node: XmlElement): Boolean {
             attributes(node, setOf("val"))
             return when (node.value("val")) { null, "true", "1", "on" -> true; "false", "0", "off" -> false; else -> reject("Invalid paragraph toggle") }
@@ -1028,11 +1055,16 @@ internal class NativeDocxReader(
         return when (node.value("val")) { null, "1", "true", "on" -> true; "0", "false", "off" -> false; else -> reject("Invalid page-policy toggle") }
     }
     private fun children(node: XmlElement, allowed: Set<String>) {
+        source.current = node
         activePart = provenance[node] ?: activePart
-        check(node.elements().all { it.name.namespaceURI == word && it.name.localPart in allowed }, "Unsupported document feature")
+        node.elements().firstOrNull { it.name.namespaceURI != word || it.name.localPart !in allowed }?.let {
+            source.current = it
+            reject("Unsupported document feature")
+        }
         check(node.elements().groupBy { it.name.localPart }.all { (name, values) -> name in setOf("r", "p", "style", "tbl", "tr", "tc", "fldSimple", "t", "tab", "headerReference", "footerReference", "hyperlink", "bookmarkStart", "bookmarkEnd") || values.size == 1 }, "Duplicate property")
     }
     private fun attributes(node: XmlElement, allowed: Set<String>) {
+        source.current = node
         activePart = provenance[node] ?: activePart
         check(node.attributes.keys.all { it.namespaceURI == word && it.localPart in allowed }, "Unsupported formatting attribute")
     }
@@ -1049,7 +1081,12 @@ internal class NativeDocxReader(
             dev.nuaforma.contracts.DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, dev.nuaforma.contracts.RejectionReason.PDF_CONVERSION_BYTE_BUDGET_WAS_EXCEEDED)))
     }
     private fun check(condition: Boolean, message: String) { if (!condition) reject(message) }
-    private fun reject(message: String): Nothing = throw NativeDocxReadException(message, activePart)
+    private fun reject(message: String): Nothing = throw source.failure(message, activePart)
 }
 
-internal class NativeDocxReadException(message: String, val part: String) : IllegalArgumentException(message)
+internal class NativeDocxReadException(message: String, val part: String,
+    sourceContext: dev.nuaforma.contracts.DocumentSourceContext? = null,
+    val documentLocation: String? = null, val location: String? = null) : IllegalArgumentException(message) {
+    val sourceContext: dev.nuaforma.contracts.DocumentSourceContext = sourceContext
+        ?: dev.nuaforma.contracts.DocumentSourceContext(message, null, null, "")
+}

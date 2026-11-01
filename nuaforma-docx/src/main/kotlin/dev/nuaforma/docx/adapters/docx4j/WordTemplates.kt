@@ -13,7 +13,7 @@ import org.docx4j.openpackaging.parts.WordprocessingML.HeaderPart
 import org.docx4j.openpackaging.parts.WordprocessingML.FooterPart
 import org.docx4j.wml.*
 
-internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, private val context: GenerationContext, pipes: List<ContentPipe>, private val valuePipes: TemplatePipes, private val fault: WordTemplateFault? = null) {
+internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, private val context: GenerationContext, pipes: List<ContentPipe>, private val valuePipes: TemplatePipes, private val fault: WordTemplateFault? = null, private val preview: Boolean = false) {
     private val root = ContentTemplates.open(data, pipes, valuePipes, options, context)
     private val watermark = options.watermark
     private val identities = WordIdentities(context)
@@ -129,7 +129,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         val rich = if (node is P && !validateOnly && children.any { rawChild ->
             (XmlUtils.unwrap(rawChild) as? R)?.content?.any { (XmlUtils.unwrap(it) as? Text)?.value?.contains('|') == true } == true
         }) WordRichParagraphs(node, context, ::visible) { richSplitAllowed(node) } else null
-        if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context, valuePipes, ::visible, fault,
+        if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context, valuePipes, ::visible, fault, preview,
             { value, anchor, source, start, end ->
                 rich?.accept(value, anchor, source, start, end) ?: DocxFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.UNSUPPORTED_RICH_TEXT_PLACEMENT)
             }) { images.drawing(it, owner) }
@@ -138,7 +138,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
             richReplacements[node as P] = rich.finish()
             return // Every source child was ordinary text, already evaluated once. Finalized data is never parsed again.
         }
-        if (node is R) WordRuns.mixed(node, session, validateOnly, context, valuePipes, fault)
+        if (node is R) WordRuns.mixed(node, session, validateOnly, context, valuePipes, fault, preview)
         if (node is Body || node is Hdr || node is Ftr || node is Tc || node is Tbl || node is CTTxbxContent ||
             node is org.docx4j.vml.CTTextbox || modernTextBox(node)) blocks(children, session, validateOnly, depth)
         else {
@@ -160,6 +160,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
     }
 
     private fun blocks(content: MutableList<Any>, session: ContentTemplateSession, validateOnly: Boolean, depth: Int) {
+        if (preview) { previewBlocks(content, session, validateOnly, depth); return }
         val plan = parse(content, session, depth)
         if (validateOnly) {
             fun validate(nodes: List<Block>, scope: ContentTemplateSession, dynamic: Boolean, repeated: Boolean) { nodes.forEach { when (it) {
@@ -189,6 +190,49 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         }
         val output = emit(plan, session, false)
         content.clear(); content.addAll(output)
+    }
+
+    private fun previewBlocks(content: MutableList<Any>, session: ContentTemplateSession, validateOnly: Boolean, depth: Int) {
+        val controls = PreviewControls(context, depth)
+        val output = mutableListOf<Any>()
+        for (value in content.toList()) {
+            context.checkActive()
+            val paragraph = markerParagraph(value)
+            val text = paragraph?.let { WordRuns.printSource(it.content) { run -> !visibility.hidden(run, it, currentTable) } }.orEmpty()
+            if (controls.literal(text)) {
+                if (!validateOnly && paragraph != null) paragraph.content.add(0, WordDiagnosticDocument.label("[LITERAL BLOCK] "))
+                output.add(value)
+            } else {
+                process(value, session, validateOnly, depth + 1)
+                output.addAll(replaced(value))
+            }
+        }
+        if (!validateOnly) { content.clear(); content.addAll(output) }
+    }
+
+    /** Conservatively retain control regions; mismatches never resume evaluation within this container. */
+    private class PreviewControls(private val context: GenerationContext, private val depth: Int) {
+        private val stack = java.util.ArrayDeque<String>()
+        private var uncertain = false
+        fun literal(source: String): Boolean {
+            var literal = uncertain || stack.isNotEmpty()
+            for (match in CONTROL.findAll(source)) {
+                context.checkActive()
+                literal = true
+                advance(match.groupValues[1])
+                if (stack.size > context.limits.maxExpressionDepth || depth + stack.size > 128)
+                    DocxFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.DOCX_BLOCK_NESTING_EXCEEDS_THE_CONFIGURED_LIMIT)
+            }
+            return literal
+        }
+        private fun advance(control: String) {
+            when (control) {
+                "#if", "#each" -> stack.addLast(control.drop(1))
+                "/if", "/each" -> if (stack.peekLast() == control.drop(1)) stack.removeLast() else uncertain = true
+                "#else" -> if (stack.peekLast() != "if") uncertain = true
+            }
+        }
+        companion object { private val CONTROL = Regex("\\{(#if\\b|#each\\b|/if\\b|/each\\b|#else\\b)") }
     }
 
     private fun replaced(value: Any): List<Any> = (XmlUtils.unwrap(value) as? P)?.let { richReplacements.remove(it) } ?: listOf(value)

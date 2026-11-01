@@ -100,6 +100,41 @@ class TemplateSocketTest {
                         assertFalse(diagnostic.has("expression"))
                         assertTrue(captured.none { it.text.contains("trim(name,)") })
                     }
+                    val lineSource = "Before</w:t></w:r></w:p><w:p><w:pPr><w:pBdr><w:bottom w:val=\"single\"/></w:pBdr></w:pPr><w:r><w:rPr><w:rFonts w:ascii=\"Liberation Sans\" w:hAnsi=\"Liberation Sans\"/></w:rPr><w:t>Border target"
+                    val lineOutput = send(lineSource)
+                    assertEquals(200, lineOutput.statusCode())
+                    Loader.loadPDF(lineOutput.body()).use { assertTrue(PDFTextStripper().getText(it).contains("Border target")) }
+                    val shadingSource = "Before</w:t></w:r></w:p><w:p><w:pPr><w:shd w:fill=\"008B90\"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii=\"Liberation Sans\" w:hAnsi=\"Liberation Sans\"/></w:rPr><w:t>Shading target"
+                    val shadingFailure = send(shadingSource)
+                    assertEquals(422, shadingFailure.statusCode())
+                    val shadingDiagnostic = com.fasterxml.jackson.databind.ObjectMapper().readTree(shadingFailure.body()).path("diagnostics").first()
+                    if (mode == LoggingMode.DEVELOPMENT) {
+                        assertEquals("w:shd", shadingDiagnostic.path("sourceConstruct").asText())
+                        assertEquals("paragraph:2", shadingDiagnostic.path("documentLocation").asText())
+                        assertEquals("Shading target", shadingDiagnostic.path("sourceExcerpt").asText())
+                        val fallback = send(shadingSource, "/api/v1/diagnostics/document")
+                        assertEquals(200, fallback.statusCode(), fallback.body().decodeToString())
+                    } else assertFalse(shadingDiagnostic.has("sourceExcerpt"))
+                    val docxInspection = send("Prefix {broken", "/api/v1/diagnostics/document")
+                    val recovery = send("Hello {name}</w:t></w:r></w:p><w:p><w:r><w:t>Broken {name", "/api/v1/diagnostics/document?preview=true")
+                    if (mode == LoggingMode.DEVELOPMENT) {
+                        for (inspection in listOf(docxInspection, recovery)) {
+                            assertEquals(200, inspection.statusCode(), inspection.body().decodeToString())
+                            assertEquals("document-error", inspection.headers().firstValue("NuaForma-Diagnostic-Artifact").orElse(""))
+                            val parts = ZipInputStream(inspection.body().inputStream()).use { zip ->
+                                generateSequence { zip.nextEntry }.map { it.name to zip.readBytes().decodeToString() }.toMap()
+                            }
+                            assertTrue(parts.getValue("word/document.xml").contains("not a generated document", ignoreCase = true))
+                            if (inspection === recovery) {
+                                assertTrue(parts.getValue("word/document.xml").replace(Regex("<[^>]+>"), "").replace(Regex("\\s+"), " ").contains("Hello ") && parts.getValue("word/document.xml").contains("Ada"))
+                                assertTrue(parts.getValue("word/document.xml").contains("Broken {name"))
+                            }
+                        }
+                        assertEquals(400, send("{broken", "/api/v1/diagnostics/document?preview=anything").statusCode())
+                    } else {
+                        assertEquals(404, docxInspection.statusCode())
+                        assertEquals(404, recovery.statusCode())
+                    }
                     val marked = send("Prefix {broken", "/api/v1/diagnostics/template")
                     if (mode == LoggingMode.DEVELOPMENT) {
                         assertEquals(200, marked.statusCode(), if (marked.statusCode() == 200) "" else marked.body().decodeToString())

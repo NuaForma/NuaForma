@@ -5,6 +5,10 @@ import dev.nuaforma.pdf.*
 internal data class TextMetrics(val width: Float, val ascent: Float, val descent: Float, val naturalAscent: Float = ascent, val naturalDescent: Float = descent, val lineGap: Float = 0f)
 internal fun interface TextMeasurer { fun measure(text: String, style: PdfTextStyle): TextMetrics }
 internal sealed interface PositionedElement
+internal enum class StrokeLayer { FLOW, BACKGROUND, FOREGROUND }
+internal data class PositionedStroke(val x: Float, val top: Float, val endX: Float, val endY: Float, val stroke: PdfLineStroke,
+    val pageX: Boolean = false, val pageY: Boolean = false, val layer: StrokeLayer = StrokeLayer.FLOW,
+    val joinOwner: PdfParagraph? = null, val joinFollowing: PdfParagraph? = null) : PositionedElement
 internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false, val navigation: PdfTextNavigation? = null, val logicalOwner: String? = null, val span: PdfSpanSemantics? = null, val logicalOffset: Int? = null) : PositionedElement
 internal data class PositionedImage(val image: PdfImage, val x: Float, val top: Float, val foreground: Boolean = false) : PositionedElement
 internal data class PositionedRectangle(val x: Float, val top: Float, val width: Float, val height: Float, val fill: PdfColor?, val border: PdfBorder?) : PositionedElement
@@ -23,7 +27,7 @@ internal object PageLayouter {
         var top = page.margins.top
         var previousAfter = 0f
         val elements = mutableListOf<PositionedElement>()
-        for (block in document.blocks) {
+        for ((blockIndex, block) in document.blocks.withIndex()) {
             checkCancellation()
             when (block) {
                 is PdfTextBox -> {
@@ -70,6 +74,9 @@ internal object PageLayouter {
                             ?: ((kotlin.math.floor(markerEnd / label.defaultTabInterval) + 1) * label.defaultTabInterval)
                     }
                     top += if (format.collapseSpacing) maxOf(0f, block.spaceBefore - previousAfter) else block.spaceBefore
+                    val frame = ParagraphLines.frame(block, document.blocks.getOrNull(blockIndex - 1) as? PdfParagraph, document.blocks.getOrNull(blockIndex + 1) as? PdfParagraph)
+                    top += frame.before
+                    val paragraphTop = top
                     var firstLine = true
                     var lineIndex = 0
                     fun area() = lineArea?.invoke(lineIndex) ?: (0f to width)
@@ -178,12 +185,17 @@ internal object PageLayouter {
                         lineWidth = spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
                     }
                     flush()
+                    val strokes = mutableListOf<PositionedElement>()
+                    ParagraphLines.strokes(block, frame, width, paragraphTop, top - paragraphTop, true, true, strokes)
+                    elements += strokes.map { FlowLayouter.translate(it, page.margins.left, 0f) }
+                    top += frame.after
+                    if (top > bottom + .001f) overflow()
                     top += block.spaceAfter
                     previousAfter = block.spaceAfter
                 }
             }
         }
-        return PageLayout(page, elements)
+        return PageLayout(page, ParagraphLines.connect(elements))
     }
 
     internal fun automaticBox(p: PdfParagraph, measurer: TextMeasurer): Pair<Float, Float>? {

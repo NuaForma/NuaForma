@@ -26,6 +26,8 @@ The model includes page/margins, paragraphs with inline text/image items and bef
 
 ## Alpha output profiles and font embedding
 
+Selected alpha.6 (#172) adds format-neutral `PdfParagraphBorders` and bounded `PdfLineDrawing` decorations with solid, dashed, dotted and double opaque strokes. Border extents participate in pagination, cells and bands; vector commands are PDF artifacts. Original paragraph constructors remain binary compatible. See the [source profile and Word qualification](../tools/pdf-evaluation/own-engine/LINES.md).
+
 `render(document, fonts)` retains standard PDF 1.7. Select another profile explicitly through `PdfOutputOptions`; there is no silent downgrade.
 
 | Profile | PDF version | Transparent PNG | Delivery check |

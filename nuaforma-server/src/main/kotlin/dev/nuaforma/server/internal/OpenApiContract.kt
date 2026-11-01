@@ -66,6 +66,10 @@ internal object OpenApiContract {
                 "remediation" to (string() + mapOf("maxLength" to 256, "description" to "Fixed actionable advice, only with a recognized development rejection.")),
                 "part" to (string() + mapOf("maxLength" to 128, "description" to "Allowlisted logical package part or [other package part]; never a server path.")),
                 "construct" to (string() + mapOf("maxLength" to 64, "description" to "Fixed construct label where known.")),
+                "sourceExplanation" to (string() + mapOf("maxLength" to 256, "description" to "Concrete native rejection in development mode.")),
+                "sourcePath" to (string() + mapOf("maxLength" to 4096, "description" to "Indexed XML path in the conversion copy; tbl/tr/tc identify table/row/cell. No page coordinate.")),
+                "sourceConstruct" to (string() + mapOf("maxLength" to 64)),
+                "sourceExcerpt" to (string() + mapOf("maxLength" to 256, "description" to "Sensitive bounded source text excerpt; known secret-field text is redacted. Development only.")),
                 "documentLocation" to (string() + mapOf("pattern" to "^paragraph:[0-9]{1,8}$", "description" to "One-based paragraph index within the logical DOCX part, including paragraphs in tables and text boxes.")),
                 "expression" to (string() + mapOf("maxLength" to 256, "description" to "Sensitive bounded template excerpt, development mode only; known secret field expressions are redacted.")),
                 "expressionPosition" to (string() + mapOf("pattern" to "^[0-9]{1,3}$", "description" to "Zero-based UTF-16 error position within the excerpt; may point just after its last character.")),
@@ -156,6 +160,15 @@ internal object OpenApiContract {
                     "Cache-Control" to mapOf("schema" to string(), "description" to "no-store"),
                     "X-Content-Type-Options" to mapOf("schema" to string(), "description" to "nosniff"))),
                 "404" to mapOf("description" to "Development diagnostic route is not registered in production")))))
+        paths[ApiRoutes.DOCUMENT_DIAGNOSTIC] = mapOf("post" to mapOf(
+            "operationId" to "diagnoseDocument", "summary" to "Download a development DOCX inspection copy without PDF rendering",
+            "description" to "Development only; production returns 404. Re-upload the original failed request. Marks the first error in the actual conversion copy where source mapping exists; otherwise appends a source explanation. No PDF font or layout requirement. preview=true instead evaluates independently valid text and preserves malformed fragments and structural regions literally. Never successful generation. Package safety, limits and cancellation remain mandatory.",
+            "parameters" to listOf(mapOf("name" to "preview", "in" to "query", "schema" to mapOf("type" to "boolean", "default" to false))),
+            "requestBody" to mapOf("required" to true, "content" to mapOf("multipart/form-data" to mapOf("schema" to multipart, "encoding" to mapOf("request" to mapOf("contentType" to "application/json"))))),
+            "responses" to (errors() + mapOf("200" to mapOf("description" to "Diagnostic DOCX, never business output",
+                "content" to content(mapOf("type" to "string", "format" to "binary"), "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+                "headers" to mapOf("NuaForma-Diagnostic-Artifact" to mapOf("schema" to string(), "description" to "document-error"))),
+                "404" to mapOf("description" to "Not registered in production")))))
         listOf(ApiRoutes.OPENAPI_JSON to "application/json", ApiRoutes.OPENAPI_YAML to "application/yaml").forEach { (path, media) ->
             val schema = if (path == ApiRoutes.OPENAPI_JSON) jsonObject() else string()
             paths[path] = mapOf("get" to mapOf("operationId" to if (path == ApiRoutes.OPENAPI_JSON) "downloadOpenApiJson" else "downloadOpenApiYaml", "summary" to "Download this authoritative API contract", "responses" to (errors() + mapOf("200" to mapOf("description" to "Equivalent OpenAPI 3.1.1 document serialized as $media", "content" to content(schema, media),

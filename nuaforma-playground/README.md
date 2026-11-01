@@ -62,3 +62,5 @@ Run `node --test nuaforma-playground/src/test/javascript/builder.test.cjs` from 
 ## Rich-text source feature
 
 The source after alpha.4 displays [`richText("rtf")`](../docs/rich-text.md) and its defaults in the dynamic provider catalog. Enter an escaped RTF string in the normal JSON editor; exports and submission use the same server contract. No browser-side RTF interpretation is added. Published alpha.4 does not include this pipe.
+
+Selected alpha.6 (#170) adds concrete native source diagnostics, **Download marked DOCX**, and **Preview with error markers (DOCX)**. The DOCX alternative is independent of successful PDF layout/fonts. Normal generation remains strict; see the [inspection boundaries](../docs/template-diagnostic-pdf.md#source-diagnostics-and-docx-inspection-unreleased-170).

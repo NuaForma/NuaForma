@@ -4,7 +4,10 @@ import dev.nuaforma.pdf.*
 
 /** Exact-line experimental flow with bounded table spans, nesting and row fragmentation. */
 internal object FlowLayouter {
-    internal data class MeasuredParagraph(val paragraph: PdfParagraph, val lines: List<List<PositionedElement>>, val lineHeight: Float)
+    internal data class MeasuredParagraph(val paragraph: PdfParagraph, val lines: List<List<PositionedElement>>, val lineHeight: Float, val heights: List<Float> = List(lines.size) { lineHeight }) {
+        private val offsets = heights.runningFold(0f) { sum, value -> sum + value }
+        fun height(from: Int = 0, until: Int = lines.size): Float = offsets[until] - offsets[from]
+    }
 
     fun layout(document: PdfDocument, measurer: TextMeasurer, pageBudget: Int = document.maxPages): List<PageLayout> {
         val policy = requireNotNull(document.flow)
@@ -17,7 +20,7 @@ internal object FlowLayouter {
         val exclusions = mutableMapOf<Int, MutableList<Pair<Float, Float>>>()
         val paragraphCache = mutableMapOf<Int, MeasuredParagraph>()
         val floating = mutableMapOf<Int, MutableList<ImageFlow.Exclusion>>()
-        fun measuredAt(index: Int) = paragraphCache.getOrPut(index) { paragraph(document.blocks[index] as PdfParagraph, width, measurer) }
+        fun measuredAt(index: Int) = paragraphCache.getOrPut(index) { paragraph(document.blocks[index] as PdfParagraph, width, measurer, previous = document.blocks.getOrNull(index - 1) as? PdfParagraph, next = document.blocks.getOrNull(index + 1) as? PdfParagraph) }
         var protectedThrough = -1
         fun nextPage() {
             if (pages.size >= minOf(policy.maxPages, pageBudget)) fail(PdfFailureCode.RESOURCE_LIMIT, "Page budget exceeded")
@@ -77,32 +80,34 @@ internal object FlowLayouter {
                         }
                     }
                     if (format.keepLines) {
-                        val contentHeight = measured.lines.size * measured.lineHeight
+                        val contentHeight = measured.height()
                         if (contentHeight > freshHeight() + .001f) overflow()
                         if (!fits(before + contentHeight)) { nextPage(); before = 0f }
                     }
-                    if (!fits(before + measured.lineHeight)) nextPage() else top += before
+                    if (!fits(before + measured.heights.first())) nextPage() else top += before
                     if (!format.widowControl || format.keepLines) {
-                        for (line in measured.lines) {
-                            if (measured.lineHeight > freshHeight()) overflow()
-                            avoid(measured.lineHeight)
+                        for ((lineIndex, line) in measured.lines.withIndex()) {
+                            val lineHeight = measured.heights[lineIndex]
+                            if (lineHeight > freshHeight()) overflow()
+                            avoid(lineHeight)
                             placeLine(line, page.margins.left, top, pages.last())
-                            top += measured.lineHeight
+                            top += lineHeight
                         }
                     } else {
                         var consumed = 0
                         while (consumed < measured.lines.size) {
                             PageLayouter.checkCancellation()
                             val left = measured.lines.size - consumed
-                            var count = minOf(left, kotlin.math.floor((bottom - top + .001f) / measured.lineHeight).toInt())
+                            var count = 0
+                            while (count < left && measured.height(consumed, consumed + count + 1) <= bottom - top + .001f) count++
                             if (count < left && left - count == 1) count--
                             if (count < minOf(2, left)) {
                                 if (top <= page.margins.top + .001f) overflow()
                                 nextPage(); continue
                             }
                             repeat(count) {
-                                placeLine(measured.lines[consumed++], page.margins.left, top, pages.last())
-                                top += measured.lineHeight
+                                placeLine(measured.lines[consumed], page.margins.left, top, pages.last())
+                                top += measured.heights[consumed++]
                             }
                             if (consumed < measured.lines.size) nextPage()
                         }
@@ -181,7 +186,7 @@ internal object FlowLayouter {
                 }
             }
         }
-        return pages.map { PageLayout(page, it.toList()) }
+        return pages.map { PageLayout(page, ParagraphLines.connect(it)) }
     }
 
     fun decorate(layouts: List<PageLayout>, policy: PdfFlow, firstPageNumber: Int, totalPages: Int, measurer: TextMeasurer): List<PageLayout> {
@@ -203,7 +208,7 @@ internal object FlowLayouter {
         }
     }
 
-    internal fun paragraph(p: PdfParagraph, width: Float, measurer: TextMeasurer, lineArea: ((Int) -> Pair<Float, Float>)? = null): MeasuredParagraph {
+    internal fun paragraph(p: PdfParagraph, width: Float, measurer: TextMeasurer, previous: PdfParagraph? = null, next: PdfParagraph? = null, owner: PdfParagraph = p, lineArea: ((Int) -> Pair<Float, Float>)? = null): MeasuredParagraph {
         if (p.anchoredImages.isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Anchored images are supported only in body paragraphs")
         val height = PageLayouter.automaticBox(p, measurer)?.first ?: p.format.exactLineHeight ?: fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paginated proof requires explicit exact line spacing")
         val normalized = PdfParagraph(p.runs, 0f, 0f, p.format, p.listLabel, semantics = p.semantics)
@@ -211,11 +216,12 @@ internal object FlowLayouter {
         val lines = local.elements.groupBy { element -> when (element) {
             is PositionedText -> element.baseline
             is PositionedImage -> element.top + element.image.height
+            is PositionedStroke -> error("Unexpected paragraph stroke")
             is PositionedRectangle -> error("Unexpected paragraph rectangle")
             is PositionedTableBorder -> error("Unexpected paragraph table border")
             is PositionedBox -> error("Unexpected paragraph frame")
         } }.values.mapIndexed { index, line -> line.map { translate(it, 0f, -index * height) } }
-        return MeasuredParagraph(p, lines, height)
+        return ParagraphLines.decorate(p, lines, height, width, previous, next, owner)
     }
 
     private fun band(band: PdfPageBand, footer: Boolean, page: PdfPage, number: Int, totalPages: Int, sequencePages: Int, measurer: TextMeasurer, target: MutableList<PositionedElement>) {
@@ -231,18 +237,18 @@ internal object FlowLayouter {
             is PdfPageCount -> PdfTextRun(totalPages.toString(), it.style)
             is PdfSequencePageCount -> PdfTextRun(sequencePages.toString(), it.style)
             else -> it
-        } }, p.spaceBefore, p.spaceAfter, p.format, p.listLabel, p.anchoredImages, p.semantics)
+        } }, p.spaceBefore, p.spaceAfter, p.format, p.listLabel, p.anchoredImages, p.semantics, p.contents, p.borders, p.lines)
         fun resolveTable(t: PdfTable): PdfTable = PdfTable(t.columnWidths, t.rows.map { row -> PdfTableRow(row.cells.map { cell ->
             PdfTableCell(cell.blocks.map { when (it) { is PdfParagraph -> resolve(it); is PdfTable -> resolveTable(it); is PdfImage -> it; is PdfTextBox -> error("Frame in table") } }, cell.background, cell.columnSpan, cell.rowSpan, cell.verticalAlignment, cell.borders)
         }, row.allowSplit, row.splitOversized) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent, t.widthPolicy, t.semantics)
-        for (block in band.blocks) {
+        for ((blockIndex, block) in band.blocks.withIndex()) {
             when (block) {
                 is PdfTextBox -> overflow()
                 is PdfParagraph -> {
                     if (block.format.pageBreakBefore) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Page breaks inside page bands are unsupported")
-                    val p = paragraph(resolve(block), width, measurer)
+                    val p = paragraph(resolve(block), width, measurer, previous = band.blocks.getOrNull(blockIndex - 1) as? PdfParagraph, next = band.blocks.getOrNull(blockIndex + 1) as? PdfParagraph, owner = block)
                     top += if (block.format.collapseSpacing) maxOf(0f, block.spaceBefore - after) else block.spaceBefore
-                    for (line in p.lines) { placeLine(line, page.margins.left, top, elements); top += p.lineHeight }
+                    for ((index, line) in p.lines.withIndex()) { placeLine(line, page.margins.left, top, elements); top += p.heights[index] }
                     top += block.spaceAfter
                     after = block.spaceAfter
                 }
@@ -262,7 +268,7 @@ internal object FlowLayouter {
         }
         if (top > band.maxHeight + 0.001f) overflow()
         val offset = if (footer) page.height - band.offset - top else band.offset
-        target += elements.map { translate(it, 0f, offset) }
+        target += ParagraphLines.connect(elements).map { translate(it, 0f, offset) }
     }
 
     internal fun placeLine(line: List<PositionedElement>, x: Float, top: Float, target: MutableList<PositionedElement>) {
@@ -270,6 +276,8 @@ internal object FlowLayouter {
     }
 
     internal fun translate(element: PositionedElement, x: Float, y: Float): PositionedElement = when (element) {
+        is PositionedStroke -> element.copy(x = element.x + if (element.pageX) 0f else x, endX = element.endX + if (element.pageX) 0f else x,
+            top = element.top + if (element.pageY) 0f else y, endY = element.endY + if (element.pageY) 0f else y)
         is PositionedText -> element.copy(x = element.x + x, baseline = element.baseline + y)
         is PositionedImage -> element.copy(x = element.x + x, top = element.top + y)
         is PositionedRectangle -> element.copy(x = element.x + x, top = element.top + y)

@@ -4,6 +4,7 @@ import dev.nuaforma.pdf.*
 import dev.nuaforma.pdf.internal.*
 import org.apache.pdfbox.contentstream.operator.Operator
 import org.apache.pdfbox.cos.COSDictionary
+import org.apache.pdfbox.cos.COSArray
 import org.apache.pdfbox.cos.COSFloat
 import org.apache.pdfbox.cos.COSName
 import org.apache.pdfbox.cos.COSString
@@ -69,6 +70,8 @@ internal object PdfBoxWriter {
             if (layouts.sumOf { decorationSize(it.elements) } > 100_000) fail(PdfFailureCode.RESOURCE_LIMIT, "Generated leader budget exceeded")
             fun borderSize(elements: List<PositionedElement>): Int = elements.sumOf { when (it) { is PositionedTableBorder -> 1; is PositionedBox -> borderSize(it.elements); else -> 0 } }
             if (layouts.sumOf { borderSize(it.elements) } > 20_000) fail(PdfFailureCode.RESOURCE_LIMIT, "Table border budget exceeded")
+            fun lineSize(elements: List<PositionedElement>): Int = elements.sumOf { when (it) { is PositionedStroke -> 1; is PositionedBox -> lineSize(it.elements); else -> 0 } }
+            if (layouts.sumOf { lineSize(it.elements) } > 20_000) fail(PdfFailureCode.RESOURCE_LIMIT, "Vector line budget exceeded")
             val usedFonts = linkedSetOf<String>()
             val decoration = watermark?.let { requested ->
                 val bodyCharacters = document.allParagraphs().sumOf { paragraph -> paragraph.runs.filterIsInstance<PdfTextRun>().sumOf { it.text.length.toLong() } }
@@ -93,9 +96,39 @@ internal object PdfBoxWriter {
                     }
                     fun number(value: Float) = COSFloat(value)
                     fun paint(elements: List<PositionedElement>, canvasHeight: Float, canvasWidth: Float) {
-                        for (element in elements.sortedBy { it is PositionedImage && it.foreground }) {
+                        for (element in elements.sortedBy { when {
+                            it is PositionedStroke -> when (it.layer) { StrokeLayer.FLOW -> 0; StrokeLayer.BACKGROUND -> -1; StrokeLayer.FOREGROUND -> 1 }
+                            it is PositionedImage && it.foreground -> 1
+                            else -> 0
+                        } }) {
                             control.checkActive()
                             when (element) {
+                                is PositionedStroke -> {
+                                    val stroke = element.stroke
+                                    val extent = stroke.extent / 2
+                                    val length = kotlin.math.hypot((element.endX - element.x).toDouble(), (element.endY - element.top).toDouble()).toFloat()
+                                    val bleedX = if (length == 0f) extent else kotlin.math.abs(element.endY - element.top) / length * extent
+                                    val bleedY = if (length == 0f) extent else kotlin.math.abs(element.endX - element.x) / length * extent
+                                    if (minOf(element.x, element.endX) < bleedX - .001f || maxOf(element.x, element.endX) > canvasWidth - bleedX + .001f ||
+                                        minOf(element.top, element.endY) < bleedY - .001f || maxOf(element.top, element.endY) > canvasHeight - bleedY + .001f)
+                                        fail(PdfFailureCode.CONTENT_OVERFLOW, "A vector line exceeds its physical page or frame")
+                                    command("BMC", COSName.ARTIFACT)
+                                    command("q")
+                                    command("RG", number(stroke.color.red / 255f), number(stroke.color.green / 255f), number(stroke.color.blue / 255f))
+                                    command("w", number(stroke.width))
+                                    val dash = if (stroke.dashOn != null && stroke.dashOff != null) floatArrayOf(stroke.dashOn, stroke.dashOff) else
+                                        when (stroke.style) { PdfLineStyle.DASHED -> floatArrayOf(3 * stroke.width, stroke.width); PdfLineStyle.DOTTED -> floatArrayOf(stroke.width, stroke.width); else -> floatArrayOf() }
+                                    command("d", COSArray().also { a -> dash.forEach { a.add(number(it)) } }, number(0f))
+                                    val offsets = if (stroke.style == PdfLineStyle.DOUBLE) listOf(-stroke.width, stroke.width) else listOf(0f)
+                                    for (offset in offsets) {
+                                        val dx = if (length == 0f) 0f else -(element.endY - element.top) / length * offset
+                                        val dy = if (length == 0f) 0f else (element.endX - element.x) / length * offset
+                                        command("m", number(element.x + dx), number(canvasHeight - element.top - dy))
+                                        command("l", number(element.endX + dx), number(canvasHeight - element.endY - dy))
+                                        command("S")
+                                    }
+                                    command("Q"); command("EMC")
+                                }
                                 is PositionedBox -> {
                                     val angle = Math.toRadians(element.box.rotation.toDouble())
                                     val c = kotlin.math.cos(angle).toFloat()
