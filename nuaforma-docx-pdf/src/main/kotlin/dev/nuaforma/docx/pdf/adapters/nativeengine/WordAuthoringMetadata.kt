@@ -66,6 +66,12 @@ internal object WordAuthoringMetadata {
                         columns.attributes.keys.any { it.namespaceURI != W || it.localPart !in setOf("num", "space", "equalWidth") }) reject()
                     node.children.remove(columns)
                 }
+                "p", "hyperlink" -> for (child in node.elements().filter { it.name.namespaceURI == W && it.name.localPart == "proofErr" }) {
+                    current = child
+                    if (child.value("type") !in setOf("spellStart", "spellEnd", "gramStart", "gramEnd") ||
+                        child.attributes.keys.any { it.namespaceURI != W || it.localPart != "type" } || child.children.isNotEmpty()) reject()
+                    node.children.remove(child)
+                }
                 "rPr" -> node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart == "noProof" }
                 "rFonts" -> if (!complexText) node.attributes.keys.removeIf { it.namespaceURI == W && it.localPart in setOf("cs", "eastAsia", "cstheme", "eastAsiaTheme") }
                 "lang" -> if (!complexText) node.attributes.keys.removeIf { it.namespaceURI == W && it.localPart in setOf("bidi", "eastAsia") }

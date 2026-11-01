@@ -64,3 +64,6 @@ Run `node --test nuaforma-playground/src/test/javascript/builder.test.cjs` from 
 The source after alpha.4 displays [`richText("rtf")`](../docs/rich-text.md) and its defaults in the dynamic provider catalog. Enter an escaped RTF string in the normal JSON editor; exports and submission use the same server contract. No browser-side RTF interpretation is added. Published alpha.4 does not include this pipe.
 
 Selected alpha.6 (#170) adds concrete native source diagnostics, **Download marked DOCX**, and **Preview with error markers (DOCX)**. The DOCX alternative is independent of successful PDF layout/fonts. Normal generation remains strict; see the [inspection boundaries](../docs/template-diagnostic-pdf.md#source-diagnostics-and-docx-inspection-unreleased-170).
+
+
+Selected alpha.7 fix #177 replaces generic preview error labels with one precise `[ERROR 1]` at the first locatable syntax failure and an appended reason/part/paragraph/excerpt report. Remaining malformed fragments stay literal; `[LITERAL BLOCK]` still denotes intentionally unevaluated control regions rather than a proven syntax error. Passive Word bookmark/proofing/cached-page markers no longer interrupt visible expressions. Normal generation remains strict; production routes and redaction are unchanged. This fix is included in alpha.7; unchanged alpha.6 artifacts do not include it.

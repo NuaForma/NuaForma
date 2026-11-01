@@ -127,7 +127,17 @@ class TemplateSocketTest {
                             assertTrue(parts.getValue("word/document.xml").contains("not a generated document", ignoreCase = true))
                             if (inspection === recovery) {
                                 assertTrue(parts.getValue("word/document.xml").replace(Regex("<[^>]+>"), "").replace(Regex("\\s+"), " ").contains("Hello ") && parts.getValue("word/document.xml").contains("Ada"))
-                                assertTrue(parts.getValue("word/document.xml").contains("Broken {name"))
+                                val factory = javax.xml.parsers.DocumentBuilderFactory.newInstance().apply {
+                                    isNamespaceAware = true
+                                    setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+                                }
+                                val nodes = factory.newDocumentBuilder().parse(parts.getValue("word/document.xml").byteInputStream())
+                                    .getElementsByTagNameNS("http://schemas.openxmlformats.org/wordprocessingml/2006/main", "t")
+                                val visible = (0 until nodes.length).joinToString("") { nodes.item(it).textContent }
+                                assertTrue(visible.contains("Broken [ERROR 1] {name"), visible)
+                                assertEquals(1, Regex("\\[ERROR 1]").findAll(visible).count(), visible)
+                                assertTrue(visible.contains("UNCLOSED_TEMPLATE_MARKER"), visible)
+                                assertTrue(visible.contains("paragraph:2"), visible)
                             }
                         }
                         assertEquals(400, send("{broken", "/api/v1/diagnostics/document?preview=anything").statusCode())

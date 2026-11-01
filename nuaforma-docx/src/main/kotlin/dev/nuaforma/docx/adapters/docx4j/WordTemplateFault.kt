@@ -11,6 +11,25 @@ internal class WordTemplateFault(private val context: GenerationContext) {
     private var mark: (() -> Unit)? = null
     private var paragraph: P? = null
     private var table: Tbl? = null
+    private var previewPart: String? = null
+    private var previewParagraph: Int? = null
+    private var previewDiagnostic: Diagnostic? = null
+
+    fun locatePreview(part: String, paragraph: Int?) { previewPart = part; previewParagraph = paragraph }
+
+    private fun capture(diagnostic: Diagnostic) {
+        previewDiagnostic = diagnostic.rejectionReason?.let { reason ->
+            Diagnostic(diagnostic.code, reason, diagnostic.severity, diagnostic.location, previewPart)
+                .withTemplateContext(diagnostic.templateContext).withDocumentLocation(previewParagraph?.let { "paragraph:$it" })
+        } ?: diagnostic
+    }
+
+    fun finishPreview(document: WordprocessingMLPackage): Boolean {
+        val diagnostic = previewDiagnostic ?: return false
+        mark?.invoke()
+        WordDiagnosticDocument.annotate(document, diagnostic, context, false)
+        return true
+    }
 
     fun paragraph(value: P?, ownerTable: Tbl? = null) {
         if (paragraph == null) { paragraph = value; table = ownerTable }
@@ -19,30 +38,16 @@ internal class WordTemplateFault(private val context: GenerationContext) {
     fun plain(content: MutableList<Any>, originals: List<Any>, source: String, error: GenerationException) {
         val diagnostic = syntax(error) ?: return
         if (mark != null) return
+        capture(diagnostic)
         val start = position(diagnostic, source)
         val end = end(source, start)
         mark = {
-            var offset = 0
+            val span = WordRunSpan(originals, context)
             val replacement = mutableListOf<Any>()
-            var labelled = false
-            originals.forEach { raw ->
-                context.checkActive()
-                val original = XmlUtils.unwrap(raw) as R
-                val value = WordRuns.source(listOf(raw))
-                val cuts = listOf(0, (start - offset).coerceIn(0, value.length), (end - offset).coerceIn(0, value.length), value.length).distinct().sorted()
-                cuts.zipWithNext().forEach { (left, right) ->
-                    if (right > left) {
-                        val selected = offset + left < end && offset + right > start
-                        val run = XmlUtils.deepCopy(original)
-                        run.content.clear()
-                        val prefix = if (selected && !labelled) "[ERROR 1] ".also { labelled = true } else ""
-                        run.content.add(text(prefix + value.substring(left, right)))
-                        if (selected) emphasize(run)
-                        replacement.add(run)
-                    }
-                }
-                offset += value.length
-            }
+            span.literal(0, start, replacement)
+            span.literal(start, end, replacement, true, "[ERROR 1] ")
+            span.literal(end, source.length, replacement)
+            span.finish(replacement)
             val index = content.indexOfFirst { it === originals.first() }
             check(index >= 0 && originals.indices.all { content[index + it] === originals[it] })
             content.subList(index, index + originals.size).clear()
@@ -53,6 +58,7 @@ internal class WordTemplateFault(private val context: GenerationContext) {
     fun mixed(run: R, values: List<Any>, source: String, error: GenerationException) {
         val diagnostic = syntax(error) ?: return
         if (mark != null) return
+        capture(diagnostic)
         mark = {
             var offset = position(diagnostic, source)
             for (raw in values) {

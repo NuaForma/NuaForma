@@ -6,7 +6,7 @@ import org.docx4j.openpackaging.packages.WordprocessingMLPackage
 import org.docx4j.wml.*
 
 internal object WordDiagnosticDocument {
-    fun annotate(document: WordprocessingMLPackage, diagnostic: Diagnostic, context: GenerationContext) {
+    fun annotate(document: WordprocessingMLPackage, diagnostic: Diagnostic, context: GenerationContext, markSource: Boolean = true) {
         val body = document.mainDocumentPart.jaxbElement.body
         val part = (if (diagnostic.part == "word/document.xml") document.mainDocumentPart else document.parts.parts.values.firstOrNull { it.getPartName().name.removePrefix("/") == diagnostic.part })
             as? org.docx4j.openpackaging.parts.JaxbXmlPart<*>
@@ -19,7 +19,7 @@ internal object WordDiagnosticDocument {
             if (node is P && ++number == index) node.content.add(0, label("[ERROR 1] "))
             WordVisibility.children(node).toList().forEach { walk(it, depth + 1) }
         }
-        if (part != null && index != null) walk(part.jaxbElement, 0)
+        if (markSource && part != null && index != null) walk(part.jaxbElement, 0)
         fun line(value: String) { body.content.add(P().apply { content.add(label(value)) }) }
         line("DIAGNOSTIC COPY - NOT A GENERATED DOCUMENT")
         line("Reason: ${diagnostic.rejectionReason?.name ?: diagnostic.code.id}")
@@ -29,7 +29,11 @@ internal object WordDiagnosticDocument {
             source.path?.let { line("XML path: $it") } ?: line("No reliable XML node coordinate is available for this check.")
             if (source.excerpt.isNotEmpty()) line("Source excerpt: ${source.excerpt}")
         }
-        diagnostic.templateContext?.let { line("Template fragment: ${it.expression}") }
+        diagnostic.templateContext?.let {
+            line("Template fragment: ${it.expression}")
+            if (!it.redacted) line("Error position: ${it.excerptStart + it.position} (zero based within the parser fragment). " + " ".repeat(it.position) + "^")
+        }
+        if (!markSource) line("Only the first parser error is marked. Other malformed fragments remain literal; structural blocks use [LITERAL BLOCK].")
     }
 
     fun label(value: String): R = R().apply {
