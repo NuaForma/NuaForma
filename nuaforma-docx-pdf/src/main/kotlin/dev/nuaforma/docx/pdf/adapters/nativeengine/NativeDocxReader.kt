@@ -43,8 +43,17 @@ internal class NativeDocxReader(
     private fun readDocument(bytes: ByteArray): PdfDocument {
         val parts = unpack(bytes)
         parts.filterKeys { it.endsWith(".xml") || it.endsWith(".rels") }.forEach { (name, content) -> parse(content, name) }
+        WordPackageMetadata(context).removeFromPrintModel(parsed)
         val bibliography = WordBibliographyMetadata(context).removeFromPrintModel(parsed)
         bibliography.forEach { parsed.remove(it) }
+        WordSettingsMetadata(context).normalize(parsed) { name, node ->
+            source.current = node
+            source.failure("Unsupported Word document settings", name)
+        }
+        parsed["word/numbering.xml"]?.let { root -> WordNumberingMetadata(context).normalize(root) { node ->
+            source.current = node
+            source.failure("Unsupported Word numbering metadata", "word/numbering.xml")
+        } }
         val compatibilityModes = parsed["word/settings.xml"]?.elements().orEmpty()
             .filter { it.name.namespaceURI == word && it.name.localPart == "compat" }
             .flatMap { it.elements() }.filter { it.name.namespaceURI == word && it.name.localPart == "compatSetting" &&
@@ -56,8 +65,14 @@ internal class NativeDocxReader(
             source.current = node
             source.failure("Unsupported Word authoring or compatibility settings", name)
         } }
+        parsed["word/webSettings.xml"]?.let { root -> WordWebSettings(context).normalize(root) { node ->
+            source.current = node
+            source.failure("Unsupported Word web settings", "word/webSettings.xml")
+        } }
         parsed.forEach { (name, root) -> activePart = name; source.current = root; NativeDocxFields.normalize(root, ::reject) { source.current = it } }
         for (name in listOf("word/fontTable.xml", "word/webSettings.xml")) parsed[name]?.let { root ->
+            activePart = name
+            source.current = root
             val expected = if (name.endsWith("fontTable.xml")) "fonts" else "webSettings"
             check(root.name.namespaceURI == word && root.name.localPart == expected, "Invalid font table or web settings")
             val allowed = if (expected == "fonts") setOf("fonts", "font", "panose1", "charset", "family", "pitch", "sig", "altName", "notTrueType") else setOf("webSettings")
@@ -110,7 +125,8 @@ internal class NativeDocxReader(
                 check(type.value("val") == "nextPage", "Only next-page section transitions are qualified")
             }
             val size = section.one("pgSz") ?: reject("Missing page size")
-            attributes(size, setOf("w", "h", "orient"))
+            attributes(size, setOf("w", "h", "orient", "code"))
+            size.value("code")?.let(::number)
             val pageWidth = twips(size.value("w"))
             val pageHeight = twips(size.value("h"))
             when (size.value("orient")) {
@@ -232,7 +248,10 @@ internal class NativeDocxReader(
             check(("word/$target" in parts) == relations.values.contains(target), "Notes relationship/part mismatch")
             parts["word/$target"]?.let { kind to parse(it, "word/$target") }
         }.toMap()
-        val sourceNotes = NativeDocxNotes(noteRoots, noteNumbering, ::reject)
+        val sourceNotes = NativeDocxNotes(noteRoots, noteNumbering, ::reject) { node ->
+            source.current = node
+            activePart = provenance[node] ?: activePart
+        }
         var currentNoteKind: PdfNoteKind? = null
         val openBookmarks = mutableSetOf<Pair<String, String>>()
         val seenBookmarks = mutableSetOf<Pair<String, String>>()
@@ -783,10 +802,13 @@ internal class NativeDocxReader(
             check(bandRoot.name.namespaceURI == word && bandRoot.name.localPart == if (name == "header") "hdr" else "ftr", "Invalid page band")
             children(bandRoot, setOf("p", "tbl"))
             val ownRelations = parts["word/_rels/$target.rels"]?.let { readRelations(xml.read(it)) } ?: emptyMap()
+            val blocks = readBlocks(bandRoot, ownRelations, true)
+            source.current = bandRoot
+            activePart = "word/$target"
             val offset = twips(margins.value(name))
             val extent = (if (name == "header") page.margins.top else page.margins.bottom) - offset
+            if (extent <= 0 && unprintedBand(blocks)) return null
             check(offset >= 0 && extent > 0, "Invalid page-band geometry")
-            val blocks = readBlocks(bandRoot, ownRelations, true)
             return if (blocks.isEmpty()) null else PdfPageBand(offset, extent, blocks)
         }
         val headerReferences = mutableMapOf<String, XmlElement>()
@@ -1007,6 +1029,14 @@ internal class NativeDocxReader(
             number(extent.attribute("", "cy")) / 12700, PdfImageCrop(fraction("t"), fraction("r"), fraction("b"), fraction("l")))
     }
 
+    private fun unprintedBand(blocks: List<PdfBlock>): Boolean = blocks.all { block ->
+        block is PdfParagraph && block.borders == null && block.lines.isEmpty() && block.anchoredImages.isEmpty() &&
+            block.contents == null && block.listLabel == null && block.format.outlineLevel == null && block.runs.all { inline ->
+                inline is PdfTextRun && inline.text.all { it == ' ' } && inline.navigation == null && inline.semantics == null &&
+                    !inline.style.underline && !inline.style.strikethrough
+            }
+    }
+
     private fun unpack(bytes: ByteArray): Map<String, ByteArray> {
         budget(bytes.size <= minOf(8_388_608L, context.limits.maxTemplateBytes))
         val parts = linkedMapOf<String, ByteArray>()
@@ -1018,7 +1048,8 @@ internal class NativeDocxReader(
                     val entry = zip.nextEntry ?: break
                     budget(parts.size < minOf(64, context.limits.maxArchiveEntries))
                     check(entry.name !in parts && !entry.isDirectory, "Invalid or duplicate ZIP entries")
-                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docProps/(?:app|core)\\.xml|word/(?:(?:document|styles|numbering|settings|footnotes|endnotes|fontTable|webSettings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|_rels/(?:document|footnotes|endnotes|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|media/[A-Za-z0-9_.-]+\\.png)|customXml/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
+                    activePart = entry.name.take(256)
+                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|numbering|settings|footnotes|endnotes|fontTable|webSettings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|_rels/(?:document|settings|footnotes|endnotes|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|media/[A-Za-z0-9_.-]+\\.png)|customXml/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(8192)
                     while (true) {

@@ -8,6 +8,7 @@ import dev.nuaforma.pdf.*
 internal class NativeDocxNotes(
     roots: Map<PdfNoteKind, XmlElement>, private val numbering: Map<PdfNoteKind, Numbering>,
     private val fail: (String) -> Nothing,
+    focus: (XmlElement) -> Unit = {},
 ) {
     data class Numbering(val start: Int, val format: PdfNumberFormat, val specialIds: Set<String> = emptySet())
     private data class Definition(val node: XmlElement, val kind: PdfNoteKind, val id: String)
@@ -19,12 +20,14 @@ internal class NativeDocxNotes(
 
     init {
         for ((kind, root) in roots) {
+            focus(root)
             val name = kindName(kind)
             if (root.name.namespaceURI != W || root.name.localPart != name + "s") fail("Invalid notes root")
             val ids = mutableSetOf<String>()
             val specialIds = mutableSetOf<String>()
             val policies = mutableSetOf<String>()
             for (node in root.elements()) {
+                focus(node)
                 if (node.name.namespaceURI != W || node.name.localPart != name || node.attributes.keys.any { it.namespaceURI != W || it.localPart !in setOf("id", "type") }) fail("Invalid note definition")
                 val raw = sourceId(node.attribute(W, "id"), fail)
                 if (!ids.add(raw)) fail("Duplicate note definition ID")
