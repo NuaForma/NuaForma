@@ -33,7 +33,8 @@ internal class NativeDocxSource(private val context: GenerationContext) {
     fun failure(message: String, fallbackPart: String): NativeDocxReadException {
         val node = current
         val entry = entries[node]
-        val excerpt = entry?.anchor?.descendants()?.filter { it.name.namespaceURI == word && it.name.localPart == "t" }
+        val excerptNode = entry?.let { if (it.paragraph != null) it.anchor else node }
+        val excerpt = excerptNode?.descendants()?.filter { it.name.namespaceURI == word && it.name.localPart == "t" }
             ?.flatMap { it.children.asSequence().filterIsInstance<XmlText>() }?.map { it.text }?.take(256)?.joinToString("")?.take(256).orEmpty()
         val explanation = if (message == "Unsupported document feature") when (node?.name?.localPart) {
             "pBdr" -> "Paragraph borders are not supported by the native DOCX profile"

@@ -69,7 +69,7 @@ internal object OpenApiContract {
                 "sourceExplanation" to (string() + mapOf("maxLength" to 256, "description" to "Concrete native rejection in development mode.")),
                 "sourcePath" to (string() + mapOf("maxLength" to 4096, "description" to "Indexed XML path in the conversion copy; tbl/tr/tc identify table/row/cell. No page coordinate.")),
                 "sourceConstruct" to (string() + mapOf("maxLength" to 64)),
-                "sourceExcerpt" to (string() + mapOf("maxLength" to 256, "description" to "Sensitive bounded paragraph excerpt; known secret-field text is redacted. Development only.")),
+                "sourceExcerpt" to (string() + mapOf("maxLength" to 256, "description" to "Sensitive bounded source text excerpt; known secret-field text is redacted. Development only.")),
                 "documentLocation" to (string() + mapOf("pattern" to "^paragraph:[0-9]{1,8}$", "description" to "One-based paragraph index within the logical DOCX part, including paragraphs in tables and text boxes.")),
                 "expression" to (string() + mapOf("maxLength" to 256, "description" to "Sensitive bounded template excerpt, development mode only; known secret field expressions are redacted.")),
                 "expressionPosition" to (string() + mapOf("pattern" to "^[0-9]{1,3}$", "description" to "Zero-based UTF-16 error position within the excerpt; may point just after its last character.")),

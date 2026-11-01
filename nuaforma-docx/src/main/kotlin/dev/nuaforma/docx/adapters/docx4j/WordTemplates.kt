@@ -198,7 +198,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         for (value in content.toList()) {
             context.checkActive()
             val paragraph = markerParagraph(value)
-            val text = paragraph?.let { WordRuns.detectionSource(it.content) { run -> !visibility.hidden(run, it, currentTable) } }.orEmpty()
+            val text = paragraph?.let { WordRuns.printSource(it.content) { run -> !visibility.hidden(run, it, currentTable) } }.orEmpty()
             if (controls.literal(text)) {
                 if (!validateOnly && paragraph != null) paragraph.content.add(0, WordDiagnosticDocument.label("[LITERAL BLOCK] "))
                 output.add(value)

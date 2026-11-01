@@ -38,6 +38,11 @@ internal object WordRuns {
     fun detectionSource(content: List<Any>, visible: (R) -> Boolean = { true }): String = content.mapNotNull { XmlUtils.unwrap(it) as? R }.filter(visible)
         .joinToString("") { run -> run.content.mapNotNull { XmlUtils.unwrap(it) as? Text }.joinToString("") { it.value } }
 
+    /** Field instructions use the same JAXB Text type but are not printed template instructions. */
+    fun printSource(content: List<Any>, visible: (R) -> Boolean): String = content.mapNotNull { XmlUtils.unwrap(it) as? R }.filter(visible)
+        .joinToString("") { run -> run.content.filterIsInstance<JAXBElement<*>>().filter { it.name.localPart == "t" }
+            .mapNotNull { it.value as? Text }.joinToString("") { it.value } }
+
     fun mixed(run: R, session: TemplateSession, validateOnly: Boolean, context: GenerationContext, valuePipes: TemplatePipes, fault: WordTemplateFault? = null, preview: Boolean = false) {
         if (plain(run)) return
         if (validateOnly && ContentTemplates.containsContentMarker(run.content.filterIsInstance<JAXBElement<*>>()

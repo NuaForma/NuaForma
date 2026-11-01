@@ -6,6 +6,18 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class NativeDocxSourceTest {
+    @Test fun `block errors excerpt their own content rather than an unrelated first paragraph`() {
+        val context = GenerationContext(dev.nuaforma.contracts.GenerationLogging(dev.nuaforma.contracts.LoggingMode.DEVELOPMENT))
+        val xml = ConversionXml(context).read("""<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Unrelated first paragraph</w:t></w:r></w:p><w:sdt><w:sdtContent><w:p><w:r><w:t>Actual control content</w:t></w:r></w:p></w:sdtContent></w:sdt></w:body></w:document>""".toByteArray())
+        val source = NativeDocxSource(context)
+        source.index(xml, "word/document.xml")
+        source.current = xml.descendants().single { it.name.localPart == "sdt" }
+        val error = source.failure("Unsupported document feature", "package")
+        assertEquals("Actual control content", error.sourceContext!!.excerpt)
+        assertTrue(error.sourceContext!!.path.endsWith("/w:sdt[1]"))
+        assertNull(error.documentLocation)
+    }
+
     @Test fun `nested table row cell and header coordinates identify actual nodes`() {
         for (part in listOf("word/document.xml", "word/header1.xml", "word/footer1.xml")) {
             val context = GenerationContext(dev.nuaforma.contracts.GenerationLogging(dev.nuaforma.contracts.LoggingMode.DEVELOPMENT))

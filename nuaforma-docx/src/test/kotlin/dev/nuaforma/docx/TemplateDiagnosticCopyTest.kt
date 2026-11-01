@@ -184,4 +184,14 @@ class TemplateDiagnosticCopyTest {
         assertTrue(orphan.contains("After {name}"), orphan)
     }
 
+    @Test fun `preview control detection ignores field instructions and retains visible field results`() {
+        val xml = preview("<w:p><w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText>{#if false}</w:instrText></w:r>" +
+            "<w:r><w:fldChar w:fldCharType=\"separate\"/></w:r><w:r><w:t>Visible {name}</w:t></w:r>" +
+            "<w:r><w:fldChar w:fldCharType=\"end\"/></w:r></w:p>" + paragraph("After {name}"))
+        assertFalse(xml.contains("[LITERAL BLOCK]"), xml)
+        assertTrue(visibleText(xml).contains("Visible Ada"), xml)
+        assertTrue(visibleText(xml).contains("After Ada"), xml)
+        assertTrue(xml.contains("{#if false}"), xml)
+    }
+
 }
