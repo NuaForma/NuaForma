@@ -63,6 +63,16 @@ tasks.register<JavaExec>("renderNativeDocxProof") {
     javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
 }
 
+tasks.register<JavaExec>("renderWordFormattingProof") {
+    group = "verification"
+    description = "Renders trusted synthetic formatting inputs into a fresh build directory without rewriting goldens."
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("dev.nuaforma.docx.pdf.ownengine.WordFormattingProof")
+    javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+    workingDir(projectDir)
+}
+
 val generateOwnEngineFixture = tasks.register<Exec>("generateOwnEngineFixture") {
     val builder = rootProject.file("tools/pdf-evaluation/own-engine/build_fixture.py")
     val logo = rootProject.file("assets/branding/nuaforma-icon-transparent.png")

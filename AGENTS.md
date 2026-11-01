@@ -59,6 +59,10 @@ Gradle with Kotlin DSL is the selected build system. Install JDK 17 and JDK 25: 
 - For documentation-only changes, inspect the diff and check referenced paths and commands. A build is not required unless documentation generation or executable examples are affected.
 - Report commands actually run and their results. If a required check cannot run, state the limitation; never describe an unexecuted check as passing.
 
+## Code readability
+
+- Separate every function declaration from surrounding code with a blank line before and after it, including local functions and expression-bodied helpers. Keep its documentation, comments and annotations attached to the function; place the separating blank line outside that group.
+
 ## Tests and reference documents
 
 - Use JUnit Jupiter with the newest stable JUnit release compatible with Java 17 and the chosen test stack when establishing or updating the build. Pin the selected version for reproducible builds; do not use dynamic latest-version selectors or prereleases by default. The test framework choice is not fixed to JUnit 5.

@@ -27,6 +27,7 @@ internal class NativeDocxReader(
     private val source = NativeDocxSource(context)
     private val parsed = linkedMapOf<String, XmlElement>()
     private val lineReader = NativeDocxLines({ node -> source.current = node; activePart = provenance[node] ?: activePart }, ::reject)
+
     private fun parse(bytes: ByteArray, part: String): XmlElement {
         activePart = part
         return parsed.getOrPut(part) { xml.read(bytes).also { root ->
@@ -46,7 +47,7 @@ internal class NativeDocxReader(
         WordPackageMetadata(context).removeFromPrintModel(parsed)
         val bibliography = WordBibliographyMetadata(context).removeFromPrintModel(parsed)
         bibliography.forEach { parsed.remove(it) }
-        WordSettingsMetadata(context).normalize(parsed) { name, node ->
+        val formatting = WordSettingsMetadata(context).normalize(parsed) { name, node ->
             source.current = node
             source.failure("Unsupported Word document settings", name)
         }
@@ -78,7 +79,9 @@ internal class NativeDocxReader(
             val allowed = if (expected == "fonts") setOf("fonts", "font", "panose1", "charset", "family", "pitch", "sig", "altName", "notTrueType") else setOf("webSettings")
             check(root.descendants().all { it.name.namespaceURI == word && it.name.localPart in allowed }, "Embedded font tables or web settings are outside this profile")
         }
+
         fun part(name: String) = parse(parts[name] ?: reject("Missing required package part"), name)
+
         val rootRelations = part("_rels/.rels")
         requireRelationships(rootRelations)
         val office = rootRelations.elements().filter { it.attribute("", "Type") == "$rel/officeDocument" }
@@ -110,6 +113,7 @@ internal class NativeDocxReader(
         check(pending.isNotEmpty(), "Empty final sections are outside this profile")
         ranges += finalSection to pending.toList()
         check(ranges.size <= 32, "Section budget exceeded")
+
         fun readGeometry(section: XmlElement): Pair<PdfPage, XmlElement> {
             source.current = section
             attributes(section, emptySet())
@@ -142,9 +146,11 @@ internal class NativeDocxReader(
                 PdfMargins(twips(margins.value("top")), twips(margins.value("right")), twips(margins.value("bottom")), twips(margins.value("left"))))
             return resolved to margins
         }
+
         var (page, margins) = readGeometry(ranges.first().first)
         val relationRoot = part("word/_rels/document.xml.rels")
         requireRelationships(relationRoot)
+
         fun readRelations(root: XmlElement): Map<String, String> {
         requireRelationships(root)
         val result = root.elements().associate { element ->
@@ -165,6 +171,7 @@ internal class NativeDocxReader(
         check(result.size == root.elements().size, "Duplicate relationship ID")
         return result
         }
+
         val relations = readRelations(relationRoot)
         check(("word/settings.xml" in parts) == relations.values.contains("settings.xml"), "Settings relationship/part mismatch")
         check(("word/theme/theme1.xml" in parts) == relations.values.contains("theme/theme1.xml"), "Theme relationship/part mismatch")
@@ -181,8 +188,11 @@ internal class NativeDocxReader(
                 kind to family
             }
         } ?: emptyMap()
+
         fun resolveRun(property: XmlElement?, initial: Face) = runProperties(property, initial, themeFonts)
+
         val neighbors = java.util.IdentityHashMap<XmlElement, Pair<XmlElement?, XmlElement?>>()
+
         fun registerNeighbors(root: XmlElement) {
             for (parent in root.descendants()) {
                 val nodes = parent.elements()
@@ -191,6 +201,7 @@ internal class NativeDocxReader(
                 }
             }
         }
+
         registerNeighbors(document)
         for (i in 0 until ranges.lastIndex) {
             val last = ranges[i].second.last()
@@ -199,11 +210,13 @@ internal class NativeDocxReader(
             neighbors[first]?.let { neighbors[first] = null to it.second }
         }
         var noteNumbering = NativeDocxNotes.defaults()
+
         fun noteProperties(root: XmlElement) {
             noteNumbering = noteNumbering.mapValues { (kind, previous) ->
                 NativeDocxNotes.properties(root.one(NativeDocxNotes.kindName(kind) + "Pr"), kind, previous, ::reject)
             }
         }
+
         var decimalSeparator = "."
         var evenAndOddHeaders = false
         val defaultTabInterval = parts["word/settings.xml"]?.let { bytes ->
@@ -229,14 +242,17 @@ internal class NativeDocxReader(
         check(styles.size == stylesRoot.elements().count { it.name.localPart == "style" }, "Duplicate style ID")
         val normal = styles.values.singleOrNull { it.value("type") == "paragraph" && it.value("default") in setOf("1", "true") }?.value("styleId")
             ?: reject("Explicit default paragraph style is required")
+
         fun chain(id: String, type: String, seen: Set<String> = emptySet()): List<XmlElement> {
             check(id !in seen && seen.size < 16, "Cyclic or excessive style inheritance")
             val style = styles[id] ?: reject("Unknown style")
             check(style.value("type") == type, "Wrong style type")
-            children(style, setOf("name", "basedOn", "pPr", "rPr"))
+            children(style, setOf("name", "basedOn", "pPr", "rPr") +
+                if (type == "table") setOf("tblPr", "tcPr", "tblStylePr") else emptySet())
             val parent = style.one("basedOn")?.value("val")
             return (parent?.let { chain(it, type, seen + id) } ?: emptyList()) + style
         }
+
         check(defaultParagraph?.one("numPr") == null, "Numbering in document defaults is outside the proof")
         check(("word/numbering.xml" in parts) == relations.values.contains("numbering.xml"), "Numbering relationship/part mismatch")
         val numbering = NativeDocxNumbering(parts["word/numbering.xml"]?.let { parse(it, "word/numbering.xml") }, body) { paragraph ->
@@ -263,6 +279,7 @@ internal class NativeDocxReader(
         var fieldCounter = 0
         var linkCounter = 0
         var sequenceIndex = 0
+
         fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false, tableStyles: List<XmlElement> = emptyList()): PdfParagraph {
             source.current = paragraph
             context.checkActive()
@@ -278,14 +295,32 @@ internal class NativeDocxReader(
                 check(sourceProperties.mapNotNull { it.one("numPr")?.one("numId")?.value("val") }.lastOrNull() == "0", "Numbering outside body paragraphs is not qualified")
             }
             val paragraphChain = listOfNotNull(defaultParagraph) + tableStyles.mapNotNull { it.one("pPr") } + listOfNotNull(listEntry?.level?.one("pPr")) + styleChain.mapNotNull { it.one("pPr") } + listOfNotNull(direct)
-            var geometry = paragraphChain.fold(Geometry()) { result, property -> paragraphProperties(property, result) }
+            val legacyTableHierarchy = tableStyles.isNotEmpty() && !modernTableAlignment && !formatting.overrideNormalTableStyle
+            val tableJustification = tableStyles.any { it.one("pPr")?.one("jc") != null }
+            var geometry = paragraphChain.fold(Geometry()) { result, property ->
+                val resolved = paragraphProperties(property, result)
+                if (legacyTableHierarchy && tableJustification && property === styles.getValue(normal).one("pPr") &&
+                    property.one("jc")?.value("val") == "left") resolved.copy(alignment = result.alignment) else resolved
+            }
+            val automaticBefore = geometry.autoBefore && !formatting.additiveParagraphSpacing
+            val automaticAfter = geometry.autoAfter && !formatting.additiveParagraphSpacing
+            geometry = geometry.copy(before = if (automaticBefore) 14f else geometry.before,
+                after = if (automaticAfter) 14f else geometry.after)
             if (geometry.contextual) {
+
                 fun same(node: XmlElement?) = node != null && (node.one("pPr")?.one("pStyle")?.value("val") ?: normal) == (direct?.one("pStyle")?.value("val") ?: normal)
+
                 val (previous, next) = neighbors[paragraph] ?: (null to null)
                 geometry = geometry.copy(before = if (same(previous)) 0f else geometry.before, after = if (same(next)) 0f else geometry.after)
             }
             check(listEntry != null || geometry.listTab == null, "List tab without numbering")
-            val base = (tableStyles + styleChain).fold(resolveRun(defaultRun, Face())) { result, style -> resolveRun(style.one("rPr"), result) }
+            val tableSize = tableStyles.any { it.one("rPr")?.one("sz") != null }
+            val base = (tableStyles + styleChain).fold(resolveRun(defaultRun, Face(openType = modernTableAlignment || formatting.openTypeFeatures))) { result, style ->
+                val resolved = resolveRun(style.one("rPr"), result)
+                if (legacyTableHierarchy && tableSize && style === styles.getValue(normal) && style.one("rPr")?.one("sz") != null &&
+                    resolved.size in setOf(11f, 12f)) resolved.copy(size = result.size) else resolved
+            }
+
             fun faceFor(properties: XmlElement?): Face {
                 val characterStyle = properties?.one("rStyle")?.value("val")
                 val inherited = characterStyle?.let { id ->
@@ -293,8 +328,10 @@ internal class NativeDocxReader(
                 } ?: base
                 return resolveRun(properties, inherited)
             }
+
             val pendingDestinations = mutableListOf<PdfDestination>()
             var contents: PdfContents? = null
+
             fun readRun(run: XmlElement, link: PdfLink? = null, logicalLink: String? = null): List<PdfInline> {
             source.current = run
                 if (run.name.localPart == "fldSimple") {
@@ -396,6 +433,7 @@ internal class NativeDocxReader(
                     else -> reject("Unsupported run content")
                 } }
             }
+
             val runs = paragraph.elements().flatMap { node -> when (node.name.localPart) {
                 "pPr" -> emptyList()
                 "bookmarkStart" -> {
@@ -445,8 +483,14 @@ internal class NativeDocxReader(
                 PdfAlignment.LEFT -> PdfAlignment.RIGHT; PdfAlignment.RIGHT -> PdfAlignment.LEFT; PdfAlignment.CENTER -> PdfAlignment.CENTER
             } else geometry.alignment
             check(geometry.direction != PdfTextDirection.RIGHT_TO_LEFT || geometry.left == 0f && geometry.right == 0f, "RTL source indentation is not qualified")
+            val pageOffset = if (geometry.mirror) {
+                check(label == null && content.none { it is PdfTab } && contents == null && geometry.direction != PdfTextDirection.RIGHT_TO_LEFT,
+                    "Mirrored lists, tab stops, contents and RTL indentation are not qualified")
+                PdfParagraphPageOffset(geometry.right - geometry.left + maxOf(0f, -geometry.first),
+                    if (!modernTableAlignment && formatting.flipLegacyMirrorIndents) PdfPageSide.ODD else PdfPageSide.EVEN)
+            } else null
             return PdfParagraph(content, geometry.before, geometry.after, PdfParagraphFormat(alignment, geometry.left, geometry.right,
-                geometry.first, geometry.line, true,
+                geometry.first, geometry.line, !formatting.additiveParagraphSpacing,
                 geometry.keepWithNext, geometry.keepLines, geometry.widowControl, geometry.pageBreakBefore, geometry.outline,
                 if (geometry.tabStops.isNotEmpty() || content.any { it is PdfTab }) PdfTabSettings(geometry.tabStops, defaultTabInterval, decimalSeparator) else null, geometry.automatic, geometry.direction), label,
                 semantics = PdfBlockSemantics(logicalId, when {
@@ -455,15 +499,22 @@ internal class NativeDocxReader(
                     styleChain.any { it.value("styleId").equals("Caption", true) || it.one("name")?.value("val").equals("caption", true) } -> PdfSemanticRole.CAPTION
                     else -> PdfSemanticRole.PARAGRAPH
                 }, geometry.outline), contents = contents, borders = geometry.borders, lines = lineDrawings)
+                .withSpacing(PdfParagraphSpacing(automaticBefore, modernTableAlignment, automaticAfter))
+                .withPageOffset(pageOffset)
         }
+
         fun readTable(table: XmlElement, partRelations: Map<String, String>, fields: Boolean, depth: Int = 0): PdfTable {
             source.current = table
             check(depth <= 1, "Only one nested table level is supported")
             children(table, setOf("tblPr", "tblGrid", "tr"))
             val properties = table.one("tblPr") ?: reject("Explicit table properties required")
-            children(properties, setOf("tblStyle", "tblW", "tblInd", "tblLayout", "tblBorders", "tblCellMar"))
+            children(properties, setOf("tblStyle", "tblW", "tblInd", "tblLayout", "tblBorders", "tblCellMar", "tblLook", "tblStyleRowBandSize", "tblStyleColBandSize"))
             val tableStyles = properties.one("tblStyle")?.let { chain(it.value("val") ?: reject("Missing table style"), "table") } ?: emptyList()
-            val layout = properties.one("tblLayout")?.value("type")
+            val rowNodes = table.elements().filter { it.name.localPart == "tr" }
+            val headerCount = rowNodes.takeWhile { row -> row.one("trPr")?.one("tblHeader")?.let { it.value("val") in setOf(null, "1", "true", "on") } == true }.size
+            val regions = NativeDocxTableStyles(tableStyles, properties, rowNodes.size,
+                table.one("tblGrid")?.elements()?.size ?: 0, headerCount, context) { node, message -> source.current = node; reject(message) }
+            val layout = regions.property("tblLayout")?.value("type")
             check(layout in setOf("fixed", "autofit"), "Explicit qualified table layout required")
             val naturalWidths = layout == "autofit"
             check(!naturalWidths || depth == 0, "Natural widths in nested tables are not qualified")
@@ -471,23 +522,28 @@ internal class NativeDocxReader(
             check(grid.elements().all { it.name.namespaceURI == word && it.name.localPart == "gridCol" }, "Unsupported table grid")
             val widths = grid.elements().map { twips(it.value("w")) }
             check(widths.size in 1..16, "Invalid table grid")
+
             fun dimension(node: XmlElement): Float {
                 attributes(node, setOf("w", "type"))
                 check(node.value("type") == "dxa", "Only physical table dimensions are supported")
                 return twips(node.value("w"))
             }
+
             fun automaticDimension(node: XmlElement) {
                 attributes(node, setOf("w", "type")); children(node, emptySet())
                 check(node.value("type") == "auto" && node.value("w") == "0", "Natural widths require automatic table and cell dimensions")
             }
-            val tableWidth = properties.one("tblW") ?: reject("Missing table width")
+
+            val tableWidth = regions.property("tblW") ?: reject("Missing table width")
             if (naturalWidths) automaticDimension(tableWidth)
             else check(kotlin.math.abs(widths.sum() - dimension(tableWidth)) < 0.01f, "Table width differs from grid")
-            val cellMargins = properties.one("tblCellMar") ?: reject("Explicit cell margins required")
+            val cellMargins = regions.property("tblCellMar") ?: reject("Explicit cell margins required")
             children(cellMargins, setOf("top", "right", "bottom", "left"))
+
             fun edge(name: String) = dimension(cellMargins.one(name) ?: reject("Missing cell margin"))
+
             val padding = PdfMargins(edge("top"), edge("right"), edge("bottom"), edge("left"))
-            val borderNodes = properties.one("tblBorders") ?: reject("Explicit table borders required")
+            val borderNodes = regions.property("tblBorders") ?: reject("Explicit table borders required")
             children(borderNodes, setOf("top", "left", "bottom", "right", "insideH", "insideV"))
             val borders = borderNodes.elements().map {
                 attributes(it, setOf("val", "sz", "color"))
@@ -496,6 +552,7 @@ internal class NativeDocxReader(
             }
             check(borders.isEmpty() || borders.size == 6 && borders.distinct().size == 1, "Only uniform table borders are supported")
             val border = borders.firstOrNull()
+
             fun ranked(value: PdfBorder): PdfEdgeStroke {
                 val units = value.width * 8
                 check(units == units.toInt().toFloat(), "Cell-border fallback must use integral eighth points")
@@ -504,12 +561,15 @@ internal class NativeDocxReader(
                     ((765 - c.blue - 2 * c.green).toLong() shl 12) or (255 - c.green).toLong()
                 return PdfEdgeStroke(value, priority)
             }
+
             val fallbackStroke by lazy { border?.let(::ranked) }
             val fallbackBorders by lazy { PdfCellBorders(fallbackStroke, fallbackStroke, fallbackStroke, fallbackStroke) }
-            fun readCellBorders(node: XmlElement): PdfCellBorders {
+
+            fun readCellBorders(node: XmlElement, inherited: PdfCellBorders = fallbackBorders): PdfCellBorders {
                 attributes(node, emptySet()); children(node, setOf("top", "right", "bottom", "left"))
+
                 fun stroke(name: String): PdfEdgeStroke? {
-                    val edge = node.one(name) ?: return fallbackStroke
+                    val edge = node.one(name) ?: return when (name) { "top" -> inherited.top; "right" -> inherited.right; "bottom" -> inherited.bottom; else -> inherited.left }
                     attributes(edge, setOf("val", "sz", "color")); children(edge, emptySet())
                     edge.value("sz")?.let { value -> val size = value.toIntOrNull(); check(size != null && size in 1..32, "Invalid cell border width") }
                     edge.value("color")?.let(::color)
@@ -523,18 +583,21 @@ internal class NativeDocxReader(
                         else -> reject("Only solid cell borders are qualified")
                     }
                 }
+
                 return PdfCellBorders(stroke("top"), stroke("right"), stroke("bottom"), stroke("left"))
             }
-            val rowNodes = table.elements().filter { it.name.localPart == "tr" }
+
             val headerFlags = mutableListOf<Boolean>()
             data class CellSpec(val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment, val borders: PdfCellBorders?, var rows: Int = 1)
             val specs = mutableListOf<Pair<List<CellSpec>, Boolean>>()
             var previous = mapOf<Int, CellSpec>()
-            for (row in rowNodes) {
+            for ((rowIndex, row) in rowNodes.withIndex()) {
                 children(row, setOf("trPr", "tc"))
                 val rowProperties = row.one("trPr")
                 rowProperties?.let { children(it, setOf("cantSplit", "tblHeader")) }
+
                 fun enabled(node: XmlElement): Boolean = when (node.value("val")) { null, "1", "true" -> true; "0", "false" -> false; else -> reject("Invalid row toggle") }
+
                 val allowSplit = rowProperties?.one("cantSplit")?.let { !enabled(it) } ?: true
                 headerFlags += rowProperties?.one("tblHeader")?.let(::enabled) == true
                 val cells = mutableListOf<CellSpec>()
@@ -544,23 +607,27 @@ internal class NativeDocxReader(
                     children(cell, setOf("tcPr", "p", "tbl"))
                     val cp = cell.one("tcPr") ?: reject("Explicit cell properties required")
                     children(cp, setOf("tcW", "shd", "gridSpan", "vMerge", "vAlign", "tcBorders"))
-                    val cellBorders = cp.one("tcBorders")?.let(::readCellBorders)
-                    val alignment = cp.one("vAlign")?.let { node ->
+                    val cellStyles = regions.layers(rowIndex, column)
+                    val cellProperties = cellStyles.mapNotNull { it.one("tcPr") } + cp
+                    val edgePolicies = cellProperties.mapNotNull { it.one("tcBorders") }
+                    val cellBorders = if (edgePolicies.isEmpty()) null else edgePolicies.fold(fallbackBorders) { inherited, node -> readCellBorders(node, inherited) }
+                    val alignment = cellProperties.mapNotNull { it.one("vAlign") }.lastOrNull()?.let { node ->
                         attributes(node, setOf("val")); children(node, emptySet())
                         when (node.value("val")) { "top" -> PdfVerticalAlignment.TOP; "center" -> PdfVerticalAlignment.CENTER; "bottom" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported cell vertical alignment") }
                     } ?: PdfVerticalAlignment.TOP
                     val span = cp.one("gridSpan")?.let { attributes(it, setOf("val")); number(it.value("val")).toInt() } ?: 1
+                    check(!regions.active || cp.one("vMerge") == null && span == 1, "Merged conditional table regions are not qualified")
                     check(span in 1..16 && column + span <= widths.size, "Invalid grid span")
                     val cellWidth = cp.one("tcW") ?: reject("Missing cell width")
                     if (naturalWidths) automaticDimension(cellWidth)
                     else check(kotlin.math.abs(dimension(cellWidth) - widths.subList(column, column + span).sum()) < 0.01f, "Inconsistent cell width")
-                    val background = cp.one("shd")?.let {
+                    val background = cellProperties.mapNotNull { it.one("shd") }.lastOrNull()?.let {
                         attributes(it, setOf("val", "color", "fill"))
                         check(it.value("val") == "clear" && it.value("color") == "auto", "Unsupported cell shading")
-                        color(it.value("fill"))
+                        it.value("fill")?.takeUnless { fill -> fill == "auto" }?.let(::color)
                     }
                     val blocks = cell.elements().filter { it.name.localPart != "tcPr" }.map { child ->
-                        when (child.name.localPart) { "p" -> readParagraph(child, partRelations, fields, tableStyles); "tbl" -> readTable(child, partRelations, fields, depth + 1); else -> reject("Unsupported cell block") }
+                        when (child.name.localPart) { "p" -> readParagraph(child, partRelations, fields, cellStyles); "tbl" -> readTable(child, partRelations, fields, depth + 1); else -> reject("Unsupported cell block") }
                     }.let { content ->
                         // Word's required empty cell-end paragraph after a nested table is a terminator,
                         // rather than another visible exact-height text line in this trial profile.
@@ -600,10 +667,11 @@ internal class NativeDocxReader(
             }
             val count = headerFlags.takeWhile { it }.size
             check(headerFlags.drop(count).none { it }, "Table headers must be leading rows")
-            val indent = properties.one("tblInd")?.let(::dimension) ?: reject("Explicit table indent required")
+            val indent = regions.property("tblInd")?.let(::dimension) ?: reject("Explicit table indent required")
             val physicalIndent = if (depth == 0 && !modernTableAlignment) indent - padding.left else indent + (border?.width ?: 0f) / 2
             return PdfTable(widths, rows, padding, border, count, physicalIndent, if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else PdfTableWidthPolicy.FIXED)
         }
+
         fun readBox(pict: XmlElement, partRelations: Map<String, String>): PdfTextBox {
             source.current = pict
             val vml = "urn:schemas-microsoft-com:vml"
@@ -618,7 +686,9 @@ internal class NativeDocxReader(
             val css = declarations.toMap()
             check(css.size == declarations.size && css.keys.all { it in setOf("position", "margin-left", "margin-top", "width", "height", "rotation", "mso-position-horizontal-relative", "mso-position-vertical-relative", "v-text-anchor") }, "Unsupported or duplicate frame style")
             check(css["position"] == "absolute", "Only positioned frames are supported")
+
             fun points(value: String?): Float = value?.takeIf { it.endsWith("pt") }?.dropLast(2)?.toFloatOrNull()?.takeIf { it.isFinite() } ?: reject("Physical frame dimensions required")
+
             val horizontal = css["mso-position-horizontal-relative"]
             check(horizontal in setOf("page", "margin", "text"), "Unsupported horizontal anchor")
             val vertical = css["mso-position-vertical-relative"]
@@ -645,6 +715,7 @@ internal class NativeDocxReader(
                 when (css["v-text-anchor"]) { "top" -> PdfVerticalAlignment.TOP; "middle" -> PdfVerticalAlignment.CENTER; "bottom" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported frame vertical alignment") },
                 if (wrapNode == null) PdfBoxWrap.NONE else PdfBoxWrap.TOP_BOTTOM)
         }
+
         fun readDrawingBox(node: XmlElement, partRelations: Map<String, String>): PdfTextBox {
             source.current = node
             val wps = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
@@ -652,14 +723,18 @@ internal class NativeDocxReader(
             check(anchor.name.namespaceURI == wp && anchor.name.localPart == "anchor", "Floating anchor required")
             val expected = mapOf("distT" to "0", "distB" to "0", "distL" to "0", "distR" to "0", "simplePos" to "0", "relativeHeight" to "0", "behindDoc" to "0", "locked" to "0", "layoutInCell" to "1", "allowOverlap" to "1")
             check(anchor.attributes.size == expected.size && anchor.attributes.all { it.key.namespaceURI.isEmpty() && expected[it.key.localPart] == it.value }, "Unsupported floating anchor policy")
+
             fun one(parent: XmlElement, ns: String, name: String) = parent.elements().singleOrNull { it.name.namespaceURI == ns && it.name.localPart == name } ?: reject("Missing or duplicate drawing property")
+
             fun numeric(value: String?) = value?.toFloatOrNull()?.takeIf { it.isFinite() } ?: reject("Invalid drawing coordinate")
+
             fun offset(name: String): Float {
                 val position = one(anchor, wp, name)
                 check(position.attribute("", "relativeFrom") == "page" && position.elements().size == 1, "Only page-relative DrawingML frames are qualified")
                 val raw = one(position, wp, "posOffset").children.filterIsInstance<XmlText>().joinToString("") { it.text }
                 return numeric(raw) / 12700
             }
+
             val extent = one(anchor, wp, "extent")
             val simple = one(anchor, wp, "simplePos")
             check(simple.attribute("", "x") == "0" && simple.attribute("", "y") == "0", "Unsupported simple position")
@@ -679,11 +754,13 @@ internal class NativeDocxReader(
             check(origin.attribute("", "x") == "0" && origin.attribute("", "y") == "0", "Unsupported local transform")
             val size = one(transform, drawing, "ext")
             check(size.attributes == extent.attributes && one(props, drawing, "prstGeom").attribute("", "prst") == "rect", "Inconsistent frame geometry")
+
             fun fill(parent: XmlElement): PdfColor? {
                 val values = parent.elements().filter { it.name.namespaceURI == drawing && it.name.localPart in setOf("solidFill", "noFill") }
                 check(values.size == 1, "Explicit single frame fill required")
                 return if (values.single().name.localPart == "noFill") null else color(one(values.single(), drawing, "srgbClr").attribute("", "val"))
             }
+
             val bodyProps = one(shape, wps, "bodyPr")
             check(bodyProps.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in setOf("rot", "vert", "wrap", "lIns", "tIns", "rIns", "bIns", "anchor") }, "Unsupported text frame policy")
             check(bodyProps.attribute("", "rot") == "0" && bodyProps.attribute("", "vert") == "horz" && bodyProps.attribute("", "wrap") == "square", "Unsupported text direction")
@@ -700,10 +777,13 @@ internal class NativeDocxReader(
                 fill(props), lineColor?.let { PdfBorder(numeric(line.attribute("", "w")) / 12700, it) },
                 when (bodyProps.attribute("", "anchor")) { "t" -> PdfVerticalAlignment.TOP; "ctr" -> PdfVerticalAlignment.CENTER; "b" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported vertical alignment") })
         }
+
         fun readAnchoredImage(node: XmlElement, partRelations: Map<String, String>): PdfAnchoredImage {
             source.current = node
             val anchor = node.elements().single()
+
             fun one(name: String) = anchor.elements().singleOrNull { it.name.namespaceURI == wp && it.name.localPart == name } ?: reject("Missing or duplicate image anchor property")
+
             val keys = setOf("distT", "distB", "distL", "distR", "simplePos", "relativeHeight", "behindDoc", "locked", "layoutInCell", "allowOverlap")
             check(anchor.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in keys }, "Unsupported image anchor attribute")
             for ((key, expected) in mapOf("simplePos" to false, "behindDoc" to false, "locked" to false, "layoutInCell" to true, "allowOverlap" to true)) {
@@ -715,6 +795,7 @@ internal class NativeDocxReader(
             check(simple.attributes.size == 2 && simple.attribute("", "x") == "0" && simple.attribute("", "y") == "0", "Unsupported simple image position")
             val extent = one("extent")
             val imageWidth = number(extent.attribute("", "cx")) / 12700
+
             fun offset(name: String, horizontal: Boolean): Pair<Float, PdfBoxAnchor> {
                 val position = one(name)
                 check(position.attributes.size == 1 && position.elements().size == 1, "Unsupported anchor position")
@@ -735,6 +816,7 @@ internal class NativeDocxReader(
                 }
                 return (base + amount) to if (relative == "paragraph") PdfBoxAnchor.PARAGRAPH else PdfBoxAnchor.PAGE
             }
+
             val horizontal = offset("positionH", true).first
             val vertical = offset("positionV", false)
             val wraps = anchor.elements().filter { it.name.namespaceURI == wp && it.name.localPart.startsWith("wrap") }
@@ -762,6 +844,7 @@ internal class NativeDocxReader(
                 PdfMargins(number(anchor.attribute("", "distT") ?: "0") / 12700, number(anchor.attribute("", "distR") ?: "0") / 12700,
                     number(anchor.attribute("", "distB") ?: "0") / 12700, number(anchor.attribute("", "distL") ?: "0") / 12700))
         }
+
         fun readBlocks(root: XmlElement, partRelations: Map<String, String>, fields: Boolean): List<PdfBlock> = root.elements().filter { it.name.localPart != "sectPr" }.flatMap { block ->
             when (block.name.localPart) {
                 "p" -> {
@@ -783,13 +866,13 @@ internal class NativeDocxReader(
                     }
                     val paragraph = readParagraph(plain, partRelations, fields)
                     boxes.map { if (it.name.localPart == "pict") readBox(it, partRelations) else readDrawingBox(it, partRelations) } +
-                        PdfParagraph(paragraph.runs, paragraph.spaceBefore, paragraph.spaceAfter, paragraph.format, paragraph.listLabel,
-                            images.map { readAnchoredImage(it, partRelations) }, paragraph.semantics, paragraph.contents, paragraph.borders, paragraph.lines)
+                        paragraph.copy(anchoredImages = images.map { readAnchoredImage(it, partRelations) })
                 }
                 "tbl" -> listOf(readTable(block, partRelations, fields))
                 else -> reject("Unsupported block")
             }
         }
+
         fun band(name: String, reference: XmlElement?): PdfPageBand? {
             if (reference == null) return null
             check(reference.attributes.keys.all { it.namespaceURI == word && it.localPart == "type" || it.namespaceURI == rel && it.localPart == "id" }, "Unsupported page-band reference attribute")
@@ -811,6 +894,7 @@ internal class NativeDocxReader(
             check(offset >= 0 && extent > 0, "Invalid page-band geometry")
             return if (blocks.isEmpty()) null else PdfPageBand(offset, extent, blocks)
         }
+
         val headerReferences = mutableMapOf<String, XmlElement>()
         val footerReferences = mutableMapOf<String, XmlElement>()
         val sequences = ranges.mapIndexed { index, (section, content) ->
@@ -852,21 +936,43 @@ internal class NativeDocxReader(
     }
 
     private data class Face(val family: String? = null, val size: Float? = null, val bold: Boolean = false,
-        val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null, val underline: Boolean = false, val superscript: Boolean = false, val strikethrough: Boolean = false) {
+        val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null, val underline: Boolean = false, val superscript: Boolean = false, val strikethrough: Boolean = false,
+        val kerningThreshold: Float = 0f, val standardLigatures: Boolean = false, val openType: Boolean = false) {
+
         fun id(resolve: (String, Boolean, Boolean) -> String): String = resolve(
             requireNotNull(family) { "An explicit font family is required" }, bold, italic)
+
     }
 
     private fun textStyle(face: Face): PdfTextStyle {
         val nominal = face.size ?: reject("Missing font size")
         val size = if (face.superscript) kotlin.math.round(nominal * 1.3f) / 2 else nominal
+        val kern = if (face.kerningThreshold > 0 && size >= face.kerningThreshold)
+            if (face.openType) PdfKerning.OPENTYPE else PdfKerning.PAIRS else PdfKerning.NONE
         return PdfTextStyle(face.id(fontId), size, face.color, face.languageTag, face.underline, if (face.superscript) nominal - size else 0f, face.strikethrough)
+            .withFontFeatures(PdfFontFeatures(kern, face.standardLigatures && face.openType))
     }
 
     private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>): Face {
         if (property == null) return initial
-        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike"))
+        val word14 = "http://schemas.microsoft.com/office/word/2010/wordml"
+        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern"), setOf(word14 to "ligatures"))
         var result = initial
+        property.one("kern")?.let {
+            attributes(it, setOf("val")); children(it, emptySet())
+            check(it.children.filterIsInstance<XmlText>().all { text -> text.text.isBlank() }, "Invalid kerning setting")
+            val threshold = number(it.value("val")) / 2
+            check(threshold <= 1638f, "Invalid kerning threshold")
+            result = result.copy(kerningThreshold = threshold)
+        }
+        property.elements().singleOrNull { it.name.namespaceURI == word14 && it.name.localPart == "ligatures" }?.let { feature ->
+            source.current = feature
+            check(feature.elements().isEmpty() && feature.children.filterIsInstance<XmlText>().all { it.text.isBlank() } &&
+                feature.attributes.keys.all { it.namespaceURI == word14 && it.localPart == "val" }, "Invalid OpenType ligature setting")
+            val value = feature.attribute(word14, "val")
+            check(value in setOf("none", "standard"), "Only standard OpenType ligatures are qualified")
+            result = result.copy(standardLigatures = value == "standard")
+        }
         property.one("vertAlign")?.let {
             attributes(it, setOf("val")); children(it, emptySet())
             check(it.value("val") in setOf("baseline", "superscript"), "Only baseline and superscript alignment are qualified")
@@ -878,10 +984,12 @@ internal class NativeDocxReader(
         }
         property.one("rFonts")?.let {
             attributes(it, setOf("ascii", "hAnsi", "asciiTheme", "hAnsiTheme", "cs", "eastAsia"))
+
             fun family(name: String): String? = it.value(name + "Theme")?.let { key ->
                 val kind = when (key) { "majorAscii", "majorHAnsi" -> "major"; "minorAscii", "minorHAnsi" -> "minor"; else -> reject("Unsupported theme font role") }
                 themeFonts[kind] ?: reject("Unresolved theme font")
             } ?: it.value(name) ?: initial.family
+
             val family = family("ascii") ?: reject("Explicit Latin font required")
             check(family("hAnsi") == family, "Mixed font families are unsupported")
             check(it.value("cs") == null || it.value("cs") == family, "Separate complex-script font faces are outside this proof")
@@ -896,7 +1004,9 @@ internal class NativeDocxReader(
             result = result.copy(languageTag = language)
         }
         property.one("sz")?.let { result = result.copy(size = number(it.value("val")) / 2) }
+
         fun enabled(node: XmlElement): Boolean = when (node.value("val")) { null, "true", "1", "on" -> true; "false", "0", "off" -> false; else -> reject("Invalid toggle") }
+
         // Hidden runs were removed from the private DOCX intermediary using resolved Word hidden-text formatting.
         for (name in listOf("vanish", "webHidden")) property.one(name)?.let {
             attributes(it, setOf("val")); children(it, emptySet()); enabled(it)
@@ -925,17 +1035,21 @@ internal class NativeDocxReader(
     }
 
     private data class Geometry(val before: Float = 0f, val after: Float = 0f, val line: Float? = null,
+        val autoBefore: Boolean = false, val autoAfter: Boolean = false,
+        val mirror: Boolean = false,
         val alignment: PdfAlignment = PdfAlignment.LEFT, val left: Float = 0f, val right: Float = 0f, val first: Float = 0f,
         val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false, val direction: PdfTextDirection? = null, val borders: PdfParagraphBorders? = null)
 
     private fun paragraphProperties(property: XmlElement, initial: Geometry): Geometry {
-        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr"))
+        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "mirrorIndents", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr"))
         var result = initial
         property.one("pBdr")?.let { result = result.copy(borders = lineReader.borders(it, result.borders)) }
+
         fun flag(node: XmlElement): Boolean {
             attributes(node, setOf("val"))
             return when (node.value("val")) { null, "true", "1", "on" -> true; "false", "0", "off" -> false; else -> reject("Invalid paragraph toggle") }
         }
+
         property.one("bidi")?.let { check(it.elements().isEmpty(), "Invalid paragraph direction"); result = result.copy(direction = if (flag(it)) PdfTextDirection.RIGHT_TO_LEFT else PdfTextDirection.LEFT_TO_RIGHT) }
         property.one("outlineLvl")?.let { attributes(it, setOf("val")); val level = number(it.value("val")).toInt(); check(level in 0..8, "Unsupported outline level"); result = result.copy(outline = level) }
         property.one("tabs")?.let { tabs ->
@@ -966,8 +1080,17 @@ internal class NativeDocxReader(
         property.one("widowControl")?.let { result = result.copy(widowControl = flag(it)) }
         property.one("pageBreakBefore")?.let { result = result.copy(pageBreakBefore = flag(it)) }
         property.one("contextualSpacing")?.let { result = result.copy(contextual = flag(it)) }
+        property.one("mirrorIndents")?.let { check(it.elements().isEmpty(), "Invalid mirrored indentation"); result = result.copy(mirror = flag(it)) }
         property.one("spacing")?.let {
-            attributes(it, setOf("before", "after", "line", "lineRule"))
+            attributes(it, setOf("before", "after", "line", "lineRule", "beforeAutospacing", "afterAutospacing"))
+            check(it.elements().isEmpty() && it.children.filterIsInstance<XmlText>().all { text -> text.text.isBlank() }, "Invalid paragraph spacing")
+
+            fun auto(name: String, inherited: Boolean): Boolean = when (it.value(name)) {
+                null -> inherited; "true", "1", "on" -> true; "false", "0", "off" -> false
+                else -> reject("Invalid automatic paragraph spacing")
+            }
+
+            result = result.copy(autoBefore = auto("beforeAutospacing", result.autoBefore), autoAfter = auto("afterAutospacing", result.autoAfter))
             if (it.value("line") != null || it.value("lineRule") != null) {
                 val line = it.value("line") ?: reject("Missing line spacing")
                 result = when (it.value("lineRule") ?: "auto") {
@@ -1024,7 +1147,9 @@ internal class NativeDocxReader(
         check(crops.size <= 1, "Duplicate image crop")
         val crop = crops.singleOrNull()
         check(crop == null || crop.elements().isEmpty() && crop.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in setOf("t", "r", "b", "l") }, "Unsupported image crop")
+
         fun fraction(side: String) = number(crop?.attribute("", side) ?: "0") / 100_000
+
         return PdfImage(parts["word/$target"] ?: reject("Missing image bytes"), number(extent.attribute("", "cx")) / 12700,
             number(extent.attribute("", "cy")) / 12700, PdfImageCrop(fraction("t"), fraction("r"), fraction("b"), fraction("l")))
     }
@@ -1073,6 +1198,7 @@ internal class NativeDocxReader(
         check(root.elements().all { it.name.namespaceURI == relationships && it.name.localPart == "Relationship" &&
             (it.attribute("", "TargetMode") == null || it.attribute("", "TargetMode") == "External" && it.attribute("", "Type") == "$rel/hyperlink") }, "External or invalid relationships are unsupported")
     }
+
     private fun pageNumbering(section: XmlElement): PdfPageNumbering {
         val node = section.one("pgNumType") ?: return PdfPageNumbering()
         attributes(node, setOf("start", "fmt")); children(node, emptySet())
@@ -1085,34 +1211,45 @@ internal class NativeDocxReader(
         attributes(node, setOf("val")); children(node, emptySet())
         return when (node.value("val")) { null, "1", "true", "on" -> true; "0", "false", "off" -> false; else -> reject("Invalid page-policy toggle") }
     }
-    private fun children(node: XmlElement, allowed: Set<String>) {
+
+    private fun children(node: XmlElement, allowed: Set<String>, extensions: Set<Pair<String, String>> = emptySet()) {
         source.current = node
         activePart = provenance[node] ?: activePart
-        node.elements().firstOrNull { it.name.namespaceURI != word || it.name.localPart !in allowed }?.let {
+        node.elements().firstOrNull { (it.name.namespaceURI != word || it.name.localPart !in allowed) && (it.name.namespaceURI to it.name.localPart) !in extensions }?.let {
             source.current = it
             reject("Unsupported document feature")
         }
-        check(node.elements().groupBy { it.name.localPart }.all { (name, values) -> name in setOf("r", "p", "style", "tbl", "tr", "tc", "fldSimple", "t", "tab", "headerReference", "footerReference", "hyperlink", "bookmarkStart", "bookmarkEnd") || values.size == 1 }, "Duplicate property")
+        check(node.elements().groupBy { it.name.localPart }.all { (name, values) -> name in setOf("r", "p", "style", "tbl", "tr", "tc", "tblStylePr", "fldSimple", "t", "tab", "headerReference", "footerReference", "hyperlink", "bookmarkStart", "bookmarkEnd") || values.size == 1 }, "Duplicate property")
     }
+
     private fun attributes(node: XmlElement, allowed: Set<String>) {
         source.current = node
         activePart = provenance[node] ?: activePart
         check(node.attributes.keys.all { it.namespaceURI == word && it.localPart in allowed }, "Unsupported formatting attribute")
     }
+
     private fun XmlElement.one(name: String): XmlElement? = elements().singleOrNull { it.name.namespaceURI == word && it.name.localPart == name }
+
     private fun XmlElement.value(name: String) = attribute(word, name)
+
     private fun number(value: String?): Float = value?.toLongOrNull()?.takeIf { it in 0..Int.MAX_VALUE.toLong() }?.toFloat() ?: reject("Invalid numeric property")
+
     private fun twips(value: String?): Float = number(value) / 20
+
     private fun color(value: String?): PdfColor {
         check(value != null && value.matches(Regex("[0-9A-Fa-f]{6}")), "Explicit RGB color required")
         return PdfColor(value!!.substring(0, 2).toInt(16), value.substring(2, 4).toInt(16), value.substring(4, 6).toInt(16))
     }
+
     private fun budget(condition: Boolean) {
         if (!condition) throw dev.nuaforma.contracts.GenerationException(listOf(dev.nuaforma.contracts.Diagnostic(
             dev.nuaforma.contracts.DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, dev.nuaforma.contracts.RejectionReason.PDF_CONVERSION_BYTE_BUDGET_WAS_EXCEEDED)))
     }
+
     private fun check(condition: Boolean, message: String) { if (!condition) reject(message) }
+
     private fun reject(message: String): Nothing = throw source.failure(message, activePart)
+
 }
 
 internal class NativeDocxReadException(message: String, val part: String,

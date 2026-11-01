@@ -11,6 +11,7 @@ internal data class DocumentLayout(
 
 /** Body pagination and page-band resolution shared by ordinary and iterated documents. */
 internal object DocumentLayouter {
+
     fun plain(document: PdfDocument, measurer: TextMeasurer, control: PdfRenderControl): DocumentLayout {
         val layouts = mutableListOf<PageLayout>()
         val displayNumbers = mutableListOf<Int>()
@@ -44,7 +45,8 @@ internal object DocumentLayouter {
                 for ((local, layout) in decorated.withIndex()) layouts[offset + local] = layout
             }
         }
-        return DocumentLayout(layouts, displayNumbers, sequenceCounts = sequences.withIndex().associate { (index, entry) -> "sequence$index" to entry.second })
+        return DocumentLayout(layouts.mapIndexed { index, layout -> ParagraphPageOffsets.resolve(layout, index + 1) }, displayNumbers,
+            sequenceCounts = sequences.withIndex().associate { (index, entry) -> "sequence$index" to entry.second })
     }
 
     fun texts(elements: List<PositionedElement>): Sequence<PositionedText> = elements.asSequence().flatMap {
@@ -71,4 +73,5 @@ internal object DocumentLayouter {
     }
 
     private fun limit(message: String): Nothing = throw PdfRenderException(PdfFailureCode.RESOURCE_LIMIT, message)
+
 }

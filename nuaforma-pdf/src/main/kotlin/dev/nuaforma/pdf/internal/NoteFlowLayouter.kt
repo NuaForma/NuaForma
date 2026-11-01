@@ -19,11 +19,16 @@ internal object NoteFlowLayouter {
         var endnotes: PdfNoteSeparator? = null
         val measured = java.util.IdentityHashMap<PdfParagraph, FlowLayouter.MeasuredParagraph>()
         val neighbors = java.util.IdentityHashMap<PdfParagraph, Pair<PdfParagraph?, PdfParagraph?>>()
+
         fun index(values: List<PdfParagraph>) { values.forEachIndexed { n, p -> neighbors[p] = values.getOrNull(n - 1) to values.getOrNull(n + 1) } }
+
         document.blocks.forEachIndexed { n, b -> if (b is PdfParagraph) neighbors[b] = (document.blocks.getOrNull(n - 1) as? PdfParagraph) to (document.blocks.getOrNull(n + 1) as? PdfParagraph) }
         document.notes.forEach { index(it.paragraphs) }
+
         fun paragraph(p: PdfParagraph) = measured.getOrPut(p) { FlowLayouter.paragraph(p, width, measurer, previous = neighbors[p]?.first, next = neighbors[p]?.second) }
+
         fun closePage() { if (!closed) { notes.finish(pages.last()); closed = true } }
+
         fun nextPage() {
             closePage()
             if (pages.size >= minOf(requireNotNull(document.flow).maxPages, budget)) limit()
@@ -31,6 +36,7 @@ internal object NoteFlowLayouter {
             top = page.margins.top; after = 0f; bodyItems = 0; closed = false
             endnotes?.let { FootnoteFlow.separator(it, true, page, top, pages.last()); top += it.height }
         }
+
         fun reserve(height: Float, calls: Set<String>, before: Float = 0f): Float {
             var gap = before
             while (!notes.accept(top + gap + height, calls)) {
@@ -42,6 +48,7 @@ internal object NoteFlowLayouter {
             top += gap
             return gap
         }
+
         val ends = document.notes.filter { it.kind == PdfNoteKind.ENDNOTE }
         val work = document.blocks.map { Work(it) } + if (ends.isEmpty()) emptyList() else
             listOf(Work(null, ends.first().separator)) + ends.flatMap { note -> note.paragraphs.map { Work(it) } }
@@ -63,7 +70,7 @@ internal object NoteFlowLayouter {
                     if (block.anchoredImages.isNotEmpty()) unsupported("Image wrapping with notes is not qualified")
                     if (block.format.pageBreakBefore && bodyItems > 0) nextPage()
                     val p = paragraph(block)
-                    var before = if (block.format.collapseSpacing) maxOf(0f, block.spaceBefore - after) else block.spaceBefore
+                    var before = ParagraphSpacing.before(block, after, bodyItems == 0, block.format.pageBreakBefore)
                     if (block.format.keepWithNext && blockIndex >= protectedThrough) {
                         val groupBlocks = if (blockIndex < document.blocks.size) document.blocks else bodyBlocks
                         val group = ParagraphKeeps.measure(groupBlocks, blockIndex, { paragraph(groupBlocks[it] as PdfParagraph) }, measurer)
@@ -186,7 +193,11 @@ internal object NoteFlowLayouter {
         TableLayouter.slice(measured, 0f, measured.offsets[table.repeatedHeaderRows + 1], 0f, 0f, target)
         return target
     }
+
     private fun overflow(): Nothing = throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, "A protected body/note group does not fit")
+
     private fun limit(): Nothing = throw PdfRenderException(PdfFailureCode.RESOURCE_LIMIT, "Note document page budget exceeded")
+
     private fun unsupported(message: String): Nothing = throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, message)
+
 }

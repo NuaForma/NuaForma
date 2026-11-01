@@ -12,3 +12,17 @@ These four unmodified Liberation Sans 2.1.5 fonts are test-only fixtures from De
 Permission-flag mutations in tests are in-memory rejection cases only. No modified font is distributed or used to produce a successful reference document. The letter fixture uses the existing approved NuaForma icon from `assets/branding`, copied into test resources during the build rather than duplicated in source.
 
 Reproduce these assets by obtaining the exact Debian package above, extracting its four `usr/share/fonts/truetype/liberation/LiberationSans-{Regular,Bold,Italic,BoldItalic}.ttf` files unchanged, and retaining the package's `usr/share/doc/fonts-liberation/copyright`. Verify each SHA-256 before replacing a fixture. This package provenance is not an operating-system requirement for building or using the engine.
+
+## OpenType qualification font
+
+`NotoSerif-Regular.ttf` is the unmodified hinted static TrueType face from the official [Noto Serif 2.015 release](https://github.com/notofonts/latin-greek-cyrillic/releases/tag/NotoSerif-v2.015), reviewed on 2026-11-01. The source commit is `c4a321e123e4d4ff315f57f4e0adf294fe3a95be`; the annotated release tag is `1eee5de7230d240118f8ad8d1e5fe4c91acae943`. Retain the complete adjacent `NotoSerif-OFL.txt`, including the Noto Project Authors' copyright and SIL Open Font License 1.1. This is a test fixture, with no new Java dependency or production font installation.
+
+Extract `NotoSerif/hinted/ttf/NotoSerif-Regular.ttf` and `OFL.txt` from `NotoSerif-v2.015.zip`. The reviewed archive passed its ZIP CRC checks. Verify these SHA-256 values:
+
+| Asset | SHA-256 |
+|---|---|
+| Official release ZIP | `0e9a43c8a4b94ac76f55069ed1d7385bbcaf6b99527a94deb5619e032b7e76c1` |
+| NotoSerif-Regular.ttf | `19e72cd8d595fae5bd74a5206f5d938512e1183d4fed7abb1ec1be1d7efa5f88` |
+| NotoSerif-OFL.txt | `cee9892f9f0cc8fe882c9e9537ee6a89621d86ee7ceaf70b02e2b2b1c25c061a` |
+
+This face supplies real standard ligatures and OpenType kerning. The Word oracle activates this exact font temporarily through `export_word_fonts.ps1`, records its hash and deactivates it in `finally`. Portable tests read only retained font bytes. Existing Liberation Sans assets and raster references remain unchanged.

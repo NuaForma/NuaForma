@@ -21,7 +21,9 @@ import javax.imageio.ImageIO
 class PassivePackagePdfTest {
     @TempDir lateinit var temporary: Path
     private val office = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+
     private fun resource(name: String) = requireNotNull(javaClass.getResourceAsStream(name)).use { it.readBytes() }
+
     private fun provider(): NativeDocxPdfProvider {
         val fonts = listOf("regular" to "Regular", "bold" to "Bold", "italic" to "Italic", "boldItalic" to "BoldItalic").map { (face, file) ->
             NativePdfFont("Liberation Sans", face, resource("/own-engine-fonts/LiberationSans-$file.ttf"))
@@ -29,6 +31,7 @@ class PassivePackagePdfTest {
         val jars = Files.list(Path.of(System.getProperty("nuaforma.pdf.validation"))).use { paths -> paths.filter { it.toString().endsWith(".jar") }.sorted().toList() }
         return NativeDocxPdfProvider(NativePdfConfiguration(fonts, PdfProcessValidator(Path.of(System.getProperty("nuaforma.pdf.validation.java")), jars, temporary)))
     }
+
     private fun parts(fixture: String = "/own-engine/source.docx"): MutableMap<String, ByteArray> = linkedMapOf<String, ByteArray>().also { parts ->
         ZipInputStream(resource(fixture).inputStream()).use { zip ->
             while (true) {
@@ -45,12 +48,15 @@ class PassivePackagePdfTest {
             }
         }
     }
+
     private fun pack(parts: Map<String, ByteArray>): ByteArray = ByteArrayOutputStream().also { bytes ->
         ZipOutputStream(bytes).use { zip -> parts.forEach { (name, content) -> zip.putNextEntry(ZipEntry(name)); zip.write(content); zip.closeEntry() } }
     }.toByteArray()
+
     private fun add(parts: MutableMap<String, ByteArray>, part: String, before: String, value: String) {
         parts[part] = parts.getValue(part).decodeToString().replace(before, value + before).toByteArray()
     }
+
     private fun metadata(parts: MutableMap<String, ByteArray>) {
         parts["docProps/custom.xml"] = """<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/custom-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><property fmtid="{D5CDD505-2E9C-101B-9397-08002B2CF9AE}" pid="2" name="{notATemplate"><vt:lpwstr>{unclosed العربية</vt:lpwstr></property></Properties>""".toByteArray()
         add(parts, "_rels/.rels", "</Relationships>", """<Relationship Id="custom182" Type="$office/custom-properties" Target="docProps/custom.xml"/>""")
@@ -67,7 +73,7 @@ class PassivePackagePdfTest {
             .joinToString("") { """<w:compatSetting w:name="$it" w:uri="http://schemas.microsoft.com/office/word" w:val="1"/>""" }
         add(parts, "word/settings.xml", "</w:settings>", """<w:embedSystemFonts/><w:stylePaneFormatFilter w:val="3F01"/><w:documentProtection w:edit="forms" w:enforcement="1"/>
             <w:noPunctuationKerning/><w:doNotIncludeSubdocsInStats/><w15:chartTrackingRefBased xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml"/>
-            <w:hdrShapeDefaults/><w:compat><w:doNotUseHTMLParagraphAutoSpacing/>$switches</w:compat>""")
+            <w:hdrShapeDefaults/><w:compat><w:doNotUseHTMLParagraphAutoSpacing w:val="0"/>$switches</w:compat>""")
         parts["word/_rels/settings.xml.rels"] = """<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="template182" Type="$office/attachedTemplate" Target="https://missing.invalid/no-network.dotx" TargetMode="External"/></Relationships>""".toByteArray()
         parts["word/webSettings.xml"] = """<w:webSettings xmlns:w="$word" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="w"><w:divs><w:div w:id="1"><w:bodyDiv/><w:marTop w:val="720"/><w:divBdr><w:top w:val="single"/></w:divBdr></w:div></w:divs><w:optimizeForBrowser/></w:webSettings>""".toByteArray()
         add(parts, "word/_rels/document.xml.rels", "</Relationships>", """<Relationship Id="web182" Type="$office/webSettings" Target="webSettings.xml"/>""")
@@ -75,6 +81,7 @@ class PassivePackagePdfTest {
         add(parts, "word/document.xml", "</w:sectPr>", """<w:docGrid w:linePitch="360"/>""")
         parts["word/document.xml"] = parts.getValue("word/document.xml").decodeToString().replace("<w:pgSz ", "<w:pgSz w:code=\"9\" ").toByteArray()
     }
+
     private fun render(provider: NativeDocxPdfProvider, source: ByteArray, profile: String): ByteArray = ByteArrayOutputStream().also {
         provider.generate(GenerationRequest(source.inputStream(), GenerationRequirements(FormatRequest(DocumentFormat.DOCX),
             FormatRequest(DocumentFormat.PDF, mapOf("profile" to profile)))), it, GenerationContext())
@@ -131,9 +138,6 @@ class PassivePackagePdfTest {
     @Test fun `compatibility permissions do not silently enable unsupported effective formatting`() {
         val provider = provider()
         for (paragraph in listOf(
-            """<w:p><w:pPr><w:spacing w:beforeAutospacing="1"/></w:pPr><w:r><w:t>Automatic spacing</w:t></w:r></w:p>""",
-            """<w:p><w:pPr><w:mirrorIndents/></w:pPr><w:r><w:t>Mirrored indents</w:t></w:r></w:p>""",
-            """<w:p><w:r><w:rPr><w:kern w:val="20"/></w:rPr><w:t>Kerning</w:t></w:r></w:p>""",
             """<w:p><w:pPr><w:divId w:val="1"/></w:pPr><w:r><w:t>HTML division binding</w:t></w:r></w:p>""")) {
             val document = parts().also(::metadata)
             document["word/document.xml"] = document.getValue("word/document.xml").decodeToString().replace("<w:body>", "<w:body>$paragraph").toByteArray()
@@ -168,6 +172,7 @@ class PassivePackagePdfTest {
 
     @Test fun `unprinted footer needs no reserved height but visible text fields and decorations still reject`() {
         val provider = provider()
+
         fun document(content: String, offset: Int): ByteArray {
             val parts = parts()
             parts["word/footer92.xml"] = """<w:ftr xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:p>$content</w:p></w:ftr>""".toByteArray()
@@ -181,6 +186,7 @@ class PassivePackagePdfTest {
             add(parts, "[Content_Types].xml", "</Types>", """<Override PartName="/word/footer92.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>""")
             return pack(parts)
         }
+
         Loader.loadPDF(render(provider, document("", 0), "standard")).use { expected ->
             Loader.loadPDF(render(provider, document("", 20_000), "standard")).use { actual ->
                 assertEquals(expected.numberOfPages, actual.numberOfPages)
@@ -202,4 +208,5 @@ class PassivePackagePdfTest {
             assertEquals("word/footer92.xml", error.diagnostics.first().part)
         }
     }
+
 }

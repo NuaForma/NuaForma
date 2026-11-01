@@ -9,8 +9,11 @@ internal object TableLayouter {
         val contentEnd: Float get() = offsets.last()
         val height: Float get() = contentEnd + closing
         val frame: Float get() = table.cellMargins.top + table.cellMargins.bottom + if (customBorders) topInsets.max() else closing
+
         fun frameAt(row: Int) = if (customBorders) table.cellMargins.top + table.cellMargins.bottom + topInsets[row] else frame
+
         fun rowCells(index: Int) = cells.filter { it.placement.row == index }
+
     }
 
     fun measure(source: PdfTable, measurer: TextMeasurer, depth: Int = 0): Measured {
@@ -42,13 +45,13 @@ internal object TableLayouter {
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph pagination rules inside table cells are not qualified")
                         }
                         val p = FlowLayouter.paragraph(block, width, measurer, previous = placement.cell.blocks.getOrNull(blockIndex - 1) as? PdfParagraph, next = placement.cell.blocks.getOrNull(blockIndex + 1) as? PdfParagraph)
-                        top += if (block.format.collapseSpacing) maxOf(0f, block.spaceBefore - after) else block.spaceBefore
+                        top += ParagraphSpacing.before(block, after, blockIndex == 0)
                         for ((index, line) in p.lines.withIndex()) {
                             pieces += Piece(top, p.heights[index], line)
                             top += p.heights[index]
                         }
-                        top += block.spaceAfter
-                        after = block.spaceAfter
+                        after = ParagraphSpacing.after(block, blockIndex == placement.cell.blocks.lastIndex)
+                        top += after
                     }
                     is PdfTable -> {
                         if (block.widthPolicy != PdfTableWidthPolicy.FIXED) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Natural widths in nested tables are not qualified")
@@ -158,9 +161,11 @@ internal object TableLayouter {
         target += frame
         val uniform = layout.table.border?.let { PdfEdgeStroke(it) }
         val policy = cell.borders ?: PdfCellBorders(uniform, uniform, uniform, uniform)
+
         fun edge(stroke: PdfEdgeStroke?, x: Float, y: Float, length: Float, horizontal: Boolean) {
             if (stroke != null) target += PositionedTableBorder(x, y, length, horizontal, stroke, layout.borderGroup)
         }
+
         if (drawTop) edge(policy.top, frame.x, frame.top, frame.width, true)
         if (drawBottom) edge(policy.bottom, frame.x, bottom, frame.width, true)
         edge(policy.left, frame.x, frame.top, frame.height + verticalExtra, false)
@@ -181,4 +186,5 @@ internal object TableLayouter {
     }
 
     private fun overflow(message: String): Nothing = throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, message)
+
 }

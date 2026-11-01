@@ -12,12 +12,12 @@ internal object ImageFlow {
         if (p.format.keepWithNext || p.format.keepLines || p.listLabel != null || p.format.textDirection == PdfTextDirection.RIGHT_TO_LEFT || p.runs.any { it !is PdfTextRun })
             fail(PdfFailureCode.UNSUPPORTED_TEXT, "Floating image paragraphs with keeps, lists, RTL text or inline objects are not qualified")
         if (p.borders != null || p.lines.isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph borders and lines beside floating images are not qualified")
-        val clean = PdfParagraph(p.runs, 0f, 0f, p.format, p.listLabel, semantics = p.semantics)
+        val clean = p.copy(spaceBefore = 0f, spaceAfter = 0f, anchoredImages = emptyList(), borders = null, lines = emptyList())
         val width = page.width - page.margins.left - page.margins.right
         val bottom = page.height - page.margins.bottom
         val base = FlowLayouter.paragraph(clean, width, measurer)
         val height = base.lineHeight
-        val before = if (p.format.collapseSpacing) maxOf(0f, p.spaceBefore - previousAfter) else p.spaceBefore
+        val before = ParagraphSpacing.before(p, previousAfter, initialTop <= page.margins.top + .001f, p.format.pageBreakBefore)
         var start = initialTop + before
         var anchorPage = pages.lastIndex
         val minimumLines = minOf(base.lines.size, if (p.format.widowControl) 2 else 1)
@@ -26,7 +26,9 @@ internal object ImageFlow {
         } ?: 0f)
         if (required > bottom - page.margins.top + .001f) fail(PdfFailureCode.CONTENT_OVERFLOW, "Anchored image and paragraph cannot fit a fresh page")
         if (start + required > bottom + .001f) { anchorPage++; start = page.margins.top }
+
         fun checkPage(index: Int) { if (index >= budget) fail(PdfFailureCode.RESOURCE_LIMIT, "Page budget exceeded") }
+
         checkPage(anchorPage)
         val placements = p.anchoredImages.map { anchor ->
             val y = anchor.top + if (anchor.anchor == PdfBoxAnchor.PARAGRAPH) start else 0f
@@ -48,6 +50,7 @@ internal object ImageFlow {
         local.getOrPut(anchorPage) { mutableListOf() }.addAll(placements.map { it.second }.filter { it.wrap != PdfImageWrap.NONE })
         val forced = mutableSetOf<Int>()
         var slots = mutableListOf<Slot>()
+
         fun slot(index: Int): Slot {
             while (slots.size <= index) {
                 PageLayouter.checkCancellation()
@@ -82,6 +85,7 @@ internal object ImageFlow {
             }
             return slots[index]
         }
+
         var measured: FlowLayouter.MeasuredParagraph? = null
         for (attempt in 0 until 64) {
             slots = mutableListOf()
@@ -116,4 +120,5 @@ internal object ImageFlow {
     }
 
     private fun fail(code: PdfFailureCode, message: String): Nothing = throw PdfRenderException(code, message)
+
 }

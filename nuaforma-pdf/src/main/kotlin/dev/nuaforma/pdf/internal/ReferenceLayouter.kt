@@ -4,8 +4,10 @@ import dev.nuaforma.pdf.*
 
 /** Bounded fixed-point pagination. All values, counters, identities and trial layouts belong to one job. */
 internal object ReferenceLayouter {
+
     fun active(document: PdfDocument): Boolean {
         if (document.referenceTargets.isNotEmpty() || document.notes.isNotEmpty()) return true
+
         fun block(value: PdfBlock): Boolean = value.semantics != null || when (value) {
             is PdfParagraph -> value.contents != null || value.runs.any { when (it) {
                 is PdfReferenceField, is PdfSequenceField, is PdfNoteCall, is PdfNoteLabel -> true
@@ -17,6 +19,7 @@ internal object ReferenceLayouter {
             is PdfTextBox -> value.paragraphs.any { block(it) }
             is PdfTable -> value.rows.any { row -> row.cells.any { cell -> cell.blocks.any { block(it) } } }
         }
+
         return document.pageSequences.any { sequence -> (sequence.blocks + sequence.flow?.bands.orEmpty().flatMap { it.blocks }).any { block(it) } }
     }
 
@@ -74,12 +77,14 @@ internal object ReferenceLayouter {
 
     private fun prepare(document: PdfDocument, fields: List<PdfReferenceField>, values: Map<String, String>, positions: Map<String, Int>): Prepared {
         val expanded = values.toMutableMap()
+
         fun navigation(original: PdfTextNavigation?, link: PdfLink?, id: String): PdfTextNavigation? {
             require(original?.link == null || link == null || original.link == link) { "Conflicting field navigation" }
             val actual = original?.link ?: link
             return if (actual == null && original?.destinations.isNullOrEmpty()) null else
                 PdfTextNavigation(actual, original?.destinations.orEmpty(), original?.logicalId ?: semanticChildId(id, "link"))
         }
+
         val resolved = DocumentTransforms.map(document) { p, _, _ ->
             val runs = p.runs.map { run -> when (run) {
                 is PdfReferenceField -> {
@@ -91,7 +96,7 @@ internal object ReferenceLayouter {
                 is PdfSequenceField -> PdfTextRun(values.getValue(run.id), run.style, navigation(run.navigation, null, run.id), PdfSpanSemantics(run.id, PdfSemanticRole.LABEL))
                 else -> run
             } }
-            listOf(PdfParagraph(runs, p.spaceBefore, p.spaceAfter, p.format, p.listLabel, p.anchoredImages, p.semantics, p.contents, p.borders, p.lines))
+            listOf(p.copy(runs = runs))
         }
         val headings = DocumentTransforms.bodyParagraphs(resolved).mapNotNull { p ->
             val semantic = requireNotNull(p.semantics)
@@ -111,6 +116,7 @@ internal object ReferenceLayouter {
             if (resolved.allParagraphs().any { it.contents?.linked == true }) required += headings.map { it.id }
         }
         val byId = headings.associateBy { it.id }
+
         fun destination(p: PdfParagraph): PdfParagraph {
             val id = requireNotNull(p.semantics).id
             val heading = byId[id]
@@ -127,8 +133,9 @@ internal object ReferenceLayouter {
                 } else run
             }
             if (!attached) unsupported("A navigation target requires visible text")
-            return PdfParagraph(runs, p.spaceBefore, p.spaceAfter, p.format, p.listLabel, p.anchoredImages, p.semantics, p.contents, p.borders, p.lines)
+            return p.copy(runs = runs)
         }
+
         val output = DocumentTransforms.map(resolved) { p, path, _ ->
             val contents = p.contents
             if (contents == null) listOf(destination(p)) else {
@@ -157,4 +164,5 @@ internal object ReferenceLayouter {
     }
 
     private fun unsupported(message: String): Nothing = throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, message)
+
 }
