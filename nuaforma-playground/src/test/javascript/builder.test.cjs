@@ -193,3 +193,44 @@ test('diagnostic download reuses the failed upload and preserves the original er
     assert.equal(node('cancel').hidden,true);
   }
 });
+
+
+test('native source diagnostics show the concrete construct path and excerpt as literal text',()=>{
+  const {api}=fixture();
+  const text=api.formatDiagnostics([{code:'UNSUPPORTED_INPUT',message:'Native profile',sourceExplanation:'Paragraph borders are unsupported',
+    sourceConstruct:'w:pBdr',sourcePath:'/w:document[1]/w:body[1]/w:p[2]/w:pPr[1]/w:pBdr[1]',sourceExcerpt:'Nearby <private> text'}]);
+  assert.match(text,/Cause: Paragraph borders are unsupported/);
+  assert.match(text,/Unsupported element: w:pBdr/);
+  assert.match(text,/XML path \(table\/row\/cell\): \/w:document/);
+  assert.match(text,/Nearby text: Nearby <private> text/);
+});
+
+test('DOCX diagnostic buttons keep the failed request and separate preview from normal generation',async()=>{
+  for(const preview of [false,true]) {
+    const nodes=new Map();
+    const make=()=>({children:[],events:{},textContent:'',append(...children){this.children.push(...children);},
+      replaceChildren(...children){this.children=children;},addEventListener(name,callback){this.events[name]=callback;}});
+    const node=id=>{if(!nodes.has(id))nodes.set(id,make());return nodes.get(id);};
+    node('result').textContent='Original unsupported document error';
+    const original={originalFile:'captured-upload'};
+    let sent;
+    const context=vm.createContext({document:{getElementById:node,createElement:make},AbortController,
+      URL:{createObjectURL:()=> 'blob:docx',revokeObjectURL:()=>{}},
+      fetch:async(url,options)=>{sent={url,options};return {ok:true,
+        headers:{get:name=>({'NuaForma-Diagnostic-Artifact':'document-error','Content-Type':'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}[name])},
+        blob:async()=>({size:1024})};},JSON,Error,Set,Boolean,Number});
+    const source=fs.readFileSync(path.join(__dirname,'../../main/resources/playground/app.js'),'utf8');
+    vm.runInContext(source.slice(0,source.indexOf("$('builder').addEventListener")),context);
+    vm.runInContext('routes={diagnoseDocument:"/api/v1/diagnostics/document"}; updateRequest=()=>true;',context);
+    vm.runInContext('offerDocumentDiagnostic',context)(original);
+    const buttons=node('result').children.filter(child=>child.type==='button');
+    await buttons[preview?1:0].events.click();
+    assert.equal(sent.url,`/api/v1/diagnostics/document?preview=${preview}`);
+    assert.equal(sent.options.body,original);
+    assert.equal(sent.options.credentials,'same-origin');
+    assert.equal(node('result').textContent,'Original unsupported document error');
+    const status=node('result').children[0];
+    assert.equal(status.children.at(-1).download,preview?'diagnostic-preview.docx':'document-diagnostic.docx');
+    assert.equal(node('cancel').hidden,true);
+  }
+});

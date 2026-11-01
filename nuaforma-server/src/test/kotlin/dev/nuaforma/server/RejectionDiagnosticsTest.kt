@@ -98,4 +98,26 @@ class RejectionDiagnosticsTest {
             }
         }
     }
+    @Test fun `native source details are development only in responses and logs`() {
+        val source = DocumentSourceContext("Unsupported document feature", "/w:document[1]/w:body[1]/w:p[2]/w:pPr[1]/w:pBdr[1]", "w:pBdr", "Nearby customer text")
+        val diagnostic = Diagnostic(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED,
+            location = "xml:4:12", part = "word/document.xml").withSourceContext(source).withDocumentLocation("paragraph:2")
+        for (mode in LoggingMode.entries) {
+            val events = mutableListOf<GenerationLogEvent>()
+            val response = ApiErrors.diagnostics(listOf(diagnostic), mode).single()
+            ApiErrors.logRejections(GenerationLogging(mode, "source-example", events::add), listOf(diagnostic))
+            if (mode == LoggingMode.DEVELOPMENT) {
+                assertEquals(source.path, response["sourcePath"])
+                assertEquals(source.excerpt, response["sourceExcerpt"])
+                assertTrue(events.any { it.development && it.text.contains("Nearby customer text") })
+                val schemas = OpenApiSchemaChecks(ObjectMapper().readTree(ApiDocumentation().jsonText))
+                assertTrue(schemas.matches("Diagnostic", ObjectMapper().valueToTree<JsonNode>(response)))
+            } else {
+                assertFalse(response.containsKey("sourcePath"))
+                assertFalse(response.toString().contains("Nearby customer text"))
+                assertFalse(events.joinToString { it.text }.contains("Nearby customer text"))
+            }
+        }
+    }
+
 }

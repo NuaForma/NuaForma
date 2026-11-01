@@ -119,4 +119,69 @@ class TemplateDiagnosticCopyTest {
         assertTrue(diagnostic.templateContext!!.redacted)
         assertEquals("[redacted expression]", diagnostic.templateContext!!.expression)
     }
+    private fun visibleText(xml: String): String {
+        val factory = javax.xml.parsers.DocumentBuilderFactory.newInstance().apply {
+            isNamespaceAware = true
+            setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
+        }
+        val nodes = factory.newDocumentBuilder().parse(xml.byteInputStream()).getElementsByTagNameNS(SyntheticDocx.W, "t")
+        return (0 until nodes.length).joinToString("") { nodes.item(it).textContent }
+    }
+    private fun preview(body: String): String {
+        val output = ByteArrayOutputStream()
+        DocxProvider().inspectionCopy(GenerationRequest(source(body).inputStream(), requirements, mapOf("name" to "Ada", "customer" to mapOf("name" to "Example"), "reference" to "REF")),
+            output, development(), null, true)
+        return SyntheticDocx.unzip(output.toByteArray()).getValue("word/document.xml").decodeToString()
+    }
+
+    @Test fun `preview preserves malformed spans and evaluates only independent valid text`() {
+        val xml = preview(paragraph("Hello {name}") + paragraph("Broken {name") + paragraph("After {name}"))
+        assertTrue(visibleText(xml).contains("Hello Ada"), xml)
+        assertTrue(xml.contains("Broken {name"), xml)
+        assertTrue(xml.contains("[ERROR]"), xml)
+        assertTrue(visibleText(xml).contains("After Ada"), xml)
+        assertTrue(xml.contains("NOT A GENERATED DOCUMENT"), xml)
+        val strict = ByteArrayOutputStream()
+        assertThrows(GenerationException::class.java) {
+            DocxProvider().generate(GenerationRequest(source(paragraph("Broken {name")).inputStream(), requirements), strict, development())
+        }
+        assertEquals(0, strict.size())
+    }
+
+    @Test fun `preview keeps control regions and mixed object fragments literal`() {
+        val xml = preview(paragraph("{#if true}") + paragraph("Inside {name}") + paragraph("{#else}") + paragraph("Else {name}") +
+            paragraph("{/if}") + paragraph("Outside {name}") + "<w:p><w:r><w:t>{broken</w:t><w:br/><w:t>}</w:t></w:r></w:p>")
+        assertTrue(xml.contains("Inside {name}"), xml)
+        assertTrue(xml.contains("Else {name}"), xml)
+        assertTrue(visibleText(xml).contains("Outside Ada"), xml)
+        assertTrue(xml.contains("[LITERAL BLOCK]"), xml)
+        assertTrue(xml.contains("{broken"), xml)
+        assertTrue(xml.contains("<w:br"), xml)
+    }
+
+    @Test fun `inspection fallback does not evaluate source and production denies it`() {
+        val output = ByteArrayOutputStream()
+        val diagnostic = Diagnostic(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED,
+            part = "word/document.xml").withDocumentLocation("paragraph:1")
+        DocxProvider().inspectionCopy(GenerationRequest(source(paragraph("{name}")).inputStream(), requirements), output, development(), diagnostic, false)
+        val xml = SyntheticDocx.unzip(output.toByteArray()).getValue("word/document.xml").decodeToString()
+        assertTrue(xml.contains("[ERROR 1]"), xml)
+        assertTrue(xml.contains("{name}"), xml)
+        assertThrows(GenerationException::class.java) {
+            DocxProvider().inspectionCopy(GenerationRequest(source(paragraph("{name}")).inputStream(), requirements),
+                ByteArrayOutputStream(), GenerationContext(), diagnostic, false)
+        }
+    }
+
+    @Test fun `preview never guesses mismatched control blocks and can resume after balanced inline regions`() {
+        val balanced = preview(paragraph("{#if true}Inside {name}{/if}") + paragraph("After {name}"))
+        assertTrue(balanced.contains("Inside {name}"), balanced)
+        assertTrue(visibleText(balanced).contains("After Ada"), balanced)
+        val mismatch = preview(paragraph("{#if true}") + paragraph("{/each}") + paragraph("After {name}"))
+        assertFalse(visibleText(mismatch).contains("After Ada"), mismatch)
+        assertTrue(mismatch.contains("After {name}"), mismatch)
+        val orphan = preview(paragraph("{#else}") + paragraph("After {name}"))
+        assertTrue(orphan.contains("After {name}"), orphan)
+    }
+
 }

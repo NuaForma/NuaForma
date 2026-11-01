@@ -67,3 +67,5 @@ Preparation, publication and website deployment are separate actions. These guid
 ## Development Maven publications
 
 See [Nexus publishing](nexus-publishing.md) for stable-versus-prerelease routing, automatic develop snapshots and manual dispatch, repository setup and anonymous Maven/Gradle consumption. [The release procedure](release-process.md) retains the single final approval for immutable product releases.
+
+Unreleased source contract 0.8 adds [source diagnostics and DOCX inspection](template-diagnostic-pdf.md#source-diagnostics-and-docx-inspection-unreleased-170); built-in providers require 0.8. The released alpha.5 baseline described above remains 0.7.

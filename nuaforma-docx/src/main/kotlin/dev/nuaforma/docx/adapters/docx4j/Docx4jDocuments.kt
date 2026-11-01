@@ -29,6 +29,20 @@ import javax.xml.stream.XMLInputFactory
 import javax.xml.stream.XMLStreamException
 
 internal object Docx4jDocuments {
+    fun inspectionCopy(request: GenerationRequest, output: OutputStream, context: GenerationContext,
+        diagnostic: Diagnostic?, preview: Boolean, pipes: List<ContentPipe>, valuePipes: TemplatePipes) {
+        if (context.logging.mode != dev.nuaforma.contracts.LoggingMode.DEVELOPMENT)
+            DocxFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, RejectionReason.TEMPLATE_DIAGNOSTICS_REQUIRE_DEVELOPMENT)
+        open(request.template, context) { document ->
+            if (preview) WordTemplates(request.data, request.requirements.options, context, pipes, valuePipes, preview = true).apply(document)
+            diagnostic?.let { WordDiagnosticDocument.annotate(document, it, context) }
+            if (preview) document.mainDocumentPart.jaxbElement.body.content.add(org.docx4j.wml.P().apply {
+                content.add(WordDiagnosticDocument.label("DIAGNOSTIC PREVIEW - NOT A GENERATED DOCUMENT. Error fragments and structural blocks remain literal."))
+            })
+            omitHidden(document, context)
+        }.use { it.writeTo(output) }
+    }
+
     fun diagnosticCopy(request: GenerationRequest, output: OutputStream, context: GenerationContext, pipes: List<ContentPipe>, valuePipes: TemplatePipes, family: String): Diagnostic {
         if (context.logging.mode != dev.nuaforma.contracts.LoggingMode.DEVELOPMENT)
             DocxFailure.fail(DiagnosticCodes.UNSUPPORTED_OPTION, RejectionReason.TEMPLATE_DIAGNOSTICS_REQUIRE_DEVELOPMENT)

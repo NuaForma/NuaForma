@@ -55,6 +55,12 @@ internal object ApiErrors {
         if (diagnostic.rejectionReason == null) return emptyMap()
         val details = linkedMapOf<String, String>()
         diagnostic.documentLocation?.takeIf { DOCUMENT_LOCATION.matches(it) }?.let { details["documentLocation"] = it }
+        diagnostic.sourceContext?.let {
+            details["sourceExplanation"] = it.explanation
+            details["sourcePath"] = it.path
+            details["sourceConstruct"] = it.construct
+            details["sourceExcerpt"] = it.excerpt
+        }
         diagnostic.templateContext?.let {
             val redacted = it.redacted
             details["expression"] = if (redacted) "[redacted expression]" else it.expression
@@ -73,7 +79,7 @@ internal object ApiErrors {
             logging.operation("GENERATION_REJECTED", fields)
             if (logging.mode == LoggingMode.DEVELOPMENT) {
                 val template = templateDetails(diagnostic)
-                if (template.isNotEmpty()) logging.trace("TEMPLATE_SYNTAX_DETAIL", fields + template)
+                if (template.isNotEmpty()) logging.trace(if (diagnostic.sourceContext == null) "TEMPLATE_SYNTAX_DETAIL" else "DOCUMENT_SOURCE_DETAIL", fields + template)
             }
         }
     }

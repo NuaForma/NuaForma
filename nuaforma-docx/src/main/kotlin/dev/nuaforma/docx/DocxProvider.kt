@@ -96,6 +96,11 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
     fun diagnosticCopy(request: GenerationRequest, output: OutputStream, context: GenerationContext, explanationFontFamily: String): Diagnostic =
         Docx4jDocuments.diagnosticCopy(request, output, context, listOf(ImagePipe(context), RichTextPipe(context)) + pipes, valuePipes, explanationFontFamily)
 
+    /** Development-only source copy; PDF layout, fonts and validation are not required. */
+    fun inspectionCopy(request: GenerationRequest, output: OutputStream, context: GenerationContext, diagnostic: Diagnostic?, preview: Boolean) =
+        Docx4jDocuments.inspectionCopy(request, output, context, diagnostic, preview,
+            listOf(ImagePipe(context), RichTextPipe(context)) + pipes, valuePipes)
+
     private fun generateDocument(request: GenerationRequest, output: OutputStream, context: GenerationContext, detachWatermark: Boolean): DocxConversionResult {
         context.checkActive()
         deploymentFonts.reportFailures(context.logging)

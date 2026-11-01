@@ -293,7 +293,7 @@ async function bootstrap() {
   $('refresh').disabled = true; $('bootstrap-error').hidden = true;
   try {
     [contract, capabilities] = await Promise.all([getJson('/openapi.json'), getJson('/api/v1/capabilities')]);
-    routes = Object.fromEntries(['generateDocument', 'assessGeneration', 'diagnoseTemplate'].map(operation => [operation, locationFor(operation)]));
+    routes = Object.fromEntries(['generateDocument', 'assessGeneration', 'diagnoseTemplate', 'diagnoseDocument'].map(operation => [operation, locationFor(operation)]));
     if (!routes.generateDocument || !routes.assessGeneration) throw Error('The running API does not describe generation and assessment operations.');
     const envelope = schema('GenerationEnvelope');
     $('filename').pattern = envelope.properties.filename.pattern;
@@ -365,6 +365,7 @@ async function send(generate) {
       const text = (await response.text()).slice(0, 128000); let details, diagnostics;
       try { diagnostics = JSON.parse(text).diagnostics; details = formatDiagnostics(diagnostics); } catch { details = `HTTP ${response.status}`; }
       showResult(`${details}\nRequest ID: ${requestId || 'not available'}`);
+      if (generate && routes.diagnoseDocument) offerDocumentDiagnostic(body);
       if (generate && routes.diagnoseTemplate && Array.isArray(diagnostics) && diagnostics.some(item => item.code === 'INVALID_TEMPLATE')) offerTemplateDiagnostic(body);
       return;
     }
@@ -377,6 +378,37 @@ async function send(generate) {
     const warnings = response.headers.get('NuaForma-Warning-Codes'); if (warnings) $('result').append(create('p', `Warnings: ${warnings}`));
   } catch (error) { showResult(error.name === 'AbortError' ? 'Request cancelled. No output is available.' : error.message); }
   finally { running = null; $('cancel').hidden = true; updateRequest(); }
+}
+function offerDocumentDiagnostic(failedRequest) {
+  const status = create('p', 'Development inspection: DOCX remains available when PDF layout fails. Open it in Word; it is not a generated document.', 'hint');
+  $('result').append(status);
+  for (const [preview, caption] of [[false, 'Download marked DOCX'], [true, 'Preview with error markers (DOCX)']]) {
+    const button = create('button', caption); button.type = 'button';
+    $('result').append(button);
+    button.addEventListener('click', async () => {
+      if (running) return;
+      button.disabled = true; running = new AbortController(); $('cancel').hidden = false; updateRequest();
+      status.textContent = 'Creating a private DOCX inspection copy…';
+      try {
+        const response = await fetch(`${routes.diagnoseDocument}?preview=${preview}`, {
+          method: 'POST', body: failedRequest, signal: running.signal, credentials: 'same-origin'
+        });
+        if (!response.ok) {
+          let details = `HTTP ${response.status}`;
+          try { details = formatDiagnostics(JSON.parse((await response.text()).slice(0, 128000)).diagnostics); } catch { /* Bounded status fallback. */ }
+          throw Error(`${details}\nRequest ID: ${response.headers.get('X-Request-ID') || 'not available'}`);
+        }
+        if (response.headers.get('NuaForma-Diagnostic-Artifact') !== 'document-error' ||
+            !response.headers.get('Content-Type')?.startsWith('application/vnd.openxmlformats-officedocument.wordprocessingml.document'))
+          throw Error('The server did not return a diagnostic DOCX.');
+        if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+        downloadUrl = URL.createObjectURL(await response.blob());
+        const link = create('a', caption); link.href = downloadUrl; link.download = preview ? 'diagnostic-preview.docx' : 'document-diagnostic.docx';
+        status.replaceChildren(create('span', 'Inspection only. Normal generation remains unsuccessful. '), link);
+      } catch (error) { status.textContent = error.name === 'AbortError' ? 'Inspection cancelled.' : `Diagnostic DOCX unavailable. ${error.message}`; }
+      finally { button.disabled = false; running = null; $('cancel').hidden = true; updateRequest(); }
+    });
+  }
 }
 function offerTemplateDiagnostic(failedRequest) {
   const button = create('button', 'Download diagnostic PDF'); button.type = 'button';
@@ -411,6 +443,10 @@ function formatDiagnostics(diagnostics) {
     `${item.code}: ${item.message}`, item.part && `Part: ${item.part}`, item.construct && `Construct: ${item.construct}`,
     item.documentLocation && `Document location: ${item.documentLocation}`,
     item.location && `Location: ${item.location}`,
+    item.sourceExplanation && `Cause: ${item.sourceExplanation}`,
+    item.sourceConstruct && `Unsupported element: ${item.sourceConstruct}`,
+    item.sourcePath && `XML path (table/row/cell): ${item.sourcePath}`,
+    item.sourceExcerpt && `Nearby text: ${item.sourceExcerpt}`,
     item.expression && `Expression${Number(item.expressionStart) > 0 ? ' (excerpt)' : ''}:\n${item.expression}`,
     item.expression && /^\d{1,3}$/.test(item.expressionPosition || '') && Number(item.expressionPosition) <= 256
       && `${' '.repeat(Number(item.expressionPosition))}^`,

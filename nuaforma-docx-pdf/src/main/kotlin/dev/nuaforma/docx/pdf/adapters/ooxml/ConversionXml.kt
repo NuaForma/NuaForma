@@ -18,6 +18,8 @@ internal class XmlElement(
     val namespaces: MutableMap<String, String> = linkedMapOf(),
     val children: MutableList<XmlNode> = mutableListOf(),
 ) : XmlNode {
+    var sourceLine: Int = 0
+    var sourceColumn: Int = 0
     fun attribute(namespace: String, local: String): String? = attributes[QName(namespace, local)]
     fun elements(): List<XmlElement> = children.filterIsInstance<XmlElement>()
     fun descendants(): Sequence<XmlElement> = sequence {
@@ -58,6 +60,8 @@ internal class ConversionXml(private val context: GenerationContext) {
                                 PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.CONVERSION_XML_STRUCTURE_BUDGET_WAS_EXCEEDED)
                             }
                             val element = XmlElement(reader.name)
+                            element.sourceLine = reader.location.lineNumber.coerceAtLeast(0)
+                            element.sourceColumn = reader.location.columnNumber.coerceAtLeast(0)
                             repeat(reader.attributeCount) { element.attributes[reader.getAttributeName(it)] = reader.getAttributeValue(it) }
                             repeat(reader.namespaceCount) { element.namespaces[reader.getNamespacePrefix(it) ?: ""] = reader.getNamespaceURI(it) ?: "" }
                             if (stack.isEmpty()) {

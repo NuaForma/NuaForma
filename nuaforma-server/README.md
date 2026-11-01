@@ -181,3 +181,5 @@ REST tests exercise actual DOCX processing, embedded parity with only generated 
 ## Rich-text source feature
 
 The source after alpha.4 reports [`richText("rtf")`](../docs/rich-text.md) through the existing provider catalog, including typed arguments, defaults, media type, support combinations and `missingAsNull`. Generation uses the existing data envelope and multipart endpoint. This is a source feature, not an alpha.4 capability.
+
+Unreleased #170 adds development-only `POST /api/v1/diagnostics/document` (multipart; optional `preview=true` query) for diagnostic DOCX copies, independent of PDF layout/fonts. Source details are restricted to development responses/trace logging; production returns 404. Consult the [diagnostic guide](../docs/template-diagnostic-pdf.md#source-diagnostics-and-docx-inspection-unreleased-170) and authoritative OpenAPI for exact semantics.
