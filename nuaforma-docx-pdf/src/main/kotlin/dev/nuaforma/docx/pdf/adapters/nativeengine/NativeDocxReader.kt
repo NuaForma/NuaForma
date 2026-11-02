@@ -26,6 +26,7 @@ internal class NativeDocxReader(
     private var activePart = "package"
     private val source = NativeDocxSource(context)
     private val parsed = linkedMapOf<String, XmlElement>()
+    private var metafiles = dev.nuaforma.docx.pdf.adapters.nativeengine.emf.NativeEmfImages(context, null, false)
     private val lineReader = NativeDocxLines({ node -> source.current = node; activePart = provenance[node] ?: activePart }, ::reject)
 
     private fun parse(bytes: ByteArray, part: String): XmlElement {
@@ -37,9 +38,12 @@ internal class NativeDocxReader(
         } }.also { source.current = it }
     }
 
-    fun read(bytes: ByteArray): PdfDocument = try { readDocument(bytes) }
-    catch (error: NativeDocxReadException) { throw error }
-    catch (_: IllegalArgumentException) { throw source.failure("Unsupported combination of native document formatting", activePart) }
+    fun read(bytes: ByteArray, imageFonts: ((String, Boolean, Boolean) -> java.awt.Font)? = null, inspectImages: Boolean = false): PdfDocument {
+        metafiles = dev.nuaforma.docx.pdf.adapters.nativeengine.emf.NativeEmfImages(context, imageFonts, inspectImages)
+        return try { readDocument(bytes) }
+        catch (error: NativeDocxReadException) { throw error }
+        catch (_: IllegalArgumentException) { throw source.failure("Unsupported combination of native document formatting", activePart) }
+    }
 
     private fun readDocument(bytes: ByteArray): PdfDocument {
         val parts = unpack(bytes)
@@ -161,7 +165,7 @@ internal class NativeDocxReader(
                 PdfLink.External(target)
                 return@associate id to target
             }
-            check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.png|styles\\.xml|numbering\\.xml|settings\\.xml|footnotes\\.xml|endnotes\\.xml|fontTable\\.xml|webSettings\\.xml|theme/theme1\\.xml|(?:header|footer)[1-9][0-9]?\\.xml)")), "Unsupported relationship target")
+            check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.(?i:png|emf)|styles\\.xml|numbering\\.xml|settings\\.xml|footnotes\\.xml|endnotes\\.xml|fontTable\\.xml|webSettings\\.xml|theme/theme1\\.xml|(?:header|footer)[1-9][0-9]?\\.xml)")), "Unsupported relationship target")
             val type = element.attribute("", "Type")
             check(type == "$rel/image" && target.startsWith("media/") || type == "$rel/styles" && target == "styles.xml" || type == "$rel/numbering" && target == "numbering.xml" || type == "$rel/settings" && target == "settings.xml" ||
                 type == "$rel/footnotes" && target == "footnotes.xml" || type == "$rel/endnotes" && target == "endnotes.xml" ||
@@ -321,13 +325,16 @@ internal class NativeDocxReader(
                     resolved.size in setOf(11f, 12f)) resolved.copy(size = result.size) else resolved
             }
 
-            fun faceFor(properties: XmlElement?): Face {
+            fun faceFor(properties: XmlElement?, initial: Face = base): Face {
                 val characterStyle = properties?.one("rStyle")?.value("val")
                 val inherited = characterStyle?.let { id ->
-                    chain(id, "character").fold(base) { acc, style -> resolveRun(style.one("rPr"), acc) }
-                } ?: base
+                    chain(id, "character").fold(initial) { acc, style -> resolveRun(style.one("rPr"), acc) }
+                } ?: initial
                 return resolveRun(properties, inherited)
             }
+
+            val markProperties = paragraphChain.mapNotNull { it.one("rPr") }
+            val markFace = markProperties.takeIf { it.isNotEmpty() }?.fold(base) { face, property -> faceFor(property, face) }
 
             val pendingDestinations = mutableListOf<PdfDestination>()
             var contents: PdfContents? = null
@@ -388,9 +395,9 @@ internal class NativeDocxReader(
                     return listOf(PdfReferenceField(id, kind, style, target, instruction.linked, navigation))
                 }
                 children(run, setOf("rPr", "t", "tab", "drawing", "pict", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
-                val face = faceFor(run.one("rPr"))
                 val contents = run.elements().filter { it.name.localPart != "rPr" }
-                check(contents.isNotEmpty(), "Each proof run needs content")
+                if (contents.isEmpty()) return emptyList()
+                val face = faceFor(run.one("rPr"))
                 return contents.mapNotNull { item -> when (item.name.localPart) {
                     "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef" -> {
                         val kind = if (item.name.localPart.startsWith("foot")) PdfNoteKind.FOOTNOTE else PdfNoteKind.ENDNOTE
@@ -472,7 +479,8 @@ internal class NativeDocxReader(
                 for (key in openBookmarks) bookmarkNames[key]?.let { bookmarkRuns.getValue(it).addAll(converted) }
             } }
             check(pendingDestinations.isEmpty(), "Bookmark requires following visible paragraph text")
-            val content = runs.ifEmpty { listOf(PdfTextRun(" ", textStyle(base))) }
+            val markStyle = markFace?.takeIf { geometry.automatic != null || runs.isEmpty() }?.let(::textStyle)
+            val content = runs.ifEmpty { listOf(PdfTextRun(" ", markStyle ?: textStyle(base))) }
             check(content.none { it is PdfImageRun } || content.size == 1, "Mixed image/text paragraphs are outside the proof profile")
             val label = listEntry?.let { entry ->
                 check(content.all { it is PdfTextRun || it is PdfReferenceField || it is PdfSequenceField }, "List images and inline tabs are outside the proof")
@@ -501,6 +509,7 @@ internal class NativeDocxReader(
                 }, geometry.outline), contents = contents, borders = geometry.borders, lines = lineDrawings)
                 .withSpacing(PdfParagraphSpacing(automaticBefore, modernTableAlignment, automaticAfter))
                 .withPageOffset(pageOffset)
+                .withMinimumLineStyle(markStyle ?: if (content.singleOrNull() is PdfImageRun && geometry.automatic != null) textStyle(base) else null)
         }
 
         fun readTable(table: XmlElement, partRelations: Map<String, String>, fields: Boolean, depth: Int = 0): PdfTable {
@@ -886,13 +895,14 @@ internal class NativeDocxReader(
             children(bandRoot, setOf("p", "tbl"))
             val ownRelations = parts["word/_rels/$target.rels"]?.let { readRelations(xml.read(it)) } ?: emptyMap()
             val blocks = readBlocks(bandRoot, ownRelations, true)
-            source.current = bandRoot
-            activePart = "word/$target"
+            source.current = margins
+            activePart = provenance[margins] ?: "word/document.xml"
             val offset = twips(margins.value(name))
             val extent = (if (name == "header") page.margins.top else page.margins.bottom) - offset
             if (extent <= 0 && unprintedBand(blocks)) return null
-            check(offset >= 0 && extent > 0, "Invalid page-band geometry")
-            return if (blocks.isEmpty()) null else PdfPageBand(offset, extent, blocks)
+            val available = page.height - offset - (if (name == "header") page.margins.bottom else page.margins.top) - 1f
+            check(offset >= 0 && available > 0, "Page-band offset exceeds physical page geometry")
+            return if (blocks.isEmpty()) null else PdfPageBand(offset, available, blocks).withContentReservation()
         }
 
         val headerReferences = mutableMapOf<String, XmlElement>()
@@ -1041,7 +1051,7 @@ internal class NativeDocxReader(
         val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false, val direction: PdfTextDirection? = null, val borders: PdfParagraphBorders? = null)
 
     private fun paragraphProperties(property: XmlElement, initial: Geometry): Geometry {
-        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "mirrorIndents", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr"))
+        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "rPr", "mirrorIndents", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr"))
         var result = initial
         property.one("pBdr")?.let { result = result.copy(borders = lineReader.borders(it, result.borders)) }
 
@@ -1107,9 +1117,10 @@ internal class NativeDocxReader(
         }) }
         property.one("ind")?.let {
             attributes(it, setOf("left", "right", "firstLine", "hanging"))
-            check(it.value("firstLine") == null || it.value("hanging") == null, "Conflicting indentation")
-            result = result.copy(left = it.value("left")?.let(::twips) ?: result.left, right = it.value("right")?.let(::twips) ?: result.right,
-                first = it.value("firstLine")?.let(::twips) ?: it.value("hanging")?.let { value -> -twips(value) } ?: result.first)
+            result = result.copy(left = it.value("left")?.let { _ -> indentation(it, "left", true) } ?: result.left,
+                right = it.value("right")?.let { _ -> indentation(it, "right", true) } ?: result.right,
+                first = it.value("hanging")?.let { _ -> -indentation(it, "hanging", false) }
+                    ?: it.value("firstLine")?.let { _ -> indentation(it, "firstLine", false) } ?: result.first)
         }
         return result
     }
@@ -1150,8 +1161,15 @@ internal class NativeDocxReader(
 
         fun fraction(side: String) = number(crop?.attribute("", side) ?: "0") / 100_000
 
-        return PdfImage(parts["word/$target"] ?: reject("Missing image bytes"), number(extent.attribute("", "cx")) / 12700,
-            number(extent.attribute("", "cy")) / 12700, PdfImageCrop(fraction("t"), fraction("r"), fraction("b"), fraction("l")))
+        val width = number(extent.attribute("", "cx")) / 12700
+        val height = number(extent.attribute("", "cy")) / 12700
+        val original = parts["word/$target"] ?: reject("Missing image bytes")
+        val pixels = if (target.endsWith(".emf", true)) try { metafiles.decode(original, width, height) }
+        catch (error: dev.nuaforma.docx.pdf.adapters.nativeengine.emf.EmfFailure) {
+            throw NativeDocxReadException(error.message ?: "Unsupported EMF image", "word/$target",
+                dev.nuaforma.contracts.DocumentSourceContext((error.message ?: "Unsupported EMF image").take(256), null, "emf", ""))
+        } else original
+        return PdfImage(pixels, width, height, PdfImageCrop(fraction("t"), fraction("r"), fraction("b"), fraction("l")))
     }
 
     private fun unprintedBand(blocks: List<PdfBlock>): Boolean = blocks.all { block ->
@@ -1174,7 +1192,7 @@ internal class NativeDocxReader(
                     budget(parts.size < minOf(64, context.limits.maxArchiveEntries))
                     check(entry.name !in parts && !entry.isDirectory, "Invalid or duplicate ZIP entries")
                     activePart = entry.name.take(256)
-                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|numbering|settings|footnotes|endnotes|fontTable|webSettings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|_rels/(?:document|settings|footnotes|endnotes|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|media/[A-Za-z0-9_.-]+\\.png)|customXml/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
+                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|numbering|settings|footnotes|endnotes|fontTable|webSettings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|_rels/(?:document|settings|footnotes|endnotes|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|media/[A-Za-z0-9_.-]+\\.(?i:png|emf))|customXml/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(8192)
                     while (true) {
@@ -1245,6 +1263,15 @@ internal class NativeDocxReader(
     private fun number(value: String?): Float = value?.toLongOrNull()?.takeIf { it in 0..Int.MAX_VALUE.toLong() }?.toFloat() ?: reject("Invalid numeric property")
 
     private fun twips(value: String?): Float = number(value) / 20
+
+    private fun indentation(node: XmlElement, name: String, signed: Boolean): Float {
+        source.current = node
+        val value = node.value(name)?.toLongOrNull()?.takeIf { it in (if (signed) -288_000L else 0L)..288_000L }
+        if (value == null) throw source.failure("Invalid indentation attribute $name", activePart).also {
+            it.unsupportedAttributes = setOf(javax.xml.namespace.QName(word, name))
+        }
+        return value.toFloat() / 20
+    }
 
     private fun color(value: String?): PdfColor {
         check(value != null && value.matches(Regex("[0-9A-Fa-f]{6}")), "Explicit RGB color required")

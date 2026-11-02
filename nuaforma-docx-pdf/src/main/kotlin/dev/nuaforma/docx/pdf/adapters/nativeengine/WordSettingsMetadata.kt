@@ -46,8 +46,13 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
                     settings.children.remove(child)
                 }
                 "stylePaneFormatFilter" -> {
-                    leaf(child, setOf("val")) { throw failure(part, child) }
-                    valid(child.attribute(word, "val")?.matches(Regex("[A-Fa-f0-9]{4}")) == true)
+                    val filters = setOf("allStyles", "alternateStyleNames", "clearFormatting", "customStyles",
+                        "directFormattingOnNumbering", "directFormattingOnParagraphs", "directFormattingOnRuns",
+                        "directFormattingOnTables", "headingStyles", "latentStyles", "numberingStyles", "stylesInUse",
+                        "tableStyles", "top3HeadingStyles", "visibleStyles")
+                    leaf(child, filters + "val") { throw failure(part, child) }
+                    valid(child.attribute(word, "val")?.matches(Regex("[A-Fa-f0-9]{4}")) != false)
+                    valid(child.attributes.filterKeys { it.localPart in filters }.values.all { it in setOf("1", "0", "true", "false", "on", "off") })
                     settings.children.remove(child)
                 }
                 "documentProtection" -> {

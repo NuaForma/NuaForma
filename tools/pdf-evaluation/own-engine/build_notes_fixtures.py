@@ -10,7 +10,7 @@ R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
 KINDS = ['a4', 'letter', 'multipage', 'split-note', 'split-endnote', 'automatic', 'table']
 
 
-def build(root, output, kind):
+def build(root, output, kind, entries_only=False):
     entries = base_entries(root, output, entries_only=True)
     footnotes = []
     endnotes = []
@@ -69,6 +69,8 @@ def build(root, output, kind):
         entries[f'word/{name}s.xml'] = f'<w:{name}s xmlns:w="{W}">' + special + ''.join(items) + f'</w:{name}s>'
         entries['[Content_Types].xml'] = entries['[Content_Types].xml'].replace('</Types>', f'<Override PartName="/word/{name}s.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.{name}s+xml"/></Types>')
         entries['word/_rels/document.xml.rels'] = entries['word/_rels/document.xml.rels'].replace('</Relationships>', f'<Relationship Id="{name}s" Type="{R}/{name}s" Target="{name}s.xml"/></Relationships>')
+    if entries_only:
+        return entries
     output.parent.mkdir(parents=True, exist_ok=True)
     with ZipFile(output, 'w') as archive:
         for name, value in sorted(entries.items()):
