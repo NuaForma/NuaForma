@@ -55,7 +55,7 @@ This checkout uses the native DOCX reader and shared `nuaforma-pdf` renderer. Li
 
 Published 0.4.0-alpha.1 retains runtime contract `0.8`, accepting compatible provider minima `0.1` through `0.8`. Its DOCX/PDF providers require 0.8 for optional document inspection and source diagnostics; rich-text metadata and the PDF diagnostic facet remain available. Keep all NuaForma libraries aligned and review the [rich-text compatibility notes](rich-text.md#contracts-and-compatibility) when upgrading extensions. PDF generation defaults to PDF/A-3b. Only exact `NUAFORMA_PDFA_VALIDATION=false` delegates conformance checking downstream; structural/font checks and the container validation boundary remain mandatory. See the [current PDF guide](../nuaforma-docx-pdf/README.md).
 
-Source #191 adds the Playground-only template-cleanup facet under contract `0.9`; source runtimes accept compatible minima `0.1` through `0.9`. New PDF providers require 0.9; published alpha.1 artifacts and older provider JVM descriptors remain unchanged. See [cleanup behavior and boundaries](template-cleanup.md).
+Selected 0.4.0-alpha.2 (#191) adds the Playground-only template-cleanup facet under contract `0.9`; source runtimes accept compatible minima `0.1` through `0.9`. New PDF providers require 0.9; published alpha.1 artifacts and older provider JVM descriptors remain unchanged. See [cleanup behavior and boundaries](template-cleanup.md).
 
 XLSX, ODT and ODS, external template retrieval, signable PDF fields, PDF/A level A and PDF/UA remain planned. Attachments and encryption are not implemented. The [roadmap](architecture/own-engine-roadmap.md) distinguishes qualified combinations from further work.
 

@@ -2,7 +2,7 @@
 
 This development tool creates a separate DOCX template with unsupported package parts, constructs and formatting removed. It does not fill the template, interpret expressions or apply supplied data. The caller opens the new file in Word and decides whether its contents and appearance are acceptable. Automatic verification establishes structural source-profile support, not visual acceptance.
 
-This source feature is not included in unchanged 0.4.0-alpha.1 artifacts. Ordinary DOCX/PDF generation stays strict and has no cleanup option or automatic fallback.
+Selected for 0.4.0-alpha.2; unchanged 0.4.0-alpha.1 artifacts do not contain this feature. Ordinary DOCX/PDF generation stays strict and has no cleanup option or automatic fallback.
 
 ## Use
 

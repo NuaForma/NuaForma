@@ -2,7 +2,7 @@
 
 Development API for Kotlin and Java 17, in `dev.nuaforma.contracts`. Release `0.2.0-alpha.1` uses contract **0.2**; historical `0.1` artifacts retain contract **0.1**. Runtime `0.2` accepts providers requiring `0.1` or `0.2`; implementations using new interfaces require `0.2` so older runtimes reject them before initialization. Artifact release versions and contract minima are separate. This module contains value types, provider contracts, descriptor parsing and validation helpers. Discovery and selection live in [core](../nuaforma-core/README.md). Expression evaluation, DOCX/PDF processing and HTTP serialization belong to implementation modules, not contracts.
 
-Current source after 0.4.0-alpha.1 uses contract **0.9**, adding optional `TemplateCleanupProvider` and immutable cleanup-report value types for the Playground-only template tool (#191). New PDF providers require 0.9; existing minima through 0.8 remain accepted and existing JVM descriptors are unchanged. Published 0.4.0-alpha.1 retains contract 0.8. The facet does not add a normal generation option, production REST operation or automatic visual approval; see [template cleanup](../docs/template-cleanup.md).
+Selected 0.4.0-alpha.2 uses contract **0.9**, adding optional `TemplateCleanupProvider` and immutable cleanup-report value types for the Playground-only template tool (#191). New PDF providers require 0.9; existing minima through 0.8 remain accepted and existing JVM descriptors are unchanged. Published 0.4.0-alpha.1 retains contract 0.8. The facet does not add a normal generation option, production REST operation or automatic visual approval; see [template cleanup](../docs/template-cleanup.md).
 
 ## Template syntax context (source after 0.3.0-alpha.2)
 
