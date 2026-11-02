@@ -62,7 +62,19 @@ internal object WordAuthoringMetadata {
                     }
                 }
                 "styles" -> node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart == "latentStyles" }
-                "style" -> node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart in setOf("uiPriority", "qFormat", "semiHidden", "unhideWhenUsed", "locked") }
+                "style" -> {
+                    val links = node.elements().filter { it.name.namespaceURI == W && it.name.localPart == "link" }
+                    if (links.size > 1) { current = links[1]; reject() }
+                    for (link in links) {
+                        current = link
+                        if (link.attributes.keys.any { it.namespaceURI != W || it.localPart != "val" } ||
+                            link.value("val")?.let { it.isNotBlank() && it.length <= 253 } != true ||
+                            link.elements().isNotEmpty() || link.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject()
+                        // Pairing is an editor affordance; pStyle/rStyle still select independent definitions.
+                        node.children.remove(link)
+                    }
+                    node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart in setOf("uiPriority", "qFormat", "semiHidden", "unhideWhenUsed", "locked") }
+                }
                 "sectPr" -> for (columns in node.elements().filter { it.name.namespaceURI == W && it.name.localPart == "cols" }) {
                     if (columns.elements().isNotEmpty() || columns.value("num") !in setOf(null, "1") || columns.value("equalWidth") !in setOf(null, "1", "true") ||
                         columns.attributes.keys.any { it.namespaceURI != W || it.localPart !in setOf("num", "space", "equalWidth") }) reject()

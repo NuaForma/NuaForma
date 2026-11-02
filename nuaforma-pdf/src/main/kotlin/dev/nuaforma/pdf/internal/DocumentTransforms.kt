@@ -52,7 +52,9 @@ internal object DocumentTransforms {
         }
 
         fun band(value: PdfPageBand?, path: String): PdfPageBand? = value?.let {
-            PdfPageBand(it.offset, it.maxHeight, blocks(it.blocks, path, Scope.BAND))
+            PdfPageBand(it.offset, it.maxHeight, blocks(it.blocks, path, Scope.BAND)).let { mapped ->
+                if (it.reserveContentSpace) mapped.withContentReservation() else mapped
+            }
         }
 
         fun pair(value: PdfPageBands?, path: String): PdfPageBands? = value?.let {

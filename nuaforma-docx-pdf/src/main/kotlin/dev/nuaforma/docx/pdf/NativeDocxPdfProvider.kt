@@ -212,7 +212,16 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
                 return "font${usedFonts.keys.indexOf(identity)}"
             }
             val reader = NativeDocxReader(context, ::fontReference)
-            val document = reader.read(filled.toByteArray())
+            val imageFonts = mutableMapOf<Triple<String, Boolean, Boolean>, java.awt.Font>()
+            val document = reader.read(filled.toByteArray(), { family, bold, italic ->
+                imageFonts.getOrPut(Triple(family.lowercase(Locale.ROOT), bold, italic)) {
+                    fontReference(family, bold, italic)
+                    val face = when { bold && italic -> "boldItalic"; bold -> "bold"; italic -> "italic"; else -> "regular" }
+                    val font = requireNotNull(availableFonts[family.lowercase(Locale.ROOT) to face])
+                    try { font.source().openStream().use { java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, it) } }
+                    catch (_: java.awt.FontFormatException) { fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE) }
+                }
+            })
             val watermark = prepared?.watermark?.let { resolved ->
                 val text = resolved.text.replace("\r\n", " ").replace('\r', ' ').replace('\n', ' ').replace('\t', ' ')
                 val rgb = resolved.color.removePrefix("#").toInt(16)

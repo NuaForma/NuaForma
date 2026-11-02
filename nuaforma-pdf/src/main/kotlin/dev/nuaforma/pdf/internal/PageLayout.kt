@@ -26,7 +26,7 @@ internal object PageLayouter {
     private val simpleScripts = setOf(Character.UnicodeScript.LATIN, Character.UnicodeScript.GREEK, Character.UnicodeScript.CYRILLIC, Character.UnicodeScript.COMMON)
     private val unshapedForbiddenTypes = setOf(Character.FORMAT.toInt(), Character.SURROGATE.toInt(), Character.UNASSIGNED.toInt(), Character.NON_SPACING_MARK.toInt(), Character.COMBINING_SPACING_MARK.toInt(), Character.ENCLOSING_MARK.toInt())
 
-    fun layout(document: PdfDocument, measurer: TextMeasurer, lineArea: ((Int) -> Pair<Float, Float>)? = null): PageLayout {
+    fun layout(document: PdfDocument, measurer: TextMeasurer, lineArea: ((Int) -> Pair<Float, Float>)? = null, measurement: Boolean = false): PageLayout {
         val page = document.page
         val width = page.width - page.margins.left - page.margins.right
         val bottom = page.height - page.margins.bottom
@@ -49,6 +49,7 @@ internal object PageLayouter {
                     previousAfter = 0f
                 }
                 is PdfParagraph -> {
+                    if (!measurement) ParagraphBounds.check(block, page)
                     val paragraphStart = elements.size
                     if (block.anchoredImages.isNotEmpty()) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Anchored images require body pagination")
                     if (block.format.pageBreakBefore && elements.isNotEmpty()) overflow()
@@ -89,9 +90,12 @@ internal object PageLayouter {
 
                     fun area() = lineArea?.invoke(lineIndex) ?: (0f to width)
 
-                    fun lineLeft() = maxOf(area().first, if (firstLine) firstTextLeft else format.leftIndent)
+                    fun lineLeft(): Float {
+                        val desired = if (firstLine) firstTextLeft else format.leftIndent
+                        return if (lineArea == null) desired else maxOf(area().first, desired)
+                    }
 
-                    fun availableWidth() = minOf(area().first + area().second, width - format.rightIndent) - lineLeft()
+                    fun availableWidth() = (if (lineArea == null) width - format.rightIndent else minOf(area().first + area().second, width - format.rightIndent)) - lineLeft()
 
                     if (availableWidth() <= 0 || width - format.leftIndent - format.rightIndent <= 0) overflow()
                     var line = mutableListOf<Fragment>()
@@ -214,6 +218,17 @@ internal object PageLayouter {
 
     internal fun automaticBox(p: PdfParagraph, measurer: TextMeasurer): Pair<Float, Float>? {
         val policy = p.format.automaticLineSpacing ?: return null
+        val picture = (p.runs.singleOrNull() as? PdfImageRun)?.image
+        if (picture != null) {
+            val minimum = p.minimumLineStyle?.let { measurer.measure(" ", it) }
+            val fontBaseline = (minimum?.naturalAscent ?: 0f) + (minimum?.lineGap ?: 0f)
+            val baseline = maxOf(picture.height, fontBaseline)
+            // An unprinted paragraph mark supplies a minimum box, not extra descent below a taller image.
+            val naturalHeight = maxOf(baseline, fontBaseline + (minimum?.naturalDescent ?: 0f))
+            val height = naturalHeight * policy.multiple
+            if (!height.isFinite() || height !in 1f..14_400f || height < naturalHeight) overflow()
+            return height to baseline
+        }
         val styles = p.runs.map { when (it) {
             is PdfTextRun -> it.style; is PdfTab -> it.style; is PdfPageField -> it.style
             else -> throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Automatic inline image spacing is not qualified")
@@ -227,9 +242,13 @@ internal object PageLayouter {
         val base = ordinary.ifEmpty { metrics }
         val boxes = base.map { Triple(it.naturalAscent, it.naturalDescent, it.lineGap) }.distinct()
         if (boxes.size != 1) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Mixed natural line boxes are not qualified")
-        val ascent = metrics.maxOf { it.naturalAscent }
-        val descent = metrics.maxOf { it.naturalDescent }
-        val gap = metrics.maxOf { it.lineGap }
+        val minimum = p.minimumLineStyle?.let { measurer.measure(" ", it) }
+        if (minimum != null && (!minimum.naturalAscent.isFinite() || !minimum.naturalDescent.isFinite() || !minimum.lineGap.isFinite()))
+            throw PdfRenderException(PdfFailureCode.INVALID_RESOURCE, "Minimum line metrics are unavailable")
+        val all = metrics + listOfNotNull(minimum)
+        val ascent = all.maxOf { it.naturalAscent }
+        val descent = all.maxOf { it.naturalDescent }
+        val gap = all.maxOf { it.lineGap }
         val height = (ascent + descent + gap) * policy.multiple
         if (!height.isFinite() || height !in 1f..14_400f || height < ascent + descent + gap) overflow()
         return height to (ascent + gap)

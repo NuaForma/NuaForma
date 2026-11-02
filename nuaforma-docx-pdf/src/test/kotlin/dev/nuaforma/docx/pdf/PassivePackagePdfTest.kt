@@ -170,7 +170,7 @@ class PassivePackagePdfTest {
         }
     }
 
-    @Test fun `unprinted footer needs no reserved height but visible text fields and decorations still reject`() {
+    @Test fun `unprinted footer needs no reserved height but visible content beyond the physical page rejects at section geometry`() {
         val provider = provider()
 
         fun document(content: String, offset: Int): ByteArray {
@@ -205,7 +205,7 @@ class PassivePackagePdfTest {
             "<w:fldSimple w:instr=\" PAGE \"><w:r><w:t>1</w:t></w:r></w:fldSimple>")) {
             val error = assertThrows(GenerationException::class.java) { render(provider, document(content, 20_000), "standard") }
             assertEquals(DiagnosticCodes.UNSUPPORTED_INPUT, error.diagnostics.first().code)
-            assertEquals("word/footer92.xml", error.diagnostics.first().part)
+            assertEquals("word/document.xml", error.diagnostics.first().part)
         }
     }
 

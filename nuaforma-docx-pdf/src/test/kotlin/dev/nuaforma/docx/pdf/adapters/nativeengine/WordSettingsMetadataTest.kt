@@ -22,6 +22,14 @@ class WordSettingsMetadataTest {
     private fun compat(name: String, value: String = "1", extra: String = "") =
         """<w:compatSetting w:name="$name" w:uri="http://schemas.microsoft.com/office/word" w:val="$value" $extra/>"""
 
+    @Test
+    fun `named style pane filters are passive and validated individually`() {
+        assertTrue(normalize("""<w:stylePaneFormatFilter w:allStyles="1" w:customStyles="false" w:top3HeadingStyles="on"/>""").elements().isEmpty())
+        assertTrue(normalize("""<w:stylePaneFormatFilter w:val="3F01" w:allStyles="1"/>""").elements().isEmpty())
+        assertThrows(NativeDocxReadException::class.java) { normalize("""<w:stylePaneFormatFilter w:allStyles="maybe"/>""") }
+        assertThrows(NativeDocxReadException::class.java) { normalize("""<w:stylePaneFormatFilter w:invented="1"/>""") }
+    }
+
     @Test fun `editing settings are excluded while effective tab stops and note settings survive`() {
         val content = """<w:embedSystemFonts/><w:doNotIncludeSubdocsInStats w:val="off"/><w:noPunctuationKerning w:val="true"/>
             <w:stylePaneFormatFilter w:val="3F01"/><w:documentProtection w:edit="forms" w:enforcement="1" w:formatting="false" w:hash="synthetic"/>
