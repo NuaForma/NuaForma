@@ -31,7 +31,7 @@ internal object ApiErrors {
 
     // Provider diagnostics may originate in separately installed executable extensions.
     fun diagnostics(values: List<Diagnostic>, mode: LoggingMode = LoggingMode.PRODUCTION): List<Map<String, Any?>> = values.take(64).map {
-        val details = explanation(it)
+        val details = explanation(it, mode)
         mapOf("code" to it.code.id, "severity" to it.severity.name,
             "message" to if (mode == LoggingMode.DEVELOPMENT && details.isNotEmpty()) it.rejectionReason!!.message else when (it.code.id) {
                 "PROVIDER_UNAVAILABLE" -> "Requested provider or conversion backend is unavailable; check capabilities and trusted runtime configuration"
@@ -42,13 +42,19 @@ internal object ApiErrors {
     }
 
     /** Only closed application-owned text and constrained coordinates may cross this boundary. */
-    fun explanation(diagnostic: Diagnostic): Map<String, String> {
+    fun explanation(diagnostic: Diagnostic, mode: LoggingMode = LoggingMode.PRODUCTION): Map<String, String> {
         val reason = diagnostic.rejectionReason ?: return emptyMap()
         val details = linkedMapOf("reason" to reason.name, "remediation" to reason.remediation)
         reason.construct?.let { details["construct"] = it }
-        diagnostic.part?.let { details["part"] = if (PART.matches(it)) it else "[other package part]" }
+        diagnostic.part?.let { details["part"] = if (PART.matches(it) || mode == LoggingMode.DEVELOPMENT && packageEntry(it)) it else "[other package part]" }
         diagnostic.location?.takeIf { LOCATION.matches(it) }?.let { details["location"] = it }
         return details
+    }
+
+    // The native reader caps captured names at 256; never present a possibly truncated name as exact.
+    private fun packageEntry(value: String): Boolean = value.length in 1..255 && value.split('/').all { segment ->
+        segment.isNotEmpty() && segment !in setOf(".", "..") && segment == segment.trim() &&
+            segment.all { it.isLetterOrDigit() || it in " ._[]()-" }
     }
 
     private fun templateDetails(diagnostic: Diagnostic): Map<String, String> {
@@ -74,7 +80,7 @@ internal object ApiErrors {
     fun logRejections(logging: GenerationLogging, values: List<Diagnostic>) {
         values.take(32).forEach { diagnostic ->
             val fields = linkedMapOf("code" to diagnostic.code.id)
-            fields.putAll(explanation(diagnostic))
+            fields.putAll(explanation(diagnostic, logging.mode))
             diagnostic.rejectionReason?.let { fields["message"] = it.message }
             logging.operation("GENERATION_REJECTED", fields)
             if (logging.mode == LoggingMode.DEVELOPMENT) {
