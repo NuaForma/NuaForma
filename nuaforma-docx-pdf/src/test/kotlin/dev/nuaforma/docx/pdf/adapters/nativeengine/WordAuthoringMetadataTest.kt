@@ -6,6 +6,24 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class WordAuthoringMetadataTest {
+
+    @Test
+    fun `linked styles keep independent formatting definitions and validate pairing metadata`() {
+        val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+        fun styles(link: String) = ConversionXml(GenerationContext()).read(
+            """<w:styles xmlns:w="$word"><w:style w:type="paragraph" w:styleId="Heading">$link<w:rPr><w:b/></w:rPr></w:style></w:styles>""".toByteArray())
+
+        val valid = styles("""<w:link w:val="HeadingChar"/>""")
+        WordAuthoringMetadata.normalize(valid, "word/styles.xml", false)
+        assertEquals("rPr", valid.elements().single().elements().single().name.localPart)
+        for (link in listOf("<w:link/>", "<w:link w:val=\"\"/>",
+            "<w:link w:val=\"x\" w:extra=\"1\"/>", "<w:link w:val=\"x\"><w:r/></w:link>",
+            "<w:link w:val=\"x\"/><w:link w:val=\"y\"/>")) {
+            assertThrows(NativeDocxReadException::class.java) { WordAuthoringMetadata.normalize(styles(link), "word/styles.xml", false) }
+        }
+    }
+
     private fun paragraph(content: String) = ConversionXml(GenerationContext()).read(
         ("<w:p xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">" + content + "</w:p>").toByteArray())
 

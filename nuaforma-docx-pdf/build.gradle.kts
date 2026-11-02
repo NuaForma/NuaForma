@@ -661,6 +661,20 @@ tasks.register<JavaExec>("renderOwnEnginePagination") {
         rootProject.layout.buildDirectory.dir("own-engine-proof/fonts").get().asFile.absolutePath)
 }
 
+val generateWordCompatibility = tasks.register<Exec>("generateWordCompatibility") {
+    val folder = rootProject.file("tools/pdf-evaluation/own-engine")
+    val output = layout.buildDirectory.dir("word-compatibility")
+    inputs.files(folder.resolve("build_word_compatibility_fixture.py"), folder.resolve("build_notes_fixtures.py"),
+        folder.resolve("build_fixture.py"), rootProject.file("assets/branding/nuaforma-icon-transparent.png"))
+    outputs.dir(output)
+    commandLine("python3", folder.resolve("build_word_compatibility_fixture.py").absolutePath, output.get().asFile.absolutePath)
+}
+
+tasks.processTestResources {
+    dependsOn(generateWordCompatibility)
+    from(layout.buildDirectory.dir("word-compatibility")) { into("word-compatibility") }
+}
+
 sourceSets.test { resources.srcDir(project(":nuaforma-docx").file("src/test/resources")) }
 
 // Unmodified upstream library JARs, isolated from the hosting application's runtime.

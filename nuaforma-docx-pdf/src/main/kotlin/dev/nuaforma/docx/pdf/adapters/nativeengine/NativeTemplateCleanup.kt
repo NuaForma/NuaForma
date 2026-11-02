@@ -26,7 +26,7 @@ internal class NativeTemplateCleanup(private val context: GenerationContext) {
                 val fonts = linkedMapOf<Triple<String, Boolean, Boolean>, String>()
                 NativeDocxReader(context) { family, bold, italic ->
                     fonts.getOrPut(Triple(family.lowercase(java.util.Locale.ROOT), bold, italic)) { "cleanup-font-${fonts.size + 1}" }
-                }.read(bytes)
+                }.read(bytes, inspectImages = true)
                 return bytes to TemplateCleanupReport(pkg.changes)
             } catch (failure: NativeDocxReadException) { failure }
             val previousChanges = pkg.changes.size
@@ -116,7 +116,7 @@ internal class NativeTemplateCleanup(private val context: GenerationContext) {
 
     private fun repair(pkg: CleanupPackage, error: NativeDocxReadException): Boolean {
         val reason = error.sourceContext.explanation
-        if (reason == "Unsupported package part" && error.part in pkg.parts) {
+        if ((reason == "Unsupported package part" || error.part.endsWith(".emf", true) && reason.startsWith("EMF:")) && error.part in pkg.parts) {
             pkg.remove(error.part, reason)
             return true
         }
@@ -124,10 +124,11 @@ internal class NativeTemplateCleanup(private val context: GenerationContext) {
         val path = error.sourceContext.path
         val pair = locate(root, error.sourceRoute)
         val node = pair?.second
+        val explanation = node?.let { numericContext(reason, it) } ?: reason
         if (node != null && repairAttributes(pkg, error, node)) return true
         if (node?.name == QName(word, "body")) return repairBody(pkg, node, reason)
         if (node != null && pair.first != null) {
-            pkg.unlink(error.part, requireNotNull(pair.first), node, path, reason)
+            pkg.unlink(error.part, requireNotNull(pair.first), node, path, explanation)
             return true
         }
         if (error.part == "word/styles.xml" && reason in setOf("Explicit default paragraph style is required", "Duplicate style ID", "Unsupported styles root")) {
@@ -135,10 +136,18 @@ internal class NativeTemplateCleanup(private val context: GenerationContext) {
             return true
         }
         if (error.part !in setOf("word/document.xml", "word/styles.xml", "[Content_Types].xml", "_rels/.rels", "word/_rels/document.xml.rels")) {
+            if (node?.name?.namespaceURI == word && node.name.localPart in setOf("hdr", "ftr")) return false
             pkg.remove(error.part, reason)
             return true
         }
         return repairRequiredRoot(pkg, error, root)
+    }
+
+    private fun numericContext(reason: String, node: XmlElement): String {
+        val fields = setOf("left", "right", "firstLine", "hanging", "top", "bottom", "header", "footer", "w", "h")
+        val values = node.attributes.filter { (key, value) -> key.namespaceURI == word && key.localPart in fields &&
+            value.length in 1..24 && value.matches(Regex("[-+0-9.]+")) }
+        return if (values.isEmpty()) reason else (reason + "; original " + values.entries.joinToString(", ") { "${it.key.localPart}=${it.value}" }).take(256)
     }
 
     private fun repairRequiredRoot(pkg: CleanupPackage, error: NativeDocxReadException, root: XmlElement): Boolean {
@@ -159,10 +168,11 @@ internal class NativeTemplateCleanup(private val context: GenerationContext) {
 
     private fun repairAttributes(pkg: CleanupPackage, error: NativeDocxReadException, node: XmlElement): Boolean {
         if (error.unsupportedAttributes.isEmpty()) return false
+        val context = numericContext(error.sourceContext.explanation, node)
         for (attribute in error.unsupportedAttributes) if (node.attributes.remove(attribute) != null) {
             pkg.touch(error.part)
             pkg.record(TemplateCleanupAction.REMOVE_ATTRIBUTE, error.part, error.sourceContext.path,
-                "Removed unsupported attribute ${attribute.localPart}".take(256))
+                "Removed unsupported attribute ${attribute.localPart}; $context".take(256))
         }
         return true
     }

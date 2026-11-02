@@ -101,8 +101,14 @@ data class PdfFlow @JvmOverloads constructor(
 data class PdfPageBands @JvmOverloads constructor(val header: PdfPageBand? = null, val footer: PdfPageBand? = null)
 
 /** Header offset is from page top; footer offset is from page bottom. */
-class PdfPageBand(val offset: Float, val maxHeight: Float, blocks: List<PdfBlock>) {
+class PdfPageBand private constructor(val offset: Float, val maxHeight: Float, blocks: List<PdfBlock>, val reserveContentSpace: Boolean) {
+    constructor(offset: Float, maxHeight: Float, blocks: List<PdfBlock>) : this(offset, maxHeight, blocks, false)
+
     val blocks: List<PdfBlock> = Collections.unmodifiableList(ArrayList(blocks))
+
+    /** Reserve measured band content in the body area while retaining the physical edge offset. */
+    fun withContentReservation(): PdfPageBand = PdfPageBand(offset, maxHeight, blocks, true)
+
     init {
         require(offset.isFinite() && offset >= 0 && maxHeight.isFinite() && maxHeight > 0) { "Invalid page band" }
         require(this.blocks.size in 1..32) { "Invalid page-band block count" }
@@ -229,8 +235,8 @@ data class PdfParagraphFormat @JvmOverloads constructor(
     init {
         require(exactLineHeight == null || automaticLineSpacing == null) { "Conflicting line policies" }
         require(outlineLevel == null || outlineLevel in 0..8) { "Invalid outline level" }
-        require(listOf(leftIndent, rightIndent).all { it.isFinite() && it in 0f..14_400f }) { "Invalid paragraph indentation" }
-        require(firstLineIndent.isFinite() && firstLineIndent in -14_400f..14_400f && leftIndent + firstLineIndent >= 0) { "Invalid first-line indentation" }
+        require(listOf(leftIndent, rightIndent).all { it.isFinite() && it in -14_400f..14_400f }) { "Invalid paragraph indentation" }
+        require(firstLineIndent.isFinite() && firstLineIndent in -14_400f..14_400f) { "Invalid first-line indentation" }
         require(exactLineHeight == null || exactLineHeight.isFinite() && exactLineHeight in 1f..14_400f) { "Invalid exact line height" }
     }
 }
@@ -255,7 +261,8 @@ class PdfParagraph private constructor(
     decoration: Decoration,
 ) : PdfBlock {
     private class Decoration(val borders: PdfParagraphBorders?, val lines: List<PdfLineDrawing>,
-        val spacing: PdfParagraphSpacing = PdfParagraphSpacing(), val pageOffset: PdfParagraphPageOffset? = null)
+        val spacing: PdfParagraphSpacing = PdfParagraphSpacing(), val pageOffset: PdfParagraphPageOffset? = null,
+        val minimumLineStyle: PdfTextStyle? = null)
     /** Original constructors and Kotlin default-argument bridge remain binary compatible. */
     @JvmOverloads constructor(runs: List<PdfInline>, spaceBefore: Float = 0f, spaceAfter: Float = 8f,
         format: PdfParagraphFormat = PdfParagraphFormat(), listLabel: PdfListLabel? = null,
@@ -271,11 +278,16 @@ class PdfParagraph private constructor(
     val borders: PdfParagraphBorders? = decoration.borders
     val spacing: PdfParagraphSpacing = decoration.spacing
     val pageOffset: PdfParagraphPageOffset? = decoration.pageOffset
+    val minimumLineStyle: PdfTextStyle? = decoration.minimumLineStyle
 
     /** Additive immutable policy; existing public constructors retain their binary descriptors. */
     fun withSpacing(spacing: PdfParagraphSpacing): PdfParagraph = copy(spacing = spacing)
 
     fun withPageOffset(offset: PdfParagraphPageOffset?): PdfParagraph = copy(pageOffset = offset)
+
+    /** Nonprinting font metrics can establish a minimum automatic line box without styling the text. */
+    fun withMinimumLineStyle(style: PdfTextStyle?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
+        format, listLabel, anchoredImages, semantics, contents, Decoration(borders, lines, spacing, pageOffset, style))
 
     fun copy(runs: List<PdfInline> = this.runs, spaceBefore: Float = this.spaceBefore, spaceAfter: Float = this.spaceAfter,
         format: PdfParagraphFormat = this.format, listLabel: PdfListLabel? = this.listLabel,
@@ -283,7 +295,7 @@ class PdfParagraph private constructor(
         contents: PdfContents? = this.contents, borders: PdfParagraphBorders? = this.borders, lines: List<PdfLineDrawing> = this.lines,
         spacing: PdfParagraphSpacing = this.spacing, pageOffset: PdfParagraphPageOffset? = this.pageOffset,
     ): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter, format, listLabel, anchoredImages,
-        semantics, contents, Decoration(borders, lines, spacing, pageOffset))
+        semantics, contents, Decoration(borders, lines, spacing, pageOffset, minimumLineStyle))
 
     val runs: List<PdfInline> = Collections.unmodifiableList(ArrayList(runs))
     val anchoredImages: List<PdfAnchoredImage> = Collections.unmodifiableList(ArrayList(anchoredImages))

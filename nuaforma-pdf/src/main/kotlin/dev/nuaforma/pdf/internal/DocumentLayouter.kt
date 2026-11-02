@@ -11,13 +11,31 @@ internal data class DocumentLayout(
 
 /** Body pagination and page-band resolution shared by ordinary and iterated documents. */
 internal object DocumentLayouter {
+    private data class Pass(val layout: DocumentLayout, val sequences: List<Triple<Int, Int, Int>>)
 
     fun plain(document: PdfDocument, measurer: TextMeasurer, control: PdfRenderControl): DocumentLayout {
+        if (document.pageSequences.none { sequence -> sequence.flow?.bands.orEmpty().any { it.reserveContentSpace } })
+            return decorate(plainPass(document, measurer, control, null), document, measurer)
+        var estimate: DocumentLayout? = null
+        repeat(8) {
+            control.checkActive()
+            val actual = plainPass(document, measurer, control, estimate)
+            val stable = document.pageSequences.indices.all { index ->
+                val (offset, _, start) = actual.sequences[index]
+                PageBandReservation.page(document.pageSequences[index], index, start, actual.layout, measurer) == actual.layout.pages[offset].page
+            }
+            if (stable) return decorate(actual, document, measurer)
+            estimate = actual.layout
+        }
+        throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, "Page-band reservation did not converge")
+    }
+
+    private fun plainPass(document: PdfDocument, measurer: TextMeasurer, control: PdfRenderControl, estimate: DocumentLayout?): Pass {
         val layouts = mutableListOf<PageLayout>()
         val displayNumbers = mutableListOf<Int>()
         val sequences = mutableListOf<Triple<Int, Int, Int>>()
         var next = 1
-        for (sequence in document.pageSequences) {
+        for ((sequenceIndex, sequence) in document.pageSequences.withIndex()) {
             control.checkActive()
             val start = sequence.numbering.start ?: next
             if (sequences.isNotEmpty() && sequence.numbering.alignParity && start % 2 != next % 2) {
@@ -26,7 +44,9 @@ internal object DocumentLayouter {
             }
             val remaining = document.maxPages - layouts.size
             if (remaining <= 0) limit("Document page budget exceeded")
-            val single = PdfDocument(sequence.page, sequence.blocks, sequence.flow, document.referenceTargets, document.notes)
+            val page = PageBandReservation.page(sequence, sequenceIndex, start, estimate, measurer)
+            (sequence.blocks.filterIsInstance<PdfParagraph>() + document.notes.flatMap { it.paragraphs }).forEach { ParagraphBounds.check(it, page) }
+            val single = PdfDocument(page, sequence.blocks, sequence.flow, document.referenceTargets, document.notes)
             val pages = when {
                 document.notes.isNotEmpty() -> NoteFlowLayouter.layout(single, measurer, remaining, control)
                 sequence.flow == null -> listOf(PageLayouter.layout(single, measurer))
@@ -38,15 +58,20 @@ internal object DocumentLayouter {
             displayNumbers += pages.indices.map { start + it }
             next = start + pages.size
         }
+        return Pass(DocumentLayout(layouts, displayNumbers,
+            sequenceCounts = sequences.withIndex().associate { (index, entry) -> "sequence$index" to entry.second }), sequences)
+    }
+
+    private fun decorate(pass: Pass, document: PdfDocument, measurer: TextMeasurer): DocumentLayout {
+        val layouts = pass.layout.pages.toMutableList()
         for ((index, sequence) in document.pageSequences.withIndex()) {
-            val (offset, count, start) = sequences[index]
+            val (offset, count, start) = pass.sequences[index]
             sequence.flow?.let { policy ->
                 val decorated = FlowLayouter.decorate(layouts.subList(offset, offset + count), policy, start, layouts.size, measurer)
                 for ((local, layout) in decorated.withIndex()) layouts[offset + local] = layout
             }
         }
-        return DocumentLayout(layouts.mapIndexed { index, layout -> ParagraphPageOffsets.resolve(layout, index + 1) }, displayNumbers,
-            sequenceCounts = sequences.withIndex().associate { (index, entry) -> "sequence$index" to entry.second })
+        return pass.layout.copy(pages = layouts.mapIndexed { index, layout -> ParagraphPageOffsets.resolve(layout, index + 1) })
     }
 
     fun texts(elements: List<PositionedElement>): Sequence<PositionedText> = elements.asSequence().flatMap {

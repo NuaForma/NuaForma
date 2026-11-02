@@ -23,7 +23,11 @@ internal object FlowLayouter {
         val paragraphCache = mutableMapOf<Int, MeasuredParagraph>()
         val floating = mutableMapOf<Int, MutableList<ImageFlow.Exclusion>>()
 
-        fun measuredAt(index: Int) = paragraphCache.getOrPut(index) { paragraph(document.blocks[index] as PdfParagraph, width, measurer, previous = document.blocks.getOrNull(index - 1) as? PdfParagraph, next = document.blocks.getOrNull(index + 1) as? PdfParagraph) }
+        fun measuredAt(index: Int) = paragraphCache.getOrPut(index) {
+            val block = document.blocks[index] as PdfParagraph
+            ParagraphBounds.check(block, page)
+            paragraph(block, width, measurer, previous = document.blocks.getOrNull(index - 1) as? PdfParagraph, next = document.blocks.getOrNull(index + 1) as? PdfParagraph)
+        }
 
         var protectedThrough = -1
 
@@ -222,7 +226,7 @@ internal object FlowLayouter {
         if (p.anchoredImages.isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Anchored images are supported only in body paragraphs")
         val height = PageLayouter.automaticBox(p, measurer)?.first ?: p.format.exactLineHeight ?: fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paginated proof requires explicit exact line spacing")
         val normalized = p.copy(spaceBefore = 0f, spaceAfter = 0f, borders = null, lines = emptyList())
-        val local = PageLayouter.layout(PdfDocument(PdfPage(width, 14_400f, PdfMargins(0f, 0f, 0f, 0f)), listOf(normalized)), measurer, lineArea)
+        val local = PageLayouter.layout(PdfDocument(PdfPage(width, 14_400f, PdfMargins(0f, 0f, 0f, 0f)), listOf(normalized)), measurer, lineArea, measurement = true)
         val lines = local.elements.groupBy { element -> when (element) {
             is PositionedText -> element.baseline
             is PositionedImage -> element.top + element.image.height
@@ -235,9 +239,16 @@ internal object FlowLayouter {
     }
 
     private fun band(band: PdfPageBand, footer: Boolean, page: PdfPage, number: Int, totalPages: Int, sequencePages: Int, measurer: TextMeasurer, target: MutableList<PositionedElement>) {
-        if (band.blocks.filterIsInstance<PdfParagraph>().any { it.anchoredImages.isNotEmpty() }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Anchored images in page bands are not qualified")
         val margin = if (footer) page.margins.bottom else page.margins.top
-        if (band.offset + band.maxHeight > margin + 0.001f) overflow()
+        if (!band.reserveContentSpace && band.offset + band.maxHeight > margin + 0.001f) overflow()
+        val (elements, height) = bandContent(band, page, number, totalPages, sequencePages, measurer)
+        if (band.reserveContentSpace && band.offset + height > margin + .001f) overflow()
+        val offset = if (footer) page.height - band.offset - height else band.offset
+        target += ParagraphLines.connect(elements).map { translate(it, 0f, offset) }
+    }
+
+    internal fun bandContent(band: PdfPageBand, page: PdfPage, number: Int, totalPages: Int, sequencePages: Int, measurer: TextMeasurer): Pair<List<PositionedElement>, Float> {
+        if (band.blocks.filterIsInstance<PdfParagraph>().any { it.anchoredImages.isNotEmpty() }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Anchored images in page bands are not qualified")
         val width = page.width - page.margins.left - page.margins.right
         val elements = mutableListOf<PositionedElement>()
         var top = 0f
@@ -255,10 +266,12 @@ internal object FlowLayouter {
         }, row.allowSplit, row.splitOversized) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent, t.widthPolicy, t.semantics)
 
         for ((blockIndex, block) in band.blocks.withIndex()) {
+            PageLayouter.checkCancellation()
             when (block) {
                 is PdfTextBox -> overflow()
                 is PdfParagraph -> {
                     if (block.format.pageBreakBefore) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Page breaks inside page bands are unsupported")
+                    ParagraphBounds.check(block, page)
                     val p = paragraph(resolve(block), width, measurer, previous = band.blocks.getOrNull(blockIndex - 1) as? PdfParagraph, next = band.blocks.getOrNull(blockIndex + 1) as? PdfParagraph, owner = block)
                     top += ParagraphSpacing.before(block, after, blockIndex == 0)
                     for ((index, line) in p.lines.withIndex()) { placeLine(line, page.margins.left, top, elements); top += p.heights[index] }
@@ -280,8 +293,7 @@ internal object FlowLayouter {
             }
         }
         if (top > band.maxHeight + 0.001f) overflow()
-        val offset = if (footer) page.height - band.offset - top else band.offset
-        target += ParagraphLines.connect(elements).map { translate(it, 0f, offset) }
+        return elements to top
     }
 
     internal fun placeLine(line: List<PositionedElement>, x: Float, top: Float, target: MutableList<PositionedElement>) {
