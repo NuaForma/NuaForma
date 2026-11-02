@@ -12,6 +12,7 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [REST API](../nuaforma-server/README.md): multipart requests/resources, capabilities, assessment, errors and downloadable OpenAPI JSON/YAML.
 - [Embedded Java/Kotlin examples](../examples/embedded/README.md): consume library artifacts without running a server.
 - [Development Playground](../nuaforma-playground/README.md): prepare/export requests, select/upload fonts and generate documents through the same API; distributed as a separate development-only container.
+- [Playground template cleanup](template-cleanup.md): remove unsupported constructs from a copied template without evaluating markers; caller-owned visual review (source #191).
 - [Marked template diagnostic PDF](template-diagnostic-pdf.md): development-only parser error navigation, selected for alpha.4; not available in alpha.3.
 
 ## Deploy and operate
@@ -52,7 +53,9 @@ Choose a guide for the task you want to complete. Module guides are the technica
 
 This checkout uses the native DOCX reader and shared `nuaforma-pdf` renderer. Libraries target Java 17; server/Playground use Java 25, with separate Java 17 PDF validators. This guide targets the native engine selected for `0.4.0-alpha.1`. Consult the actual signed release and matching Maven/container artifacts for published availability; older LibreOffice-based images do not gain this implementation automatically. Source builds and checks do not themselves publish artifacts. Local evaluation can use staged libraries and the source container; publication retains its candidate-specific qualification and approval gates.
 
-The selected alpha.6 runtime contract is `0.8`, accepting compatible provider minima `0.1` through `0.8`. Its DOCX/PDF providers require 0.8 for optional document inspection and source diagnostics; rich-text metadata and the PDF diagnostic facet remain available. Keep all NuaForma libraries aligned and review the [rich-text compatibility notes](rich-text.md#contracts-and-compatibility) when upgrading extensions. PDF generation defaults to PDF/A-3b. Only exact `NUAFORMA_PDFA_VALIDATION=false` delegates conformance checking downstream; structural/font checks and the container validation boundary remain mandatory. See the [current PDF guide](../nuaforma-docx-pdf/README.md).
+Published 0.4.0-alpha.1 retains runtime contract `0.8`, accepting compatible provider minima `0.1` through `0.8`. Its DOCX/PDF providers require 0.8 for optional document inspection and source diagnostics; rich-text metadata and the PDF diagnostic facet remain available. Keep all NuaForma libraries aligned and review the [rich-text compatibility notes](rich-text.md#contracts-and-compatibility) when upgrading extensions. PDF generation defaults to PDF/A-3b. Only exact `NUAFORMA_PDFA_VALIDATION=false` delegates conformance checking downstream; structural/font checks and the container validation boundary remain mandatory. See the [current PDF guide](../nuaforma-docx-pdf/README.md).
+
+Selected 0.4.0-alpha.2 (#191) adds the Playground-only template-cleanup facet under contract `0.9`; source runtimes accept compatible minima `0.1` through `0.9`. New PDF providers require 0.9; published alpha.1 artifacts and older provider JVM descriptors remain unchanged. See [cleanup behavior and boundaries](template-cleanup.md).
 
 XLSX, ODT and ODS, external template retrieval, signable PDF fields, PDF/A level A and PDF/UA remain planned. Attachments and encryption are not implemented. The [roadmap](architecture/own-engine-roadmap.md) distinguishes qualified combinations from further work.
 

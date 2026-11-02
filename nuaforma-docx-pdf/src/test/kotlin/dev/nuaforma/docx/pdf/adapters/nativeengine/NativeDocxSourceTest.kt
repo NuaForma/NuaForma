@@ -6,6 +6,27 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class NativeDocxSourceTest {
+
+    @Test
+    fun `unsupported ZIP entry identifies the actual package part without inventing a paragraph`() {
+        val bytes = java.io.ByteArrayOutputStream().also { output ->
+            java.util.zip.ZipOutputStream(output).use { zip ->
+                zip.putNextEntry(java.util.zip.ZipEntry("word/media/image1.jpeg"))
+                zip.write(byteArrayOf(1, 2, 3))
+                zip.closeEntry()
+            }
+        }.toByteArray()
+        val context = GenerationContext(dev.nuaforma.contracts.GenerationLogging(dev.nuaforma.contracts.LoggingMode.DEVELOPMENT))
+        val error = assertThrows(NativeDocxReadException::class.java) {
+            NativeDocxReader(context) { _, _, _ -> fail("Package rejection must precede font resolution") }.read(bytes)
+        }
+        assertEquals("word/media/image1.jpeg", error.part)
+        assertEquals("Unsupported package part", error.sourceContext.explanation)
+        assertNull(error.documentLocation)
+        assertNull(error.location)
+        assertNull(error.sourceContext.path)
+    }
+
     @Test fun `block errors excerpt their own content rather than an unrelated first paragraph`() {
         val context = GenerationContext(dev.nuaforma.contracts.GenerationLogging(dev.nuaforma.contracts.LoggingMode.DEVELOPMENT))
         val xml = ConversionXml(context).read("""<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Unrelated first paragraph</w:t></w:r></w:p><w:sdt><w:sdtContent><w:p><w:r><w:t>Actual control content</w:t></w:r></w:p></w:sdtContent></w:sdt></w:body></w:document>""".toByteArray())
