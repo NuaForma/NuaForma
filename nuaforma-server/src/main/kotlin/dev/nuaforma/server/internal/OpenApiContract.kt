@@ -64,7 +64,7 @@ internal object OpenApiContract {
                 "message" to (string() + mapOf("maxLength" to 256, "description" to "Restricted in production. Trusted startup development mode may return a fixed application-owned rejection explanation. Never raw provider/exception text.")),
                 "reason" to (string() + mapOf("maxLength" to 128, "description" to "Optional application-owned reason identifier in development generation/assessment errors; diagnostic code remains authoritative.")),
                 "remediation" to (string() + mapOf("maxLength" to 256, "description" to "Fixed actionable advice, only with a recognized development rejection.")),
-                "part" to (string() + mapOf("maxLength" to 128, "description" to "Allowlisted logical package part or [other package part]; never a server path.")),
+                "part" to (string() + mapOf("maxLength" to 256, "description" to "Logical package part; development also shows bounded canonical relative DOCX entry names. Unsafe names become [other package part]; never an absolute server path.")),
                 "construct" to (string() + mapOf("maxLength" to 64, "description" to "Fixed construct label where known.")),
                 "sourceExplanation" to (string() + mapOf("maxLength" to 256, "description" to "Concrete native rejection in development mode.")),
                 "sourcePath" to (string() + mapOf("maxLength" to 4096, "description" to "Indexed XML path in the conversion copy; tbl/tr/tc identify table/row/cell. No page coordinate.")),

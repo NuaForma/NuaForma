@@ -73,7 +73,7 @@ class RejectionDiagnosticsTest {
         assertEquals("template:42", development["location"])
         assertEquals("word/document.xml", development["part"])
         assertEquals(setOf("code", "severity", "message"), ApiErrors.diagnostics(listOf(diagnostic)).single().keys)
-        for (hostile in listOf("/srv/PRIVATE_TOKEN.xml", "word/document.xml\nFORGED", "word/PRIVATE_TOKEN.xml", "xml:1:2\u202eSECRET", "template:" + "9".repeat(10000))) {
+        for (hostile in listOf("/srv/PRIVATE_TOKEN.xml", "word/document.xml\nFORGED", "xml:1:2\u202eSECRET", "template:" + "9".repeat(10000))) {
             val poisoned = Diagnostic(DiagnosticCodes.INVALID_TEMPLATE, reason, location = hostile, part = hostile)
             val response = ApiErrors.diagnostics(listOf(poisoned), LoggingMode.DEVELOPMENT).single()
             assertEquals("[other package part]", response["part"])
@@ -98,6 +98,58 @@ class RejectionDiagnosticsTest {
             }
         }
     }
+    @Test
+    fun `unknown relative package entries remain explicit only in development responses and rejection logs`() {
+        val schema = OpenApiSchemaChecks(ObjectMapper().readTree(ApiDocumentation().jsonText))
+        for (part in listOf("word/media/image1.jpeg", "docProps/thumbnail.jpeg", "customXml/item99.xml",
+            "word/embeddings/object1.bin", "customUI/customUI.xml", "word/media/afbeelding één.png", "word/media/" + "a.".repeat(120) + ".xml")) {
+            val diagnostic = Diagnostic(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED, part = part)
+                .withSourceContext(DocumentSourceContext("Unsupported package part", null, null, ""))
+            for (mode in LoggingMode.entries) {
+                val events = mutableListOf<GenerationLogEvent>()
+                val response = ApiErrors.diagnostics(listOf(diagnostic), mode).single()
+                ApiErrors.logRejections(GenerationLogging(mode, "package-example", events::add), listOf(diagnostic))
+                val rejection = events.single { it.code == "GENERATION_REJECTED" }
+                if (mode == LoggingMode.DEVELOPMENT) {
+                    assertEquals(part, response["part"])
+                    assertEquals("Unsupported package part", response["sourceExplanation"])
+                    assertTrue(rejection.text.contains(part), rejection.text)
+                    assertTrue(schema.matches("Diagnostic", ObjectMapper().valueToTree<JsonNode>(response)))
+                } else {
+                    assertFalse(response.containsKey("part"))
+                    assertFalse(rejection.text.contains(part))
+                    assertTrue(rejection.text.contains("[other package part]"))
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `payload like entry names preserve the existing logger payload protection`() {
+        val part = "a".repeat(251) + ".xml"
+        val diagnostic = Diagnostic(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED, part = part)
+        val events = mutableListOf<GenerationLogEvent>()
+        assertEquals(part, ApiErrors.diagnostics(listOf(diagnostic), LoggingMode.DEVELOPMENT).single()["part"])
+        ApiErrors.logRejections(GenerationLogging(LoggingMode.DEVELOPMENT, "payload-package", events::add), listOf(diagnostic))
+        assertTrue(events.single().text.contains("part=[payload omitted]"))
+        assertFalse(events.single().text.contains(part))
+    }
+
+    @Test
+    fun `unsafe package paths stay masked in development responses and logs`() {
+        for (part in listOf("/srv/private.xml", "C:/private.xml", "C:\\private.xml", "../private.xml", "word/../private.xml",
+            "word//private.xml", "word/./private.xml", "word/private.xml/", "word/private.xml\nFORGED", "word/\u202eprivate.xml",
+            "word/%2e%2e/private.xml", "https://example.invalid/private.xml", "a".repeat(256), "a".repeat(257), "")) {
+            val diagnostic = Diagnostic(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED, part = part)
+            val events = mutableListOf<GenerationLogEvent>()
+            val response = ApiErrors.diagnostics(listOf(diagnostic), LoggingMode.DEVELOPMENT).single()
+            ApiErrors.logRejections(GenerationLogging(LoggingMode.DEVELOPMENT, "unsafe-package", events::add), listOf(diagnostic))
+            assertEquals("[other package part]", response["part"], part)
+            assertTrue(events.single().text.contains("[other package part]"))
+            assertFalse(events.single().text.contains("private.xml"))
+        }
+    }
+
     @Test fun `native source details are development only in responses and logs`() {
         val source = DocumentSourceContext("Unsupported document feature", "/w:document[1]/w:body[1]/w:p[2]/w:pPr[1]/w:pBdr[1]", "w:pBdr", "Nearby customer text")
         val diagnostic = Diagnostic(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED,
