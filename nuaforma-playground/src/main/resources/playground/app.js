@@ -133,6 +133,7 @@ function prettyJson(text) {
 }
 
 function updateRequest() {
+  updateCleanupButton();
   renderConformancePolicy();
   try {
     $('request').textContent = prettyJson(buildRequest()); $('data-status').textContent = 'JSON · object';
@@ -379,6 +380,40 @@ async function send(generate) {
   } catch (error) { showResult(error.name === 'AbortError' ? 'Request cancelled. No output is available.' : error.message); }
   finally { running = null; $('cancel').hidden = true; updateRequest(); }
 }
+function updateCleanupButton() {
+  $('clean-template').disabled = !capabilities || Boolean(running) || !$('template').files[0];
+}
+
+async function cleanTemplate() {
+  if (running) return;
+  const template = $('template').files[0];
+  if (!template) { showResult('Choose a DOCX template to clean.'); return; }
+  const body = new FormData();
+  body.append('template', template, template.name);
+  running = new AbortController(); $('cancel').hidden = false; updateRequest();
+  showResult('Removing unsupported template parts and formatting. No template data is sent or substituted…');
+  try {
+    const response = await fetch('/playground/template-cleanup', {
+      method: 'POST', body, signal: running.signal, credentials: 'same-origin'
+    });
+    const requestId = response.headers.get('X-Request-ID') || 'not available';
+    if (!response.ok) {
+      let details = `HTTP ${response.status}`;
+      try { details = formatDiagnostics(JSON.parse((await response.text()).slice(0, 128000)).diagnostics); } catch { /* Bounded status fallback. */ }
+      throw Error(`${details}\nRequest ID: ${requestId}`);
+    }
+    if (response.headers.get('NuaForma-Template-Cleanup') !== 'native-structure' || !response.headers.get('Content-Type')?.startsWith('application/zip'))
+      throw Error('The server did not return a cleaned-template archive.');
+    if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+    downloadUrl = URL.createObjectURL(await response.blob());
+    showResult(`Template cleaned. The ZIP contains a DOCX and a separate removal report. Variables were not substituted.\nYou decide whether the contents and appearance are acceptable: open the new template in Word before replacing your original.\nRequest ID: ${requestId}`);
+    const link = create('a', 'Download cleaned template and removal report');
+    link.href = downloadUrl; link.download = 'cleaned-template.zip';
+    $('result').append(create('br'), link);
+  } catch (error) { showResult(error.name === 'AbortError' ? 'Template cleanup cancelled. No output is available.' : error.message); }
+  finally { running = null; $('cancel').hidden = true; updateRequest(); }
+}
+
 function offerDocumentDiagnostic(failedRequest) {
   const status = create('p', 'Development inspection: DOCX remains available when PDF layout fails. Open it in Word; it is not a generated document.', 'hint');
   $('result').append(status);
@@ -462,6 +497,7 @@ function showResult(message) {
 $('builder').addEventListener('input', updateRequest);
 $('builder').addEventListener('submit', event => { event.preventDefault(); send(true); });
 $('assess').addEventListener('click', () => send(false));
+$('clean-template').addEventListener('click', cleanTemplate);
 $('cancel').addEventListener('click', () => running?.abort());
 $('provider').addEventListener('change', refreshFormats);
 $('input-format').addEventListener('change', refreshFormats);
@@ -473,7 +509,10 @@ $('select-font').addEventListener('click', () => {
 $('upload-font').addEventListener('click', () => appendFontRow(null));
 $('font-mode').addEventListener('change', fontSelectionsChanged);
 $('auto-embed-fonts').addEventListener('change', fontSelectionsChanged);
-$('template').addEventListener('change', () => $('template-name').textContent = $('template').files[0]?.name || 'Select a file from your computer');
+$('template').addEventListener('change', () => {
+  $('template-name').textContent = $('template').files[0]?.name || 'Select a file from your computer';
+  updateCleanupButton();
+});
 $('watermark-enabled').addEventListener('change', () => $('watermark').hidden = !$('watermark-enabled').checked);
 $('refresh').addEventListener('click', bootstrap);
 $('sample').addEventListener('click', () => { $('data').value = JSON.stringify({customer: {name: 'Ada Lovelace', email: null}, reference: 'NF-001', tasks: [{name: 'Review agreement', done: false}, {name: 'Check document', done: true}]}, null, 2); updateRequest(); });

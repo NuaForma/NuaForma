@@ -19,7 +19,7 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
     pipes: List<ContentPipe> = emptyList(),
     private val valuePipes: TemplatePipes = TemplatePipes.discover(),
 ) :
-    DocumentProvider, ProviderReadiness, FontCatalogProvider, ConformancePolicyProvider, TemplatePipeProvider, ContentPipeProvider, TemplateDiagnosticProvider, DocumentDiagnosticProvider {
+    DocumentProvider, ProviderReadiness, FontCatalogProvider, ConformancePolicyProvider, TemplatePipeProvider, ContentPipeProvider, TemplateDiagnosticProvider, DocumentDiagnosticProvider, TemplateCleanupProvider {
     private val deploymentFonts = DeploymentFonts.configured()
     private val pipes = pipes.map { implementation ->
         val definition = implementation.definition
@@ -108,6 +108,37 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
         val requirements = GenerationRequirements(request.requirements.input, FormatRequest(DocumentFormat.PDF, options),
             GenerationOptions(locale = request.requirements.options.locale, timeZone = request.requirements.options.timeZone))
         return render(GenerationRequest(request.template, requirements, request.data, request.resources), output, context, true)
+    }
+
+    override fun cleanTemplate(template: java.io.InputStream, output: OutputStream, context: GenerationContext): TemplateCleanupReport {
+        if (context.logging.mode != LoggingMode.DEVELOPMENT) fail(DiagnosticCodes.UNSUPPORTED_OPTION, RejectionReason.TEMPLATE_DIAGNOSTICS_REQUIRE_DEVELOPMENT)
+        if (!configuration.admission.tryAcquire()) fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.NATIVE_PDF_CAPACITY_EXHAUSTED)
+        try {
+            val source = BoundedBuffer(minOf(8_388_608L, context.limits.maxTemplateBytes), context)
+            val buffer = ByteArray(8192)
+            while (true) {
+                context.checkActive()
+                val count = template.read(buffer)
+                if (count < 0) break
+                source.write(buffer, 0, count)
+            }
+            val result = dev.nuaforma.docx.pdf.adapters.nativeengine.NativeTemplateCleanup(context).clean(source.toByteArray())
+            context.checkActive()
+            if (result.first.size > context.limits.maxOutputBytes) fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.PDF_CONVERSION_BYTE_BUDGET_WAS_EXCEEDED)
+            dev.nuaforma.docx.DocxDocuments.open(result.first.inputStream(), context).use { context.checkActive() }
+            for (change in result.second.changes) {
+                context.checkActive()
+                context.logging.trace("TEMPLATE_CLEANUP_CHANGE", mapOf("part" to change.part, "action" to change.action.name,
+                    "reason" to change.reason, "location" to change.location.orEmpty()))
+            }
+            output.write(result.first)
+            return result.second
+        } catch (error: NativeDocxReadException) {
+            throw GenerationException(listOf(Diagnostic(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED,
+                part = error.part, location = error.location).withSourceContext(error.sourceContext).withDocumentLocation(error.documentLocation)), error)
+        } catch (_: IllegalArgumentException) {
+            fail(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED)
+        } finally { configuration.admission.release() }
     }
 
     override fun generate(request: GenerationRequest, output: OutputStream, context: GenerationContext): GenerationResult = render(request, output, context, false)

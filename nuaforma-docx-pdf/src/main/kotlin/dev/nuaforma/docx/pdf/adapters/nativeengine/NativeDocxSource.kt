@@ -43,8 +43,27 @@ internal class NativeDocxSource(private val context: GenerationContext) {
             else -> message
         } else message
         return NativeDocxReadException(explanation, entry?.part ?: fallbackPart,
-            entry?.let { DocumentSourceContext(explanation, path(requireNotNull(node)), label(node), excerpt) },
-            entry?.paragraph?.let { "paragraph:$it" }, node?.let { "xml:${it.sourceLine}:${it.sourceColumn}" })
+            entry?.let { details(explanation, requireNotNull(node), excerpt) },
+            entry?.paragraph?.let { "paragraph:$it" }, node?.let { "xml:${it.sourceLine}:${it.sourceColumn}" }).also {
+                if (entry != null) it.sourceRoute = route(requireNotNull(node))
+            }
+    }
+
+    private fun details(explanation: String, node: XmlElement, excerpt: String): DocumentSourceContext = try {
+        DocumentSourceContext(explanation, path(node), label(node), excerpt)
+    } catch (_: IllegalArgumentException) {
+        DocumentSourceContext(explanation, null, null, excerpt)
+    }
+
+    private fun route(node: XmlElement): List<Pair<javax.xml.namespace.QName, Int>> {
+        val result = mutableListOf<Pair<javax.xml.namespace.QName, Int>>()
+        var current: XmlElement? = node
+        while (current != null) {
+            val entry = entries[current] ?: break
+            result += current.name to entry.ordinal
+            current = entry.parent
+        }
+        return result.asReversed()
     }
 
     private fun path(node: XmlElement): String {

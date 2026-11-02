@@ -48,6 +48,37 @@ class NativeDocxPdfProviderTest {
     private fun render(provider: NativeDocxPdfProvider, source: ByteArray, data: Map<String, Any?> = emptyMap(), profile: String = "standard"): ByteArray =
         ByteArrayOutputStream().also { provider.generate(GenerationRequest(source.inputStream(), requirements(profile), data), it, GenerationContext()) }.toByteArray()
 
+    @Test
+    fun `cleaned templates generate validated PDFs with retained logo and page pixels`() {
+        val provider = NativeDocxPdfProvider(NativePdfConfiguration(fonts(), validator()))
+        val source = resource("/native-profile/word-letter.docx")
+        val unsupported = repack(source) { name, bytes ->
+            if (name != "word/document.xml") bytes else bytes.decodeToString()
+                .replace("<w:body>", "<w:body><w:unsupported/>").toByteArray()
+        }
+        val cleaned = ByteArrayOutputStream()
+        val report = provider.cleanTemplate(unsupported.inputStream(), cleaned,
+            GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT)))
+        assertTrue(report.changes.any { it.action == TemplateCleanupAction.REMOVE_ELEMENT })
+        Loader.loadPDF(render(provider, source)).use { expected ->
+            Loader.loadPDF(render(provider, cleaned.toByteArray())).use { actual ->
+                assertEquals(expected.numberOfPages, actual.numberOfPages)
+                assertEquals(PDFTextStripper().getText(expected), PDFTextStripper().getText(actual))
+                for (page in 0 until expected.numberOfPages) {
+                    val before = PDFRenderer(expected).renderImageWithDPI(page, 96f, ImageType.RGB)
+                    val after = PDFRenderer(actual).renderImageWithDPI(page, 96f, ImageType.RGB)
+                    assertEquals(before.width, after.width)
+                    assertEquals(before.height, after.height)
+                    assertArrayEquals(before.getRGB(0, 0, before.width, before.height, null, 0, before.width),
+                        after.getRGB(0, 0, after.width, after.height, null, 0, after.width), "page ${page + 1}")
+                    val review = Files.createDirectories(Path.of("build/template-cleanup-reference"))
+                    ImageIO.write(before, "png", review.resolve("before-${page + 1}.png").toFile())
+                    ImageIO.write(after, "png", review.resolve("after-${page + 1}.png").toFile())
+                }
+            }
+        }
+    }
+
     @Test fun `mixed quotation date expressions retain literal reference text and page pixels`() {
         val provider = NativeDocxPdfProvider(NativePdfConfiguration(fonts(), validator()))
         val fixture = resource("/own-engine/source.docx")

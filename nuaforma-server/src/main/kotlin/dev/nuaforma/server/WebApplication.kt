@@ -22,4 +22,8 @@ class WebApplication @JvmOverloads constructor(assets: List<Asset>, inventory: B
             require(content.isNotEmpty() && content.size <= 1024 * 1024)
         }
     }
+
+    companion object {
+        const val TEMPLATE_CLEANUP_PATH = "/playground/template-cleanup"
+    }
 }

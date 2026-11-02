@@ -1195,8 +1195,17 @@ internal class NativeDocxReader(
 
     private fun requireRelationships(root: XmlElement) {
         check(root.name.namespaceURI == relationships && root.name.localPart == "Relationships", "Invalid relationships")
-        check(root.elements().all { it.name.namespaceURI == relationships && it.name.localPart == "Relationship" &&
-            (it.attribute("", "TargetMode") == null || it.attribute("", "TargetMode") == "External" && it.attribute("", "Type") == "$rel/hyperlink") }, "External or invalid relationships are unsupported")
+        for (node in root.elements()) {
+            source.current = node
+            val mode = node.attribute("", "TargetMode")
+            val relationship = node.name.namespaceURI == relationships && node.name.localPart == "Relationship"
+            if (!relationship || mode != null && !(mode == "External" && node.attribute("", "Type") == "$rel/hyperlink")) {
+                throw source.failure("External or invalid relationships are unsupported", activePart).also {
+                    if (relationship && mode == "Internal") it.unsupportedAttributes = setOf(javax.xml.namespace.QName("TargetMode"))
+                }
+            }
+        }
+        source.current = root
     }
 
     private fun pageNumbering(section: XmlElement): PdfPageNumbering {
@@ -1225,7 +1234,8 @@ internal class NativeDocxReader(
     private fun attributes(node: XmlElement, allowed: Set<String>) {
         source.current = node
         activePart = provenance[node] ?: activePart
-        check(node.attributes.keys.all { it.namespaceURI == word && it.localPart in allowed }, "Unsupported formatting attribute")
+        val unsupported = node.attributes.keys.filter { it.namespaceURI != word || it.localPart !in allowed }.toSet()
+        if (unsupported.isNotEmpty()) throw source.failure("Unsupported formatting attribute", activePart).also { it.unsupportedAttributes = unsupported }
     }
 
     private fun XmlElement.one(name: String): XmlElement? = elements().singleOrNull { it.name.namespaceURI == word && it.name.localPart == name }
@@ -1257,4 +1267,6 @@ internal class NativeDocxReadException(message: String, val part: String,
     val documentLocation: String? = null, val location: String? = null) : IllegalArgumentException(message) {
     val sourceContext: dev.nuaforma.contracts.DocumentSourceContext = sourceContext
         ?: dev.nuaforma.contracts.DocumentSourceContext(message, null, null, "")
+    var sourceRoute: List<Pair<javax.xml.namespace.QName, Int>> = emptyList()
+    var unsupportedAttributes: Set<javax.xml.namespace.QName> = emptySet()
 }
