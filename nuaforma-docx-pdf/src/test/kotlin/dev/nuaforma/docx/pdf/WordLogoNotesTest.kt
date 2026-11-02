@@ -119,4 +119,44 @@ class WordLogoNotesTest {
             }
         }
     }
+
+    @Test
+    fun `EMF logo text uses configured physical font bytes through the real provider`() {
+        val source = repack(resource("/word-compatibility/a4/source.docx")) { name, bytes ->
+            if (name != "word/media/header.emf") bytes else dev.nuaforma.docx.pdf.adapters.nativeengine.EmfFixture.file(
+                dev.nuaforma.docx.pdf.adapters.nativeengine.EmfFixture.font(),
+                dev.nuaforma.docx.pdf.adapters.nativeengine.EmfFixture.record(37, 1),
+                dev.nuaforma.docx.pdf.adapters.nativeengine.EmfFixture.record(18, 1),
+                dev.nuaforma.docx.pdf.adapters.nativeengine.EmfFixture.text("Logo"))
+        }
+        val output = ByteArrayOutputStream()
+        provider().generate(GenerationRequest(source.inputStream(), GenerationRequirements(FormatRequest(DocumentFormat.DOCX),
+            FormatRequest(DocumentFormat.PDF, mapOf("profile" to "standard"))), emptyMap<String, Any?>()), output, GenerationContext())
+        Loader.loadPDF(output.toByteArray()).use { pdf ->
+            val image = pdf.getPage(0).resources.xObjectNames.map { pdf.getPage(0).resources.getXObject(it) }
+                .filterIsInstance<PDImageXObject>().single { it.width == 400 }.image
+            val alpha = image.getRGB(0, 0, image.width, image.height, null, 0, image.width).map { it ushr 24 }
+            assertTrue(alpha.any { it == 255 }, "The supplied font paints actual glyphs")
+            assertTrue(alpha.any { it == 0 }, "The logo background remains transparent")
+            assertTrue(PDFTextStripper().getText(pdf).contains("HEADER logo retained"))
+        }
+    }
+
+    @Test
+    fun `explicitly opaque EMF artwork passes archival one without flattening transparent sources`() {
+        val source = repack(resource("/word-compatibility/a4/source.docx")) { name, bytes ->
+            if (!name.endsWith(".emf")) bytes else dev.nuaforma.docx.pdf.adapters.nativeengine.EmfFixture.file(
+                dev.nuaforma.docx.pdf.adapters.nativeengine.EmfFixture.record(43, 0, 0, 200, 100))
+        }
+        val output = ByteArrayOutputStream()
+        provider().generate(GenerationRequest(source.inputStream(), GenerationRequirements(FormatRequest(DocumentFormat.DOCX),
+            FormatRequest(DocumentFormat.PDF, mapOf("profile" to "pdfa-1b"))), emptyMap<String, Any?>()), output, GenerationContext())
+        Loader.loadPDF(output.toByteArray()).use { pdf ->
+            assertEquals(1.4f, pdf.version)
+            assertEquals(2, pdf.numberOfPages)
+            val images = pdf.getPage(0).resources.xObjectNames.map { pdf.getPage(0).resources.getXObject(it) }.filterIsInstance<PDImageXObject>()
+            assertTrue(images.size >= 2)
+            assertTrue(images.all { it.softMask == null })
+        }
+    }
 }

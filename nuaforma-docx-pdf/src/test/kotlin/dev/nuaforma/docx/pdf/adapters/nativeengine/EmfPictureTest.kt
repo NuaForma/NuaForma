@@ -253,4 +253,26 @@ class EmfPictureTest {
         }
         assertEquals(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, error.diagnostics.single().code)
     }
+
+    @Test
+    fun `mutated untrusted records produce only bounded declared failures or valid inspection`() {
+        val sources = listOf(EmfFixture.logo(), EmfFixture.file(EmfFixture.bitmap()),
+            EmfFixture.file(EmfFixture.font(), EmfFixture.record(37, 1), EmfFixture.text("Logo")))
+        val random = java.util.Random(196)
+        var rejected = 0
+        for (original in sources) repeat(400) {
+            val changed = original.copyOf()
+            val at = random.nextInt(changed.size)
+            changed[at] = (changed[at].toInt() xor (1 shl random.nextInt(8))).toByte()
+            try {
+                assertNull(decode(changed, true))
+            } catch (_: EmfFailure) {
+                rejected++
+            } catch (error: GenerationException) {
+                assertTrue(error.diagnostics.all { it.code == DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED })
+                rejected++
+            }
+        }
+        assertTrue(rejected > 400, "Mutated structural fields must actually exercise rejection paths")
+    }
 }

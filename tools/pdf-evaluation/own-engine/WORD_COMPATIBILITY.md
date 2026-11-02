@@ -21,7 +21,7 @@ Unknown records, EMF+ comments, GDI escapes, unsupported bitmaps and unqualified
 
 Limits include 4 MiB input, 20,000 records, 256 object handles, 32 saved contexts, 32,000 points and 64 clip operations. Raster limits are 4096 pixels per edge and 4,194,304 cumulative pixels per translation, alongside existing request byte limits. Identical image/size combinations share request-local results.
 
-Transparency is retained. PDF/A-1b continues to reject transparent images; no silent flattening is introduced. Standard PDF and PDF/A-2b/3b retain existing validation requirements.
+Transparency is retained. Proven fully opaque rasters use RGB; their PDF/A-1b conversion is independently validated. PDF/A-1b continues to reject genuinely transparent images; no background is filled and no silent flattening is introduced. Standard PDF and PDF/A-2b/3b retain existing validation requirements. An additional real-provider test renders EMF text from configured physical font bytes, and seeded mutation tests inspect 1,200 damaged geometry/bitmap/font records for bounded, declared failures.
 
 ## Verification
 
