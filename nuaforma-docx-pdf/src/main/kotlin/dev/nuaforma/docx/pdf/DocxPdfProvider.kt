@@ -7,7 +7,7 @@ import dev.nuaforma.template.TemplatePipes
 class DocxPdfProvider private constructor(delegate: NativeDocxPdfProvider) :
     DocumentProvider by delegate, ProviderReadiness by delegate, FontCatalogProvider by delegate,
     ConformancePolicyProvider by delegate, TemplatePipeProvider by delegate, ContentPipeProvider by delegate,
-    TemplateDiagnosticProvider by delegate, DocumentDiagnosticProvider by delegate {
+    TemplateDiagnosticProvider by delegate, DocumentDiagnosticProvider by delegate, TemplateCleanupProvider by delegate {
     @JvmOverloads constructor(configuration: NativePdfConfiguration? = null) :
         this(NativeDocxPdfProvider(configuration ?: NativePdfConfiguration.configured()))
 

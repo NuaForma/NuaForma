@@ -58,6 +58,10 @@ Known secret field names (authorization/cookie/token/password/passwd/secret/cred
 
 Sensitive diagnostics are capped per scope at 256 events/128 KiB. Operational events have a separate allowance of 64 events/64 KiB per request or 4,096 events/1 MiB per uncorrelated startup scope. Unexpected failures have an independent reserve of 16 events/64 KiB; saturated traces/readiness events cannot consume it. Each event's text is at most 3.5 KiB UTF-8, leaving room for its bounded identity/code metadata within a 4 KiB log message, with bounded nodes/depth/entries, escaped controls and opaque unsupported objects. Long payload-like strings, binary values and full image payloads are omitted. Stacks have at most four causes/twelve frames per cause within the event bound. Renderer stderr capture retains at most 4 KiB and drains/discards the rest; only allowlisted classifications leave the capture. Sink errors do not replace generation outcomes. Custom sinks/extensions remain responsible for their own allocations and cancellation cooperation.
 
+## Playground template cleanup
+
+The Playground-only template-cleanup operation logs `TEMPLATE_CLEANUP_COMPLETED` with the change count. Its development `TEMPLATE_CLEANUP_CHANGE` traces contain bounded part/action/reason/location metadata, without template data or excerpts. Existing trace budgets and secret/payload redaction still apply; the separate downloaded report retains the complete removal list. Ordinary generation and production routes do not activate cleanup. See [template cleanup](template-cleanup.md).
+
 ## Embedded configuration
 
 Libraries require no SLF4J/MDC, environment variables or global logger. Supply an explicit request-private scope and map sanitized events to your backend:

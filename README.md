@@ -21,6 +21,8 @@ NuaForma is an open-source document-generation engine. Combine a Word template, 
 
 The 0.4.0-alpha.1 update supports qualified automatic paragraph spacing, physical-page mirrored indents, conditional table formatting and requested kerning/standard OpenType ligatures. Passive Word metadata and supported compatibility settings no longer block self-contained documents; the Playground also uses the NuaForma favicon. The shared PDF engine retains standard PDF and PDF/A-1b/2b/3b, embedding and independent validation. Supply the fonts referenced by your document, even when its visible text is empty; missing faces fail explicitly. See the [formatting qualification](tools/pdf-evaluation/own-engine/FORMATTING.md), [provider limits](nuaforma-docx-pdf/README.md) and [diagnostic guide](docs/template-diagnostic-pdf.md). Contract 0.8 and the six-library structure remain unchanged.
 
+Unreleased source #191 adds [Playground-only template cleanup](docs/template-cleanup.md), without evaluating template instructions. The user reviews and accepts the copied template; source providers use contract 0.9 for this optional tool. Published 0.4.0-alpha.1 remains unchanged.
+
 New alpha/beta/RC Maven versions and snapshots use the [NuaForma Nexus repositories](docs/nexus-publishing.md); stable releases use Maven Central. Existing Central publications remain available.
 
 ## What it supports
