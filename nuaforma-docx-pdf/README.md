@@ -1,6 +1,6 @@
 # NuaForma DOCX/PDF provider
 
-Unreleased Word compatibility work for #196 is described in the [paragraph, logo and page-band profile](../tools/pdf-evaluation/own-engine/WORD_COMPATIBILITY.md): signed physical-page indents, paragraph-mark metrics, measured header/footer reservation and a bounded EMF subset. Synthetic A4/Letter cases contain header/footer logos and real footnotes; the private original document has not been qualified.
+Version 0.4.0-alpha.3 Word compatibility work for #196 is described in the [paragraph, logo and page-band profile](../tools/pdf-evaluation/own-engine/WORD_COMPATIBILITY.md): signed physical-page indents, paragraph-mark metrics, measured header/footer reservation and a bounded EMF subset. Synthetic A4/Letter cases contain header/footer logos and real footnotes; the private original document has not been qualified.
 
 The registered `DocxPdfProvider` reuses `nuaforma-docx` for template processing and DOCX output, translates supported filled DOCX into the neutral model, and writes PDF through `nuaforma-pdf`. Rendering takes place in the hosting JVM with request-local state. There is no LibreOffice backend or external document-renderer fallback. The native engine is published in the `0.3.0-alpha.2` evaluation release.
 

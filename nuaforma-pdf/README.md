@@ -1,6 +1,6 @@
 # Shared PDF engine: alpha foundation
 
-Unreleased #196 adds optional measured page-band reservation, minimum paragraph-mark line metrics, standalone automatic image lines and signed indents within physical page bounds. Existing callers retain strict band bounds unless they opt into `PdfPageBand.withContentReservation()`. The source-specific EMF decoder remains in the DOCX adapter; see the [compatibility profile](../tools/pdf-evaluation/own-engine/WORD_COMPATIBILITY.md).
+Version 0.4.0-alpha.3 (#196) adds optional measured page-band reservation, minimum paragraph-mark line metrics, standalone automatic image lines and signed indents within physical page bounds. Existing callers retain strict band bounds unless they opt into `PdfPageBand.withContentReservation()`. The source-specific EMF decoder remains in the DOCX adapter; see the [compatibility profile](../tools/pdf-evaluation/own-engine/WORD_COMPATIBILITY.md).
 
 `nuaforma-pdf` is a Java-17-compatible, experimental source library for the own-engine track. It converts a bounded, format-neutral document model to standard PDF 1.7 or independently validated PDF/A-1b, 2b and 3b using the already reviewed PDFBox 3.0.8 dependency. The default remains single-page; opt-in exact-line pagination now supports fixed tables and shared page bands in the [report proof](../tools/pdf-evaluation/own-engine/REPORT.md). It requires no Word, LibreOffice, HTTP service, filesystem font installation or commercial license.
 
