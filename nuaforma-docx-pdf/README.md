@@ -66,7 +66,7 @@ Current source qualifies bibliography `Sources` parts reached through document `
 
 ## Playground template cleanup (source #191)
 
-Source #191 adds the optional contract 0.9 template-cleanup facet for the development Playground. It removes unsupported structures from a separate DOCX copy without evaluating template instructions, validates the retained source through the existing native reader and non-evaluating DOCX facade, and returns a separate removal report. The caller alone accepts content/appearance. Normal generation remains strict and published 0.4.0-alpha.1 artifacts remain unchanged. See [template cleanup](../docs/template-cleanup.md).
+Selected 0.4.0-alpha.2 (#191) adds the optional contract 0.9 template-cleanup facet for the development Playground. It removes unsupported structures from a separate DOCX copy without evaluating template instructions, validates the retained source through the existing native reader and non-evaluating DOCX facade, and returns a separate removal report. The caller alone accepts content/appearance. Normal generation remains strict and published 0.4.0-alpha.1 artifacts remain unchanged. See [template cleanup](../docs/template-cleanup.md).
 
 ## Passive package properties (0.4.0-alpha.1, #182)
 
