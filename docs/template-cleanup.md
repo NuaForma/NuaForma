@@ -35,7 +35,7 @@ The route is part of the development Playground composition and absent in produc
 
 Existing admission, cancellation and request/private-file boundaries apply. Native limits remain bounded: at most 8 MiB compressed/expanded source, 4 MiB per entry and 64 archive entries, further constrained by caller limits. Editing stops after 256 profile passes or 2,048 report entries. Unsafe names, duplicate entries and malformed required package structure do not produce a cleaned artifact. The XML reader never resolves entities/DTDs. An optional XML part that cannot be parsed under that policy can be removed and reported; cancellation/resource failures are never reclassified as removable content. External relationship targets are never fetched and embedded active code is never executed. The caller owns access and retention for the downloaded document/report and development instance.
 
-## Floating stories and paragraph marks (unreleased #203)
+## Floating stories and paragraph marks (0.4.0-alpha.4, #203)
 
 Qualified unwrapped floating images and existing text-frame profiles in headers/footers no longer require removing the complete story. Nonprinting paragraph-mark highlight is validated and retained without applying a background to visible runs. Zero-valued Word relative-size placeholders retain the explicit physical image extent; active nonzero relative sizing remains rejected. Unknown anchored-image children identify their own source location, permitting focused cleanup instead of removing the complete picture or footer. See the [qualified cases and limits](../tools/pdf-evaluation/own-engine/WORD_FLOATING_BANDS.md).
 

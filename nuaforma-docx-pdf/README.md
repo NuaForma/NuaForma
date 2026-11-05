@@ -1,6 +1,6 @@
 # NuaForma DOCX/PDF provider
 
-Unreleased source #203 preserves qualified unwrapped floating images and existing VML/DrawingML text frames in page bands, zero-valued Word relative-size placeholders, and nonprinting paragraph-mark highlighting. Unwrapped objects preserve their physical coordinates without moving ordinary footer text or reserving extra body space. Unsupported anchor children identify their own XML location, so cleanup can retain the rest of the story. See the [floating-story qualification](../tools/pdf-evaluation/own-engine/WORD_FLOATING_BANDS.md).
+Version 0.4.0-alpha.4 (#203) preserves qualified unwrapped floating images and existing VML/DrawingML text frames in page bands, zero-valued Word relative-size placeholders, and nonprinting paragraph-mark highlighting. Unwrapped objects preserve their physical coordinates without moving ordinary footer text or reserving extra body space. Unsupported anchor children identify their own XML location, so cleanup can retain the rest of the story. See the [floating-story qualification](../tools/pdf-evaluation/own-engine/WORD_FLOATING_BANDS.md).
 
 Version 0.4.0-alpha.3 Word compatibility work for #196 is described in the [paragraph, logo and page-band profile](../tools/pdf-evaluation/own-engine/WORD_COMPATIBILITY.md): signed physical-page indents, paragraph-mark metrics, measured header/footer reservation and a bounded EMF subset. Synthetic A4/Letter cases contain header/footer logos and real footnotes; the private original document has not been qualified.
 

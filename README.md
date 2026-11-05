@@ -17,7 +17,7 @@
 
 NuaForma is an open-source document-generation engine. Combine a Word template, structured data and generation options to produce DOCX or PDF documents. Embed the Java-17-compatible libraries in your application, or run the REST service in your own infrastructure.
 
-> **Native PDF engine:** selected release `0.4.0-alpha.3` converts DOCX with NuaForma's own shared PDF engine. LibreOffice, Microsoft Word and a cloud conversion service are not runtime requirements. Consult the [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.4.0-alpha.3) for matching published libraries, images and source materials once publication completes. APIs remain an evaluation draft.
+> **Native PDF engine:** selected release `0.4.0-alpha.4` converts DOCX with NuaForma's own shared PDF engine. LibreOffice, Microsoft Word and a cloud conversion service are not runtime requirements. Consult the [release](https://github.com/NuaForma/NuaForma/releases/tag/v0.4.0-alpha.4) for matching published libraries, images and source materials once publication completes. APIs remain an evaluation draft.
 
 Version 0.4.0-alpha.3 retains paragraph-mark metrics, signed/hanging indents and measured header/footer space with a bounded EMF GDI subset. Synthetic A4/Letter comparisons retain both logos and real footnotes against Word exports. See the [qualified Word compatibility profile](tools/pdf-evaluation/own-engine/WORD_COMPATIBILITY.md) for supported records and measured differences; unsupported content remains explicit.
 
@@ -77,3 +77,5 @@ Supply the corresponding `data` object. Inserted values remain literal, not exec
 NuaForma's code is [Apache-2.0](LICENSE). Dependencies, fonts and bundled runtime components retain their own licenses; the combined container is not wholly Apache-2.0. See [third-party notices](THIRD_PARTY.md) and the [runtime distribution checklist](docs/runtime-distribution.md).
 
 Copyright 2026 NuaForma contributors.
+
+Version 0.4.0-alpha.4 preserves qualified floating header/footer logos and frames, page fields and nonprinting paragraph-mark highlight through cleanup and PDF rendering. See the [floating-story profile](tools/pdf-evaluation/own-engine/WORD_FLOATING_BANDS.md) and [release notes](release-notes/0.4.0-alpha.4.md).
