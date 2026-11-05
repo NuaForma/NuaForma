@@ -32,7 +32,7 @@ internal object ImageFlow {
         checkPage(anchorPage)
         val placements = p.anchoredImages.map { anchor ->
             val y = anchor.top + if (anchor.anchor == PdfBoxAnchor.PARAGRAPH) start else 0f
-            if (anchor.left + anchor.image.width > page.width + .001f || y + anchor.image.height > page.height + .001f)
+            if (anchor.left + anchor.image.width > page.width + .001f || y < -.001f || y + anchor.image.height > page.height + .001f)
                 fail(PdfFailureCode.CONTENT_OVERFLOW, "Anchored image exceeds the physical page")
             if (anchor.wrap != PdfImageWrap.NONE && (y - anchor.distances.top < start - .001f || y + anchor.image.height + anchor.distances.bottom > bottom + .001f))
                 fail(PdfFailureCode.CONTENT_OVERFLOW, "Wrapped image exceeds its body flow area")

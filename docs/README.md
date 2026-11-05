@@ -74,3 +74,5 @@ See [Nexus publishing](nexus-publishing.md) for stable-versus-prerelease routing
 Unreleased source contract 0.8 adds [source diagnostics and DOCX inspection](template-diagnostic-pdf.md#source-diagnostics-and-docx-inspection-unreleased-170); built-in providers require 0.8. The released alpha.5 baseline described above remains 0.7.
 
 Version 0.4.0-alpha.3 adds qualified paragraph-mark metrics, signed/hanging indents, measured header/footer reservation and a bounded EMF subset. See the [Word compatibility profile](../tools/pdf-evaluation/own-engine/WORD_COMPATIBILITY.md), [release notes](../release-notes/0.4.0-alpha.3.md) and [candidate runtime audit](release-0.4.0-alpha.3-audit.md).
+
+Unreleased #203 preserves qualified [floating Word stories and paragraph-mark formatting](../tools/pdf-evaluation/own-engine/WORD_FLOATING_BANDS.md), with focused cleanup and explicit remaining source limits.

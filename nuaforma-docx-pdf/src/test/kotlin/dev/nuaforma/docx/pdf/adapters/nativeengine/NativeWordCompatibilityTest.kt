@@ -31,6 +31,25 @@ class NativeWordCompatibilityTest {
     private fun read(bytes: ByteArray) = NativeDocxReader(context()) { _, bold, _ -> if (bold) "bold" else "regular" }.read(bytes)
 
     @Test
+    fun `paragraph mark highlight is retained without coloring visible text`() {
+        for (color in listOf("none", "yellow", "green", "darkBlue", "lightGray")) {
+            val bytes = source("<w:rPr><w:highlight w:val=\"$color\"/></w:rPr>")
+            val output = ByteArrayOutputStream()
+            val report = NativeDocxPdfProvider(NativePdfConfiguration(emptyList())).cleanTemplate(bytes.inputStream(), output, context())
+            assertTrue(report.changes.isEmpty(), report.changes.toString())
+            assertArrayEquals(bytes, output.toByteArray())
+            assertEquals("VISIBLE", ((read(bytes).blocks.first() as PdfParagraph).runs.first() as PdfTextRun).text)
+        }
+        for (highlight in listOf("<w:highlight/>", "<w:highlight w:val=\"unknown\"/>",
+            "<w:highlight w:val=\"none\"/><w:highlight w:val=\"yellow\"/>", "<w:highlight w:val=\"none\"><w:b/></w:highlight>")) {
+            assertThrows(NativeDocxReadException::class.java) { read(source("<w:rPr>$highlight</w:rPr>")) }
+        }
+        assertThrows(NativeDocxReadException::class.java) {
+            read(source("", "<w:r><w:rPr><w:highlight w:val=\"yellow\"/></w:rPr><w:t>VISIBLE</w:t></w:r>"))
+        }
+    }
+
+    @Test
     fun `paragraph marks retain nonprinting metrics without restyling visible text`() {
         val bytes = source("<w:spacing w:line=\"240\" w:lineRule=\"auto\"/><w:rPr><w:b/><w:sz w:val=\"32\"/><w:szCs w:val=\"32\"/></w:rPr>")
         val p = read(bytes).blocks.first() as PdfParagraph

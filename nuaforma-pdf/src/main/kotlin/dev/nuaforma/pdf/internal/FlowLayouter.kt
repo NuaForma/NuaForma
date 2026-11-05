@@ -241,14 +241,15 @@ internal object FlowLayouter {
     private fun band(band: PdfPageBand, footer: Boolean, page: PdfPage, number: Int, totalPages: Int, sequencePages: Int, measurer: TextMeasurer, target: MutableList<PositionedElement>) {
         val margin = if (footer) page.margins.bottom else page.margins.top
         if (!band.reserveContentSpace && band.offset + band.maxHeight > margin + 0.001f) overflow()
-        val (elements, height) = bandContent(band, page, number, totalPages, sequencePages, measurer)
-        if (band.reserveContentSpace && band.offset + height > margin + .001f) overflow()
+        val content = bandContent(band, page, number, totalPages, sequencePages, measurer, footer)
+        val (elements, height) = content
+        val required = if (band.reserveContentSpace) band.offset + height else PageBandObjects.occupied(band, footer, page, content)
+        if (required > margin + .001f) overflow()
         val offset = if (footer) page.height - band.offset - height else band.offset
         target += ParagraphLines.connect(elements).map { translate(it, 0f, offset) }
     }
 
-    internal fun bandContent(band: PdfPageBand, page: PdfPage, number: Int, totalPages: Int, sequencePages: Int, measurer: TextMeasurer): Pair<List<PositionedElement>, Float> {
-        if (band.blocks.filterIsInstance<PdfParagraph>().any { it.anchoredImages.isNotEmpty() }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Anchored images in page bands are not qualified")
+    internal fun bandContent(band: PdfPageBand, page: PdfPage, number: Int, totalPages: Int, sequencePages: Int, measurer: TextMeasurer, footer: Boolean = false): Pair<List<PositionedElement>, Float> {
         val width = page.width - page.margins.left - page.margins.right
         val elements = mutableListOf<PositionedElement>()
         var top = 0f
@@ -265,15 +266,22 @@ internal object FlowLayouter {
             PdfTableCell(cell.blocks.map { when (it) { is PdfParagraph -> resolve(it); is PdfTable -> resolveTable(it); is PdfImage -> it; is PdfTextBox -> error("Frame in table") } }, cell.background, cell.columnSpan, cell.rowSpan, cell.verticalAlignment, cell.borders)
         }, row.allowSplit, row.splitOversized) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent, t.widthPolicy, t.semantics)
 
+        val floatingImages = mutableListOf<Pair<PdfAnchoredImage, Float>>()
+        val floatingBoxes = mutableListOf<Pair<PdfTextBox, Float>>()
         for ((blockIndex, block) in band.blocks.withIndex()) {
             PageLayouter.checkCancellation()
             when (block) {
-                is PdfTextBox -> overflow()
+                is PdfTextBox -> {
+                    val resolved = PdfTextBox(block.left, block.top, block.width, block.height, block.paragraphs.map(::resolve),
+                        block.anchor, block.rotation, block.padding, block.fill, block.border, block.verticalAlignment, block.wrap, block.semantics)
+                    floatingBoxes += resolved to top
+                }
                 is PdfParagraph -> {
                     if (block.format.pageBreakBefore) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Page breaks inside page bands are unsupported")
                     ParagraphBounds.check(block, page)
-                    val p = paragraph(resolve(block), width, measurer, previous = band.blocks.getOrNull(blockIndex - 1) as? PdfParagraph, next = band.blocks.getOrNull(blockIndex + 1) as? PdfParagraph, owner = block)
+                    val p = paragraph(resolve(block).copy(anchoredImages = emptyList()), width, measurer, previous = band.blocks.getOrNull(blockIndex - 1) as? PdfParagraph, next = band.blocks.getOrNull(blockIndex + 1) as? PdfParagraph, owner = block)
                     top += ParagraphSpacing.before(block, after, blockIndex == 0)
+                    floatingImages += block.anchoredImages.map { it to top }
                     for ((index, line) in p.lines.withIndex()) { placeLine(line, page.margins.left, top, elements); top += p.heights[index] }
                     top += block.spaceAfter
                     after = block.spaceAfter
@@ -293,6 +301,9 @@ internal object FlowLayouter {
             }
         }
         if (top > band.maxHeight + 0.001f) overflow()
+        val origin = if (footer) page.height - band.offset - top else band.offset
+        elements += PageBandObjects.place(floatingImages, floatingBoxes, origin, page, measurer)
+        if (!band.reserveContentSpace && PageBandObjects.occupied(band, footer, page, elements to top) > band.offset + band.maxHeight + .001f) overflow()
         return elements to top
     }
 
@@ -304,10 +315,10 @@ internal object FlowLayouter {
         is PositionedStroke -> element.copy(x = element.x + if (element.pageX) 0f else x, endX = element.endX + if (element.pageX) 0f else x,
             top = element.top + if (element.pageY) 0f else y, endY = element.endY + if (element.pageY) 0f else y)
         is PositionedText -> element.copy(x = element.x + x, baseline = element.baseline + y)
-        is PositionedImage -> element.copy(x = element.x + x, top = element.top + y)
+        is PositionedImage -> element.copy(x = element.x + x, top = element.top + if (element.pageY) 0f else y)
         is PositionedRectangle -> element.copy(x = element.x + x, top = element.top + y)
         is PositionedTableBorder -> element.copy(x = element.x + x, top = element.top + y)
-        is PositionedBox -> element.copy(x = element.x + x, top = element.top + y)
+        is PositionedBox -> element.copy(x = element.x + x, top = element.top + if (element.pageY) 0f else y)
     }
 
     private fun overflow(): Nothing = fail(PdfFailureCode.CONTENT_OVERFLOW, "Content exceeds the paginated proof's page, row or band area")
