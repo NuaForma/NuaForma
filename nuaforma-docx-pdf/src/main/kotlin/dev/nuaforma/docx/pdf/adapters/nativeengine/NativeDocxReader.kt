@@ -1149,43 +1149,81 @@ internal class NativeDocxReader(
     }
 
     private fun image(node: XmlElement, relations: Map<String, String>, parts: Map<String, ByteArray>): PdfImage {
+        source.current = node
+
+        fun at(element: XmlElement, condition: Boolean, message: String) {
+            source.current = element
+            check(condition, message)
+            source.current = node
+        }
+
+        fun imageAttributes(element: XmlElement, accepted: (javax.xml.namespace.QName, String) -> Boolean) {
+            val unsupported = element.attributes.filterNot { (name, value) -> accepted(name, value) }.keys
+            if (unsupported.isNotEmpty()) {
+                source.current = element
+                val name = unsupported.first().localPart.take(64)
+                throw source.failure("Unsupported drawing attribute: ${element.name.localPart.take(64)}/@$name", activePart)
+                    .also { it.unsupportedAttributes = unsupported }
+            }
+        }
+
         check(node.elements().size == 1, "Unsupported drawing")
         val inline = node.elements().single()
         check(inline.name.namespaceURI == wp && inline.name.localPart == "inline", "Only inline images are supported")
-        check(inline.attributes.all { it.key.namespaceURI.isEmpty() && it.key.localPart in setOf("distT", "distB", "distL", "distR") && it.value == "0" }, "Image wrapping is unsupported")
+        imageAttributes(inline) { name, value -> name.namespaceURI.isEmpty() && name.localPart in setOf("distT", "distB", "distL", "distR") && value == "0" }
         val allowed = mapOf(wp to setOf("inline", "extent", "effectExtent", "docPr", "cNvGraphicFramePr"), drawing to setOf("graphic", "graphicData", "graphicFrameLocks", "blip", "srcRect", "stretch", "fillRect", "xfrm", "off", "ext", "prstGeom", "avLst"),
             picture to setOf("pic", "nvPicPr", "cNvPr", "cNvPicPr", "blipFill", "spPr"))
-        check(inline.descendants().all { it.name.localPart in (allowed[it.name.namespaceURI] ?: emptySet()) }, "Unsupported drawing effect or geometry")
+        inline.descendants().firstOrNull { it.name.localPart !in (allowed[it.name.namespaceURI] ?: emptySet()) }?.let { unsupported ->
+            source.current = unsupported
+            val child = unsupported.elements().firstOrNull()?.name?.localPart?.take(64)
+            val construct = unsupported.name.localPart.take(64) + (child?.let { "/$it" } ?: "")
+            reject("Unsupported drawing element: $construct")
+        }
         inline.descendants().filter { it.name.namespaceURI == drawing && it.name.localPart == "graphicFrameLocks" }.forEach { locks ->
-            check(locks.attributes.all { it.key.namespaceURI.isEmpty() && it.key.localPart == "noChangeAspect" && it.value in setOf("1", "true") } && locks.elements().isEmpty(), "Unsupported image editing lock")
+            imageAttributes(locks) { name, value -> name.namespaceURI.isEmpty() && name.localPart == "noChangeAspect" && value in setOf("1", "true") }
+            at(locks, locks.elements().isEmpty(), "Unsupported image editing lock content")
         }
         inline.elements().filter { it.name.namespaceURI == wp && it.name.localPart == "effectExtent" }.forEach { effect ->
-            check(effect.attributes.all { it.key.namespaceURI.isEmpty() && it.key.localPart in setOf("l", "t", "r", "b") && it.value == "0" } && effect.elements().isEmpty(), "Nonzero image effects are unsupported")
+            val unsupported = effect.attributes.entries.firstOrNull { (name, value) ->
+                name.namespaceURI.isNotEmpty() || name.localPart !in setOf("l", "t", "r", "b") || value != "0"
+            }
+            val property = unsupported?.key?.localPart?.take(64)?.let { "@$it" } ?: "content"
+            // Its four extent attributes are required together; cleanup removes the optional element, not one required attribute.
+            at(effect, unsupported == null && effect.elements().isEmpty(), "Unsupported image effectExtent/$property")
         }
         val extent = inline.elements().singleOrNull { it.name.namespaceURI == wp && it.name.localPart == "extent" } ?: reject("Missing image extent")
         val blip = inline.descendants().singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "blip" } ?: reject("Missing image relationship")
-        check(blip.attributes.keys.all { it.namespaceURI == rel && it.localPart == "embed" }, "Unsupported or external image reference")
+        imageAttributes(blip) { name, _ -> name.namespaceURI == rel && name.localPart == "embed" }
+        source.current = blip
         val target = relations[blip.attribute(rel, "embed")] ?: reject("Missing embedded image")
-        check(target.startsWith("media/"), "Invalid image relationship")
+        at(blip, target.startsWith("media/"), "Invalid image relationship")
         val transform = inline.descendants().singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "xfrm" } ?: reject("Missing image transform")
-        check(transform.attributes.isEmpty(), "Rotated or flipped images are unsupported")
+        imageAttributes(transform) { _, _ -> false }
         val offset = transform.elements().singleOrNull { it.name.localPart == "off" } ?: reject("Missing image offset")
-        check(offset.attribute("", "x") == "0" && offset.attribute("", "y") == "0", "Unsupported image offset")
+        at(offset, offset.attribute("", "x") == "0" && offset.attribute("", "y") == "0", "Unsupported image offset")
         val transformedExtent = transform.elements().singleOrNull { it.name.localPart == "ext" } ?: reject("Missing picture extent")
-        check(transformedExtent.attribute("", "cx") == extent.attribute("", "cx") && transformedExtent.attribute("", "cy") == extent.attribute("", "cy"), "Nonmatching picture transforms are unsupported")
+        at(transformedExtent, transformedExtent.attribute("", "cx") == extent.attribute("", "cx") && transformedExtent.attribute("", "cy") == extent.attribute("", "cy"), "Nonmatching picture transforms are unsupported")
         val shape = inline.descendants().singleOrNull { it.name.localPart == "prstGeom" } ?: reject("Missing image geometry")
-        check(shape.attribute("", "prst") == "rect", "Unsupported image geometry")
+        at(shape, shape.attribute("", "prst") == "rect", "Unsupported image geometry: prstGeom/@prst")
         val fill = inline.descendants().singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "fillRect" } ?: reject("Missing image stretch rectangle")
-        check(fill.attributes.isEmpty() && fill.elements().isEmpty(), "Inset image fill rectangles are not qualified")
+        at(fill, fill.attributes.isEmpty() && fill.elements().isEmpty(), "Inset image fill rectangles are not qualified")
         val crops = inline.descendants().filter { it.name.namespaceURI == drawing && it.name.localPart == "srcRect" }.toList()
         check(crops.size <= 1, "Duplicate image crop")
         val crop = crops.singleOrNull()
-        check(crop == null || crop.elements().isEmpty() && crop.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in setOf("t", "r", "b", "l") }, "Unsupported image crop")
+        if (crop != null) {
+            imageAttributes(crop) { name, _ -> name.namespaceURI.isEmpty() && name.localPart in setOf("t", "r", "b", "l") }
+            at(crop, crop.elements().isEmpty(), "Unsupported srcRect content")
+        }
 
-        fun fraction(side: String) = number(crop?.attribute("", side) ?: "0") / 100_000
+        fun fraction(side: String): Float {
+            source.current = crop ?: node
+            return number(crop?.attribute("", side) ?: "0") / 100_000
+        }
 
+        source.current = extent
         val width = number(extent.attribute("", "cx")) / 12700
         val height = number(extent.attribute("", "cy")) / 12700
+        source.current = blip
         val original = parts["word/$target"] ?: reject("Missing image bytes")
         val pixels = if (target.endsWith(".emf", true)) try { metafiles.decode(original, width, height) }
         catch (error: dev.nuaforma.docx.pdf.adapters.nativeengine.emf.EmfFailure) {
