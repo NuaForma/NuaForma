@@ -37,6 +37,7 @@ internal class NativeDocxSource(private val context: GenerationContext) {
         val excerpt = excerptNode?.descendants()?.filter { it.name.namespaceURI == word && it.name.localPart == "t" }
             ?.flatMap { it.children.asSequence().filterIsInstance<XmlText>() }?.map { it.text }?.take(256)?.joinToString("")?.take(256).orEmpty()
         val explanation = if (message == "Unsupported document feature") when (node?.name?.localPart) {
+            "attachedTemplate" -> "Cleanup detaches the Word template reference; its target is not fetched"
             "pBdr" -> "Paragraph borders are not supported by the native DOCX profile"
             "sdt" -> "This Word content control is not supported by the native DOCX profile"
             "ins", "del", "moveFrom", "moveTo" -> "Tracked changes are not supported by the native DOCX profile"

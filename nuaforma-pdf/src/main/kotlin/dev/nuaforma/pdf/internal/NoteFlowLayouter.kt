@@ -25,9 +25,16 @@ internal object NoteFlowLayouter {
         document.blocks.forEachIndexed { n, b -> if (b is PdfParagraph) neighbors[b] = (document.blocks.getOrNull(n - 1) as? PdfParagraph) to (document.blocks.getOrNull(n + 1) as? PdfParagraph) }
         document.notes.forEach { index(it.paragraphs) }
 
-        fun paragraph(p: PdfParagraph) = measured.getOrPut(p) { FlowLayouter.paragraph(p, width, measurer, previous = neighbors[p]?.first, next = neighbors[p]?.second) }
+        fun paragraph(p: PdfParagraph) = measured.getOrPut(p) { FlowLayouter.paragraph(p.copy(anchoredImages = emptyList()), width, measurer, previous = neighbors[p]?.first, next = neighbors[p]?.second, owner = p) }
 
-        fun closePage() { if (!closed) { notes.finish(pages.last()); closed = true } }
+        fun closePage() {
+            if (!closed) {
+                val images = pages.last().filterIsInstance<PositionedImage>().filter { it.foreground }
+                if (images.any { it.x < page.width - page.margins.right && it.x + it.image.width > page.margins.left &&
+                    it.top + it.image.height > notes.bodyBottom + .001f }) unsupported("Floating image overlaps the reserved footnote area")
+                notes.finish(pages.last()); closed = true
+            }
+        }
 
         fun nextPage() {
             closePage()
@@ -67,7 +74,7 @@ internal object NoteFlowLayouter {
             val block = item.block ?: continue
             when (block) {
                 is PdfParagraph -> {
-                    if (block.anchoredImages.isNotEmpty()) unsupported("Image wrapping with notes is not qualified")
+                    if (block.anchoredImages.any { it.wrap != PdfImageWrap.NONE }) unsupported("Image wrapping with notes is not qualified")
                     if (block.format.pageBreakBefore && bodyItems > 0) nextPage()
                     val p = paragraph(block)
                     var before = ParagraphSpacing.before(block, after, bodyItems == 0, block.format.pageBreakBefore)
@@ -117,6 +124,7 @@ internal object NoteFlowLayouter {
                             continue
                         }
                         top += gap
+                        if (consumed == 0) pages.last() += PageBandObjects.place(block.anchoredImages.map { it to top }, emptyList(), 0f, page, measurer, foreground = true)
                         repeat(count) { FlowLayouter.placeLine(p.lines[consumed], page.margins.left, top, pages.last()); top += p.heights[consumed++]; bodyItems++ }
                         onPage += count
                     }

@@ -20,10 +20,12 @@ internal object PageBandReservation {
                 else -> PdfPageBands(flow.header, flow.footer)
             }
             selected.header?.takeIf { it.reserveContentSpace }?.let {
-                top = maxOf(top, it.offset + FlowLayouter.bandContent(it, sequence.page, start + local, total, count, measurer).second)
+                val content = FlowLayouter.bandContent(it, sequence.page, start + local, total, count, measurer)
+                top = maxOf(top, it.offset + content.second)
             }
             selected.footer?.takeIf { it.reserveContentSpace }?.let {
-                bottom = maxOf(bottom, it.offset + FlowLayouter.bandContent(it, sequence.page, start + local, total, count, measurer).second)
+                val content = FlowLayouter.bandContent(it, sequence.page, start + local, total, count, measurer, footer = true)
+                bottom = maxOf(bottom, it.offset + content.second)
             }
         }
         if (top + bottom >= sequence.page.height)
