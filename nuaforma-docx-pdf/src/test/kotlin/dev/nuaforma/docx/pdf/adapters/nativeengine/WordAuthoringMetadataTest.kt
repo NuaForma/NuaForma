@@ -8,6 +8,26 @@ import org.junit.jupiter.api.Test
 class WordAuthoringMetadataTest {
 
     @Test
+    fun `style revision metadata has no print behavior and only accepts a four byte hexadecimal identifier`() {
+        val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+        fun styles(revision: String) = ConversionXml(GenerationContext()).read(
+            """<w:styles xmlns:w="$word"><w:style w:type="paragraph" w:styleId="Body">$revision<w:rPr><w:b/></w:rPr></w:style></w:styles>""".toByteArray())
+
+        for (value in listOf("00000000", "FFFFFFFF", "3E412d01")) {
+            val root = styles("""<w:rsid w:val="$value"> </w:rsid>""")
+            WordAuthoringMetadata.normalize(root, "word/styles.xml", false)
+            assertEquals("rPr", root.elements().single().elements().single().name.localPart)
+        }
+        for (revision in listOf("""<w:rsid/>""", """<w:rsid w:val="FFFF"/>""", """<w:rsid w:val="000000000"/>""",
+            """<w:rsid w:val="0000000G"/>""", """<w:rsid val="00000001"/>""", """<w:rsid w:val=" 00000001"/>""",
+            """<w:rsid w:val="00000001" extra="1"/>""", """<w:rsid w:val="00000001"><w:r/></w:rsid>""",
+            """<w:rsid w:val="00000001">content</w:rsid>""", """<w:rsid w:val="00000001"/><w:rsid w:val="00000002"/>""")) {
+            assertThrows(NativeDocxReadException::class.java) { WordAuthoringMetadata.normalize(styles(revision), "word/styles.xml", false) }
+        }
+    }
+
+    @Test
     fun `linked styles keep independent formatting definitions and validate pairing metadata`() {
         val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
