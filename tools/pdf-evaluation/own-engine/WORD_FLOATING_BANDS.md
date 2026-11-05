@@ -1,4 +1,4 @@
-# Floating Word stories and cleanup (#203, 0.4.0-alpha.4)
+# Floating Word stories and cleanup (#203, unreleased source)
 
 This source change addresses a cleanup report that removed an anchored image, paragraph-mark highlighting and a complete footer. Four later relationship/content-type removals were consequences of removing that footer. The private document was unavailable; all fixtures are generated from existing public synthetic resources. No private document or existing golden file is changed.
 
