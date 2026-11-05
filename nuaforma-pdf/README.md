@@ -1,5 +1,7 @@
 # Shared PDF engine: alpha foundation
 
+Version 0.4.0-alpha.4 (#203) supports unwrapped page/paragraph-relative images and text frames in measured page bands, including resolved page fields. Signed image y offsets are bounded and checked against the final physical page. Unwrapped body images can coexist with notes when they do not overlap the reserved footnote area. See the [qualification and explicit limits](../tools/pdf-evaluation/own-engine/WORD_FLOATING_BANDS.md).
+
 Version 0.4.0-alpha.3 (#196) adds optional measured page-band reservation, minimum paragraph-mark line metrics, standalone automatic image lines and signed indents within physical page bounds. Existing callers retain strict band bounds unless they opt into `PdfPageBand.withContentReservation()`. The source-specific EMF decoder remains in the DOCX adapter; see the [compatibility profile](../tools/pdf-evaluation/own-engine/WORD_COMPATIBILITY.md).
 
 `nuaforma-pdf` is a Java-17-compatible, experimental source library for the own-engine track. It converts a bounded, format-neutral document model to standard PDF 1.7 or independently validated PDF/A-1b, 2b and 3b using the already reviewed PDFBox 3.0.8 dependency. The default remains single-page; opt-in exact-line pagination now supports fixed tables and shared page bands in the [report proof](../tools/pdf-evaluation/own-engine/REPORT.md). It requires no Word, LibreOffice, HTTP service, filesystem font installation or commercial license.
@@ -63,7 +65,7 @@ The [profile evaluation workflow](../tools/pdf-evaluation/own-engine/README.md#a
 
 `PdfParagraph.anchoredImages` snapshots up to eight `PdfAnchoredImage` resources. Physical x coordinates are page-relative; y coordinates are relative to either the containing paragraph or its page. Paragraph-bound images move with a new-page anchor paragraph. Foreground placement, explicit distances, top/bottom and left/right/largest/both-sided rectangular exclusions retain text flow across paragraphs and pages. `PdfImageCrop` removes fractions from the source edges and clips the stretched result to the image's declared width/height. Source parsing remains in `nuaforma-docx-pdf`; the model contains no DOCX-specific types.
 
-Wrapped keep groups, lists/tabs/inline objects, RTL image wrapping, overlapping floating image layers, tables intersecting active exclusions, page-band/cell anchors, tight/through wrapping, behind-text placement, arbitrary image rotation/flips and alternate fill rectangles are not qualified and reject. An unbreakable word wider than its available region also rejects. Source and physical-page budgets still apply. See the [Word trials and regression coverage](../tools/pdf-evaluation/own-engine/ANCHORED_IMAGES.md).
+Wrapped keep groups, lists/tabs/inline objects, RTL image wrapping, overlapping floating image layers, tables intersecting active exclusions, wrapped page-band anchors and cell anchors, tight/through wrapping, behind-text placement, arbitrary image rotation/flips and alternate fill rectangles are not qualified and reject. An unbreakable word wider than its available region also rejects. Source and physical-page budgets still apply. See the [Word trials and regression coverage](../tools/pdf-evaluation/own-engine/ANCHORED_IMAGES.md).
 
 ## Physical page sequences
 

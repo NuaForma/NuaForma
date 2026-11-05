@@ -11,7 +11,7 @@ data class PdfAnchoredImage @JvmOverloads constructor(
     val distances: PdfMargins = PdfMargins(0f, 0f, 0f, 0f),
 ) {
     init {
-        require(left.isFinite() && top.isFinite() && left in 0f..14_400f && top in 0f..14_400f) { "Invalid anchored image position" }
+        require(left.isFinite() && top.isFinite() && left in 0f..14_400f && top in -14_400f..14_400f) { "Invalid anchored image position" }
         require(listOf(distances.top, distances.right, distances.bottom, distances.left).all { it <= 14_400f }) { "Invalid image wrapping distance" }
     }
 }

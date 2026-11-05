@@ -334,7 +334,14 @@ internal class NativeDocxReader(
             }
 
             val markProperties = paragraphChain.mapNotNull { it.one("rPr") }
-            val markFace = markProperties.takeIf { it.isNotEmpty() }?.fold(base) { face, property -> faceFor(property, face) }
+            val markFace = markProperties.takeIf { it.isNotEmpty() }?.fold(base) { face, property ->
+                val metrics = WordParagraphMark.metricProperties(property) { node, valid ->
+                    source.current = node
+                    check(valid, "Invalid paragraph-mark highlight")
+                    check(listEntry == null || node.value("val") == "none", "Highlight on numbered paragraph marks is not qualified")
+                }
+                faceFor(metrics, face)
+            }
 
             val pendingDestinations = mutableListOf<PdfDestination>()
             var contents: PdfContents? = null
@@ -681,7 +688,7 @@ internal class NativeDocxReader(
             return PdfTable(widths, rows, padding, border, count, physicalIndent, if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else PdfTableWidthPolicy.FIXED)
         }
 
-        fun readBox(pict: XmlElement, partRelations: Map<String, String>): PdfTextBox {
+        fun readBox(pict: XmlElement, partRelations: Map<String, String>, fields: Boolean = false): PdfTextBox {
             source.current = pict
             val vml = "urn:schemas-microsoft-com:vml"
             val word10 = "urn:schemas-microsoft-com:office:word"
@@ -714,9 +721,11 @@ internal class NativeDocxReader(
             check(wrapNode == null || wrapNode.attribute("", "type") == "topAndBottom" && wrapNode.attributes.size == 1, "Unsupported frame wrapping")
             val angle = css["rotation"]?.toFloatOrNull() ?: if ("rotation" in css) reject("Invalid rotation") else 0f
             check(angle == 0f, "VML rotation/text-flow combinations are not qualified; use a DrawingML frame")
+            val paragraphs = content.elements().map { readParagraph(it, partRelations, fields) }
+            source.current = shape
             return PdfTextBox(points(css["margin-left"]) + if (horizontal == "page") 0f else page.margins.left,
                 points(css["margin-top"]) + if (vertical == "margin") page.margins.top else 0f,
-                points(css["width"]), points(css["height"]), content.elements().map { readParagraph(it, partRelations) },
+                points(css["width"]), points(css["height"]), paragraphs,
                 if (vertical == "text") PdfBoxAnchor.PARAGRAPH else PdfBoxAnchor.PAGE, angle,
                 PdfMargins(inset[1], inset[2], inset[3], inset[0]),
                 if (shape.attribute("", "filled") == "f") null else color(shape.attribute("", "fillcolor")?.removePrefix("#") ?: reject("Explicit frame fill required")),
@@ -725,7 +734,7 @@ internal class NativeDocxReader(
                 if (wrapNode == null) PdfBoxWrap.NONE else PdfBoxWrap.TOP_BOTTOM)
         }
 
-        fun readDrawingBox(node: XmlElement, partRelations: Map<String, String>): PdfTextBox {
+        fun readDrawingBox(node: XmlElement, partRelations: Map<String, String>, fields: Boolean = false): PdfTextBox {
             source.current = node
             val wps = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
             val anchor = node.elements().singleOrNull() ?: reject("Invalid floating drawing")
@@ -778,8 +787,10 @@ internal class NativeDocxReader(
             children(content, setOf("p"))
             val line = one(props, drawing, "ln")
             val lineColor = fill(line)
+            val paragraphs = content.elements().map { readParagraph(it, partRelations, fields) }
+            source.current = node
             return PdfTextBox(offset("positionH"), offset("positionV"), numeric(extent.attribute("", "cx")) / 12700,
-                numeric(extent.attribute("", "cy")) / 12700, content.elements().map { readParagraph(it, partRelations) }, PdfBoxAnchor.PAGE,
+                numeric(extent.attribute("", "cy")) / 12700, paragraphs, PdfBoxAnchor.PAGE,
                 (transform.attribute("", "rot")?.let(::numeric) ?: 0f) / 60000,
                 PdfMargins(numeric(bodyProps.attribute("", "tIns")) / 12700, numeric(bodyProps.attribute("", "rIns")) / 12700,
                     numeric(bodyProps.attribute("", "bIns")) / 12700, numeric(bodyProps.attribute("", "lIns")) / 12700),
@@ -787,7 +798,7 @@ internal class NativeDocxReader(
                 when (bodyProps.attribute("", "anchor")) { "t" -> PdfVerticalAlignment.TOP; "ctr" -> PdfVerticalAlignment.CENTER; "b" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported vertical alignment") })
         }
 
-        fun readAnchoredImage(node: XmlElement, partRelations: Map<String, String>): PdfAnchoredImage {
+        fun readAnchoredImage(node: XmlElement, partRelations: Map<String, String>, pageBand: Boolean = false): PdfAnchoredImage {
             source.current = node
             val anchor = node.elements().single()
 
@@ -816,7 +827,8 @@ internal class NativeDocxReader(
                 val base = if (horizontal && relative != "page") page.margins.left else 0f
                 val available = if (relative == "page") page.width else page.width - page.margins.left - page.margins.right
                 val amount = when (value.name.localPart) {
-                    "posOffset" -> number(text) / 12700
+                    "posOffset" -> (text.toLongOrNull()?.takeIf { it in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong() }
+                        ?: reject("Invalid signed image offset")).toFloat() / 12700
                     "align" -> {
                         check(horizontal, "Vertical image alignment is not qualified")
                         when (text) { "left" -> 0f; "right" -> available - imageWidth; "center" -> (available - imageWidth) / 2; else -> reject("Unsupported image alignment") }
@@ -845,11 +857,22 @@ internal class NativeDocxReader(
                 else -> reject("Unsupported image wrapping")
             }
             val allowed = setOf("simplePos", "positionH", "positionV", "extent", "effectExtent", "docPr", "cNvGraphicFramePr", wrap.name.localPart)
-            check(anchor.elements().all { it.name.namespaceURI == wp && it.name.localPart in allowed || it.name.namespaceURI == drawing && it.name.localPart == "graphic" }, "Unsupported anchored image effect")
+            val extras = anchor.elements().filterNot { it.name.namespaceURI == wp && it.name.localPart in allowed || it.name.namespaceURI == drawing && it.name.localPart == "graphic" }
+            check(extras.map { it.name }.distinct().size == extras.size, "Duplicate relative image size")
+            for (extra in extras) {
+                source.current = extra
+                WordAnchorMetadata.validate(extra, ::reject)
+            }
+            source.current = node
+            check(!pageBand || policy == PdfImageWrap.NONE, "Only unwrapped floating images are qualified in page bands")
             val inline = XmlElement(javax.xml.namespace.QName(wp, "inline"))
             inline.children.addAll(anchor.elements().filter { it.name.namespaceURI == drawing || it.name.localPart in setOf("extent", "effectExtent", "docPr", "cNvGraphicFramePr") })
             val container = XmlElement(node.name).also { it.children += inline }
-            return PdfAnchoredImage(image(container, partRelations, parts), horizontal, vertical.first, vertical.second, policy,
+            val converted = image(container, partRelations, parts)
+            check(horizontal >= 0 && horizontal + converted.width <= page.width + .001f, "Anchored image exceeds the physical page width")
+            check(vertical.second != PdfBoxAnchor.PAGE || vertical.first >= 0 && vertical.first + converted.height <= page.height + .001f,
+                "Anchored image exceeds the physical page height")
+            return PdfAnchoredImage(converted, horizontal, vertical.first, vertical.second, policy,
                 PdfMargins(number(anchor.attribute("", "distT") ?: "0") / 12700, number(anchor.attribute("", "distR") ?: "0") / 12700,
                     number(anchor.attribute("", "distB") ?: "0") / 12700, number(anchor.attribute("", "distL") ?: "0") / 12700))
         }
@@ -858,7 +881,7 @@ internal class NativeDocxReader(
             when (block.name.localPart) {
                 "p" -> {
                     val frames = block.elements().filter { it.name.localPart == "r" }.flatMap { it.elements().filter { node -> node.name.namespaceURI == word && !lineReader.isLine(node) && (node.name.localPart == "pict" || node.name.localPart == "drawing" && node.elements().any { it.name.namespaceURI == wp && it.name.localPart == "anchor" }) } }
-                    check(frames.isEmpty() || !fields, "Frames in page bands are outside this profile")
+                    source.current = block
                     val plain = XmlElement(block.name, block.attributes, block.namespaces)
                     plain.children += block.children.mapNotNull { child ->
                         if (child is XmlElement && child.name.localPart == "pPr" && block in sectionEnds) {
@@ -874,8 +897,8 @@ internal class NativeDocxReader(
                             ?.elements()?.singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "graphicData" }?.attribute("", "uri") == picture
                     }
                     val paragraph = readParagraph(plain, partRelations, fields)
-                    boxes.map { if (it.name.localPart == "pict") readBox(it, partRelations) else readDrawingBox(it, partRelations) } +
-                        paragraph.copy(anchoredImages = images.map { readAnchoredImage(it, partRelations) })
+                    boxes.map { if (it.name.localPart == "pict") readBox(it, partRelations, fields) else readDrawingBox(it, partRelations, fields) } +
+                        paragraph.copy(anchoredImages = images.map { readAnchoredImage(it, partRelations, fields) })
                 }
                 "tbl" -> listOf(readTable(block, partRelations, fields))
                 else -> reject("Unsupported block")
