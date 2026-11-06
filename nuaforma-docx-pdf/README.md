@@ -1,6 +1,6 @@
 # NuaForma DOCX/PDF provider
 
-Unreleased source #208 retains validated style revision metadata and identifies rejected image elements/attributes at their concrete source locations. Playground cleanup can remove the focused construct while retaining a supported logo and surrounding story; normal generation remains strict. See [scope and review requirements](../docs/template-cleanup.md#style-revisions-and-focused-drawing-failures-unreleased-208).
+Version 0.4.0-alpha.5 (#208) retains validated style revision metadata and identifies rejected image elements/attributes at their concrete source locations. Playground cleanup can remove the focused construct while retaining a supported logo and surrounding story; normal generation remains strict. See [scope and review requirements](../docs/template-cleanup.md#style-revisions-and-focused-drawing-failures-040-alpha5-208).
 
 Version 0.4.0-alpha.4 (#203) preserves qualified unwrapped floating images and existing VML/DrawingML text frames in page bands, zero-valued Word relative-size placeholders, and nonprinting paragraph-mark highlighting. Unwrapped objects preserve their physical coordinates without moving ordinary footer text or reserving extra body space. Unsupported anchor children identify their own XML location, so cleanup can retain the rest of the story. See the [floating-story qualification](../tools/pdf-evaluation/own-engine/WORD_FLOATING_BANDS.md).
 
@@ -60,7 +60,7 @@ Full repository/consumer, Word/golden, REST/Playground and native AMD64/ARM64 ch
 
 ### Hidden template text (source fix #154)
 
-The DOCX stage evaluates only print-view text and removes resolved hidden runs from its private PDF intermediary before automatic font collection and native reading. Hidden text does not enter the PDF, and fonts used only by removed hidden runs are not required; ordinary DOCX output retains the source runs and their formatting. This also applies to development diagnostic PDFs. Visibility uses the [Word template rules](../nuaforma-docx/README.md#word-template-rules), including inherited toggles and explicit overrides; it does not infer visibility from color, position or the operator’s Word display settings. Existing golden files remain unchanged. This change is included in the selected alpha.5 release; earlier artifacts remain immutable.
+The DOCX stage evaluates only print-view text and removes resolved hidden runs from its private PDF intermediary before automatic font collection and native reading. Hidden text does not enter the PDF, and fonts used only by removed hidden runs are not required; ordinary DOCX output retains the source runs and their formatting. This also applies to development diagnostic PDFs. Visibility uses the [Word template rules](../nuaforma-docx/README.md#word-template-rules), including inherited toggles and explicit overrides; it does not infer visibility from color, position or the operatorâ€™s Word display settings. Existing golden files remain unchanged. This change is included in the selected alpha.5 release; earlier artifacts remain immutable.
 
 ## Rich-text source feature
 
