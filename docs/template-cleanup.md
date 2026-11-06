@@ -48,3 +48,7 @@ Validated style-level `w:rsid` editing-session identifiers have no print behavio
 Development image diagnostics identify the rejected XML element (including its first child, for example `effectLst/outerShdw`) or the exact attribute name such as `xfrm/@rot`. Source coordinates point inside the real drawing in the named body/header/footer story. Attribute values are not copied into the new explanations. Ordinary generation still refuses the unsupported construct and publishes no partial PDF; production source-detail redaction is unchanged.
 
 Cleanup can remove the identified unsupported effect element or attribute and revalidate, instead of removing the entire image or page band. This can change appearance (for example removing a shadow or rotation), so inspect the report and cleaned copy in Word. If a required geometry no longer exists or another unsupported construct remains, subsequent removals may still be necessary. No new visual effects, shape geometries or external image/template retrieval are enabled by these diagnostics.
+
+## Picture metadata and local cleanup download (unreleased #213)
+
+Qualified editing locks, explicit no-fill/no-line properties and the known local-DPI extension remain in supported templates. EMF description buffers are distinguished from extension fields. Unknown/active constructs still reject. See the [picture/header profile](word-picture-metadata.md). Cleanup progress, errors and the ZIP link now appear inside the cleanup block, beside its button; another template selection clears the previous cleanup link.

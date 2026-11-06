@@ -237,3 +237,87 @@ test('DOCX diagnostic buttons keep the failed request and separate preview from 
     assert.deepEqual(revoked,['blob:docx']);
   }
 });
+
+
+function cleanupFixture(respond) {
+  const nodes = new Map(), windowEvents = {}, revoked = [], requests = [];
+  let downloads = 0;
+  const make = () => ({children: [], events: {}, textContent: '', files: [],
+    append(...children) { this.children.push(...children); },
+    replaceChildren(...children) { this.children = children; this.textContent = ''; },
+    addEventListener(name, callback) { this.events[name] = callback; }});
+  const node = id => { if (!nodes.has(id)) nodes.set(id, make()); return nodes.get(id); };
+  node('template').files = [{name: 'synthetic.docx'}];
+  node('result').textContent = 'Existing generated document';
+  const context = vm.createContext({document: {getElementById: node, createElement: make, documentElement: {dataset: {}}},
+    window: {addEventListener(name, callback) { windowEvents[name] = callback; }}, matchMedia: () => ({matches: false}),
+    AbortController, FormData: class { constructor() { this.parts = []; } append(...part) { this.parts.push(part); } },
+    URL: {createObjectURL: () => `blob:cleanup-${++downloads}`, revokeObjectURL: url => revoked.push(url)},
+    fetch: async (url, options) => { requests.push({url, options}); return respond ? respond(options) : {
+      ok: true, headers: {get: name => ({'X-Request-ID': 'cleanup-request', 'NuaForma-Template-Cleanup': 'native-structure', 'Content-Type': 'application/zip'}[name])},
+      blob: async () => ({size: 123})}; }, JSON, Error, Set, Boolean, Number});
+  const source = fs.readFileSync(path.join(__dirname, '../../main/resources/playground/app.js'), 'utf8');
+  const boundary = source.indexOf("$('builder').addEventListener");
+  vm.runInContext(source.slice(0, boundary), context);
+  vm.runInContext('updateRequest=()=>true; bootstrap=()=>{}; downloadUrl="blob:generated-document";', context);
+  vm.runInContext(source.slice(boundary), context);
+  return {node, revoked, requests, windowEvents, context, run: () => vm.runInContext('cleanTemplate()', context)};
+}
+
+test('cleanup status and download remain next to the cleanup button and preserve generated downloads', async () => {
+  const {node, run, requests, revoked, context, windowEvents} = cleanupFixture();
+  await run();
+  assert.equal(requests[0].url, '/playground/template-cleanup');
+  assert.equal(requests[0].options.credentials, 'same-origin');
+  assert.deepEqual(requests[0].options.body.parts.map(part => part[0]), ['template']);
+  assert.equal(node('result').textContent, 'Existing generated document');
+  assert.equal(node('result').children.length, 0);
+  assert.equal(node('cleanup-result').hidden, false);
+  assert.match(node('cleanup-result').textContent, /Request ID: cleanup-request/);
+  assert.equal(node('cleanup-result').children.at(-1).download, 'cleaned-template.zip');
+  assert.equal(node('cleanup-result').children.at(-1).href, 'blob:cleanup-1');
+  vm.runInContext('showResult("Another generation result")', context);
+  assert.deepEqual(revoked, []);
+  await run();
+  assert.deepEqual(revoked, ['blob:cleanup-1']);
+  windowEvents.pagehide();
+  assert.deepEqual(revoked, ['blob:cleanup-1', 'blob:generated-document', 'blob:cleanup-2']);
+  const html = fs.readFileSync(path.join(__dirname, '../../main/resources/playground/index.html'), 'utf8');
+  assert.match(html, /<details>[^]*id="clean-template"[^]*id="cleanup-result"[^]*<\/details>/);
+});
+
+test('cleanup errors cancellation and malformed response stay local and do not offer an old archive', async () => {
+  for (const mode of ['http', 'cancel', 'wrong-type']) {
+    const fixture = cleanupFixture(async () => {
+      if (mode === 'cancel') throw Object.assign(new Error('cancelled'), {name: 'AbortError'});
+      return {ok: mode !== 'http', status: 422, headers: {get: () => null},
+        text: async () => JSON.stringify({diagnostics: [{code: 'UNSUPPORTED_INPUT', message: '<script>unsupported</script>'}]})};
+    });
+    Object.defineProperty(fixture.node('cleanup-result'), 'innerHTML', {set() { throw Error('HTML injection'); }});
+    await fixture.run();
+    assert.equal(fixture.node('result').textContent, 'Existing generated document');
+    assert.equal(fixture.node('cleanup-result').hidden, false);
+    assert.equal(fixture.node('cleanup-result').children.length, 0);
+    assert.match(fixture.node('cleanup-result').textContent, mode === 'cancel' ? /cancelled/ : mode === 'http' ? /<script>unsupported<\/script>/ : /archive/);
+  }
+});
+
+test('changing the template revokes cleanup downloads and ignores an old in-flight response', async () => {
+  let release;
+  const fixture = cleanupFixture(async () => ({ok: true, headers: {get: name => ({'NuaForma-Template-Cleanup': 'native-structure', 'Content-Type': 'application/zip'}[name])},
+    blob: () => new Promise(resolve => { release = resolve; })}));
+  const pending = fixture.run();
+  await new Promise(resolve => setImmediate(resolve));
+  fixture.node('template').files = [{name: 'replacement.docx'}];
+  fixture.node('template').events.change();
+  release({size: 123});
+  await pending;
+  assert.equal(fixture.node('cleanup-result').hidden, true);
+  assert.equal(fixture.node('cleanup-result').children.length, 0);
+  assert.deepEqual(fixture.revoked, []);
+  const completed = cleanupFixture();
+  await completed.run();
+  completed.node('template').events.change();
+  assert.deepEqual(completed.revoked, ['blob:cleanup-1']);
+  assert.equal(completed.node('cleanup-result').hidden, true);
+});
