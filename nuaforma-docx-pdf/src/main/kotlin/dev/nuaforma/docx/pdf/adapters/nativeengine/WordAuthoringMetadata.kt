@@ -63,6 +63,7 @@ internal object WordAuthoringMetadata {
                 }
                 "styles" -> node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart == "latentStyles" }
                 "style" -> {
+                    styleRevision(node) { child -> current = child; reject() }
                     val links = node.elements().filter { it.name.namespaceURI == W && it.name.localPart == "link" }
                     if (links.size > 1) { current = links[1]; reject() }
                     for (link in links) {
@@ -91,6 +92,17 @@ internal object WordAuthoringMetadata {
                 "lang" -> if (!complexText) node.attributes.keys.removeIf { it.namespaceURI == W && it.localPart in setOf("bidi", "eastAsia") }
                 "r" -> node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart == "lastRenderedPageBreak" }
             }
+        }
+    }
+
+    private fun styleRevision(style: XmlElement, reject: (XmlElement) -> Nothing) {
+        val revisions = style.elements().filter { it.name.namespaceURI == W && it.name.localPart == "rsid" }
+        for (revision in revisions) {
+            if (revisions.size != 1 || revision.attributes.size != 1 ||
+                revision.attribute(W, "val")?.matches(Regex("[0-9A-Fa-f]{8}")) != true ||
+                revision.elements().isNotEmpty() || revision.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject(revision)
+            // Editing-session identity has no print behavior; retain the original package bytes.
+            style.children.remove(revision)
         }
     }
 

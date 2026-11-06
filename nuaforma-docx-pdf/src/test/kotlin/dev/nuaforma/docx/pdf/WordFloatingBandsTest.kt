@@ -4,6 +4,7 @@ import dev.nuaforma.contracts.*
 import dev.nuaforma.docx.pdf.adapters.nativeengine.NativeDocxReader
 import dev.nuaforma.docx.pdf.adapters.nativeengine.NativeDocxReadException
 import dev.nuaforma.pdf.*
+import dev.nuaforma.image.comparison.kotlin.assertImagesMatch
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.rendering.PDFRenderer
 import org.apache.pdfbox.text.PDFTextStripper
@@ -68,6 +69,145 @@ class WordFloatingBandsTest {
         val validator = PdfProcessValidator(Path.of(System.getProperty("nuaforma.pdf.validation.java")),
             Files.list(Path.of(System.getProperty("nuaforma.pdf.validation"))).use { files -> files.filter { it.toString().endsWith(".jar") }.sorted().toList() }, temporary)
         return NativeDocxPdfProvider(NativePdfConfiguration(fonts, validator))
+    }
+
+    private fun standardPdf(bytes: ByteArray, provider: NativeDocxPdfProvider): ByteArray {
+        val output = ByteArrayOutputStream()
+        provider.generate(GenerationRequest(bytes.inputStream(), GenerationRequirements(FormatRequest(DocumentFormat.DOCX),
+            FormatRequest(DocumentFormat.PDF, mapOf("profile" to "standard")))), output, context())
+        return output.toByteArray()
+    }
+
+    private fun sameRenderedPages(expected: ByteArray, actual: ByteArray) {
+        Loader.loadPDF(expected).use { before -> Loader.loadPDF(actual).use { after ->
+            assertEquals(before.numberOfPages, after.numberOfPages)
+            assertEquals(PDFTextStripper().getText(before), PDFTextStripper().getText(after))
+            for (page in 0 until before.numberOfPages) {
+                assertImagesMatch(PDFRenderer(before).renderImageWithDPI(page, 96f), PDFRenderer(after).renderImageWithDPI(page, 96f), "Word metadata page ${page + 1}") {
+                    pixelTolerance = 0.0; allowedDifferentPixelsPercent = 0.0; threshold = 1
+                }
+            }
+        } }
+    }
+
+    @Test
+    fun `style revision identifiers stay in the original template and cannot change rendered pages`() {
+        val provider = provider()
+        for (kind in listOf("a4", "letter")) {
+            val baseline = source(kind)
+            val entries = parts(baseline)
+            val styles = entries.getValue("word/styles.xml").decodeToString()
+            assertFalse(styles.contains("<w:rsid"))
+            entries["word/styles.xml"] = styles.replace("</w:style>", """<w:rsid w:val="3E412d01"/></w:style>""").toByteArray()
+            val input = zip(entries)
+            val cleaned = ByteArrayOutputStream()
+            val report = provider.cleanTemplate(input.inputStream(), cleaned, context())
+            assertTrue(report.changes.isEmpty(), report.changes.toString())
+            assertArrayEquals(input, cleaned.toByteArray())
+            assertArrayEquals(entries.getValue("word/styles.xml"), parts(cleaned.toByteArray()).getValue("word/styles.xml"))
+            sameRenderedPages(standardPdf(baseline, provider), standardPdf(cleaned.toByteArray(), provider))
+        }
+    }
+
+    @Test
+    fun `unsupported nested drawing effects identify their element and cleanup keeps body and footer logos`() {
+        val baseline = source("a4")
+        val provider = provider()
+        val expected = standardPdf(baseline, provider)
+        val effect = """<a:effectLst><a:outerShdw blurRad="63500" dist="25400" dir="5400000"><a:srgbClr val="000000"/></a:outerShdw></a:effectLst>"""
+        for (part in listOf("word/document.xml", "word/footer1.xml")) {
+            val entries = parts(baseline)
+            val xml = entries.getValue(part).decodeToString()
+            assertTrue(xml.contains("</pic:spPr>"))
+            entries[part] = xml.replace("</pic:spPr>", "$effect</pic:spPr>").toByteArray()
+            val input = zip(entries)
+            val error = assertThrows(NativeDocxReadException::class.java) { NativeDocxReader(context()) { _, _, _ -> "regular" }.read(input) }
+            assertEquals(part, error.part)
+            assertTrue(error.sourceContext.path!!.endsWith("effectLst[1]"), error.sourceContext.path)
+            assertTrue(error.sourceContext.explanation.contains("effectLst/outerShdw"), error.sourceContext.explanation)
+            assertTrue(error.location!!.startsWith("xml:"))
+            val production = assertThrows(NativeDocxReadException::class.java) { NativeDocxReader(GenerationContext()) { _, _, _ -> "regular" }.read(input) }
+            assertNull(production.sourceContext.path)
+            val output = ByteArrayOutputStream()
+            assertThrows(GenerationException::class.java) { provider.generate(GenerationRequest(input.inputStream(), GenerationRequirements(
+                FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.PDF, mapOf("profile" to "standard")))), output, context()) }
+            assertEquals(0, output.size())
+            val cleaned = ByteArrayOutputStream()
+            val report = provider.cleanTemplate(input.inputStream(), cleaned, context())
+            assertEquals(1, report.changes.size, report.changes.toString())
+            assertEquals(TemplateCleanupAction.REMOVE_ELEMENT, report.changes.single().action)
+            assertEquals(part, report.changes.single().part)
+            assertTrue(report.changes.single().location!!.endsWith("effectLst[1]"))
+            assertFalse(parts(cleaned.toByteArray()).getValue(part).decodeToString().contains("outerShdw"))
+            sameRenderedPages(expected, standardPdf(cleaned.toByteArray(), provider))
+        }
+    }
+
+    @Test
+    fun `unsupported image attributes identify the property and cleanup removes only that attribute`() {
+        val baseline = source("a4")
+        val provider = provider()
+        val cases = listOf(Triple("word/document.xml", "<a:xfrm>", "rot"),
+            Triple("word/footer1.xml", "<a:xfrm>", "flipH"),
+            Triple("word/footer1.xml", "<a:blip ", "link"))
+        val expected = standardPdf(baseline, provider)
+        for ((part, marker, attribute) in cases) {
+            val entries = parts(baseline)
+            val xml = entries.getValue(part).decodeToString()
+            assertTrue(xml.contains(marker))
+            val replacement = if (attribute == "link") """<a:blip r:link="PRIVATE_EXTERNAL_TARGET" """ else """<a:xfrm $attribute="${if (attribute == "flipH") "true" else "60000"}">"""
+            entries[part] = xml.replace(marker, replacement).toByteArray()
+            val input = zip(entries)
+            val error = assertThrows(NativeDocxReadException::class.java) { NativeDocxReader(context()) { _, _, _ -> "regular" }.read(input) }
+            assertEquals(part, error.part)
+            assertTrue(error.sourceContext.explanation.contains("/@$attribute"), error.sourceContext.explanation)
+            assertFalse(error.sourceContext.explanation.contains("PRIVATE_EXTERNAL_TARGET"))
+            assertEquals(attribute, error.unsupportedAttributes.single().localPart)
+            val cleaned = ByteArrayOutputStream()
+            val report = provider.cleanTemplate(input.inputStream(), cleaned, context())
+            assertEquals(1, report.changes.size, report.changes.toString())
+            assertEquals(TemplateCleanupAction.REMOVE_ATTRIBUTE, report.changes.single().action)
+            sameRenderedPages(expected, standardPdf(cleaned.toByteArray(), provider))
+        }
+    }
+
+    @Test
+    fun `unsupported image geometry points at the failed property without losing drawing provenance`() {
+        for ((before, after, element) in listOf(
+            Triple("""<a:prstGeom prst="rect">""", """<a:prstGeom prst="ellipse">""", "prstGeom"),
+            Triple("<a:fillRect/>", """<a:fillRect l="1000"/>""", "fillRect"),
+            Triple("""<a:off x="0" y="0"/>""", """<a:off x="12700" y="0"/>""", "off"),
+            Triple("""<a:ext cx="1270000" cy="635000"/>""", """<a:ext cx="1270001" cy="635000"/>""", "ext"))) {
+            val entries = parts(source("a4"))
+            val body = entries.getValue("word/document.xml").decodeToString()
+            assertTrue(body.contains(before))
+            entries["word/document.xml"] = body.replace(before, after).toByteArray()
+            val error = assertThrows(NativeDocxReadException::class.java) { NativeDocxReader(context()) { _, _, _ -> "regular" }.read(zip(entries)) }
+            assertEquals("word/document.xml", error.part)
+            assertTrue(error.sourceContext.path!!.endsWith("$element[1]"), error.sourceContext.path)
+            assertTrue(error.sourceContext.path!!.contains("drawing[1]"))
+        }
+    }
+
+    @Test
+    fun `cleanup removes an optional effect extent as a whole rather than leaving required attributes missing`() {
+        val baseline = source("a4")
+        val entries = parts(baseline)
+        val part = "word/footer1.xml"
+        val footer = entries.getValue(part).decodeToString().replace(Regex("<wp:effectExtent\b[^>]*/>"), "")
+        entries[part] = footer.replace("<wp:docPr", """<wp:effectExtent l="12700" t="0" r="0" b="0"/><wp:docPr""").toByteArray()
+        val input = zip(entries)
+        val error = assertThrows(NativeDocxReadException::class.java) { NativeDocxReader(context()) { _, _, _ -> "regular" }.read(input) }
+        assertTrue(error.sourceContext.path!!.endsWith("effectExtent[1]"))
+        assertTrue(error.sourceContext.explanation.contains("effectExtent/@l"))
+        assertTrue(error.unsupportedAttributes.isEmpty())
+        val provider = provider()
+        val cleaned = ByteArrayOutputStream()
+        val report = provider.cleanTemplate(input.inputStream(), cleaned, context())
+        assertEquals(1, report.changes.size, report.changes.toString())
+        assertEquals(TemplateCleanupAction.REMOVE_ELEMENT, report.changes.single().action)
+        assertFalse(parts(cleaned.toByteArray()).getValue(part).decodeToString().contains("effectExtent"))
+        sameRenderedPages(standardPdf(baseline, provider), standardPdf(cleaned.toByteArray(), provider))
     }
 
     @Test
