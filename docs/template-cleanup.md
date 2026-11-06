@@ -41,7 +41,7 @@ Qualified unwrapped floating images and existing text-frame profiles in headers/
 
 A linked `.dotx`/`.dotm` reference and its settings relationships may still be detached from a cleaned copy. Saved internal styles/content remain; the target is never retrieved. This is separate from deleting visible document content. Literal template markers stay literal. Cleanup still checks structural support, not fonts, template data/syntax or a universally renderable final layout.
 
-## Style revisions and focused drawing failures (unreleased #208)
+## Style revisions and focused drawing failures (0.4.0-alpha.5, #208)
 
 Validated style-level `w:rsid` editing-session identifiers have no print behavior. They are excluded only from the request-local rendering view; their original package bytes remain in an otherwise supported template. Identifiers must contain exactly eight hexadecimal characters, with one `w:val` attribute and no duplicate element, nested content or other attributes. Malformed/foreign constructs are not silently accepted. See Microsoft's [style revision definition](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.rsid?view=openxml-3.0.1).
 
