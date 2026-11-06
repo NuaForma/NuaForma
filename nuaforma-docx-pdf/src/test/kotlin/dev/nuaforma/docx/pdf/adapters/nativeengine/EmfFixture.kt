@@ -22,10 +22,10 @@ internal object EmfFixture {
         return header + records.fold(byteArrayOf()) { result, item -> result + item } + end
     }
 
-    fun withHeader(source: ByteArray, fixed: Int = 88, description: String = "Synthetic logo") : ByteArray {
+    fun withHeader(source: ByteArray, fixed: Int = 88, description: String = "Synthetic logo", terminate: Boolean = true) : ByteArray {
         require(fixed in setOf(88, 100, 108))
         val old = ByteBuffer.wrap(source).order(ByteOrder.LITTLE_ENDIAN).getInt(4)
-        val text = if (description.isEmpty()) byteArrayOf() else (description + "\u0000").toByteArray(Charsets.UTF_16LE)
+        val text = if (description.isEmpty()) byteArrayOf() else (description + if (terminate) "\u0000" else "").toByteArray(Charsets.UTF_16LE)
         val size = (fixed + text.size + 3) / 4 * 4
         val header = buffer(size).apply {
             put(source, 0, 88); putInt(4, size); putInt(48, source.size - old + size)

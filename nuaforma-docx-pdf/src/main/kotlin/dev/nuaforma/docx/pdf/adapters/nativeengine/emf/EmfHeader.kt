@@ -9,7 +9,7 @@ internal object EmfHeader {
         val description = header.int(64)
         header.require(length in 0..1024 && (length == 0 && description == 0 ||
             length > 0 && description >= 88 && description.toLong() + length * 2 <= size), "Invalid header description range")
-        if (length > 0) header.require(header.short(description + length * 2 - 2) == 0, "Unterminated header description")
+        // Description text is unused metadata; only its bounded range selects the fixed header.
         val fixed = if (length > 0) description else size
         if (fixed >= 100) {
             val pixels = header.int(88)
