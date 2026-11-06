@@ -1171,6 +1171,7 @@ internal class NativeDocxReader(
         val inline = node.elements().single()
         check(inline.name.namespaceURI == wp && inline.name.localPart == "inline", "Only inline images are supported")
         imageAttributes(inline) { name, value -> name.namespaceURI.isEmpty() && name.localPart in setOf("distT", "distB", "distL", "distR") && value == "0" }
+        WordPictureMetadata.normalize(inline) { invalid, message -> source.current = invalid; reject(message) }
         val allowed = mapOf(wp to setOf("inline", "extent", "effectExtent", "docPr", "cNvGraphicFramePr"), drawing to setOf("graphic", "graphicData", "graphicFrameLocks", "blip", "srcRect", "stretch", "fillRect", "xfrm", "off", "ext", "prstGeom", "avLst"),
             picture to setOf("pic", "nvPicPr", "cNvPr", "cNvPicPr", "blipFill", "spPr"))
         inline.descendants().firstOrNull { it.name.localPart !in (allowed[it.name.namespaceURI] ?: emptySet()) }?.let { unsupported ->

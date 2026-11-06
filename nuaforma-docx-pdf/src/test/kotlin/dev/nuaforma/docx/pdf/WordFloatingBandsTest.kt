@@ -4,6 +4,7 @@ import dev.nuaforma.contracts.*
 import dev.nuaforma.docx.pdf.adapters.nativeengine.NativeDocxReader
 import dev.nuaforma.docx.pdf.adapters.nativeengine.NativeDocxReadException
 import dev.nuaforma.pdf.*
+import dev.nuaforma.docx.pdf.adapters.nativeengine.EmfFixture
 import dev.nuaforma.image.comparison.kotlin.assertImagesMatch
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.rendering.PDFRenderer
@@ -208,6 +209,48 @@ class WordFloatingBandsTest {
         assertEquals(TemplateCleanupAction.REMOVE_ELEMENT, report.changes.single().action)
         assertFalse(parts(cleaned.toByteArray()).getValue(part).decodeToString().contains("effectExtent"))
         sameRenderedPages(standardPdf(baseline, provider), standardPdf(cleaned.toByteArray(), provider))
+    }
+
+    @Test
+    fun `Word picture locks DPI metadata no fill and described EMF logos survive cleanup on A4 and Letter`() {
+        val provider = provider()
+        for (kind in listOf("a4", "letter")) {
+            val baseline = source(kind)
+            val entries = parts(baseline)
+            for (part in listOf("word/document.xml", "word/header1.xml", "word/footer1.xml")) {
+                val original = entries.getValue(part).decodeToString()
+                val extended = original.replace(Regex("<a:blip([^>]*?)/>"), "<a:blip$1></a:blip>").replace("<pic:cNvPicPr/>", """<pic:cNvPicPr><a:picLocks noChangeAspect="1" noCrop="false"/></pic:cNvPicPr>""")
+                    .replace("</a:blip>", """<a:extLst><a:ext uri="{28A0092B-C50C-407e-A947-70E740481C1C}"><a14:useLocalDpi xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" val="0"/></a:ext></a:extLst></a:blip>""")
+                    .replace("<pic:spPr>", """<pic:spPr><a:noFill/><a:ln w="12700"><a:noFill/></a:ln>""")
+                assertNotEquals(original, extended)
+                assertTrue(extended.contains("picLocks"), extended.take(300))
+                assertTrue(extended.contains("useLocalDpi"))
+                entries[part] = extended.toByteArray()
+            }
+            for (part in entries.keys.filter { it.endsWith(".emf") }) {
+                entries[part] = EmfFixture.withHeader(entries.getValue(part), 88, "Synthetic application\u0000Large and small logo description")
+            }
+            val input = zip(entries)
+            val cleaned = ByteArrayOutputStream()
+            val report = provider.cleanTemplate(input.inputStream(), cleaned, context())
+            assertTrue(report.changes.isEmpty(), report.changes.toString())
+            assertArrayEquals(input, cleaned.toByteArray())
+            sameRenderedPages(standardPdf(baseline, provider), standardPdf(cleaned.toByteArray(), provider))
+        }
+    }
+
+    @Test
+    fun `unknown BLIP extensions and malformed local DPI remain strict in both logo stories`() {
+        for (part in listOf("word/document.xml", "word/footer1.xml")) for ((uri, value) in listOf(
+            "{00000000-C50C-407e-A947-70E740481C1C}" to "0", "{28A0092B-C50C-407e-A947-70E740481C1C}" to "yes")) {
+            val entries = parts(source("a4"))
+            val original = entries.getValue(part).decodeToString()
+            val extension = """<a:extLst><a:ext uri="$uri"><a14:useLocalDpi xmlns:a14="http://schemas.microsoft.com/office/drawing/2010/main" val="$value"/></a:ext></a:extLst>"""
+            entries[part] = original.replace(Regex("<a:blip([^>]*?)/>"), "<a:blip$1>$extension</a:blip>").toByteArray()
+            val error = assertThrows(NativeDocxReadException::class.java) { NativeDocxReader(context()) { _, _, _ -> "regular" }.read(zip(entries)) }
+            assertEquals(part, error.part)
+            assertTrue(error.sourceContext.path!!.contains("drawing[1]"))
+        }
     }
 
     @Test

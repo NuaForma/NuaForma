@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 const elements = {provider: $('provider'), input: $('input-format'), output: $('output-format')};
-let capabilities, contract, routes = {}, optionGroups = [], running, downloadUrl, documentInspectionUrl;
+let capabilities, contract, routes = {}, optionGroups = [], running, downloadUrl, documentInspectionUrl, cleanupDownloadUrl;
 const create = (tag, text, className) => { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; };
 const objectText = (value, name) => {
   const parsed = JSON.parse(value);
@@ -384,14 +384,23 @@ function updateCleanupButton() {
   $('clean-template').disabled = !capabilities || Boolean(running) || !$('template').files[0];
 }
 
+function clearCleanupResult() {
+  if (cleanupDownloadUrl) { URL.revokeObjectURL(cleanupDownloadUrl); cleanupDownloadUrl = null; }
+  $('cleanup-result').replaceChildren(); $('cleanup-result').hidden = true;
+}
+
+function showCleanupResult(message) {
+  clearCleanupResult(); $('cleanup-result').textContent = message; $('cleanup-result').hidden = false;
+}
+
 async function cleanTemplate() {
   if (running) return;
   const template = $('template').files[0];
-  if (!template) { showResult('Choose a DOCX template to clean.'); return; }
+  if (!template) { showCleanupResult('Choose a DOCX template to clean.'); return; }
   const body = new FormData();
   body.append('template', template, template.name);
   running = new AbortController(); $('cancel').hidden = false; updateRequest();
-  showResult('Removing unsupported template parts and formatting. No template data is sent or substituted…');
+  showCleanupResult('Removing unsupported template parts and formatting. No template data is sent or substituted…');
   try {
     const response = await fetch('/playground/template-cleanup', {
       method: 'POST', body, signal: running.signal, credentials: 'same-origin'
@@ -404,13 +413,14 @@ async function cleanTemplate() {
     }
     if (response.headers.get('NuaForma-Template-Cleanup') !== 'native-structure' || !response.headers.get('Content-Type')?.startsWith('application/zip'))
       throw Error('The server did not return a cleaned-template archive.');
-    if (downloadUrl) URL.revokeObjectURL(downloadUrl);
-    downloadUrl = URL.createObjectURL(await response.blob());
-    showResult(`Template cleaned. The ZIP contains a DOCX and a separate removal report. Variables were not substituted.\nYou decide whether the contents and appearance are acceptable: open the new template in Word before replacing your original.\nRequest ID: ${requestId}`);
+    const archive = await response.blob();
+    if ($('template').files[0] !== template) return;
+    showCleanupResult(`Template cleaned. The ZIP contains a DOCX and a separate removal report. Variables were not substituted.\nYou decide whether the contents and appearance are acceptable: open the new template in Word before replacing your original.\nRequest ID: ${requestId}`);
+    cleanupDownloadUrl = URL.createObjectURL(archive);
     const link = create('a', 'Download cleaned template and removal report');
-    link.href = downloadUrl; link.download = 'cleaned-template.zip';
-    $('result').append(create('br'), link);
-  } catch (error) { showResult(error.name === 'AbortError' ? 'Template cleanup cancelled. No output is available.' : error.message); }
+    link.href = cleanupDownloadUrl; link.download = 'cleaned-template.zip';
+    $('cleanup-result').append(create('br'), link);
+  } catch (error) { if ($('template').files[0] === template) showCleanupResult(error.name === 'AbortError' ? 'Template cleanup cancelled. No output is available.' : error.message); }
   finally { running = null; $('cancel').hidden = true; updateRequest(); }
 }
 
@@ -511,7 +521,7 @@ $('font-mode').addEventListener('change', fontSelectionsChanged);
 $('auto-embed-fonts').addEventListener('change', fontSelectionsChanged);
 $('template').addEventListener('change', () => {
   $('template-name').textContent = $('template').files[0]?.name || 'Select a file from your computer';
-  updateCleanupButton();
+  clearCleanupResult(); updateCleanupButton();
 });
 $('watermark-enabled').addEventListener('change', () => $('watermark').hidden = !$('watermark-enabled').checked);
 $('refresh').addEventListener('click', bootstrap);
@@ -527,5 +537,5 @@ $('export-curl').addEventListener('click', () => { try { saveFile(curlInstructio
 let dark = matchMedia('(prefers-color-scheme: dark)').matches;
 function setTheme() { document.documentElement.dataset.theme = dark ? 'dark' : 'light'; $('theme').textContent = dark ? 'Switch to light mode' : 'Switch to dark mode'; }
 $('theme').addEventListener('click', () => { dark = !dark; setTheme(); }); setTheme();
-window.addEventListener('pagehide', () => { running?.abort(); if (downloadUrl) URL.revokeObjectURL(downloadUrl); });
+window.addEventListener('pagehide', () => { running?.abort(); if (downloadUrl) URL.revokeObjectURL(downloadUrl); if (cleanupDownloadUrl) URL.revokeObjectURL(cleanupDownloadUrl); });
 bootstrap();

@@ -40,11 +40,7 @@ internal class EmfPicture(private val context: GenerationContext, private val lo
         header.require(records >= 2 && handles >= 1, "Invalid declared record or handle count")
         resource(records <= 20_000 && handles <= 256)
         header.require(header.short(58) == 0 && header.int(68) == 0, "Unsupported palette or reserved header")
-        val descriptionLength = header.int(60)
-        val descriptionOffset = header.int(64)
-        header.require(descriptionLength in 0..1024 && (descriptionLength == 0 && descriptionOffset == 0 ||
-            descriptionLength > 0 && descriptionOffset >= 88 && descriptionOffset.toLong() + descriptionLength * 2 <= firstSize), "Invalid header description range")
-        if (firstSize >= 100) header.require(header.int(88) == 0 && header.int(92) == 0 && header.int(96) == 0, "OpenGL/pixel formats are unsupported")
+        EmfHeader.validate(header)
         configure(header, width, height, inspect)
         try {
             var offset = firstSize
