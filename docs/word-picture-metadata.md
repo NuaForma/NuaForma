@@ -14,9 +14,9 @@ In the development Playground, cleanup progress, errors and the ZIP download app
 
 Primary references: [EMF header classification](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/de081cd7-351f-4cc2-830b-d03fb55e89ab), [picture editing locks](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.drawing.picturelocks?view=openxml-3.0.1), [local-DPI extension](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-odrawxml/c05c287f-f63e-4fa9-8163-e3e106b4105f).
 
-## Bounded description compatibility (unreleased #218)
+## Bounded description compatibility (0.4.0-alpha.7, #218)
 
-MS-EMF specifies a null-terminated UTF-16LE header description. Alpha.6 rejects a description without its final zero code unit. The source change for #218 deliberately treats the declared description bytes as unused opaque metadata: a missing terminator or malformed text encoding alone no longer rejects an otherwise supported logo. This is compatibility handling, not a claim that such descriptions conform to the specification.
+MS-EMF specifies a null-terminated UTF-16LE header description. Alpha.6 rejects a description without its final zero code unit. Alpha.7 deliberately treats the declared description bytes as unused opaque metadata: a missing terminator or malformed text encoding alone no longer rejects an otherwise supported logo. This is compatibility handling, not a claim that such descriptions conform to the specification.
 
 Neither inspection nor rendering decodes, logs, evaluates or scans this text for a terminator. The declared count remains bounded to 1,024 UTF-16 code units; nonempty ranges must start at or after byte 88 and end within the header record. Invalid counts/offsets, inconsistent absence fields and ranges extending into the next record still reject. Header classification continues to use the declared description offset, independently of its contents. Actual OpenGL flags, pixel-format descriptors, unsupported records, device dimensions and existing resource/cancellation checks remain enforced.
 
