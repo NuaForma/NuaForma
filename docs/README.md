@@ -82,3 +82,5 @@ See the [alpha.4 release notes](../release-notes/0.4.0-alpha.4.md) and [candidat
 Version 0.4.0-alpha.6 (#208) preserves validated style revision metadata and focuses unsupported drawing diagnostics/cleanup. See the [release notes](../release-notes/0.4.0-alpha.6.md) and [candidate runtime audit](release-0.4.0-alpha.6-audit.md).
 
 Version 0.4.0-alpha.6 (#213) preserves qualified picture metadata and described EMF headers, with cleanup results beside the Playground control. See the [profile](word-picture-metadata.md), [release notes](../release-notes/0.4.0-alpha.6.md) and [candidate audit](release-0.4.0-alpha.6-audit.md).
+
+Unreleased #218 treats bounded EMF header-description text as unused metadata, retaining otherwise supported logos without requiring a terminator. Invalid ranges and unsupported graphics remain errors. See the [compatibility policy](word-picture-metadata.md#bounded-description-compatibility-unreleased-218); no new release is implied.

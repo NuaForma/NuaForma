@@ -27,6 +27,20 @@ class EmfPictureTest {
     }
 
     @Test
+    fun `bounded descriptions without terminators are opaque metadata in all header layouts`() {
+        val expected = requireNotNull(decode(EmfFixture.logo()))
+        for (fixed in listOf(88, 100, 108)) for (text in listOf("X", "Synthetic application\u0000Logo", "X".repeat(1024), "{if neverEvaluated}")) {
+            val source = EmfFixture.withHeader(EmfFixture.logo(), fixed, text, terminate = false)
+            assertArrayEquals(expected, decode(source), "fixed=$fixed length=${text.length}")
+            assertNull(decode(source, true))
+        }
+        val surrogate = EmfFixture.withHeader(EmfFixture.logo(), 108, "X", terminate = false)
+        ByteBuffer.wrap(surrogate).order(ByteOrder.LITTLE_ENDIAN).putShort(108, 0xd800.toShort())
+        assertArrayEquals(expected, decode(surrogate))
+        assertNull(decode(surrogate, true))
+    }
+
+    @Test
     fun `actual OpenGL pixel formats and malformed description ranges remain rejected`() {
         val valid = EmfFixture.withHeader(EmfFixture.logo(), 108)
         for ((offset, value) in listOf(96 to 1, 88 to 40, 92 to 108, 60 to 1025, 64 to 87,
@@ -35,12 +49,25 @@ class EmfPictureTest {
             ByteBuffer.wrap(source).order(ByteOrder.LITTLE_ENDIAN).putInt(offset, value)
             assertThrows(EmfFailure::class.java) { decode(source) }
         }
-        val unterminated = valid.copyOf()
-        val buffer = ByteBuffer.wrap(unterminated).order(ByteOrder.LITTLE_ENDIAN)
-        buffer.putShort(buffer.getInt(64) + buffer.getInt(60) * 2 - 2, 65.toShort())
-        assertTrue(assertThrows(EmfFailure::class.java) { decode(unterminated) }.message!!.contains("Unterminated"))
         val gl = EmfFixture.withHeader(EmfFixture.file(EmfFixture.record(102, 0)), 88, "Description")
         assertTrue(assertThrows(EmfFailure::class.java) { decode(gl) }.message!!.contains("102"))
+    }
+
+    @Test
+    fun `opaque descriptions do not permit invalid ranges OpenGL or unsafe records`() {
+        val source = EmfFixture.withHeader(EmfFixture.logo(), 108, "No terminator", terminate = false)
+        val size = ByteBuffer.wrap(source).order(ByteOrder.LITTLE_ENDIAN).getInt(4)
+        for ((offset, value) in listOf(60 to -1, 60 to 1025, 60 to 0, 64 to 0, 64 to 87,
+            64 to Int.MAX_VALUE, 64 to size - 2, 96 to 1, 88 to 40, 92 to 108, 100 to -1)) {
+            val invalid = source.copyOf()
+            ByteBuffer.wrap(invalid).order(ByteOrder.LITTLE_ENDIAN).putInt(offset, value)
+            for (inspect in listOf(false, true)) assertThrows(EmfFailure::class.java) { decode(invalid, inspect) }
+        }
+        for (record in listOf(EmfFixture.record(102, 0), EmfFixture.record(70, 4, 123),
+            EmfFixture.record(105, 0), EmfFixture.record(37, 7))) {
+            val invalid = EmfFixture.withHeader(EmfFixture.file(record), 88, "No terminator", terminate = false)
+            for (inspect in listOf(false, true)) assertThrows(EmfFailure::class.java) { decode(invalid, inspect) }
+        }
     }
 
     @Test

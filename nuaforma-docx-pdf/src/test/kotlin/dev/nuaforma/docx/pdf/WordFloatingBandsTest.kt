@@ -240,6 +240,65 @@ class WordFloatingBandsTest {
     }
 
     @Test
+    fun `unterminated EMF descriptions retain both logos relationships and notes through cleanup and PDF`() {
+        val provider = provider()
+        for (kind in listOf("a4", "letter")) {
+            val baseline = source(kind)
+            val entries = parts(baseline)
+            val media = entries.keys.filter { it.endsWith(".emf") }
+            assertEquals(2, media.size)
+            for ((index, part) in media.withIndex()) {
+                entries[part] = EmfFixture.withHeader(entries.getValue(part), if (index == 0) 88 else 108,
+                    "Synthetic application\u0000${if (index == 0) "Large logo" else "Small footer logo"}", terminate = false)
+            }
+            val input = zip(entries)
+            val cleaned = ByteArrayOutputStream()
+            val report = provider.cleanTemplate(input.inputStream(), cleaned, context())
+            assertTrue(report.changes.isEmpty(), report.changes.toString())
+            assertArrayEquals(input, cleaned.toByteArray())
+            val retained = parts(cleaned.toByteArray())
+            for (part in media + listOf("word/_rels/document.xml.rels", "word/_rels/header1.xml.rels",
+                "word/_rels/footer1.xml.rels", "word/footnotes.xml")) {
+                assertArrayEquals(entries.getValue(part), retained.getValue(part), part)
+            }
+            val expected = standardPdf(baseline, provider)
+            sameRenderedPages(expected, standardPdf(input, provider))
+            sameRenderedPages(expected, standardPdf(cleaned.toByteArray(), provider))
+        }
+    }
+
+    @Test
+    fun `out of bounds description still rejects either logo without publishing a partial PDF`() {
+        val provider = provider()
+        val baseline = source("a4")
+        val media = parts(baseline).keys.filter { it.endsWith(".emf") }
+        assertEquals(2, media.size)
+        for (part in media) {
+            val entries = parts(baseline)
+            val invalid = EmfFixture.withHeader(entries.getValue(part), 108, "No terminator", terminate = false)
+            val header = java.nio.ByteBuffer.wrap(invalid).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            header.putInt(64, header.getInt(4) - 2)
+            entries[part] = invalid
+            val input = zip(entries)
+            val output = ByteArrayOutputStream()
+            val error = assertThrows(GenerationException::class.java) {
+                provider.generate(GenerationRequest(input.inputStream(), GenerationRequirements(FormatRequest(DocumentFormat.DOCX),
+                    FormatRequest(DocumentFormat.PDF, mapOf("profile" to "standard")))), output, context())
+            }
+            assertTrue(error.diagnostics.any { it.code == DiagnosticCodes.UNSUPPORTED_INPUT })
+            assertEquals(0, output.size())
+            val cleaned = ByteArrayOutputStream()
+            val report = provider.cleanTemplate(input.inputStream(), cleaned, context())
+            assertTrue(report.changes.any { it.action == TemplateCleanupAction.REMOVE_PART && it.part == part })
+            val remaining = parts(cleaned.toByteArray())
+            assertFalse(remaining.containsKey(part))
+            assertTrue(remaining.containsKey(media.single { it != part }))
+            assertTrue(remaining.containsKey("word/footer1.xml"))
+            assertTrue(remaining.containsKey("word/footnotes.xml"))
+        }
+    }
+
+    @Test
     fun `unknown BLIP extensions and malformed local DPI remain strict in both logo stories`() {
         for (part in listOf("word/document.xml", "word/footer1.xml")) for ((uri, value) in listOf(
             "{00000000-C50C-407e-A947-70E740481C1C}" to "0", "{28A0092B-C50C-407e-A947-70E740481C1C}" to "yes")) {

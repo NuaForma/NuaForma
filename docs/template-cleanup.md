@@ -52,3 +52,7 @@ Cleanup can remove the identified unsupported effect element or attribute and re
 ## Picture metadata and local cleanup download (0.4.0-alpha.6 #213)
 
 Qualified editing locks, explicit no-fill/no-line properties and the known local-DPI extension remain in supported templates. EMF description buffers are distinguished from extension fields. Unknown/active constructs still reject. See the [picture/header profile](word-picture-metadata.md). Cleanup progress, errors and the ZIP link now appear inside the cleanup block, beside its button; another template selection clears the previous cleanup link.
+
+## Unterminated EMF descriptions (unreleased #218)
+
+A bounded header description without its expected final UTF-16 zero is unused metadata, not image geometry. The source reader can retain an otherwise supported logo instead of deleting its media part and drawing. Declared ranges, actual graphical records and resource limits still require validation; this does not enable general malformed EMF playback. The same policy applies to normal PDF generation and Playground cleanup, without new controls. See [the compatibility policy and tested limits](word-picture-metadata.md#bounded-description-compatibility-unreleased-218). No private document or new released version is implied by this source change.
