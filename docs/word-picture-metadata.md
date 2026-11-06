@@ -1,4 +1,4 @@
-# Word picture metadata and EMF headers (unreleased #213)
+# Word picture metadata and EMF headers (0.4.0-alpha.6 #213)
 
 The native DOCX reader qualifies a bounded set of passive picture metadata in its request-local rendering view. Supported source bytes remain in an otherwise supported template; cleanup does not report removals for these constructs.
 

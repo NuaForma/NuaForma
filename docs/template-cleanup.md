@@ -49,6 +49,6 @@ Development image diagnostics identify the rejected XML element (including its f
 
 Cleanup can remove the identified unsupported effect element or attribute and revalidate, instead of removing the entire image or page band. This can change appearance (for example removing a shadow or rotation), so inspect the report and cleaned copy in Word. If a required geometry no longer exists or another unsupported construct remains, subsequent removals may still be necessary. No new visual effects, shape geometries or external image/template retrieval are enabled by these diagnostics.
 
-## Picture metadata and local cleanup download (unreleased #213)
+## Picture metadata and local cleanup download (0.4.0-alpha.6 #213)
 
 Qualified editing locks, explicit no-fill/no-line properties and the known local-DPI extension remain in supported templates. EMF description buffers are distinguished from extension fields. Unknown/active constructs still reject. See the [picture/header profile](word-picture-metadata.md). Cleanup progress, errors and the ZIP link now appear inside the cleanup block, beside its button; another template selection clears the previous cleanup link.
