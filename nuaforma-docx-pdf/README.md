@@ -98,4 +98,4 @@ Bounded `webSettings` HTML round-trip metadata (division margins/borders and bro
 
 Selected alpha.6 (#170) preserves concrete native rejection details and source coordinates in development mode. The optional contract 0.8 `DocumentDiagnosticProvider` produces marked DOCX inspection copies even when native PDF conversion fails; a separate conservative preview leaves malformed fragments and structural regions literal. See the [diagnostic guide](../docs/template-diagnostic-pdf.md#source-diagnostics-and-docx-inspection-unreleased-170). Earlier published alphas remain unchanged.
 
-Unreleased #213 qualifies passive Word picture metadata and corrects EMF header classification, with the cleanup download beside its control in Playground. See [qualified scope and regression coverage](../docs/word-picture-metadata.md).
+Selected for 0.4.0-alpha.6, #213 qualifies passive Word picture metadata and corrects EMF header classification, with the cleanup download beside its control in Playground. See [qualified scope and regression coverage](../docs/word-picture-metadata.md).
