@@ -69,3 +69,5 @@ Selected alpha.6 (#170) adds concrete native source diagnostics, **Download mark
 
 
 Selected alpha.7 fix #177 replaces generic preview error labels with one precise `[ERROR 1]` at the first locatable syntax failure and an appended reason/part/paragraph/excerpt report. Remaining malformed fragments stay literal; `[LITERAL BLOCK]` still denotes intentionally unevaluated control regions rather than a proven syntax error. Passive Word bookmark/proofing/cached-page markers no longer interrupt visible expressions. Normal generation remains strict; production routes and redaction are unchanged. This fix is included in alpha.7; unchanged alpha.6 artifacts do not include it.
+
+Selected for 0.4.0-alpha.6, #213 qualifies passive Word picture metadata and corrects EMF header classification, with the cleanup download beside its control in Playground. See [qualified scope and regression coverage](../docs/word-picture-metadata.md).

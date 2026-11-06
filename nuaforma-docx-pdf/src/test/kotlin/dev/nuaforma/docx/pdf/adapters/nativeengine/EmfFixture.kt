@@ -22,6 +22,19 @@ internal object EmfFixture {
         return header + records.fold(byteArrayOf()) { result, item -> result + item } + end
     }
 
+    fun withHeader(source: ByteArray, fixed: Int = 88, description: String = "Synthetic logo") : ByteArray {
+        require(fixed in setOf(88, 100, 108))
+        val old = ByteBuffer.wrap(source).order(ByteOrder.LITTLE_ENDIAN).getInt(4)
+        val text = if (description.isEmpty()) byteArrayOf() else (description + "\u0000").toByteArray(Charsets.UTF_16LE)
+        val size = (fixed + text.size + 3) / 4 * 4
+        val header = buffer(size).apply {
+            put(source, 0, 88); putInt(4, size); putInt(48, source.size - old + size)
+            putInt(60, text.size / 2); putInt(64, if (text.isEmpty()) 0 else fixed)
+            position(fixed); put(text)
+        }.array()
+        return header + source.copyOfRange(old, source.size)
+    }
+
     fun logo(): ByteArray = file(
         record(39, 1, 0, 0x00b07010, 0), record(37, 1), record(37, 0x80000008.toInt()),
         record(43, 10, 10, 190, 90), record(37, 0x80000000.toInt()), record(42, 25, 25, 75, 75)

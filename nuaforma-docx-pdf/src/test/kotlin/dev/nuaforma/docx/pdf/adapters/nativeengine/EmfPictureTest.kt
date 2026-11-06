@@ -16,6 +16,34 @@ class EmfPictureTest {
         EmfPicture(GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT)), null).decode(source, 100f, 50f, inspect)
 
     @Test
+    fun `classic descriptions are not OpenGL fields and all supported fixed header layouts render identically`() {
+        val base = EmfFixture.logo()
+        val expected = requireNotNull(decode(base))
+        for (fixed in listOf(88, 100, 108)) for (description in listOf("", "X", "Synthetic application\u0000Large logo description\u0000")) {
+            val source = EmfFixture.withHeader(base, fixed, description)
+            assertArrayEquals(expected, decode(source), "fixed=$fixed")
+            assertNull(decode(source, true))
+        }
+    }
+
+    @Test
+    fun `actual OpenGL pixel formats and malformed description ranges remain rejected`() {
+        val valid = EmfFixture.withHeader(EmfFixture.logo(), 108)
+        for ((offset, value) in listOf(96 to 1, 88 to 40, 92 to 108, 60 to 1025, 64 to 87,
+            64 to Int.MAX_VALUE, 100 to -1)) {
+            val source = valid.copyOf()
+            ByteBuffer.wrap(source).order(ByteOrder.LITTLE_ENDIAN).putInt(offset, value)
+            assertThrows(EmfFailure::class.java) { decode(source) }
+        }
+        val unterminated = valid.copyOf()
+        val buffer = ByteBuffer.wrap(unterminated).order(ByteOrder.LITTLE_ENDIAN)
+        buffer.putShort(buffer.getInt(64) + buffer.getInt(60) * 2 - 2, 65.toShort())
+        assertTrue(assertThrows(EmfFailure::class.java) { decode(unterminated) }.message!!.contains("Unterminated"))
+        val gl = EmfFixture.withHeader(EmfFixture.file(EmfFixture.record(102, 0)), 88, "Description")
+        assertTrue(assertThrows(EmfFailure::class.java) { decode(gl) }.message!!.contains("102"))
+    }
+
+    @Test
     fun `vector logo renders at bounded resolution with transparent surround and distinct fill`() {
         val png = requireNotNull(decode(EmfFixture.logo()))
         val image = ImageIO.read(png.inputStream())
