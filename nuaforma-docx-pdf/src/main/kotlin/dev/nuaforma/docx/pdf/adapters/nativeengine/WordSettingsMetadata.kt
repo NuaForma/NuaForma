@@ -13,6 +13,9 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
     private val part = "word/settings.xml"
     private val compatibilityNames = setOf("overrideTableStyleFontSizeAndJustification", "enableOpenTypeFeatures",
         "doNotFlipMirrorIndents", "differentiateMultirowTableHeaders")
+    private val editorToggles = setOf("removePersonalInformation", "removeDateAndTime", "doNotUseMarginsForDrawingGridOrigin")
+    private val drawingMeasures = setOf("drawingGridHorizontalSpacing", "drawingGridVerticalSpacing",
+        "drawingGridHorizontalOrigin", "drawingGridVerticalOrigin", "displayHorizontalDrawingGridEvery", "displayVerticalDrawingGridEvery")
 
     fun normalizeGrid(node: XmlElement, reject: () -> Nothing) {
         leaf(node, setOf("type", "linePitch", "charSpace"), reject)
@@ -31,12 +34,23 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
         var formatting = Formatting()
         val headerDefaults = settings.elements().filter { it.name.namespaceURI == word && it.name.localPart == "hdrShapeDefaults" }
         if (headerDefaults.size > 1) throw failure(part, headerDefaults[1])
+        val editorNames = mutableSetOf<String>()
         for (child in settings.elements()) {
             context.checkActive()
 
             fun valid(condition: Boolean) { if (!condition) throw failure(part, child) }
 
-            if (child.name.namespaceURI == word15 && child.name.localPart == "chartTrackingRefBased") {
+            if (child.name.namespaceURI == word && child.name.localPart in editorToggles + drawingMeasures) {
+                valid(editorNames.add(child.name.localPart))
+                if (child.name.localPart in editorToggles) toggle(child, word) { throw failure(part, child) }
+                else {
+                    leaf(child, setOf("val")) { throw failure(part, child) }
+                    val value = child.attribute(word, "val")
+                    valid(value != null && value.matches(Regex("[0-9]{1,10}")) && value.toLongOrNull() in 0L..2_147_483_647L)
+                    if (child.name.localPart.endsWith("Spacing")) valid(value != "0" && value?.toLongOrNull() != 0L)
+                }
+                settings.children.remove(child)
+            } else if (child.name.namespaceURI == word15 && child.name.localPart == "chartTrackingRefBased") {
                 toggle(child, word15) { throw failure(part, child) }
                 settings.children.remove(child)
             } else if (child.name.namespaceURI == word) when (child.name.localPart) {

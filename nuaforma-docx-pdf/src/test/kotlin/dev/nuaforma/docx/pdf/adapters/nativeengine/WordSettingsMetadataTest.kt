@@ -10,6 +10,33 @@ class WordSettingsMetadataTest {
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private val word15 = "http://schemas.microsoft.com/office/word/2012/wordml"
 
+    @Test
+    fun `privacy and drawing-grid preferences are validated nonprinting editor metadata`() {
+        val values = """<w:removePersonalInformation/><w:removeDateAndTime/><w:doNotUseMarginsForDrawingGridOrigin w:val="true"/>
+            <w:drawingGridHorizontalSpacing w:val="100"/><w:drawingGridVerticalSpacing w:val="284"/>
+            <w:drawingGridHorizontalOrigin w:val="1134"/><w:drawingGridVerticalOrigin w:val="0"/>
+            <w:displayHorizontalDrawingGridEvery w:val="0"/><w:displayVerticalDrawingGridEvery w:val="2"/>"""
+        assertTrue(normalize(values).elements().isEmpty())
+        for (name in listOf("removePersonalInformation", "removeDateAndTime")) for (value in listOf("0", "1", "true", "false", "on", "off")) {
+            assertTrue(normalize("<w:$name w:val=\"$value\"/>").elements().isEmpty())
+        }
+        assertEquals(listOf("defaultTabStop"), normalize(values + "<w:defaultTabStop w:val=\"720\"/>").elements().map { it.name.localPart })
+    }
+
+    @Test
+    fun `editor preferences reject duplicates nested data wrong namespaces missing and invalid numbers`() {
+        for (bad in listOf("<w:removePersonalInformation/><w:removePersonalInformation/>",
+            "<w:removeDateAndTime/><w:removeDateAndTime/>", "<w:removeDateAndTime w:val=\"invalid\"/>",
+            "<w:removePersonalInformation w:val=\"invalid\"/>", "<w:removePersonalInformation><w:p/></w:removePersonalInformation>",
+            "<w:drawingGridHorizontalSpacing w:val=\"100\"/><w:drawingGridHorizontalSpacing w:val=\"100\"/>",
+            "<w:drawingGridHorizontalSpacing w:val=\"0\"/>", "<w:drawingGridHorizontalSpacing w:val=\"-1\"/>",
+            "<w:drawingGridVerticalSpacing/>", "<w:drawingGridVerticalOrigin w:val=\"2147483648\"/>",
+            "<w:displayVerticalDrawingGridEvery w:val=\"abc\"/>", "<w:displayHorizontalDrawingGridEvery val=\"2\"/>",
+            "<w:drawingGridHorizontalOrigin w:val=\"1\">text</w:drawingGridHorizontalOrigin>")) {
+            assertThrows(NativeDocxReadException::class.java, { normalize(bad) }, bad)
+        }
+    }
+
     private fun xml(content: String) = ConversionXml(context).read(content.toByteArray())
 
     private fun normalize(content: String, document: String = "") = xml("""<w:settings xmlns:w="$word" xmlns:w15="$word15">$content</w:settings>""").also { root ->

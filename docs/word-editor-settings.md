@@ -1,4 +1,4 @@
-# Word editor and web-export metadata (source #227)
+# Word editor and web-export metadata (source #227 / #229)
 
 This source change is not part of published `0.4.0-alpha.7`. Public APIs, dependencies, output profiles and renderer selection are unchanged.
 
@@ -17,6 +17,14 @@ These identifiers do not supply geometry, text style or rendering properties. Th
 `targetScreenSz` is likewise a web-export preference. Only the eleven [defined screen-size values](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.targetscreensizevalues?view=openxml-3.0.1) are accepted, with an explicit `w:val`. They never change section paper size, physical margins, image dimensions or pagination. Invalid values, duplicate new preferences, unexpected attributes, foreign namespaces, text and nested objects are rejected.
 
 The existing HTML round-trip metadata restrictions still apply, including rejection of unsupported effective document bindings. No URLs, alternate images, external templates or browser resources are fetched.
+
+## Save-time privacy and drawing-grid preferences (source #229)
+
+Validated `removePersonalInformation` and [`removeDateAndTime`](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.settings.removedateandtime?view=openxml-3.0.1) are save-time Word privacy preferences. They do not change PDF layout. Accepting these settings is not an anonymization service: the original DOCX and its authoring metadata are retained. The reader accepts standard on/off values and rejects unexpected attributes, nested content and duplicates.
+
+The native reader also accepts `drawingGridHorizontalSpacing`, `drawingGridVerticalSpacing`, `drawingGridHorizontalOrigin`, `drawingGridVerticalOrigin`, `displayHorizontalDrawingGridEvery`, `displayVerticalDrawingGridEvery` and `doNotUseMarginsForDrawingGridOrigin` as editor drawing-grid preferences. Numeric values must be explicit nonnegative integer twips/counts within signed 32-bit range; spacing must be positive. Zero display frequency and origin values are supported. These preferences do not relocate existing anchored objects, change page geometry or activate text-grid layout. Effective `snapToGrid`, document grids and compatibility settings still pass their separate qualification.
+
+Only the internal print-model copy loses this metadata. Normal DOCX generation and cleanup preserve the original qualified declarations. A4/Letter pixel comparisons with existing header/footer objects verify that these settings leave output unchanged in all four supported PDF profiles.
 
 ## Verification and Playground
 
