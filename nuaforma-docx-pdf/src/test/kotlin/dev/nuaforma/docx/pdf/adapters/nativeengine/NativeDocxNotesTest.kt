@@ -75,7 +75,7 @@ class NativeDocxNotesTest {
 
     @Test fun `invalid policies and changed separator geometry are rejected rather than silently normalized`() {
         for (property in listOf("<w:numFmt w:val=\"unknown\"/>", "<w:numStart w:val=\"0\"/>",
-            "<w:numRestart w:val=\"eachSect\"/>", "<w:pos w:val=\"beneathText\"/>",
+            "<w:numRestart w:val=\"eachPage\"/>", "<w:pos w:val=\"beneathText\"/>",
             "<w:numStart w:val=\"1\"/><w:numStart w:val=\"2\"/>", "<w:unknown w:val=\"1\"/>",
             "<w:numFmt/>", "<w:numFmt w:val=\"decimal\"><w:numStart/></w:numFmt>", "<w:footnote/>",
             "<w:footnote w:id=\"bad\"/>")) assertThrows(IllegalArgumentException::class.java, { properties(property) }, property)

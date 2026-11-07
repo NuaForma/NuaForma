@@ -112,7 +112,9 @@ internal class NativeDocxNotes(
                 when (name) {
                     "pos" -> if (value != if (kind == PdfNoteKind.FOOTNOTE) "pageBottom" else "docEnd") fail("Unsupported note placement")
                     "numStart" -> result = result.copy(start = value?.toIntOrNull()?.takeIf { it in 1..9_999 } ?: fail("Invalid note numbering start"))
-                    "numRestart" -> if (value != "continuous") fail("Note numbering restarts are not yet qualified")
+                    // Active notes are bounded to one section by the reader. Physical pages
+                    // do not restart either policy; multi-section notes remain explicit failures.
+                    "numRestart" -> if (value !in setOf("continuous", "eachSect")) fail("Note numbering restarts are not yet qualified")
                     "numFmt" -> result = result.copy(chicago = value == "chicago", format = when (value) {
                         "chicago" -> PdfNumberFormat.DECIMAL
                         "decimal" -> PdfNumberFormat.DECIMAL; "lowerRoman" -> PdfNumberFormat.LOWER_ROMAN; "upperRoman" -> PdfNumberFormat.UPPER_ROMAN

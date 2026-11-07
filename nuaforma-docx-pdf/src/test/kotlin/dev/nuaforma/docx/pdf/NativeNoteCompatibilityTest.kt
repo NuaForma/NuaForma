@@ -103,6 +103,53 @@ class NativeNoteCompatibilityTest {
     }
 
     @Test
+    fun `section note restart keeps numbering across physical pages in one section`() {
+        val provider = provider()
+        val directory = Files.createDirectories(Path.of("build/231-section-note-restarts"))
+        for (letter in listOf(false, true)) {
+            val size = if (letter) "letter" else "a4"
+            val parts = PdfFixture.unzip(source(letter, true)).toMutableMap()
+            parts["word/document.xml"] = parts.getValue("word/document.xml").decodeToString()
+                .replace("w:val=\"continuous\"", "w:val=\"eachSect\"").toByteArray()
+            val input = PdfFixture.zip(parts)
+            Files.write(directory.resolve("$size.docx"), input)
+            val clean = ByteArrayOutputStream()
+            assertTrue(provider.cleanTemplate(input.inputStream(), clean,
+                GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT))).changes.isEmpty())
+            assertArrayEquals(input, clean.toByteArray())
+            Loader.loadPDF(pdf(provider, source(letter, true), "standard")).use { reference ->
+                for (profile in listOf("standard", "pdfa-1b", "pdfa-2b", "pdfa-3b")) {
+                    val bytes = pdf(provider, input, profile)
+                    Files.write(directory.resolve("$size-$profile.pdf"), bytes)
+                    Loader.loadPDF(bytes).use { document ->
+                        assertEquals(2, document.numberOfPages)
+                        assertEquals(PDFTextStripper().getText(reference), PDFTextStripper().getText(document))
+                        for (page in 0..1) assertImagesMatch(PDFRenderer(reference).renderImageWithDPI(page, 96f),
+                            PDFRenderer(document).renderImageWithDPI(page, 96f)) {
+                            pixelTolerance = 0.0; allowedDifferentPixelsPercent = 0.0; threshold = 1
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `page restarts and active notes in multiple sections remain explicit source failures`() {
+        val original = PdfFixture.unzip(source(false, true)).toMutableMap()
+        val xml = original.getValue("word/document.xml").decodeToString()
+        val section = """<w:sectPr><w:type w:val="nextPage"/><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>"""
+        for ((document, message) in listOf(xml.replace("w:val=\"continuous\"", "w:val=\"eachPage\"") to "restarts",
+            xml.replaceFirst("</w:pPr>", "$section</w:pPr>") to "one paginated section")) {
+            original["word/document.xml"] = document.toByteArray()
+            val failure = assertThrows(IllegalArgumentException::class.java) {
+                NativeDocxReader(GenerationContext()) { _, _, _ -> "regular" }.read(PdfFixture.zip(original))
+            }
+            assertTrue(failure.message!!.contains(message), failure.message)
+        }
+    }
+
+    @Test
     fun `continued Chicago footnotes retain every line once and preserve page ownership`() {
         val parts = PdfFixture.unzip(requireNotNull(javaClass.getResourceAsStream("/own-engine-notes/split-note/source.docx")).use { it.readBytes() }).toMutableMap()
         parts["word/document.xml"] = parts.getValue("word/document.xml").decodeToString().replace("w:val=\"decimal\"", "w:val=\"chicago\"").toByteArray()

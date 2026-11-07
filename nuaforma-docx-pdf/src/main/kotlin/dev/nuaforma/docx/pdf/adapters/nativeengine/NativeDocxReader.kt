@@ -1025,6 +1025,11 @@ internal class NativeDocxReader(
             try { node.elements().map { readParagraph(it, ownRelations) } }
             finally { currentNoteKind = null }
         }
+        if (notes.isNotEmpty() && sequences.size != 1) {
+            source.current = body
+            activePart = "word/document.xml"
+            reject("Notes require one paginated section; section-boundary note layout is not yet qualified")
+        }
         check(openBookmarks.isEmpty(), "Unclosed bookmarks")
         val targets = textReferences.map { name ->
             source.current = textReferenceSources.getValue(name)
