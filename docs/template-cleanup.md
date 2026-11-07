@@ -56,3 +56,7 @@ Qualified editing locks, explicit no-fill/no-line properties and the known local
 ## Unterminated EMF descriptions (0.4.0-alpha.7, #218)
 
 A bounded header description without its expected final UTF-16 zero is unused metadata, not image geometry. The alpha.7 reader can retain an otherwise supported logo instead of deleting its media part and drawing. Declared ranges, actual graphical records and resource limits still require validation; this does not enable general malformed EMF playback. The same policy applies to normal PDF generation and Playground cleanup, without new controls. See [the compatibility policy and tested limits](word-picture-metadata.md#bounded-description-compatibility-040-alpha7-218). The unavailable private original is not claimed verified by these public synthetic tests.
+
+## EMF solid/null pens (unreleased #223)
+
+Otherwise supported logos retain unused extended-pen metadata and valid null pens. Actual unsupported brush styles and bitmap data are separate explicit failures: the report identifies BrushStyle (including its recognized name), cbBmi or cbBits with the EMF record number and byte offset. Active patterns are not silently replaced by a solid line. The same source reader serves normal PDF generation and development cleanup; production redaction and controls are unchanged. See [qualified pen metadata and remaining limits](word-picture-metadata.md#solid-and-null-pen-metadata-unreleased-223).

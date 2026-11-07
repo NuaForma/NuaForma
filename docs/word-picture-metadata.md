@@ -23,3 +23,15 @@ Neither inspection nor rendering decodes, logs, evaluates or scans this text for
 Supported original DOCX/EMF bytes remain unchanged; no repair/rewrite is inserted into the cleaned copy. Public synthetic regressions cover classic and extended headers, both logo sizes/positions, A4/Letter, retained story relationships and notes, unchanged cleanup bytes and zero-tolerance PDF parity. The private original remains unavailable and is not claimed verified. The development Playground needs no new control: its existing cleanup and normal PDF routes use the same reader.
 
 Primary reference: [Microsoft EMF header description](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/80c0684b-9a0e-4bdb-8d6d-0e5a9e9673e7).
+
+## Solid and null pen metadata (unreleased #223)
+
+The source reader distinguishes unused EMR_EXTCREATEPEN metadata from active pattern data. Solid pens ignore BrushHatch. A BS_NULL brush is accepted only with PS_NULL; its unused ColorRef and BrushHatch are ignored, and it produces no stroke. Bitmap offsets offBmi/offBits are not interpreted when both byte counts cbBmi/cbBits are zero. Original template/image bytes remain unchanged.
+
+Nonzero bitmap byte counts still reject explicitly, identifying cbBmi or cbBits. Actual unsupported brush styles identify their BrushStyle number and recognized name, such as BS_HATCHED or BS_DIBPATTERNPT; unknown values are identified as UNKNOWN. A BS_NULL/visible-line combination rejects separately. Existing record numbers/byte offsets and development-only source explanations are retained. Production response redaction is unchanged.
+
+Meaningful pen flags, width, caps/joins, dash arrays, record/handle bounds and all existing cancellation/resource limits still require validation. Actual hatch/bitmap-pattern playback is not added or approximated by a solid stroke: its visible pattern, origin, transforms and background behavior require separate qualification. The unchanged renderer continues to handle supported solid strokes and line dashes.
+
+Public synthetic tests cover both logo positions, A4/Letter, byte-preserving cleanup, media/story relationships and notes, real PDF generation and zero-tolerance raster parity against the supported solid/null baseline. The unavailable private EMF records are not claimed verified. Playground cleanup and PDF generation use this same reader without a new control; a later release/site handoff is separate.
+
+Primary references: [LogPenEx field semantics](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/5b67b3ee-ea00-4f80-9b73-2959804381be), [EMR_EXTCREATEPEN bitmap fields](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-emf/d7f51e05-4024-497c-ad4a-8aeca9d34256).
