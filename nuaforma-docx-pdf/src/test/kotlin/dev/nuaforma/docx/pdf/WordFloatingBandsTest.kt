@@ -313,6 +313,79 @@ class WordFloatingBandsTest {
     }
 
     @Test
+    fun `solid and null extended pens retain both logos notes and byte identical cleanup on A4 and Letter`() {
+        val provider = provider()
+        for (kind in listOf("a4", "letter")) for (invisible in listOf(false, true)) {
+            val baseline = parts(source(kind))
+            val entries = baseline.toMutableMap()
+            val media = entries.keys.filter { it.endsWith(".emf") }
+            assertEquals(2, media.size)
+            for (part in media) {
+                assertArrayEquals(EmfFixture.logo(), entries.getValue(part))
+                val cleanPen = EmfFixture.extendedPen()
+                if (!invisible) baseline[part] = EmfFixture.logoWithPen(cleanPen)
+                val pen = if (invisible) EmfFixture.extendedPen(style = 5, brush = 1, color = -1) else cleanPen.copyOf()
+                java.nio.ByteBuffer.wrap(pen).order(java.nio.ByteOrder.LITTLE_ENDIAN).apply {
+                    putInt(12, Int.MIN_VALUE); putInt(20, -1); putInt(44, -1)
+                }
+                // The 216-byte header places this pen record at the reported offset 252.
+                entries[part] = EmfFixture.withHeader(EmfFixture.logoWithPen(pen), 108,
+                    "Synthetic pen metadata".padEnd(54, 'X'), terminate = false)
+            }
+            val input = zip(entries)
+            val cleaned = ByteArrayOutputStream()
+            val report = provider.cleanTemplate(input.inputStream(), cleaned, context())
+            assertTrue(report.changes.isEmpty(), report.changes.joinToString { it.reason })
+            assertArrayEquals(input, cleaned.toByteArray())
+            val remaining = parts(cleaned.toByteArray())
+            for (part in media + listOf("word/_rels/document.xml.rels", "word/_rels/header1.xml.rels",
+                "word/_rels/footer1.xml.rels", "word/footnotes.xml")) {
+                assertArrayEquals(entries.getValue(part), remaining.getValue(part), part)
+            }
+            val expected = standardPdf(zip(baseline), provider)
+            sameRenderedPages(expected, standardPdf(input, provider))
+            sameRenderedPages(expected, standardPdf(cleaned.toByteArray(), provider))
+        }
+    }
+
+    @Test
+    fun `actual pattern and bitmap pen failures identify the rejected logo and emit no partial PDF`() {
+        val provider = provider()
+        val baseline = source("a4")
+        val media = parts(baseline).keys.filter { it.endsWith(".emf") }
+        assertEquals(2, media.size)
+        val cases = listOf(Triple(36, 2, "BrushStyle=2 (BS_HATCHED)"), Triple(16, 40, "cbBmi=40"),
+            Triple(24, 4, "cbBits=4"), Triple(36, 1, "BS_NULL requires PS_NULL"))
+        for (part in media) for ((offset, value, reason) in cases) {
+            val entries = parts(baseline)
+            val pen = EmfFixture.extendedPen()
+            java.nio.ByteBuffer.wrap(pen).order(java.nio.ByteOrder.LITTLE_ENDIAN).putInt(offset, value)
+            entries[part] = EmfFixture.withHeader(EmfFixture.logoWithPen(pen), 108,
+                "Synthetic pen metadata".padEnd(54, 'X'), terminate = false)
+            val input = zip(entries)
+            val error = assertThrows(NativeDocxReadException::class.java) { NativeDocxReader(context()) { _, _, _ -> "regular" }.read(input) }
+            assertEquals(part, error.part)
+            assertTrue(error.sourceContext.explanation.contains(reason), error.sourceContext.explanation)
+            assertTrue(error.sourceContext.explanation.contains("record 95 at 252"))
+            val output = ByteArrayOutputStream()
+            assertThrows(GenerationException::class.java) {
+                provider.generate(GenerationRequest(input.inputStream(), GenerationRequirements(FormatRequest(DocumentFormat.DOCX),
+                    FormatRequest(DocumentFormat.PDF, mapOf("profile" to "standard")))), output, context())
+            }
+            assertEquals(0, output.size())
+            val cleaned = ByteArrayOutputStream()
+            val report = provider.cleanTemplate(input.inputStream(), cleaned, context())
+            val removed = report.changes.single { it.action == TemplateCleanupAction.REMOVE_PART && it.part == part }
+            assertTrue(removed.reason.contains(reason), removed.reason)
+            assertTrue(removed.reason.contains("record 95 at 252"), removed.reason)
+            val remaining = parts(cleaned.toByteArray())
+            assertTrue(remaining.containsKey(media.single { it != part }))
+            assertTrue(remaining.containsKey("word/footer1.xml"))
+            assertTrue(remaining.containsKey("word/footnotes.xml"))
+        }
+    }
+
+    @Test
     fun `unwrapped body art cannot cover reserved footnotes or publish a partial PDF`() {
         val entries = parts(source("a4"))
         entries["word/document.xml"] = entries.getValue("word/document.xml").decodeToString()

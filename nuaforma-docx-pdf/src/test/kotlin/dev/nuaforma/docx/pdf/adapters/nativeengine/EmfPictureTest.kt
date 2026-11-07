@@ -207,6 +207,65 @@ class EmfPictureTest {
     }
 
     @Test
+    fun `solid extended pens ignore hatch and absent bitmap offsets without changing pixels`() {
+        val baseline = EmfFixture.logoWithPen(EmfFixture.extendedPen())
+        val expected = requireNotNull(decode(baseline))
+        for ((offset, value) in listOf(12 to 52, 20 to 52, 12 to Int.MIN_VALUE, 20 to -1, 44 to -1)) {
+            val pen = EmfFixture.extendedPen()
+            ByteBuffer.wrap(pen).order(ByteOrder.LITTLE_ENDIAN).putInt(offset, value)
+            val source = EmfFixture.logoWithPen(pen)
+            assertArrayEquals(expected, decode(source), "field offset=$offset")
+            assertNull(decode(source, true))
+        }
+    }
+
+    @Test
+    fun `BS_NULL with PS_NULL ignores its color and hatch and paints no stroke`() {
+        val pen = EmfFixture.extendedPen(style = 5, brush = 1, color = -1)
+        ByteBuffer.wrap(pen).order(ByteOrder.LITTLE_ENDIAN).apply { putInt(12, 52); putInt(20, 52); putInt(44, -1) }
+        val source = EmfFixture.logoWithPen(pen)
+        assertArrayEquals(requireNotNull(decode(EmfFixture.logo())), decode(source))
+        assertNull(decode(source, true))
+    }
+
+    @Test
+    fun `extended pen failures identify actual brush styles payloads and invalid null combinations`() {
+        val styles = listOf(2 to "BS_HATCHED", 3 to "BS_PATTERN", 4 to "BS_INDEXED", 5 to "BS_DIBPATTERN",
+            6 to "BS_DIBPATTERNPT", 7 to "BS_PATTERN8X8", 8 to "BS_DIBPATTERN8X8", 9 to "BS_MONOPATTERN", -1 to "UNKNOWN")
+        val cases = styles.map { (value, name) -> Triple(36, value, "BrushStyle=${Integer.toUnsignedString(value)} ($name)") } +
+            listOf(Triple(16, 40, "cbBmi=40"), Triple(24, 4, "cbBits=4"), Triple(16, -1, "cbBmi=4294967295"),
+                Triple(24, -1, "cbBits=4294967295"), Triple(36, 1, "BS_NULL requires PS_NULL"))
+        for ((offset, value, reason) in cases) {
+            val pen = EmfFixture.extendedPen()
+            ByteBuffer.wrap(pen).order(ByteOrder.LITTLE_ENDIAN).putInt(offset, value)
+            for (inspect in listOf(false, true)) {
+                val error = assertThrows(EmfFailure::class.java) { decode(EmfFixture.logoWithPen(pen), inspect) }
+                assertTrue(error.message!!.contains(reason), error.message)
+                assertTrue(error.message!!.contains("record 95 at"), error.message)
+            }
+        }
+    }
+
+    @Test
+    fun `extended pen metadata cannot bypass meaningful flags widths or dash limits`() {
+        for ((offset, value) in listOf(28 to 0x40000000, 32 to -1, 32 to 1_000_001, 48 to -1)) {
+            val pen = EmfFixture.extendedPen()
+            ByteBuffer.wrap(pen).order(ByteOrder.LITTLE_ENDIAN).putInt(offset, value)
+            assertThrows(EmfFailure::class.java) { decode(EmfFixture.logoWithPen(pen), true) }
+        }
+        val many = EmfFixture.extendedPen()
+        ByteBuffer.wrap(many).order(ByteOrder.LITTLE_ENDIAN).putInt(48, 33)
+        val limited = assertThrows(GenerationException::class.java) { decode(EmfFixture.logoWithPen(many), true) }
+        assertEquals(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, limited.diagnostics.single().code)
+        val truncated = EmfFixture.extendedPen().copyOf(48)
+        ByteBuffer.wrap(truncated).order(ByteOrder.LITTLE_ENDIAN).putInt(4, 48)
+        assertTrue(assertThrows(EmfFailure::class.java) { decode(EmfFixture.logoWithPen(truncated), true) }.message!!.contains("Truncated"))
+        val missingDash = EmfFixture.extendedPen(style = 7)
+        ByteBuffer.wrap(missingDash).order(ByteOrder.LITTLE_ENDIAN).putInt(48, 1)
+        assertThrows(EmfFailure::class.java) { decode(EmfFixture.logoWithPen(missingDash), true) }
+    }
+
+    @Test
     fun `invalid graphics state and malformed handles are rejected in inspection too`() {
         val invalid = listOf(
             EmfFixture.record(16, 1), EmfFixture.record(17, 99), EmfFixture.record(18, 3),

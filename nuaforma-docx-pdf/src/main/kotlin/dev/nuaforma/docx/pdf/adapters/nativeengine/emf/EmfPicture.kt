@@ -226,10 +226,8 @@ internal class EmfPicture(private val context: GenerationContext, private val lo
         r.require(flags and 0x1330f.inv() == 0, "Unsupported pen flags")
         val width = r.int(at + 4)
         r.require(width in 0..1_000_000, "Invalid pen width")
-        val rgb = if (extended) {
-            r.require((12..24 step 4).all { r.int(it) == 0 } && r.int(36) == 0 && r.int(44) == 0, "Pattern pens are unsupported")
-            color(r.int(40))
-        } else { r.require(r.int(20) == 0, "Invalid pen height"); color(r.int(24)) }
+        val rgb = if (extended) extendedPenColor(r, style)
+            else { r.require(r.int(20) == 0, "Invalid pen height"); color(r.int(24)) }
         val entries = if (extended) r.int(48) else 0
         r.require(entries >= 0, "Invalid pen dash count")
         resource(entries <= 32)
@@ -238,6 +236,25 @@ internal class EmfPicture(private val context: GenerationContext, private val lo
         val cap = when (flags and 0xf00) { 0 -> BasicStroke.CAP_ROUND; 0x100 -> BasicStroke.CAP_SQUARE; 0x200 -> BasicStroke.CAP_BUTT; else -> throw EmfFailure("Unsupported pen cap") }
         val join = when (flags and 0xf000) { 0 -> BasicStroke.JOIN_ROUND; 0x1000 -> BasicStroke.JOIN_BEVEL; 0x2000 -> BasicStroke.JOIN_MITER; else -> throw EmfFailure("Unsupported pen join") }
         return EmfPen(if (style == 5) null else rgb, maxOf(1, width).toFloat(), style, cap, join, flags and 0x10000 != 0 || width > 1, dash)
+    }
+
+    private fun extendedPenColor(r: EmfRecord, style: Int): Color? {
+        val headerBytes = r.int(16)
+        val pixelBytes = r.int(24)
+        r.require(headerBytes == 0, "Extended pen bitmap header data is unsupported (cbBmi=${Integer.toUnsignedString(headerBytes)})")
+        r.require(pixelBytes == 0, "Extended pen bitmap pixel data is unsupported (cbBits=${Integer.toUnsignedString(pixelBytes)})")
+        val brush = r.int(36)
+        r.require(brush in 0..1, "Unsupported extended pen BrushStyle=${Integer.toUnsignedString(brush)} (${penBrushName(brush)})")
+        r.require(brush != 1 || style == 5, "Extended pen BS_NULL requires PS_NULL")
+        // No bitmap bytes: offsets are unused. Solid/null brushes also ignore BrushHatch.
+        return if (brush == 1) null else color(r.int(40))
+    }
+
+    private fun penBrushName(brush: Int): String = when (brush) {
+        0 -> "BS_SOLID"; 1 -> "BS_NULL"; 2 -> "BS_HATCHED"; 3 -> "BS_PATTERN"
+        4 -> "BS_INDEXED"; 5 -> "BS_DIBPATTERN"; 6 -> "BS_DIBPATTERNPT"
+        7 -> "BS_PATTERN8X8"; 8 -> "BS_DIBPATTERN8X8"; 9 -> "BS_MONOPATTERN"
+        else -> "UNKNOWN"
     }
 
     private fun poly(r: EmfRecord) {
