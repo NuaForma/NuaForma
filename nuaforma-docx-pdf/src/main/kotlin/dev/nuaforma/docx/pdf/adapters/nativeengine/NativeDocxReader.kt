@@ -78,6 +78,8 @@ internal class NativeDocxReader(
             source.failure("Unsupported Word web settings", "word/webSettings.xml")
         } }
         parsed.forEach { (name, root) -> activePart = name; source.current = root; NativeDocxFields.normalize(root, ::reject) { source.current = it } }
+        val blockBoundaryTextRanges = mutableSetOf<String>()
+        parsed.forEach { (name, root) -> activePart = name; blockBoundaryTextRanges += NativeDocxBookmarks(context).normalize(root, { source.current = it }, ::reject) }
         for (name in listOf("word/fontTable.xml", "word/webSettings.xml")) parsed[name]?.let { root ->
             activePart = name
             source.current = root
@@ -282,6 +284,7 @@ internal class NativeDocxReader(
         val bookmarkRuns = mutableMapOf<String, MutableList<PdfInline>>()
         val crossParagraphBookmarks = mutableSetOf<String>()
         val textReferences = mutableSetOf<String>()
+        val textReferenceSources = mutableMapOf<String, XmlElement>()
         var paragraphCounter = 0
         var fieldCounter = 0
         var linkCounter = 0
@@ -401,7 +404,10 @@ internal class NativeDocxReader(
                         "NUMPAGES" -> PdfReferenceKind.TOTAL_PAGES; else -> PdfReferenceKind.SEQUENCE_PAGES
                     }
                     val target = if (kind == PdfReferenceKind.SEQUENCE_PAGES) "sequence$sequenceIndex" else instruction.argument
-                    if (kind == PdfReferenceKind.TEXT) textReferences += requireNotNull(target)
+                    if (kind == PdfReferenceKind.TEXT) {
+                        textReferences += requireNotNull(target)
+                        textReferenceSources.putIfAbsent(target, run)
+                    }
                     return listOf(PdfReferenceField(id, kind, style, target, instruction.linked, navigation))
                 }
                 children(run, setOf("rPr", "t", "tab", "drawing", "pict", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
@@ -970,6 +976,9 @@ internal class NativeDocxReader(
         }
         check(openBookmarks.isEmpty(), "Unclosed bookmarks")
         val targets = textReferences.map { name ->
+            source.current = textReferenceSources.getValue(name)
+            activePart = provenance[source.current] ?: activePart
+            check(name !in blockBoundaryTextRanges, "Text references to block-level bookmark ends are not qualified")
             check(name !in crossParagraphBookmarks, "Text references across paragraphs are not qualified")
             PdfReferenceTarget(name, bookmarkRuns[name] ?: reject("Unknown text reference range"))
         }
