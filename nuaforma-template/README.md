@@ -279,3 +279,10 @@ For visual regression, the DOCX tests produce `nuaforma-docx/build/string-functi
 `ValuePipesTest` covers typed/nested chains, positional argument constraints, null/missing policy, literal results, immutable copies, invalid results/cycles, shared budgets, cancellation, concurrency and formatter compatibility. `ValuePipeDiscoveryTest` independently compiles Java-17 contracts-only JARs and checks metadata/origin/compatibility before initialization, deterministic collisions and safe failure. `MountedValuePipesTest` exercises the actual server operator snapshot, restart/cleanup, concurrent providers and multipart/embedded watermark parity. `DocxValuePipesTest` compares native package semantics (normalizing only random watermark IDs), split runs, tables, both text boxes and structural scopes, and emits `nuaforma-docx/build/value-pipes-reference/{generated,expected}.docx` for independent raster comparison. The separately packaged Kotlin extension/consumer under `examples/value-pipes` is an additional Java-17 build check, not a test-only compiler dependency in the engine.
 
 The source DOCX generator also supplies [`richText("rtf", trimStart, trimEnd, inline)`](../docs/rich-text.md), with the three booleans defaulting to true. Its definition opts into missing-as-null through contract 0.7. That policy applies only to the evaluated input value of an opted-in content pipe; ordinary placeholders and missing argument expressions remain strict. This source feature is not in alpha.4.
+
+Source work for #149 adds [`checkbox(withBox, trueMark, falseMark)`](../docs/checkbox-content.md)
+with defaults `true`, `"check"`, `"empty"`. Input is a normal boolean expression,
+such as `{(gender == "Vrouw") | checkbox()}`; null/missing input needs an explicit
+`?? false` fallback. Literal content-pipe arguments and arity are validated in
+unselected branches without evaluating branch data or executing extensions.
+This source feature is qualified; it is not part of published alpha.7.

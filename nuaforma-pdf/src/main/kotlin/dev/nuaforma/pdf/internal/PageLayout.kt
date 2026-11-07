@@ -11,6 +11,8 @@ internal fun interface TextMeasurer {
 
 }
 internal sealed interface PositionedElement
+internal data class PositionedVector(val run: PdfVectorRun, val x: Float, val top: Float,
+    val pageOffset: PdfParagraphPageOffset? = null) : PositionedElement
 internal enum class StrokeLayer { FLOW, BACKGROUND, FOREGROUND }
 internal data class PositionedStroke(val x: Float, val top: Float, val endX: Float, val endY: Float, val stroke: PdfLineStroke,
     val pageX: Boolean = false, val pageY: Boolean = false, val layer: StrokeLayer = StrokeLayer.FLOW,
@@ -130,7 +132,8 @@ internal object PageLayouter {
                                 x += measurer.measure(run.text, run.style).width
                             }
                         } else for (fragment in line) {
-                            if (fragment.image != null) elements += PositionedImage(fragment.image, x, baseline - fragment.image.height)
+                            if (fragment.vector != null) elements += PositionedVector(fragment.vector, x, baseline - fragment.vector.height)
+                            else if (fragment.image != null) elements += PositionedImage(fragment.image, x, baseline - fragment.image.height)
                             else elements += PositionedText(fragment.text, requireNotNull(fragment.style), x + fragment.paintOffset, baseline, fragment.decoration, fragment.navigation, block.semantics?.id, fragment.semantics,
                                 block.semantics?.takeUnless { fragment.decoration || fragment.text.isEmpty() }?.let { fragment.sourceStart + prefix })
                             x += fragment.metrics.width
@@ -218,18 +221,23 @@ internal object PageLayouter {
 
     internal fun automaticBox(p: PdfParagraph, measurer: TextMeasurer): Pair<Float, Float>? {
         val policy = p.format.automaticLineSpacing ?: return null
-        val picture = (p.runs.singleOrNull() as? PdfImageRun)?.image
-        if (picture != null) {
+        val vectorsOnly = p.runs.all { it is PdfVectorRun }
+        val objectHeight = (p.runs.singleOrNull() as? PdfImageRun)?.image?.height ?:
+            p.runs.takeIf { vectorsOnly }?.filterIsInstance<PdfVectorRun>()?.maxOfOrNull { it.height }
+        if (objectHeight != null) {
             val minimum = p.minimumLineStyle?.let { measurer.measure(" ", it) }
             val fontBaseline = (minimum?.naturalAscent ?: 0f) + (minimum?.lineGap ?: 0f)
-            val baseline = maxOf(picture.height, fontBaseline)
+            // Word places a standalone inline shape at the bottom of the paragraph-mark box.
+            // A paragraph with visible text retains its ordinary text baseline below.
+            val baseline = maxOf(objectHeight, fontBaseline + if (vectorsOnly) minimum?.naturalDescent ?: 0f else 0f)
             // An unprinted paragraph mark supplies a minimum box, not extra descent below a taller image.
             val naturalHeight = maxOf(baseline, fontBaseline + (minimum?.naturalDescent ?: 0f))
             val height = naturalHeight * policy.multiple
             if (!height.isFinite() || height !in 1f..14_400f || height < naturalHeight) overflow()
             return height to baseline
         }
-        val styles = p.runs.map { when (it) {
+        val styles = p.runs.mapNotNull { when (it) {
+            is PdfVectorRun -> null
             is PdfTextRun -> it.style; is PdfTab -> it.style; is PdfPageField -> it.style
             else -> throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Automatic inline image spacing is not qualified")
         } } + listOfNotNull(p.listLabel?.style)
@@ -241,14 +249,15 @@ internal object PageLayouter {
         val ordinary = metrics.filterIndexed { index, _ -> styles[index].baselineShift == 0f }
         val base = ordinary.ifEmpty { metrics }
         val boxes = base.map { Triple(it.naturalAscent, it.naturalDescent, it.lineGap) }.distinct()
-        if (boxes.size != 1) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Mixed natural line boxes are not qualified")
+        if (boxes.size > 1) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Mixed natural line boxes are not qualified")
         val minimum = p.minimumLineStyle?.let { measurer.measure(" ", it) }
         if (minimum != null && (!minimum.naturalAscent.isFinite() || !minimum.naturalDescent.isFinite() || !minimum.lineGap.isFinite()))
             throw PdfRenderException(PdfFailureCode.INVALID_RESOURCE, "Minimum line metrics are unavailable")
         val all = metrics + listOfNotNull(minimum)
-        val ascent = all.maxOf { it.naturalAscent }
-        val descent = all.maxOf { it.naturalDescent }
-        val gap = all.maxOf { it.lineGap }
+        val vectorHeight = p.runs.filterIsInstance<PdfVectorRun>().maxOfOrNull { it.height } ?: 0f
+        val ascent = maxOf(all.maxOfOrNull { it.naturalAscent } ?: 0f, vectorHeight)
+        val descent = all.maxOfOrNull { it.naturalDescent } ?: 0f
+        val gap = all.maxOfOrNull { it.lineGap } ?: 0f
         val height = (ascent + descent + gap) * policy.multiple
         if (!height.isFinite() || height !in 1f..14_400f || height < ascent + descent + gap) overflow()
         return height to (ascent + gap)
@@ -263,7 +272,7 @@ internal object PageLayouter {
         return width
     }
 
-    private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null, val tab: PdfTab? = null, val paintOffset: Float = 0f, val decoration: Boolean = false, val sourceStart: Int = 0, val navigation: PdfTextNavigation? = null, val semantics: PdfSpanSemantics? = null)
+    private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null, val tab: PdfTab? = null, val paintOffset: Float = 0f, val decoration: Boolean = false, val sourceStart: Int = 0, val navigation: PdfTextNavigation? = null, val semantics: PdfSpanSemantics? = null, val vector: PdfVectorRun? = null)
 
     private fun words(runs: List<PdfInline>, measurer: TextMeasurer, bidi: Boolean): List<List<Fragment>> {
         val groups = mutableListOf<MutableList<Fragment>>()
@@ -276,6 +285,12 @@ internal object PageLayouter {
             if (run is PdfTab) {
                 if (run.style.underline) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Underlined tabs are not qualified")
                 groups += mutableListOf(Fragment("\t", run.style, TextMetrics(0f, 0f, 0f), tab = run))
+                previousSpace = null
+                sourceOffset++
+                continue
+            }
+            if (run is PdfVectorRun) {
+                groups += mutableListOf(Fragment("\uFFFC", null, TextMetrics(run.width, run.height, 0f), vector = run))
                 previousSpace = null
                 sourceOffset++
                 continue

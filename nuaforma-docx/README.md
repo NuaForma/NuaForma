@@ -1,5 +1,9 @@
 # NuaForma DOCX
 
+Source work for #149 adds the font-independent [`checkbox()` content pipe](../docs/checkbox-content.md).
+The source feature is qualified; it is not in the published alpha.7. No symbol font,
+extra module or dependency is required for its static vector mark.
+
 Development-stage DOCX generation and round-trip processing for Kotlin and Java 17. The implementation edits an isolated native Word model, not a document rebuilt from extracted text. All docx4j and JAXB types remain under `dev.nuaforma.docx.adapters.docx4j`; consumers see only NuaForma's facade and contract types.
 
 The registered `DocxProvider` reads DOCX and writes DOCX using the [restricted template language](../nuaforma-template/README.md), with optional supplied-font validation/embedding and requested text watermarks. PDF conversion and REST endpoints belong to the separate optional PDF/server modules. Unsupported explicit options and undeclared resources fail rather than being ignored. `DocxDocuments.open` remains a round-trip facade: it does not evaluate placeholders, process supplied fonts or add watermarks.

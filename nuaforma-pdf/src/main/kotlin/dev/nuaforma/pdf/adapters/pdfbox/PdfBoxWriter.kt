@@ -6,6 +6,7 @@ import org.apache.pdfbox.contentstream.operator.Operator
 import org.apache.pdfbox.cos.COSDictionary
 import org.apache.pdfbox.cos.COSArray
 import org.apache.pdfbox.cos.COSFloat
+import org.apache.pdfbox.cos.COSInteger
 import org.apache.pdfbox.cos.COSName
 import org.apache.pdfbox.cos.COSString
 import org.apache.pdfbox.pdfwriter.ContentStreamWriter
@@ -98,7 +99,12 @@ internal object PdfBoxWriter {
 
             if (layouts.sumOf { borderSize(it.elements) } > 20_000) fail(PdfFailureCode.RESOURCE_LIMIT, "Table border budget exceeded")
 
-            fun lineSize(elements: List<PositionedElement>): Int = elements.sumOf { when (it) { is PositionedStroke -> 1; is PositionedBox -> lineSize(it.elements); else -> 0 } }
+            fun lineSize(elements: List<PositionedElement>): Int = elements.sumOf { when (it) {
+                is PositionedStroke -> 1
+                is PositionedVector -> it.run.vector.paths.sumOf { path -> path.points.size }
+                is PositionedBox -> lineSize(it.elements)
+                else -> 0
+            } }
 
             if (layouts.sumOf { lineSize(it.elements) } > 20_000) fail(PdfFailureCode.RESOURCE_LIMIT, "Vector line budget exceeded")
             val usedFonts = linkedSetOf<String>()
@@ -137,6 +143,28 @@ internal object PdfBoxWriter {
                         } }) {
                             control.checkActive()
                             when (element) {
+                                is PositionedVector -> {
+                                    val run = element.run
+                                    if (element.x < -.001f || element.top < -.001f ||
+                                        element.x + run.width > canvasWidth + .001f || element.top + run.height > canvasHeight + .001f)
+                                        fail(PdfFailureCode.CONTENT_OVERFLOW, "An inline vector exceeds its physical page or frame")
+                                    command("BMC", COSName.ARTIFACT)
+                                    command("q")
+                                    command("RG", number(run.color.red / 255f), number(run.color.green / 255f), number(run.color.blue / 255f))
+                                    command("w", number(run.width * run.vector.strokeWidth / 1000f))
+                                    command("J", COSInteger.ONE); command("j", COSInteger.ONE)
+                                    command("d", COSArray(), number(0f))
+                                    for (path in run.vector.paths) {
+                                        control.checkActive()
+                                        path.points.forEachIndexed { index, point ->
+                                            command(if (index == 0) "m" else "l", number(element.x + point.x * run.width / 1000f),
+                                                number(canvasHeight - element.top - point.y * run.height / 1000f))
+                                        }
+                                        if (path.closed) command("h")
+                                        command("S")
+                                    }
+                                    command("Q"); command("EMC")
+                                }
                                 is PositionedStroke -> {
                                     val stroke = element.stroke
                                     val extent = stroke.extent / 2

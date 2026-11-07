@@ -228,6 +228,7 @@ internal object FlowLayouter {
         val normalized = p.copy(spaceBefore = 0f, spaceAfter = 0f, borders = null, lines = emptyList())
         val local = PageLayouter.layout(PdfDocument(PdfPage(width, 14_400f, PdfMargins(0f, 0f, 0f, 0f)), listOf(normalized)), measurer, lineArea, measurement = true)
         val lines = local.elements.groupBy { element -> when (element) {
+            is PositionedVector -> element.top + element.run.height
             is PositionedText -> element.baseline
             is PositionedImage -> element.top + element.image.height
             is PositionedStroke -> error("Unexpected paragraph stroke")
@@ -312,6 +313,7 @@ internal object FlowLayouter {
     }
 
     internal fun translate(element: PositionedElement, x: Float, y: Float): PositionedElement = when (element) {
+        is PositionedVector -> element.copy(x = element.x + x, top = element.top + y)
         is PositionedStroke -> element.copy(x = element.x + if (element.pageX) 0f else x, endX = element.endX + if (element.pageX) 0f else x,
             top = element.top + if (element.pageY) 0f else y, endY = element.endY + if (element.pageY) 0f else y)
         is PositionedText -> element.copy(x = element.x + x, baseline = element.baseline + y)

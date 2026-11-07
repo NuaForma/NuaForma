@@ -144,6 +144,6 @@ internal object LogicalStructureBuilder {
     fun paragraphText(p: PdfParagraph, includeNoteCalls: Boolean = true): String? {
         if (p.runs.any { it is PdfPageField }) return null
         val label = p.listLabel?.let { it.value.text + if (it.suffix == PdfListSuffix.NOTHING) "" else if (it.suffix == PdfListSuffix.TAB) "\t" else " " }.orEmpty()
-        return label + p.runs.joinToString("") { when (it) { is PdfTextRun -> if (!includeNoteCalls && it.semantics?.role == PdfSemanticRole.NOTE_REFERENCE) "" else it.text; is PdfTab -> "\t"; is PdfImageRun -> "\uFFFC"; else -> "" } }
+        return label + p.runs.joinToString("") { when (it) { is PdfTextRun -> if (!includeNoteCalls && it.semantics?.role == PdfSemanticRole.NOTE_REFERENCE) "" else it.text; is PdfTab -> "\t"; is PdfImageRun, is PdfVectorRun -> "\uFFFC"; else -> "" } }
     }
 }

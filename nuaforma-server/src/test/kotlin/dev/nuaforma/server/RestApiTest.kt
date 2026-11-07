@@ -241,6 +241,23 @@ class RestApiTest {
     }
 
     @Test
+    fun `checkbox insertion has identical HTTP and embedded DOCX semantics`() = testApplication {
+        val registry = ProviderRegistry.discover()
+        application { KtorServer(registry, ServerConfiguration(temporaryDirectory = temporary)).installRoutes(this) }
+        val source = template("Before {(name == 'Ada') | checkbox()} after {false | checkbox(false)}")
+        val json = """{"input":{"format":"docx"},"output":{"format":"docx"},"providerId":"nuaforma-docx","data":{"name":"Ada"}}"""
+        val response = client.post("/api/v1/documents") {
+            contentType(ContentType.MultiPart.FormData.withParameter("boundary", "NFBOUNDARY")); setBody(multipart(json, source))
+        }
+        assertEquals(HttpStatusCode.OK, response.status, if (response.status == HttpStatusCode.OK) "" else response.bodyAsText())
+        val expected = ByteArrayOutputStream()
+        registry.generate(GenerationRequest(source.inputStream(), GenerationRequirements(FormatRequest(DocumentFormat.DOCX), FormatRequest(DocumentFormat.DOCX)),
+            mapOf("name" to "Ada")), expected, GenerationContext(), "nuaforma-docx")
+        assertEquals(entries(expected.toByteArray()), entries(response.bodyAsBytes()))
+        assertEmpty()
+    }
+
+    @Test
     fun `standard image insertion has identical HTTP and embedded semantics and cleanup`() = testApplication {
         val registry = ProviderRegistry.discover()
         application { KtorServer(registry, ServerConfiguration(temporaryDirectory = temporary)).installRoutes(this) }

@@ -78,4 +78,37 @@ class ContentPipeContext(val locale: Locale, val timeZone: ZoneId, private val g
 interface ContentResult {
     class Text(val text: String) : ContentResult
     object Empty : ContentResult
+
+    /** Opaque round-cap/join polylines in a 1000-unit view box; adapters inherit size, color and bounded text weight. */
+    class Vector @JvmOverloads constructor(paths: List<VectorPath>, val strokeWidth: Int = 70) : ContentResult {
+        val paths: List<VectorPath> = java.util.Collections.unmodifiableList(ArrayList(paths))
+
+        init {
+            require(strokeWidth in 10..100) { "Invalid vector stroke width" }
+            require(this.paths.size in 1..8) { "A vector needs 1 to 8 paths" }
+            require(this.paths.sumOf { it.points.size } <= 64) { "Vector point budget exceeded" }
+            val margin = (strokeWidth + 1) / 2
+            require(this.paths.all { path -> path.points.all {
+                it.x in margin..1000 - margin && it.y in margin..1000 - margin
+            } }) { "Vector stroke exceeds its view box" }
+        }
+    }
+}
+
+/** Integer coordinates avoid non-finite values and ambiguous precision at adapter boundaries. */
+data class VectorPoint(val x: Int, val y: Int) {
+    init {
+        require(x in 0..1000 && y in 0..1000) { "Invalid vector point" }
+    }
+}
+
+/** One open or closed stroked polyline, without fills, curves, resources or executable content. */
+class VectorPath @JvmOverloads constructor(points: List<VectorPoint>, val closed: Boolean = false) {
+    val points: List<VectorPoint> = java.util.Collections.unmodifiableList(ArrayList(points))
+
+    init {
+        require(this.points.size in (if (closed) 3 else 2)..16) { "Invalid vector path length" }
+        require(this.points.zipWithNext().all { (a, b) -> a != b }) { "Degenerate vector segment" }
+        require(!closed || this.points.first() != this.points.last()) { "Closed paths close implicitly" }
+    }
 }

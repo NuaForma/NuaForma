@@ -40,6 +40,13 @@ class PipeCatalogTest {
             assertEquals(listOf("application/rtf"), rich.path("contentTypes").map { it.asText() })
             assertEquals(listOf("format", "trimStart", "trimEnd", "inline"), rich.path("arguments").map { it.path("name").asText() })
             assertEquals(listOf(true, true, true), rich.path("arguments").drop(1).map { it.path("defaultValue").asBoolean() })
+            val checkbox = provider.path("contentPipes").path("entries").single { it.path("name").asText() == "checkbox" }
+            assertFalse(checkbox.path("chainable").asBoolean())
+            assertFalse(checkbox.path("missingAsNull").asBoolean())
+            assertEquals(listOf("withBox", "trueMark", "falseMark"), checkbox.path("arguments").map { it.path("name").asText() })
+            assertTrue(checkbox.path("arguments")[0].path("defaultValue").asBoolean())
+            assertEquals("check", checkbox.path("arguments")[1].path("defaultValue").asText())
+            assertEquals("empty", checkbox.path("arguments")[2].path("defaultValue").asText())
             val writes = provider.path("available").path("writeFormats").map { it.asText() }.toSet()
             assertTrue(image.path("availableSupport").all { it.path("output").asText() in writes })
             assertTrue(image.path("declaredSupport").any { it.path("output").asText() == "docx" })

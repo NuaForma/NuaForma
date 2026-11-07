@@ -22,6 +22,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
     private val identities = WordIdentities(context)
     private var visits = 0L
     private lateinit var images: WordImages
+    private lateinit var vectors: WordVectors
     private lateinit var owner: org.docx4j.openpackaging.parts.Part
     private val paragraphs = java.util.IdentityHashMap<P, Int>()
     private var paragraphIndex = 0
@@ -43,6 +44,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         richDefaultProperties = styles?.docDefaults?.pPrDefault?.pPr
         watermark?.let { root.validateText(it.text) }
         images = WordImages(document, identities, context)
+        vectors = WordVectors(document, identities, context)
         val parts = listOf(document.mainDocumentPart to document.mainDocumentPart.jaxbElement.body) + document.parts.parts.values.mapNotNull {
             when (it) { is HeaderPart -> it to it.jaxbElement; is FooterPart -> it to it.jaxbElement; else -> null }
         }
@@ -137,7 +139,7 @@ internal class WordTemplates(data: Map<String, *>, options: GenerationOptions, p
         if (node is P || node is P.Hyperlink) WordRuns.apply(children, session, validateOnly, context, valuePipes, ::visible, previewFault ?: fault, preview,
             { value, anchor, source, start, end ->
                 rich?.accept(value, anchor, source, start, end) ?: DocxFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.UNSUPPORTED_RICH_TEXT_PLACEMENT)
-            }) { images.drawing(it, owner) }
+            }, { images.drawing(it, owner) }, { vector, anchor -> vectors.drawing(vector, anchor, currentParagraph) })
         if (rich?.used == true) {
             richTextUsed = true
             richReplacements[node as P] = rich.finish()
