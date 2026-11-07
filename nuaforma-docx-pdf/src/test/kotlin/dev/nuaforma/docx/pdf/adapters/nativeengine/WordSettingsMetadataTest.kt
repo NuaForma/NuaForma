@@ -53,10 +53,13 @@ class WordSettingsMetadataTest {
         assertTrue(normalize("<w:compat><w15:unknown/></w:compat>").elements().single().elements().isNotEmpty())
     }
 
-    @Test fun `table precedence is preserved for the reader while active header shapes still reject`() {
+    @Test fun `table precedence and identifier-only header defaults survive while visible defaults still reject`() {
         assertTrue(normalize("<w:compat>${compat("overrideTableStyleFontSizeAndJustification", "0")}</w:compat>", "<w:tbl/>").elements().single().elements().isEmpty())
         assertTrue(normalize("<w:compat>${compat("overrideTableStyleFontSizeAndJustification")}</w:compat>", "<w:tbl/>").elements().single().elements().isEmpty())
-        assertThrows(NativeDocxReadException::class.java) { normalize("<w:hdrShapeDefaults/>", """<v:line xmlns:v="urn:schemas-microsoft-com:vml"/>""") }
+        assertTrue(normalize("<w:hdrShapeDefaults/>", """<v:line xmlns:v="urn:schemas-microsoft-com:vml"/>""").elements().isEmpty())
+        assertThrows(NativeDocxReadException::class.java) {
+            normalize("""<w:hdrShapeDefaults xmlns:o="urn:schemas-microsoft-com:office:office"><o:shapedefaults fillcolor="red"/></w:hdrShapeDefaults>""")
+        }
     }
 
     @Test fun `known setting names cannot disguise nested text attributes or invalid toggles`() {
@@ -80,6 +83,30 @@ class WordSettingsMetadataTest {
             valid.replace("http://schemas.microsoft.com/office/word", "https://invalid.example/"),
             valid.replace("/>", "><w:p/></w:compatSetting>"), "<w:doNotUseHTMLParagraphAutoSpacing w:val=\"invalid\"/>"))
             assertThrows(NativeDocxReadException::class.java) { normalize("<w:compat>$value</w:compat>") }
+    }
+
+    @Test
+    fun `identifier defaults accept allocated IDs with existing VML and reject malformed hierarchy or visible properties`() {
+        val prefix = """<w:hdrShapeDefaults xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:v="urn:schemas-microsoft-com:vml">"""
+        val defaults = """<o:shapedefaults v:ext="edit" spidmax="2050"/>"""
+        val layout = """<o:shapelayout v:ext="edit"><o:idmap v:ext="edit" data="1,2,3"/></o:shapelayout>"""
+        val vml = """<v:rect xmlns:v="urn:schemas-microsoft-com:vml"/>"""
+        for (id in listOf("0", "1026", "2050", "8193", "2147483647")) {
+            assertTrue(normalize(prefix + defaults.replace("2050", id) + layout + "</w:hdrShapeDefaults>", vml).elements().isEmpty())
+        }
+        for (bad in listOf(defaults + defaults, layout + layout, "<o:idmap data=\"1\"/>",
+            defaults.replace("2050", "-1"), defaults.replace("2050", "2147483648"), defaults.replace("2050", "invalid"),
+            defaults.replace("v:ext=\"edit\"", "ext=\"edit\""), defaults.replace("v:ext=\"edit\"", "v:ext=\"unknown\""),
+            defaults.replace("spidmax=", "v:spidmax="), defaults.replace("/>", " style=\"width:40pt\"/>"),
+            defaults.replace("/>", "><o:idmap/></o:shapedefaults>"), layout.replace("data=\"1,2,3\"", "data=\"1,1\""),
+            layout.replace("data=\"1,2,3\"", "data=\"1,\""), layout.replace("data=\"1,2,3\"", "data=\"1,-2\""),
+            layout.replace("data=\"1,2,3\"", "data=\"${"1,".repeat(400)}\""),
+            layout.replace("data=\"1,2,3\"", "data=\"${(1..65).joinToString(",")}\""),
+            layout.replace("<o:idmap", "<o:unknown"), "<o:shapelayout><o:shapedefaults/></o:shapelayout>",
+            "<o:shapelayout><o:idmap/><o:idmap/></o:shapelayout>", "<o:shapedefaults>text</o:shapedefaults>")) {
+            assertThrows(NativeDocxReadException::class.java, { normalize(prefix + bad + "</w:hdrShapeDefaults>", vml) }, bad)
+        }
+        assertThrows(NativeDocxReadException::class.java) { normalize("<w:hdrShapeDefaults/><w:hdrShapeDefaults/>") }
     }
 
     @Test fun `inactive section grids are removed without requiring a settings part while active grids reject`() {

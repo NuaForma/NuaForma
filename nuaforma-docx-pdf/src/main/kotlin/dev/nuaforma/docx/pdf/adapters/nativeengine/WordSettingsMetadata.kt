@@ -10,7 +10,6 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
         val overrideNormalTableStyle: Boolean = false, val openTypeFeatures: Boolean = false)
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private val word15 = "http://schemas.microsoft.com/office/word/2012/wordml"
-    private val vml = "urn:schemas-microsoft-com:vml"
     private val part = "word/settings.xml"
     private val compatibilityNames = setOf("overrideTableStyleFontSizeAndJustification", "enableOpenTypeFeatures",
         "doNotFlipMirrorIndents", "differentiateMultirowTableHeaders")
@@ -30,8 +29,8 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
         val compatibility = settings.elements().filter { it.name.namespaceURI == word && it.name.localPart == "compat" }
         if (compatibility.size > 1) throw failure(part, compatibility[1])
         var formatting = Formatting()
-        val content = parts.filterKeys { it.startsWith("word/") && it != part }.values
-        val hasVml = content.any { root -> root.descendants().any { it.name.namespaceURI == vml } }
+        val headerDefaults = settings.elements().filter { it.name.namespaceURI == word && it.name.localPart == "hdrShapeDefaults" }
+        if (headerDefaults.size > 1) throw failure(part, headerDefaults[1])
         for (child in settings.elements()) {
             context.checkActive()
 
@@ -60,7 +59,7 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
                     settings.children.remove(child)
                 }
                 "hdrShapeDefaults" -> {
-                    valid(!hasVml && shapeDefaults(child))
+                    WordShapeIdentifiers(context).validate(child) { throw failure(part, child) }
                     settings.children.remove(child)
                 }
                 "compat" -> formatting = compatibility(child) { failure(part, it) }
@@ -122,12 +121,6 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
             "cryptProviderTypeExtSource", "hash", "salt", "algorithmName", "hashValue", "saltValue", "spinCount"), reject)
         if (node.attribute(word, "edit") !in setOf(null, "none", "readOnly", "comments", "trackedChanges", "forms")) reject()
         for (name in listOf("formatting", "enforcement")) node.attribute(word, name)?.let { boolean(it, reject) }
-    }
-
-    private fun shapeDefaults(node: XmlElement): Boolean = node.attributes.isEmpty() && node.children.filterIsInstance<XmlText>().all { it.text.isBlank() } && node.descendants().drop(1).all { child ->
-        child.name.namespaceURI == "urn:schemas-microsoft-com:office:office" && child.name.localPart in setOf("shapedefaults", "shapelayout", "idmap") &&
-            child.attributes.all { (key, _) -> key.namespaceURI in setOf("", vml) && key.localPart in setOf("ext", "spidmax", "data") } &&
-            child.children.filterIsInstance<XmlText>().all { it.text.isBlank() }
     }
 
     private fun leaf(node: XmlElement, attributes: Set<String>, reject: () -> Nothing) {
