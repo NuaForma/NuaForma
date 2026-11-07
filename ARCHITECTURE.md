@@ -338,6 +338,8 @@ External dependencies are denied by default. The namespace policy assigns `org.d
 
 Java SE 17 `javax.imageio` is an approved additional namespace exception owned exclusively by `dev.nuaforma.docx.adapters.imageio`; it is not a global `javax.*` exemption or a new dependency. Image reader/writer/stream types must not escape this adapter. Architecture fixtures enforce direct-call, wrong-adapter and public-signature violations.
 
+For source #226 the maintainer approved the additive `DocxImages.normalize` byte-array facade in `nuaforma-docx`, with default/explicit `GenerationContext` Java overloads. Native embedded JPEG conversion reuses this existing decoder through the public facade; ImageIO types remain private to their owning adapter. No new artifact, dependency, provider contract or broad namespace exemption is introduced.
+
 The same ArchUnit conditions run against independently compiled synthetic Java fixtures with passing and deliberately violating examples. Public signatures include fields, constructors, parameters, return types, exceptions, inheritance, interfaces and nested generic/array/bound types. Static bytecode checks do not establish reflection safety, renderer isolation, behavioral contract compatibility or document fidelity; keep the integration and visual tests described below.
 
 - Run ArchUnit rules as part of the normal test/build workflow. Inspect production classes across module boundaries, not only the classes of one module in isolation.

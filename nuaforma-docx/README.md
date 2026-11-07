@@ -279,3 +279,7 @@ The source after alpha.4 adds [`richText("rtf")`](../docs/rich-text.md) for ordi
 ## Bibliography source metadata
 
 Current source preserves the QName wrapper of strictly bound bibliography custom-XML roots during round-trip, generation and diagnostic-copy serialization (#54). Empty and populated bibliography Sources parts and their property relationships remain document metadata; their text never activates template instructions. Unknown bibliography elements and malformed bound XML remain errors, with no partial output. This preserves metadata rather than implementing citation-field generation.
+
+## Static image normalization (source #226)
+
+The maintainer-approved additive `DocxImages.normalize(bytes)` / `DocxImages.normalize(bytes, context)` Java/Kotlin facade returns fresh PNG bytes through the existing bounded `adapters.imageio` implementation. It accepts static PNG/JPEG bytes, preserves decoded dimensions and PNG alpha, removes metadata, uses no external resource lookup and exposes no ImageIO types. Limits are 4 MiB input/output, 8,192 pixels per dimension and 16 megapixels; caller byte/output budgets and cancellation may tighten these. Decoding reserves twelve bytes per pixel plus two encoded input copies. The native DOCX/PDF adapter uses this facade rather than accessing decoder internals. Existing constructors and contracts are unchanged; this is not part of published alpha.7.
