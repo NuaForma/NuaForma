@@ -68,3 +68,7 @@ Supported embedded JPEG pictures and validated `LabelInfo.xml` metadata remain i
 ## Header identifiers and web-export preferences (source #227)
 
 Validated identifier-only header shape defaults remain in templates containing supported VML frames or lines. Known `relyOnVML`/`targetScreenSz` preferences also remain; they do not select a renderer or change printed geometry. Visible/unknown defaults and malformed metadata still reject or require explicit cleanup removals. See [the source profile and regression scope](word-editor-settings.md). This is not part of published alpha.7.
+
+## Fields and bookmark boundaries (source #228)
+
+Qualified block-level bookmarks, string document properties, literal SET/REF fields and passive legacy checkboxes remain in templates. Structural validation uses actual definitions rather than cached results, without substituting template instructions or field values into the returned DOCX. See [field limits and verification](word-fields-and-bookmarks.md).

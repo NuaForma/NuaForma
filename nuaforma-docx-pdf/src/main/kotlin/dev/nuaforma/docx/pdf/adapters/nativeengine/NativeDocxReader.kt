@@ -51,7 +51,7 @@ internal class NativeDocxReader(
         val parts = unpack(bytes)
         parts.filterKeys { it.endsWith(".xml") || it.endsWith(".rels") }.forEach { (name, content) -> parse(content, name) }
         WordSensitivityMetadata(context).removeFromPrintModel(parsed)
-        WordPackageMetadata(context).removeFromPrintModel(parsed)
+        val propertyValues = WordPackageMetadata(context).removeFromPrintModel(parsed)
         val bibliography = WordBibliographyMetadata(context).removeFromPrintModel(parsed)
         bibliography.forEach { parsed.remove(it) }
         val formatting = WordSettingsMetadata(context).normalize(parsed) { name, node ->
@@ -77,9 +77,19 @@ internal class NativeDocxReader(
             source.current = node
             source.failure("Unsupported Word web settings", "word/webSettings.xml")
         } }
-        parsed.forEach { (name, root) -> activePart = name; source.current = root; NativeDocxFields.normalize(root, ::reject) { source.current = it } }
+        val formFields = java.util.IdentityHashMap<XmlElement, NativeDocxFields.Form>()
+        parsed.forEach { (name, root) ->
+            activePart = name; source.current = root
+            NativeDocxFields.normalize(root, ::reject, formFields, { field, original ->
+                provenance[field] = name; source.alias(field, original)
+            }) { source.current = it }
+        }
         val blockBoundaryTextRanges = mutableSetOf<String>()
         parsed.forEach { (name, root) -> activePart = name; blockBoundaryTextRanges += NativeDocxBookmarks(context).normalize(root, { source.current = it }, ::reject) }
+        val staticFields = NativeWordValues(context, propertyValues, parsed["docProps/core.xml"], { node ->
+            source.current = node; activePart = provenance[node] ?: activePart
+        }, ::reject)
+        staticFields.index(parsed.values)
         for (name in listOf("word/fontTable.xml", "word/webSettings.xml")) parsed[name]?.let { root ->
             activePart = name
             source.current = root
@@ -360,6 +370,20 @@ internal class NativeDocxReader(
                     run.value("dirty")?.let { check(it in setOf("0", "1", "true", "false", "on", "off"), "Invalid field state") }
                     val instruction = NativeDocxFields.instruction(run.value("instr") ?: reject("Missing field instruction"), ::reject)
                     children(run, setOf("r"))
+                    if (instruction.kind == "FORMCHECKBOX") {
+                        val form = formFields[run] ?: reject("Checkbox field requires its own form metadata")
+                        run.elements().forEach { children(it, setOf("rPr", "t", "sym")) }
+                        check(link == null && pendingDestinations.isEmpty(), "Navigation on legacy checkboxes is outside this profile")
+                        val face = faceFor(form.properties)
+                        check(!face.underline && !face.strikethrough && !face.superscript && face.rtl != true,
+                            "Decorated or forced complex-script checkbox fields are outside this profile")
+                        return listOf(NativeWordCheckbox.read(form, face.size ?: reject("Missing checkbox font size"), face.bold, face.color, { source.current = it }, ::reject))
+                    }
+                    if (instruction.kind == "SET") {
+                        run.elements().forEach { children(it, setOf("rPr", "t")) }
+                        check(link == null && pendingDestinations.isEmpty(), "Navigation on SET assignments is outside this profile")
+                        return emptyList()
+                    }
                     if (instruction.kind == "TOC") {
                         check(!fields && currentNoteKind == null && link == null && pendingDestinations.isEmpty() && contents == null, "Invalid contents location")
                         check(instruction.directOutlineLevels || body.descendants().none { it.name.namespaceURI == word && it.name.localPart == "p" && it.one("pPr")?.one("outlineLvl") != null },
@@ -387,8 +411,18 @@ internal class NativeDocxReader(
                     val face = faceFor(cached.first().one("rPr"))
                     check(cached.all { faceFor(it.one("rPr")) == face }, "Mixed field-result formatting is not qualified")
                     check(face.rtl != true, "Forced complex-script page fields are not qualified")
-                    val style = textStyle(face)
                     check(link == null, "Nested field hyperlinks are not qualified")
+                    source.current = run
+                    activePart = provenance[run] ?: activePart
+                    val staticValue = staticFields.resolve(instruction)
+                    if (staticValue == "") return emptyList()
+                    val style = textStyle(face)
+                    staticValue?.let { value ->
+                        check(value.codePoints().noneMatch { Character.UnicodeScript.of(it) == Character.UnicodeScript.HEBREW },
+                            "Hebrew static fields are outside the qualified field direction profile")
+                        val navigation = pendingDestinations.takeIf { it.isNotEmpty() }?.let { PdfTextNavigation(destinations = it.toList()) }.also { pendingDestinations.clear() }
+                        return listOf(PdfTextRun(value, style, navigation))
+                    }
                     if (fields) {
                         check(instruction.kind in setOf("PAGE", "NUMPAGES", "SECTIONPAGES"), "Only page counts in page bands are qualified")
                         check(face.copy(languageTag = base.languageTag, rtl = base.rtl) == base, "Page-field cache formatting must match its paragraph style")

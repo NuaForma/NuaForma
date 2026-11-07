@@ -10,11 +10,15 @@ internal object NativeDocxFields {
     private const val W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     data class Instruction(val kind: String, val argument: String? = null, val linked: Boolean = false,
         val restart: Int? = null, val repeat: Boolean = false, val headingReset: Int? = null,
-        val firstLevel: Int = 0, val lastLevel: Int = 2, val directOutlineLevels: Boolean = false)
+        val firstLevel: Int = 0, val lastLevel: Int = 2, val directOutlineLevels: Boolean = false,
+        val literal: String? = null)
+
+    data class Form(val data: XmlElement, val properties: XmlElement?)
 
     fun instruction(text: String, fail: (String) -> Nothing): Instruction {
         if (text.length !in 1..2_048 || text.any { it.isISOControl() && !it.isWhitespace() }) fail("Invalid field instruction")
         val tokens = mutableListOf<String>()
+        val quotations = mutableListOf<Boolean>()
         var index = 0
         while (index < text.length) {
             if (text[index].isWhitespace()) { index++; continue }
@@ -24,17 +28,25 @@ internal object NativeDocxFields {
             while (index < text.length && if (quoted) text[index] != '"' else !text[index].isWhitespace()) index++
             if (quoted && index == text.length) fail("Unclosed field argument")
             tokens += text.substring(start, index)
+            quotations += quoted
             if (quoted) { index++; if (index < text.length && !text[index].isWhitespace()) fail("Invalid field argument separator") }
             if (tokens.size > 32) fail("Excessive field arguments")
         }
         if (tokens.isEmpty()) fail("Empty field instruction")
         val kind = tokens.first().uppercase(Locale.ROOT)
-        if (kind !in setOf("SEQ", "REF", "PAGEREF", "PAGE", "NUMPAGES", "SECTIONPAGES", "TOC")) fail("Unsupported field instruction")
+        if (kind !in setOf("SEQ", "REF", "PAGEREF", "PAGE", "NUMPAGES", "SECTIONPAGES", "TOC", "DOCPROPERTY", "SET", "FORMCHECKBOX")) fail("Unsupported field instruction")
         var cursor = 1
+
         fun next() = tokens.getOrNull(cursor++) ?: fail("Missing field argument")
-        val argument = if (kind in setOf("SEQ", "REF", "PAGEREF")) next().also {
-            if (!it.matches(Regex("[A-Za-z_][A-Za-z0-9_]{0,127}"))) fail("Unsupported field identifier")
+
+        val argument = if (kind in setOf("SEQ", "REF", "PAGEREF", "SET", "DOCPROPERTY")) next().also {
+            if (kind == "DOCPROPERTY") {
+                if (it.isBlank() || it.length > 128 || it.any { char -> char.isISOControl() || char == '\\' }) fail("Unsupported document property name")
+            } else if (!it.matches(Regex("[A-Za-z_][A-Za-z0-9_]{0,127}"))) fail("Unsupported field identifier")
             if (kind == "SEQ" && !it.matches(Regex("[A-Za-z][A-Za-z0-9_]{0,39}"))) fail("Unsupported sequence identifier")
+        } else null
+        val literal = if (kind == "SET") next().also {
+            if (!quotations[cursor - 1] && !it.matches(Regex("[+-]?[0-9]{1,18}")) || it.any { char -> char.isISOControl() }) fail("SET requires a literal text or integer value")
         } else null
         var linked = false; var restart: Int? = null; var repeat = false; var reset: Int? = null
         var first = 0; var last = 2
@@ -44,6 +56,7 @@ internal object NativeDocxFields {
             if (switch == "\\*") {
                 val format = next().uppercase(Locale.ROOT)
                 if (format !in setOf("ARABIC", "MERGEFORMAT") || !seen.add("$switch:$format")) fail("Unsupported or duplicate field formatting")
+                if (kind in setOf("DOCPROPERTY", "SET", "FORMCHECKBOX") && format != "MERGEFORMAT") fail("Unsupported static field formatting")
                 continue
             }
             if (!seen.add(switch)) fail("Duplicate field switch")
@@ -64,17 +77,25 @@ internal object NativeDocxFields {
         }
         if (kind == "TOC" && "\\o" !in seen) fail("Contents require explicit outline levels")
         if (kind == "SEQ" && (repeat && (restart != null || reset != null || "\\n" in seen) || restart != null && reset != null)) fail("Conflicting sequence switches")
-        return Instruction(kind, argument, linked, restart, repeat, reset, first, last, "\\u" in seen)
+        return Instruction(kind, argument, linked, restart, repeat, reset, first, last, "\\u" in seen, literal)
     }
 
     /** Collapse only complete complex fields; a multi-paragraph field must be a standalone TOC. */
-    fun normalize(root: XmlElement, fail: (String) -> Nothing, focus: (XmlElement) -> Unit = {}) {
+    fun normalize(root: XmlElement, fail: (String) -> Nothing,
+        forms: MutableMap<XmlElement, Form> = java.util.IdentityHashMap(),
+        fieldOrigin: (XmlElement, XmlElement) -> Unit = { _, _ -> }, focus: (XmlElement) -> Unit = {}) {
+
         fun value(node: XmlElement, name: String) = node.attribute(W, name)
+
         fun local(node: XmlElement, name: String) = node.name.namespaceURI == W && node.name.localPart == name
+
         fun control(node: XmlElement): XmlElement? = if (local(node, "r")) node.elements().singleOrNull { local(it, "fldChar") } else null
+
         fun validateControl(run: XmlElement, marker: XmlElement): String {
             focus(marker)
-            if (run.elements().any { it !== marker && !local(it, "rPr") } || marker.elements().isNotEmpty() ||
+            if (run.elements().any { it !== marker && !local(it, "rPr") } || run.elements().count { local(it, "rPr") } > 1 ||
+                marker.elements().any { !local(it, "ffData") } || marker.elements().size > 1 ||
+                marker.elements().isNotEmpty() && value(marker, "fldCharType") != "begin" ||
                 marker.attributes.keys.any { it.namespaceURI != W || it.localPart !in setOf("fldCharType", "dirty", "fldLock") } ||
                 value(marker, "fldLock") !in setOf(null, "0", "false", "off")) fail("Unsupported field control")
             value(marker, "dirty")?.let { if (it !in setOf("0", "1", "false", "true", "on", "off")) fail("Invalid field state") }
@@ -95,8 +116,10 @@ internal object NativeDocxFields {
             val at = parent.children.indexOf(node)
             parent.children.removeAt(at); parent.children.addAll(at, content.children)
         }
-        fun simple(code: String, cached: List<XmlElement>): List<XmlElement> {
-            val contents = instruction(code, fail).kind == "TOC"
+        fun simple(code: String, cached: List<XmlElement>, form: Form?, origin: XmlElement): List<XmlElement> {
+            val kind = instruction(code, fail).kind
+            val contents = kind == "TOC"
+            if ((kind == "FORMCHECKBOX") != (form != null)) fail("Checkbox field requires its own form metadata")
             val runs = cached.filter { local(it, "r") }
             val bookmarks = cached.filter { !local(it, "r") }
             if (!contents) for (marker in bookmarks) {
@@ -105,6 +128,8 @@ internal object NativeDocxFields {
                     local(marker, "bookmarkEnd") && cached.drop(at + 1).any { local(it, "r") }) fail("Partial field-result bookmarks are not qualified")
             }
             val field = XmlElement(QName(W, "fldSimple", "w"), linkedMapOf(QName(W, "instr", "w") to code)).also { it.children.addAll(runs) }
+            fieldOrigin(field, origin)
+            if (form != null) forms[field] = form
             return if (contents) listOf(field) else bookmarks.filter { local(it, "bookmarkStart") } + field + bookmarks.filter { local(it, "bookmarkEnd") }
         }
         for (container in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart in setOf("body", "tc", "hdr", "ftr", "txbxContent", "footnote", "endnote") }.toList()) {
@@ -114,6 +139,8 @@ internal object NativeDocxFields {
             val code = StringBuilder()
             val cached = mutableListOf<XmlElement>()
             var multi = false
+            var form: Form? = null
+            var fieldStart: XmlElement? = null
             for (paragraph in container.elements().toList()) {
                 if (!local(paragraph, "p")) { if (depth != 0) fail("Field crosses a structural boundary"); continue }
                 focus(paragraph)
@@ -127,16 +154,21 @@ internal object NativeDocxFields {
                     if (marker != null) {
                         when (validateControl(node, marker)) {
                             "begin" -> {
-                                if (depth == 0) { beginning = paragraph; code.setLength(0); cached.clear(); separated = false; multi = false }
+                                if (depth == 0) {
+                                    beginning = paragraph; code.setLength(0); cached.clear(); separated = false; multi = false
+                                    fieldStart = marker
+                                    form = marker.elements().singleOrNull()?.let { data -> Form(data, node.elements().singleOrNull { local(it, "rPr") }) }
+                                }
                                 else if (!separated || instruction(code.toString(), fail).kind != "TOC") fail("Nested fields are outside this profile")
+                                else if (marker.elements().isNotEmpty()) fail("Nested form metadata is outside this profile")
                                 if (++depth > 16) fail("Excessively nested field cache")
                             }
                             "separate" -> { if (depth == 0 || depth == 1 && separated) fail("Unmatched field separator"); if (depth == 1) separated = true }
                             "end" -> {
-                                if (depth == 0 || depth == 1 && !separated) fail("Unmatched or uncached field end")
+                                if (depth == 0 || depth == 1 && !separated && instruction(code.toString(), fail).kind != "SET") fail("Unmatched or uncached field end")
                                 depth--
                                 if (depth == 0) {
-                                    val field = simple(code.toString(), cached)
+                                    val field = simple(code.toString(), cached, form, requireNotNull(fieldStart))
                                     if (multi) {
                                         if (instruction(code.toString(), fail).kind != "TOC") fail("Only contents fields may span paragraphs")
                                         val start = requireNotNull(beginning)

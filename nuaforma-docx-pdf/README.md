@@ -1,5 +1,7 @@
 # NuaForma DOCX/PDF provider
 
+Source #228 qualifies body-level bookmark boundaries, actual string document properties, literal SET/REF values and passive legacy form checkboxes. See [the field and bookmark profile](../docs/word-fields-and-bookmarks.md); this is not part of published alpha.7.
+
 Source #149 supports bounded inline vector checkboxes through the
 same native reader and shared PDF engine. See the [source feature and contract
 scope](../docs/checkbox-content.md); this is not part of published alpha.7.
@@ -84,7 +86,7 @@ Selected 0.4.0-alpha.2 (#191) adds the optional contract 0.9 template-cleanup fa
 
 ## Passive package properties (0.4.0-alpha.1, #182)
 
-The native reader accepts validated scalar custom document properties in `docProps/custom.xml`, linked by an internal package relationship and the matching content type. Property names and values are metadata, never template instructions or printed text; braces, including unbalanced braces, do not activate the template parser. String, boolean, numeric and timestamp values are qualified; nested values, binary/active constructs, linked properties, duplicate identifiers, malformed relationships and unknown types reject explicitly. This does not add `DOCPROPERTY` field evaluation; unsupported visible fields still reject rather than using potentially stale cached text.
+The native reader accepts validated scalar custom document properties in `docProps/custom.xml`, linked by an internal package relationship and the matching content type. Names and values remain nonprinting metadata unless explicitly referenced by a qualified `DOCPROPERTY` field; braces, including unbalanced braces, never activate the template parser. String, boolean, numeric and timestamp values are qualified as passive metadata; nested values, binary/active constructs, linked properties, duplicate identifiers, malformed relationships and unknown types reject explicitly. Source #228 adds bounded actual string-property evaluation through the [field profile](../docs/word-fields-and-bookmarks.md); unsupported visible fields/types still reject rather than using potentially stale cached text.
 
 The DOCX stage already validates and detaches passive attached-template references without downloading their targets. The PDF reader accepts the resulting empty `word/_rels/settings.xml.rels` when the settings part exists. Nonempty settings relationships remain unsupported. The settings themselves are retained for the existing print-property interpretation; this feature does not discard effective settings or admit unqualified print settings. Unsupported ZIP members identify their bounded package path through the existing diagnostic `part`, including in Playground development diagnostics. Existing limits and external-resource restrictions remain in force. No new request option, public contract or Playground control is required; earlier releases remain unchanged.
 

@@ -6,8 +6,11 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class NativeDocxFieldsTest {
+
     private fun fail(message: String): Nothing = throw IllegalArgumentException(message)
+
     private fun parse(code: String) = NativeDocxFields.instruction(code, ::fail)
+
     private fun normalize(content: String): String {
         val xml = ConversionXml(GenerationContext())
         val root = xml.read(("<w:body xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\">$content</w:body>").toByteArray())
@@ -15,6 +18,7 @@ class NativeDocxFieldsTest {
         return xml.write(root).decodeToString()
     }
     private fun control(value: String) = "<w:r><w:fldChar w:fldCharType=\"$value\"/></w:r>"
+
     private fun instruction(code: String) = "<w:r><w:instrText>$code</w:instrText></w:r>"
 
     @Test fun `field grammar keeps only explicit decimal and linked reference policies`() {
@@ -28,6 +32,34 @@ class NativeDocxFieldsTest {
         val contents = parse("TOC \\o \"2-4\" \\h \\u \\z")
         assertEquals(1, contents.firstLevel); assertEquals(3, contents.lastLevel)
         assertFalse(parse("PAGE \\* ARABIC").linked)
+    }
+
+    @Test
+    fun `nonprinting literal SET fields do not require a result separator or cached sample`() {
+        val content = "<w:p>${control("begin")}${instruction("SET Choice &quot;M&quot;")}${control("end")}</w:p>"
+        val result = normalize(content)
+        assertTrue(result.contains("fldSimple") && result.contains("SET Choice"))
+        assertFalse(result.contains("fldChar"))
+        assertThrows(IllegalArgumentException::class.java) { normalize(content.replace("SET Choice &quot;M&quot;", "DOCPROPERTY Title")) }
+    }
+
+    @Test
+    fun `complex checkbox metadata remains associated with its field and cannot hide in other controls`() {
+        val xml = ConversionXml(GenerationContext())
+        val form = "<w:ffData><w:checkBox><w:sizeAuto/><w:default w:val=\"0\"/></w:checkBox></w:ffData>"
+        val begin = "<w:r><w:rPr><w:b/></w:rPr><w:fldChar w:fldCharType=\"begin\">$form</w:fldChar></w:r>"
+        val content = "<w:p>$begin${instruction("FORMCHECKBOX")}${control("separate")}<w:r><w:t>stale</w:t></w:r>${control("end")}</w:p>"
+        val root = xml.read("""<w:body xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">$content</w:body>""".toByteArray())
+        val forms = java.util.IdentityHashMap<dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement, NativeDocxFields.Form>()
+        NativeDocxFields.normalize(root, ::fail, forms)
+        val field = root.elements().single().elements().single()
+        assertSame(forms.keys.single(), field)
+        assertEquals("ffData", forms.getValue(field).data.name.localPart)
+        assertEquals("b", forms.getValue(field).properties!!.elements().single().name.localPart)
+        assertThrows(IllegalArgumentException::class.java) { normalize(content.replace("FORMCHECKBOX", "PAGE")) }
+        assertThrows(IllegalArgumentException::class.java) { normalize(content.replace(form, "")) }
+        assertThrows(IllegalArgumentException::class.java) { normalize(content.replace("w:fldCharType=\"begin\"", "w:fldCharType=\"separate\"")) }
+        assertThrows(IllegalArgumentException::class.java) { normalize(content.replace("<w:rPr><w:b/></w:rPr>", "<w:rPr><w:b/></w:rPr><w:rPr/>")) }
     }
 
     @Test fun `malformed unknown excessive and contradictory field instructions reject`() {
