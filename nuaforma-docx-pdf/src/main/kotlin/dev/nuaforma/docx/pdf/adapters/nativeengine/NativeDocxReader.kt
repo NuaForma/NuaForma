@@ -278,8 +278,14 @@ internal class NativeDocxReader(
 
         check(defaultParagraph?.one("numPr") == null, "Numbering in document defaults is outside the proof")
         check(("word/numbering.xml" in parts) == relations.values.contains("numbering.xml"), "Numbering relationship/part mismatch")
-        val numbering = NativeDocxNumbering(parts["word/numbering.xml"]?.let { parse(it, "word/numbering.xml") }, body) { paragraph ->
-            chain(paragraph.one("pPr")?.one("pStyle")?.value("val") ?: normal, "paragraph")
+        val numbering = try {
+            NativeDocxNumbering(parts["word/numbering.xml"]?.let { parse(it, "word/numbering.xml") }, body, focus = { node ->
+                context.checkActive(); source.current = node; activePart = provenance[node] ?: activePart
+            }) { paragraph -> chain(paragraph.one("pPr")?.one("pStyle")?.value("val") ?: normal, "paragraph") }
+        } catch (error: NativeDocxReadException) {
+            throw error
+        } catch (error: IllegalArgumentException) {
+            reject("Unsupported Word numbering: ${error.message ?: "invalid numbering definition"}")
         }
         noteProperties(ranges.first().first)
         val noteRoots = PdfNoteKind.entries.mapNotNull { kind ->
