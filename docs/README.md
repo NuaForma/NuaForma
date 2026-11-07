@@ -21,6 +21,7 @@ Choose a guide for the task you want to complete. Module guides are the technica
 
 - [Word notes](../tools/pdf-evaluation/own-engine/NOTES.md): qualified footnotes/endnotes, bounded Chicago symbols and automatic separator spacing (source #230).
 - [Lists and minimum line spacing](native-list-spacing-compatibility.md): source-ordered table lists, deeper starts, bounded overrides, `atLeast` and one-section note restart preferences (source #231).
+- [Word typography preferences](word-typography-preferences.md): trailing-space underlines, inherited punctuation/hyphenation guards, editor metadata and bounded standard-contextual ligatures (source #232).
 
 ## Deploy and operate
 

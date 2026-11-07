@@ -66,6 +66,14 @@ internal object WordAuthoringMetadata {
                 }
                 "styles" -> node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart == "latentStyles" }
                 "style" -> {
+                    val updates = node.elements().filter { it.name.namespaceURI == W && it.name.localPart == "autoRedefine" }
+                    for (update in updates) {
+                        current = update
+                        if (updates.size != 1 || update.attributes.keys.any { it.namespaceURI != W || it.localPart != "val" } ||
+                            update.value("val") !in setOf(null, "0", "1", "true", "false", "on", "off") ||
+                            update.elements().isNotEmpty() || update.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject()
+                        node.children.remove(update)
+                    }
                     styleRevision(node) { child -> current = child; reject() }
                     for (name in listOf("link", "next")) {
                         val metadata = node.elements().filter { it.name.namespaceURI == W && it.name.localPart == name }

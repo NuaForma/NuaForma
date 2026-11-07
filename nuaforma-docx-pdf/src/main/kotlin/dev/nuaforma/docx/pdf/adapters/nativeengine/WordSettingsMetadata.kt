@@ -7,7 +7,8 @@ import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
 /** Editing metadata and compatibility switches whose dependent constructs remain separately qualified. */
 internal class WordSettingsMetadata(private val context: GenerationContext) {
     data class Formatting(val additiveParagraphSpacing: Boolean = false, val flipLegacyMirrorIndents: Boolean = false,
-        val overrideNormalTableStyle: Boolean = false, val openTypeFeatures: Boolean = false)
+        val overrideNormalTableStyle: Boolean = false, val openTypeFeatures: Boolean = false,
+        val automaticHyphenation: Boolean = false, val underlineTrailingSpaces: Boolean? = null)
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private val word15 = "http://schemas.microsoft.com/office/word/2012/wordml"
     private val part = "word/settings.xml"
@@ -35,6 +36,8 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
         val headerDefaults = settings.elements().filter { it.name.namespaceURI == word && it.name.localPart == "hdrShapeDefaults" }
         if (headerDefaults.size > 1) throw failure(part, headerDefaults[1])
         val editorNames = mutableSetOf<String>()
+        val writingStyles = mutableSetOf<Pair<String, String>>()
+        val complexText = WordAuthoringMetadata.containsComplexText(parts.values)
         for (child in settings.elements()) {
             context.checkActive()
 
@@ -59,6 +62,27 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
                 toggle(child, word15) { throw failure(part, child) }
                 settings.children.remove(child)
             } else if (child.name.namespaceURI == word) when (child.name.localPart) {
+                "activeWritingStyle" -> {
+                    leaf(child, setOf("lang", "vendorID", "dllVersion", "nlCheck", "checkStyle", "appName")) { throw failure(part, child) }
+                    valid(child.attributes.values.all { it.isNotBlank() && it.length <= 255 && it.none(Char::isISOControl) })
+                    val language = child.attribute(word, "lang")
+                    valid(language != null && language.matches(Regex("[A-Za-z0-9_-]{1,85}")))
+                    val application = child.attribute(word, "appName") ?: ""
+                    valid(writingStyles.size < 64 && writingStyles.add(language!! to application))
+                    for (name in listOf("nlCheck", "checkStyle")) child.attribute(word, name)?.let { boolean(it) { throw failure(part, child) } }
+                    settings.children.remove(child)
+                }
+                "autoHyphenation" -> {
+                    valid(editorNames.add(child.name.localPart))
+                    toggle(child, word) { throw failure(part, child) }
+                    formatting = formatting.copy(automaticHyphenation = boolean(child.attribute(word, "val")) { throw failure(part, child) })
+                    settings.children.remove(child)
+                }
+                "doNotHyphenateCaps" -> {
+                    valid(editorNames.add(child.name.localPart))
+                    toggle(child, word) { throw failure(part, child) }
+                    settings.children.remove(child)
+                }
                 "embedSystemFonts", "doNotIncludeSubdocsInStats", "noPunctuationKerning" -> {
                     toggle(child, word) { throw failure(part, child) }
                     settings.children.remove(child)
@@ -81,7 +105,10 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
                     WordShapeIdentifiers(context).validate(child) { throw failure(part, child) }
                     settings.children.remove(child)
                 }
-                "compat" -> formatting = compatibility(child) { failure(part, it) }
+                "compat" -> {
+                    val resolved = compatibility(child, complexText) { failure(part, it) }
+                    formatting = resolved.copy(automaticHyphenation = formatting.automaticHyphenation)
+                }
             }
         }
         return formatting
@@ -99,19 +126,27 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
         }
     }
 
-    private fun compatibility(root: XmlElement, failure: (XmlElement) -> NativeDocxReadException): Formatting {
+    private fun compatibility(root: XmlElement, complexText: Boolean, failure: (XmlElement) -> NativeDocxReadException): Formatting {
         val names = mutableSetOf<String>()
         var additive = false
         var flipMirror = false
         var overrideNormal = false
         var openType = false
+        var trailingSpaces: Boolean? = null
         for (setting in root.elements()) {
             context.checkActive()
 
             fun reject(): Nothing = throw failure(setting)
 
             if (setting.name.namespaceURI != word) continue
-            if (setting.name.localPart == "doNotUseHTMLParagraphAutoSpacing") {
+            if (setting.name.localPart in setOf("ulTrailSpace", "useFELayout")) {
+                if (!names.add(setting.name.localPart)) reject()
+                toggle(setting, word, ::reject)
+                val enabled = boolean(setting.attribute(word, "val"), ::reject)
+                if (setting.name.localPart == "useFELayout" && enabled && complexText) reject()
+                if (setting.name.localPart == "ulTrailSpace") trailingSpaces = enabled
+                root.children.remove(setting)
+            } else if (setting.name.localPart == "doNotUseHTMLParagraphAutoSpacing") {
                 if (!names.add(setting.name.localPart)) reject()
                 toggle(setting, word, ::reject)
                 additive = boolean(setting.attribute(word, "val"), ::reject)
@@ -124,7 +159,7 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
                 root.children.remove(setting)
             }
         }
-        return Formatting(additive, flipMirror, overrideNormal, openType)
+        return Formatting(additive, flipMirror, overrideNormal, openType, underlineTrailingSpaces = trailingSpaces)
     }
 
     private fun namedCompatibility(setting: XmlElement, names: MutableSet<String>, reject: () -> Nothing) {

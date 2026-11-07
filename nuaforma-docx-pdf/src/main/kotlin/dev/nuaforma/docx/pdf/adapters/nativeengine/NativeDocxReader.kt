@@ -54,6 +54,9 @@ internal class NativeDocxReader(
         val propertyValues = WordPackageMetadata(context).removeFromPrintModel(parsed)
         val bibliography = WordBibliographyMetadata(context).removeFromPrintModel(parsed)
         bibliography.forEach { parsed.remove(it) }
+        val automaticHyphenationSource = parsed["word/settings.xml"]?.elements()?.firstOrNull {
+            it.name.namespaceURI == word && it.name.localPart == "autoHyphenation"
+        }
         val formatting = WordSettingsMetadata(context).normalize(parsed) { name, node ->
             source.current = node
             source.failure("Unsupported Word document settings", name)
@@ -344,6 +347,17 @@ internal class NativeDocxReader(
                 geometry = geometry.copy(before = if (same(previous)) 0f else geometry.before, after = if (same(next)) 0f else geometry.after)
             }
             check(listEntry != null || geometry.listTab == null, "List tab without numbering")
+            if (geometry.overflowPunctuation == true) {
+                val property = paragraphChain.mapNotNull { it.one("overflowPunct") }.last()
+                source.current = property
+                activePart = provenance[property] ?: activePart
+                reject("Active punctuation overflow is not yet qualified")
+            }
+            if (formatting.automaticHyphenation && !geometry.suppressAutoHyphens) {
+                source.current = requireNotNull(automaticHyphenationSource)
+                activePart = "word/settings.xml"
+                reject("Active automatic hyphenation is not yet qualified")
+            }
             val tableSize = tableStyles.any { it.one("rPr")?.one("sz") != null }
             val base = (tableStyles + styleChain).fold(resolveRun(defaultRun, Face(openType = modernTableAlignment || formatting.openTypeFeatures))) { result, style ->
                 val resolved = resolveRun(style.one("rPr"), result)
@@ -580,6 +594,7 @@ internal class NativeDocxReader(
                 .withSpacing(PdfParagraphSpacing(automaticBefore, modernTableAlignment, automaticAfter))
                 .withPageOffset(pageOffset)
                 .withMinimumLineHeight(geometry.minimum)
+                .withUnderlineTrailingSpaces(formatting.underlineTrailingSpaces)
                 .withMinimumLineStyle(markStyle ?: if (geometry.automatic != null &&
                     (content.singleOrNull() is PdfImageRun || content.singleOrNull() is PdfVectorRun)) textStyle(base) else null)
         }
@@ -1076,8 +1091,8 @@ internal class NativeDocxReader(
             check(feature.elements().isEmpty() && feature.children.filterIsInstance<XmlText>().all { it.text.isBlank() } &&
                 feature.attributes.keys.all { it.namespaceURI == word14 && it.localPart == "val" }, "Invalid OpenType ligature setting")
             val value = feature.attribute(word14, "val")
-            check(value in setOf("none", "standard"), "Only standard OpenType ligatures are qualified")
-            result = result.copy(standardLigatures = value == "standard")
+            check(value in setOf("none", "standard", "standardContextual"), "Only standard and standard-contextual OpenType ligatures are qualified")
+            result = result.copy(standardLigatures = value != "none")
         }
         property.one("vertAlign")?.let {
             attributes(it, setOf("val")); children(it, emptySet())
@@ -1142,13 +1157,14 @@ internal class NativeDocxReader(
 
     private data class Geometry(val before: Float = 0f, val after: Float = 0f, val line: Float? = null,
         val minimum: Float? = null,
+        val overflowPunctuation: Boolean? = null, val suppressAutoHyphens: Boolean = false,
         val autoBefore: Boolean = false, val autoAfter: Boolean = false,
         val mirror: Boolean = false,
         val alignment: PdfAlignment = PdfAlignment.LEFT, val left: Float = 0f, val right: Float = 0f, val first: Float = 0f,
         val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false, val direction: PdfTextDirection? = null, val borders: PdfParagraphBorders? = null)
 
     private fun paragraphProperties(property: XmlElement, initial: Geometry): Geometry {
-        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "rPr", "mirrorIndents", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr"))
+        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "rPr", "mirrorIndents", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr", "overflowPunct", "suppressAutoHyphens"))
         var result = initial
         property.one("pBdr")?.let { result = result.copy(borders = lineReader.borders(it, result.borders)) }
 
@@ -1158,6 +1174,12 @@ internal class NativeDocxReader(
         }
 
         property.one("bidi")?.let { check(it.elements().isEmpty(), "Invalid paragraph direction"); result = result.copy(direction = if (flag(it)) PdfTextDirection.RIGHT_TO_LEFT else PdfTextDirection.LEFT_TO_RIGHT) }
+        for (name in listOf("overflowPunct", "suppressAutoHyphens")) property.one(name)?.let {
+            children(it, emptySet())
+            check(it.children.filterIsInstance<XmlText>().all { text -> text.text.isBlank() }, "Invalid paragraph line-breaking preference")
+            val enabled = flag(it)
+            result = if (name == "overflowPunct") result.copy(overflowPunctuation = enabled) else result.copy(suppressAutoHyphens = enabled)
+        }
         property.one("outlineLvl")?.let { attributes(it, setOf("val")); val level = number(it.value("val")).toInt(); check(level in 0..8, "Unsupported outline level"); result = result.copy(outline = level) }
         property.one("tabs")?.let { tabs ->
             children(tabs, setOf("tab"))

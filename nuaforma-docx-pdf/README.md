@@ -1,5 +1,7 @@
 # NuaForma DOCX/PDF provider
 
+Source #232 qualifies [Word typography preferences](../docs/word-typography-preferences.md): trailing-space underlining, effective punctuation containment and hyphenation suppression, simple-script Far East preferences, style/grammar editor metadata and bounded standard-contextual ligatures. Active unqualified layout remains an explicit error. The Playground uses the same provider and preserves qualified constructs during cleanup. This is unreleased source behavior.
+
 Source #230 qualifies validated style-pane sort preferences, next-paragraph style metadata and bounded Chicago note numbering with ordinary automatic separator spacing. See the [editor preferences](../docs/word-editor-settings.md#style-editing-preferences-source-230) and [note profile](../tools/pdf-evaluation/own-engine/NOTES.md#chicago-numbering-and-automatic-separators-source-230). This is unreleased source behavior; existing paragraph styles and strict unsupported-feature failures remain.
 
 Source #231 adds [qualified table lists, deeper numeric starts, bounded level overrides, minimum line spacing and one-section note restart preferences](../docs/native-list-spacing-compatibility.md). The public PDF paragraph API gains an optional immutable line-height floor without changing existing constructor/copy descriptors. The Playground uses the same provider and retains these constructs during cleanup; no UI, transport or publication change is included.

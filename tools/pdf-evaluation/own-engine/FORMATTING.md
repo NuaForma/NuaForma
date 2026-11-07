@@ -29,7 +29,9 @@ source changes.
 - `w:kern` uses the final effective font size and its half-point threshold; zero
   disables kerning. Modern/OpenType-enabled text uses the supplied font's OpenType
   positioning. Legacy disabled OpenType uses classic `kern` pairs. Only explicit
-  `w14:ligatures` values `none` and `standard` are qualified. Equal adjacent runs
+  `w14:ligatures` values `none` and `standard` are qualified in this increment.
+  Source [#232](../../../docs/word-typography-preferences.md) also qualifies the bounded
+  `standardContextual` preference. Equal adjacent runs
   shape together, including ligatures split by passive Word run boundaries.
   Broader contextual scripts, alternate glyph sets and discretionary/historical
   ligatures remain outside this increment.
