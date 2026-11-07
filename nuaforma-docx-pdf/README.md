@@ -1,5 +1,7 @@
 # NuaForma DOCX/PDF provider
 
+Source #230 qualifies validated style-pane sort preferences, next-paragraph style metadata and bounded Chicago note numbering with ordinary automatic separator spacing. See the [editor preferences](../docs/word-editor-settings.md#style-editing-preferences-source-230) and [note profile](../tools/pdf-evaluation/own-engine/NOTES.md#chicago-numbering-and-automatic-separators-source-230). This is unreleased source behavior; existing paragraph styles and strict unsupported-feature failures remain.
+
 Source #229 additionally qualifies bounded multi-paragraph DOCPROPERTY values and passive save-time privacy/drawing-grid preferences. See the [field profile](../docs/word-fields-and-bookmarks.md#multi-paragraph-properties-source-229) and [editor-setting profile](../docs/word-editor-settings.md#save-time-privacy-and-drawing-grid-preferences-source-229). This is unreleased source behavior.
 
 Source #228 qualifies body-level bookmark boundaries, actual string document properties, literal SET/REF values and passive legacy form checkboxes. See [the field and bookmark profile](../docs/word-fields-and-bookmarks.md); this is not part of published alpha.7.

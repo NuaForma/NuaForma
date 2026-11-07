@@ -10,7 +10,7 @@ internal class NativeDocxNotes(
     private val fail: (String) -> Nothing,
     focus: (XmlElement) -> Unit = {},
 ) {
-    data class Numbering(val start: Int, val format: PdfNumberFormat, val specialIds: Set<String> = emptySet())
+    data class Numbering(val start: Int, val format: PdfNumberFormat, val specialIds: Set<String> = emptySet(), val chicago: Boolean = false)
     private data class Definition(val node: XmlElement, val kind: PdfNoteKind, val id: String)
     private data class Used(val definition: Definition, val value: PdfListValue)
     private val definitions = linkedMapOf<String, Definition>()
@@ -64,7 +64,10 @@ internal class NativeDocxNotes(
         val ordinal = policy.start + (counts[kind] ?: 0)
         if (ordinal !in 1..9_999) fail("Note numbering exceeds the qualified range")
         val instance = kindName(kind)
-        val value = PdfNumbering.resolve(listOf(PdfListDefinition(instance, listOf(PdfListLevel(policy.format, "%1", ordinal)))), listOf(PdfListStep(instance, 0))).single()
+        val value = if (policy.chicago) {
+            if (ordinal > 128) fail("Chicago note labels exceed the qualified length")
+            PdfListValue(instance, 0, ordinal, listOf("*", "\u2020", "\u2021", "\u00a7")[(ordinal - 1) % 4].repeat((ordinal - 1) / 4 + 1))
+        } else PdfNumbering.resolve(listOf(PdfListDefinition(instance, listOf(PdfListLevel(policy.format, "%1", ordinal)))), listOf(PdfListStep(instance, 0))).single()
         counts[kind] = (counts[kind] ?: 0) + 1
         used[id] = Used(definition, value)
         return PdfNoteCall("$id-call", id, style, navigation)
@@ -76,12 +79,16 @@ internal class NativeDocxNotes(
 
     companion object {
         private const val W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
         fun kindName(kind: PdfNoteKind) = if (kind == PdfNoteKind.FOOTNOTE) "footnote" else "endnote"
+
         private fun id(kind: PdfNoteKind, raw: String) = "source-${kindName(kind)}$raw"
+
         private fun sourceId(raw: String?, fail: (String) -> Nothing): String {
             if (raw == null || !raw.matches(Regex("-?[0-9]{1,9}"))) fail("Invalid note ID")
             return raw.toInt().toString()
         }
+
         fun defaults(): Map<PdfNoteKind, Numbering> = mapOf(
             PdfNoteKind.FOOTNOTE to Numbering(1, PdfNumberFormat.DECIMAL), PdfNoteKind.ENDNOTE to Numbering(1, PdfNumberFormat.LOWER_ROMAN))
 
@@ -106,7 +113,8 @@ internal class NativeDocxNotes(
                     "pos" -> if (value != if (kind == PdfNoteKind.FOOTNOTE) "pageBottom" else "docEnd") fail("Unsupported note placement")
                     "numStart" -> result = result.copy(start = value?.toIntOrNull()?.takeIf { it in 1..9_999 } ?: fail("Invalid note numbering start"))
                     "numRestart" -> if (value != "continuous") fail("Note numbering restarts are not yet qualified")
-                    "numFmt" -> result = result.copy(format = when (value) {
+                    "numFmt" -> result = result.copy(chicago = value == "chicago", format = when (value) {
+                        "chicago" -> PdfNumberFormat.DECIMAL
                         "decimal" -> PdfNumberFormat.DECIMAL; "lowerRoman" -> PdfNumberFormat.LOWER_ROMAN; "upperRoman" -> PdfNumberFormat.UPPER_ROMAN
                         "lowerLetter" -> PdfNumberFormat.LOWER_LETTER; "upperLetter" -> PdfNumberFormat.UPPER_LETTER
                         else -> fail("Unsupported note number format")
@@ -123,10 +131,18 @@ internal class NativeDocxNotes(
                 fail("Unsupported note separator contents")
             if (node.descendants().count { it.name.localPart == type } != 1) fail("Missing or duplicate note separator control")
             if (node.elements().size != 1 || node.elements().single().name.localPart != "p") fail("Unsupported note separator paragraphs")
+            val paragraph = node.elements().single()
+            val properties = paragraph.elements().filter { it.name.localPart == "pPr" }
+            val runs = paragraph.elements().filter { it.name.localPart == "r" }
+            if (properties.size > 1 || properties.any { it.elements().size > 1 || it.elements().any { child -> child.name.localPart != "spacing" || child.elements().isNotEmpty() } } ||
+                runs.size != 1 || runs.single().elements().size != 1 || runs.single().elements().single().name.localPart != type ||
+                runs.single().elements().single().elements().isNotEmpty() || paragraph.elements().any { it.name.localPart !in setOf("pPr", "r") }) fail("Unsupported note separator structure")
             if (node.descendants().any { it !== node && it.name.localPart != "spacing" && it.attributes.isNotEmpty() }) fail("Unsupported note separator attributes")
             node.descendants().filter { it.name.localPart == "spacing" }.forEach { spacing ->
                 val expected = mapOf("before" to "0", "after" to "0", "line" to "240", "lineRule" to "exact")
-                if (spacing.attributes.any { (key, value) -> key.namespaceURI != W || expected[key.localPart] != value }) fail("Unqualified note separator spacing")
+                if (spacing.attributes.any { (key, value) -> key.namespaceURI != W ||
+                        if (key.localPart == "lineRule") value !in setOf("exact", "auto") else expected[key.localPart] != value } ||
+                    spacing.attribute(W, "lineRule") == "auto" && spacing.attribute(W, "line") != "240") fail("Unqualified note separator spacing")
             }
         }
     }

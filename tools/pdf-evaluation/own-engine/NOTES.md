@@ -12,7 +12,7 @@ Footnote pagination reserves a page-bottom area transactionally before accepting
 
 ## Qualified bounded source scope
 
-- Ordinary DOCX footnote/endnote parts and relationships, independently numbered continuous decimal, Roman or alphabetic labels, explicit starts and source IDs independent of display numbers.
+- Ordinary DOCX footnote/endnote parts and relationships, independently numbered continuous decimal, Roman or alphabetic labels (and the bounded source #230 Chicago profile below), explicit starts and source IDs independent of display numbers.
 - Page-bottom footnotes and document-end endnotes in one paginated section. Inert source bookmarks/links retain the existing resource policy; note calls in page bands, frames or notes reject explicitly.
 - Paragraph text, inherited character/paragraph formatting, raised markers, explicit paragraph spacing, hanging indents, keeps/widows and qualified automatic line spacing. Notes cannot contain images, tables, nested notes, executable/general fields or a generated contents list.
 - Atomic table rows with owning calls and repeated headers reuse existing table geometry; owning calls in repeated headers and row fragmentation with notes reject. Nested/vertically spanning tables with notes require a complete current-page placement. General wrapped-image/frame interaction with notes is outside this increment.
@@ -34,3 +34,13 @@ Engine-only goldens add `document-notes` (one page) and `continued-footnote` (th
 ## Impact
 
 The existing DOCX/PDF provider gains the qualified note profile; there is no transport, configuration, dependency, output-profile or website change. The Playground uses the same public provider automatically; no new UI is required. Release artifacts remain unchanged until separately authorized. PDF/A-1a/2a/3a and PDF/UA qualification remain roadmap part 15b.
+
+## Chicago numbering and automatic separators (source #230)
+
+This source increment follows published 0.4.0-alpha.7. DOCX `chicago` note numbering uses Word's observed four-symbol cycle: `*`, `†`, `‡`, `§`, followed by doubled, tripled and further repeated symbols. Each note kind owns its counter, source IDs are not ordinals, and section overrides retain the existing continuous-numbering restrictions. Explicit starts remain supported. Actual emitted Chicago ordinals are limited to 1–128 so each label fits the existing 32-character neutral-note budget. A decimal override disables Chicago rather than leaking the previous format. Symbols use the caller's qualified font; no proprietary symbol font or fallback is introduced.
+
+The reader additionally qualifies separator paragraphs with `line="240" lineRule="auto"` and absent or zero before/after spacing. Own synthetic Word exports show the same geometry as the previously qualified exact 12-point separator, including a larger default-font control. Other line heights, nonzero paragraph spacing, custom separator content, malformed hierarchy and visible continuation notices remain explicit failures. Initial and continuation separators keep the existing shared geometry; this does not claim arbitrary custom separator support.
+
+Tests cover three symbol cycles, both note kinds, start/length bounds, independent style selection, exact/automatic pixel parity, malformed inputs, A4/Letter output profiles, cleanup retention and long-note text preservation. Actual Word export evidence is kept locally; original corpus documents and existing golden files are unchanged. Public models, dependencies, transport, runtime and Playground UI are unchanged. The Playground automatically uses the same qualified reader for conversion and cleanup.
+
+Two exact-source A4/Letter HTTP controls with twelve Chicago footnotes over two pages were exported through Microsoft Word and reviewed page by page. All four page pairs retain identical normalized text; maximum measured line-baseline difference is 0.14 points and word-start difference is 0.24 points. Ordinary stroke/glyph rasterization differences remain visible in overlays. Three independent Word-only exact/automatic separator controls (ordinary text, larger default type and repeated symbols) have zero changed pixels at 144 DPI. These controls do not replace the existing long-note pagination limitation.

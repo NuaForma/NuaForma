@@ -11,13 +11,15 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [Checkbox content](checkbox-content.md): boolean expressions and font-independent inline vector marks (source #149; not yet published).
 - [PDF output](../nuaforma-docx-pdf/README.md): standard/PDF-A profiles, font requirements, isolation and fidelity limits.
 - [Native JPEG pictures and label metadata (source #226)](native-picture-compatibility.md): bounded image decoding, package validation and Playground impact.
-- [Word editor/web settings](word-editor-settings.md): qualified shape identifiers, HTML-export preferences and passive privacy/drawing-grid settings that preserve print layout (source #227 / #229).
+- [Word editor/web settings](word-editor-settings.md): qualified shape identifiers, HTML-export preferences and passive privacy/drawing-grid settings that preserve print layout (source #227 / #229 / #230).
 - [Word fields and bookmarks](word-fields-and-bookmarks.md): actual single/multi-paragraph string properties, literal assignments, legacy checkboxes and block-level bookmark boundaries (source #228 / #229).
 - [REST API](../nuaforma-server/README.md): multipart requests/resources, capabilities, assessment, errors and downloadable OpenAPI JSON/YAML.
 - [Embedded Java/Kotlin examples](../examples/embedded/README.md): consume library artifacts without running a server.
 - [Development Playground](../nuaforma-playground/README.md): prepare/export requests, select/upload fonts and generate documents through the same API; distributed as a separate development-only container.
 - [Playground template cleanup](template-cleanup.md): remove unsupported constructs from a copied template without evaluating markers; caller-owned visual review (source #191).
 - [Marked template diagnostic PDF](template-diagnostic-pdf.md): development-only parser error navigation, available since 0.3.0-alpha.4.
+
+- [Word notes](../tools/pdf-evaluation/own-engine/NOTES.md): qualified footnotes/endnotes, bounded Chicago symbols and automatic separator spacing (source #230).
 
 ## Deploy and operate
 
