@@ -116,7 +116,8 @@ internal class NativeTemplateCleanup(private val context: GenerationContext) {
 
     private fun repair(pkg: CleanupPackage, error: NativeDocxReadException): Boolean {
         val reason = error.sourceContext.explanation
-        if ((reason == "Unsupported package part" || error.part.endsWith(".emf", true) && reason.startsWith("EMF:")) && error.part in pkg.parts) {
+        val malformedJpeg = error.part.matches(Regex("word/media/[A-Za-z0-9_.-]+\\.(?i:jpe?g)")) && reason.startsWith("Unsupported or malformed JPEG image")
+        if ((reason == "Unsupported package part" || error.part.endsWith(".emf", true) && reason.startsWith("EMF:") || malformedJpeg) && error.part in pkg.parts) {
             pkg.remove(error.part, reason)
             return true
         }

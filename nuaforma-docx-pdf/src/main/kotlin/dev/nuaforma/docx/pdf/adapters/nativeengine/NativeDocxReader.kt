@@ -26,6 +26,7 @@ internal class NativeDocxReader(
     private var activePart = "package"
     private val source = NativeDocxSource(context)
     private val parsed = linkedMapOf<String, XmlElement>()
+    private val jpegs = NativeJpegImages(context)
     private var metafiles = dev.nuaforma.docx.pdf.adapters.nativeengine.emf.NativeEmfImages(context, null, false)
     private val lineReader = NativeDocxLines({ node -> source.current = node; activePart = provenance[node] ?: activePart }, ::reject)
     private val vectorReader = NativeDocxVectors({ node -> source.current = node; activePart = provenance[node] ?: activePart }, ::reject)
@@ -167,7 +168,7 @@ internal class NativeDocxReader(
                 PdfLink.External(target)
                 return@associate id to target
             }
-            check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.(?i:png|emf)|styles\\.xml|numbering\\.xml|settings\\.xml|footnotes\\.xml|endnotes\\.xml|fontTable\\.xml|webSettings\\.xml|theme/theme1\\.xml|(?:header|footer)[1-9][0-9]?\\.xml)")), "Unsupported relationship target")
+            check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g)|styles\\.xml|numbering\\.xml|settings\\.xml|footnotes\\.xml|endnotes\\.xml|fontTable\\.xml|webSettings\\.xml|theme/theme1\\.xml|(?:header|footer)[1-9][0-9]?\\.xml)")), "Unsupported relationship target")
             val type = element.attribute("", "Type")
             check(type == "$rel/image" && target.startsWith("media/") || type == "$rel/styles" && target == "styles.xml" || type == "$rel/numbering" && target == "numbering.xml" || type == "$rel/settings" && target == "settings.xml" ||
                 type == "$rel/footnotes" && target == "footnotes.xml" || type == "$rel/endnotes" && target == "endnotes.xml" ||
@@ -1237,7 +1238,7 @@ internal class NativeDocxReader(
         catch (error: dev.nuaforma.docx.pdf.adapters.nativeengine.emf.EmfFailure) {
             throw NativeDocxReadException(error.message ?: "Unsupported EMF image", "word/$target",
                 dev.nuaforma.contracts.DocumentSourceContext((error.message ?: "Unsupported EMF image").take(256), null, "emf", ""))
-        } else original
+        } else if (target.endsWith(".jpg", true) || target.endsWith(".jpeg", true)) jpegs.decode(original, "word/$target") else original
         return PdfImage(pixels, width, height, PdfImageCrop(fraction("t"), fraction("r"), fraction("b"), fraction("l")))
     }
 
@@ -1261,7 +1262,7 @@ internal class NativeDocxReader(
                     budget(parts.size < minOf(64, context.limits.maxArchiveEntries))
                     check(entry.name !in parts && !entry.isDirectory, "Invalid or duplicate ZIP entries")
                     activePart = entry.name.take(256)
-                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docMetadata/LabelInfo\\.xml|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|numbering|settings|footnotes|endnotes|fontTable|webSettings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|_rels/(?:document|settings|footnotes|endnotes|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|media/[A-Za-z0-9_.-]+\\.(?i:png|emf))|customXml/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
+                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docMetadata/LabelInfo\\.xml|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|numbering|settings|footnotes|endnotes|fontTable|webSettings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|_rels/(?:document|settings|footnotes|endnotes|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g))|customXml/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(8192)
                     while (true) {

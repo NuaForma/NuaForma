@@ -60,3 +60,7 @@ A bounded header description without its expected final UTF-16 zero is unused me
 ## EMF solid/null pens (unreleased #223)
 
 Otherwise supported logos retain unused extended-pen metadata and valid null pens. Actual unsupported brush styles and bitmap data are separate explicit failures: the report identifies BrushStyle (including its recognized name), cbBmi or cbBits with the EMF record number and byte offset. Active patterns are not silently replaced by a solid line. The same source reader serves normal PDF generation and development cleanup; production redaction and controls are unchanged. See [qualified pen metadata and remaining limits](word-picture-metadata.md#solid-and-null-pen-metadata-unreleased-223).
+
+## JPEG and label metadata (source #226)
+
+Supported embedded JPEG pictures and validated `LabelInfo.xml` metadata remain in templates instead of being removed solely for their package type. The reader normalizes these only in its internal PDF print model; visible markings and unsupported policy/drawing behavior retain their ordinary checks. No new permissive option is introduced. See [format and security boundaries](native-picture-compatibility.md). This source behavior is not part of published alpha.7.

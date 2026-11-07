@@ -10,6 +10,7 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [Rich text](rich-text.md): explicit bounded RTF insertion, independent boundary trims, inline placement and font policies (selected for alpha.5).
 - [Checkbox content](checkbox-content.md): boolean expressions and font-independent inline vector marks (source #149; not yet published).
 - [PDF output](../nuaforma-docx-pdf/README.md): standard/PDF-A profiles, font requirements, isolation and fidelity limits.
+- [Native JPEG pictures and label metadata (source #226)](native-picture-compatibility.md): bounded image decoding, package validation and Playground impact.
 - [REST API](../nuaforma-server/README.md): multipart requests/resources, capabilities, assessment, errors and downloadable OpenAPI JSON/YAML.
 - [Embedded Java/Kotlin examples](../examples/embedded/README.md): consume library artifacts without running a server.
 - [Development Playground](../nuaforma-playground/README.md): prepare/export requests, select/upload fonts and generate documents through the same API; distributed as a separate development-only container.

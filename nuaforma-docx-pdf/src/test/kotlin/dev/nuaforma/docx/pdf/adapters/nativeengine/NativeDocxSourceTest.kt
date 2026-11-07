@@ -11,7 +11,7 @@ class NativeDocxSourceTest {
     fun `unsupported ZIP entry identifies the actual package part without inventing a paragraph`() {
         val bytes = java.io.ByteArrayOutputStream().also { output ->
             java.util.zip.ZipOutputStream(output).use { zip ->
-                zip.putNextEntry(java.util.zip.ZipEntry("word/media/image1.jpeg"))
+                zip.putNextEntry(java.util.zip.ZipEntry("word/media/image1.svg"))
                 zip.write(byteArrayOf(1, 2, 3))
                 zip.closeEntry()
             }
@@ -20,7 +20,7 @@ class NativeDocxSourceTest {
         val error = assertThrows(NativeDocxReadException::class.java) {
             NativeDocxReader(context) { _, _, _ -> fail("Package rejection must precede font resolution") }.read(bytes)
         }
-        assertEquals("word/media/image1.jpeg", error.part)
+        assertEquals("word/media/image1.svg", error.part)
         assertEquals("Unsupported package part", error.sourceContext.explanation)
         assertNull(error.documentLocation)
         assertNull(error.location)
