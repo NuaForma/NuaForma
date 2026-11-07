@@ -77,6 +77,13 @@ internal class NativeDocxReader(
             source.current = node
             source.failure("Unsupported Word web settings", "word/webSettings.xml")
         } }
+        val staticFields = NativeWordValues(context, propertyValues, parsed["docProps/core.xml"], { node ->
+            source.current = node; activePart = provenance[node] ?: activePart
+        }, ::reject)
+        val propertyParagraphs = NativePropertyParagraphs(context, staticFields, { source.current = it }, { copy, original ->
+            provenance[copy] = provenance[original] ?: activePart; source.alias(copy, original)
+        }, ::reject)
+        parsed.forEach { (name, root) -> activePart = name; propertyParagraphs.normalize(root) }
         val formFields = java.util.IdentityHashMap<XmlElement, NativeDocxFields.Form>()
         parsed.forEach { (name, root) ->
             activePart = name; source.current = root
@@ -86,9 +93,6 @@ internal class NativeDocxReader(
         }
         val blockBoundaryTextRanges = mutableSetOf<String>()
         parsed.forEach { (name, root) -> activePart = name; blockBoundaryTextRanges += NativeDocxBookmarks(context).normalize(root, { source.current = it }, ::reject) }
-        val staticFields = NativeWordValues(context, propertyValues, parsed["docProps/core.xml"], { node ->
-            source.current = node; activePart = provenance[node] ?: activePart
-        }, ::reject)
         staticFields.index(parsed.values)
         for (name in listOf("word/fontTable.xml", "word/webSettings.xml")) parsed[name]?.let { root ->
             activePart = name
@@ -448,6 +452,12 @@ internal class NativeDocxReader(
                 val contents = run.elements().filter { it.name.localPart != "rPr" }
                 if (contents.isEmpty()) return emptyList()
                 val face = faceFor(run.one("rPr"))
+                propertyParagraphs.formats[run]?.let { format ->
+                    check(face.rtl != true && format.samples.all { faceFor(it.run.one("rPr")).copy(languageTag = face.languageTag) == face },
+                        "Mixed property-result formatting is not qualified")
+                }
+                source.current = run
+                activePart = provenance[run] ?: activePart
                 return contents.mapNotNull { item -> when (item.name.localPart) {
                     "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef" -> {
                         val kind = if (item.name.localPart.startsWith("foot")) PdfNoteKind.FOOTNOTE else PdfNoteKind.ENDNOTE

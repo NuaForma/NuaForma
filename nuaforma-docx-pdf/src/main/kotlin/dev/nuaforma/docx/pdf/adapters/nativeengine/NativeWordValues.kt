@@ -43,7 +43,7 @@ internal class NativeWordValues(
     }
 
     fun resolve(instruction: NativeDocxFields.Instruction): String? = when {
-        instruction.kind == "DOCPROPERTY" -> bounded(property(requireNotNull(instruction.argument)))
+        instruction.kind == "DOCPROPERTY" -> bounded(propertyText(instruction), false)
         instruction.kind == "SET" -> ""
         instruction.argument in assignments && instruction.kind == "REF" -> {
             if (instruction.linked) reject("Linked SET references are outside this profile")
@@ -51,6 +51,22 @@ internal class NativeWordValues(
         }
         instruction.argument in assignments && instruction.kind == "PAGEREF" -> reject("SET assignments have no physical page destination")
         else -> null
+    }
+
+    fun propertyText(instruction: NativeDocxFields.Instruction): String {
+        val raw = property(requireNotNull(instruction.argument))
+        if (raw.length > 114_688) reject("Excessive encoded document property")
+        val escaped = Regex("_x([0-9A-Fa-f]{4})_").replace(raw) { match -> match.groupValues[1].toInt(16).toChar().toString() }.replace("\r\n", "\r")
+        if ('\n' in escaped) reject("Soft line feeds in document properties are outside this profile")
+        val decoded = escaped.replace('\r', '\n')
+        if (decoded.length > 16_384 || decoded.any { it.isISOControl() && it != '\n' } ||
+            decoded.codePoints().anyMatch { it in 0xD800..0xDFFF }) reject("Unsupported document property text")
+        if (decoded.codePoints().anyMatch { Character.UnicodeScript.of(it) == Character.UnicodeScript.HEBREW }) reject("Hebrew static fields are outside the qualified field direction profile")
+        return decoded
+    }
+
+    fun consumePropertyText(value: String) {
+        bounded(value, true)
     }
 
     private fun property(name: String): String {
@@ -81,9 +97,9 @@ internal class NativeWordValues(
         return value.text
     }
 
-    private fun bounded(value: String): String {
+    private fun bounded(value: String, paragraphs: Boolean = false): String {
         context.checkActive()
-        if (value.length > 16_384 || value.any { it.isISOControl() }) reject("Unsupported or excessive static field value")
+        if (value.length > 16_384 || value.any { it.isISOControl() && !(paragraphs && it == '\n') }) reject("Unsupported or excessive static field value")
         emitted += value.length
         if (emitted > minOf(1_000_000L, context.limits.maxExpandedBytes / 2)) reject("Static field value budget exceeded")
         return value

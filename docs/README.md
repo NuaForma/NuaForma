@@ -11,8 +11,8 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [Checkbox content](checkbox-content.md): boolean expressions and font-independent inline vector marks (source #149; not yet published).
 - [PDF output](../nuaforma-docx-pdf/README.md): standard/PDF-A profiles, font requirements, isolation and fidelity limits.
 - [Native JPEG pictures and label metadata (source #226)](native-picture-compatibility.md): bounded image decoding, package validation and Playground impact.
-- [Word editor/web settings](word-editor-settings.md): qualified shape identifiers and HTML-export preferences that preserve print layout (source #227).
-- [Word fields and bookmarks](word-fields-and-bookmarks.md): actual string properties, literal assignments, legacy checkboxes and block-level bookmark boundaries (source #228).
+- [Word editor/web settings](word-editor-settings.md): qualified shape identifiers, HTML-export preferences and passive privacy/drawing-grid settings that preserve print layout (source #227 / #229).
+- [Word fields and bookmarks](word-fields-and-bookmarks.md): actual single/multi-paragraph string properties, literal assignments, legacy checkboxes and block-level bookmark boundaries (source #228 / #229).
 - [REST API](../nuaforma-server/README.md): multipart requests/resources, capabilities, assessment, errors and downloadable OpenAPI JSON/YAML.
 - [Embedded Java/Kotlin examples](../examples/embedded/README.md): consume library artifacts without running a server.
 - [Development Playground](../nuaforma-playground/README.md): prepare/export requests, select/upload fonts and generate documents through the same API; distributed as a separate development-only container.

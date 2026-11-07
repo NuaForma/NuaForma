@@ -72,3 +72,5 @@ Validated identifier-only header shape defaults remain in templates containing s
 ## Fields and bookmark boundaries (source #228)
 
 Qualified block-level bookmarks, string document properties, literal SET/REF fields and passive legacy checkboxes remain in templates. Structural validation uses actual definitions rather than cached results, without substituting template instructions or field values into the returned DOCX. See [field limits and verification](word-fields-and-bookmarks.md).
+
+Source #229 retains qualified privacy/drawing-grid metadata and bounded multi-paragraph DOCPROPERTY fields without cleanup changes. Actual property values are used only during PDF conversion; cleanup still leaves template instructions and field definitions unevaluated. See the [field profile](word-fields-and-bookmarks.md#multi-paragraph-properties-source-229) and [editor settings](word-editor-settings.md#save-time-privacy-and-drawing-grid-preferences-source-229).

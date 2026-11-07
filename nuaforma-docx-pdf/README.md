@@ -1,5 +1,7 @@
 # NuaForma DOCX/PDF provider
 
+Source #229 additionally qualifies bounded multi-paragraph DOCPROPERTY values and passive save-time privacy/drawing-grid preferences. See the [field profile](../docs/word-fields-and-bookmarks.md#multi-paragraph-properties-source-229) and [editor-setting profile](../docs/word-editor-settings.md#save-time-privacy-and-drawing-grid-preferences-source-229). This is unreleased source behavior.
+
 Source #228 qualifies body-level bookmark boundaries, actual string document properties, literal SET/REF values and passive legacy form checkboxes. See [the field and bookmark profile](../docs/word-fields-and-bookmarks.md); this is not part of published alpha.7.
 
 Source #149 supports bounded inline vector checkboxes through the
