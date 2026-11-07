@@ -262,7 +262,7 @@ class PdfParagraph private constructor(
 ) : PdfBlock {
     private class Decoration(val borders: PdfParagraphBorders?, val lines: List<PdfLineDrawing>,
         val spacing: PdfParagraphSpacing = PdfParagraphSpacing(), val pageOffset: PdfParagraphPageOffset? = null,
-        val minimumLineStyle: PdfTextStyle? = null)
+        val minimumLineStyle: PdfTextStyle? = null, val minimumLineHeight: Float? = null)
     /** Original constructors and Kotlin default-argument bridge remain binary compatible. */
     @JvmOverloads constructor(runs: List<PdfInline>, spaceBefore: Float = 0f, spaceAfter: Float = 8f,
         format: PdfParagraphFormat = PdfParagraphFormat(), listLabel: PdfListLabel? = null,
@@ -279,6 +279,12 @@ class PdfParagraph private constructor(
     val spacing: PdfParagraphSpacing = decoration.spacing
     val pageOffset: PdfParagraphPageOffset? = decoration.pageOffset
     val minimumLineStyle: PdfTextStyle? = decoration.minimumLineStyle
+    val minimumLineHeight: Float? = decoration.minimumLineHeight
+
+    /** Minimum natural line height in points; null retains the original line-spacing policy. */
+    fun withMinimumLineHeight(points: Float?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
+        format, listLabel, anchoredImages, semantics, contents,
+        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, points))
 
     /** Additive immutable policy; existing public constructors retain their binary descriptors. */
     fun withSpacing(spacing: PdfParagraphSpacing): PdfParagraph = copy(spacing = spacing)
@@ -287,7 +293,7 @@ class PdfParagraph private constructor(
 
     /** Nonprinting font metrics can establish a minimum automatic line box without styling the text. */
     fun withMinimumLineStyle(style: PdfTextStyle?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
-        format, listLabel, anchoredImages, semantics, contents, Decoration(borders, lines, spacing, pageOffset, style))
+        format, listLabel, anchoredImages, semantics, contents, Decoration(borders, lines, spacing, pageOffset, style, minimumLineHeight))
 
     fun copy(runs: List<PdfInline> = this.runs, spaceBefore: Float = this.spaceBefore, spaceAfter: Float = this.spaceAfter,
         format: PdfParagraphFormat = this.format, listLabel: PdfListLabel? = this.listLabel,
@@ -295,12 +301,14 @@ class PdfParagraph private constructor(
         contents: PdfContents? = this.contents, borders: PdfParagraphBorders? = this.borders, lines: List<PdfLineDrawing> = this.lines,
         spacing: PdfParagraphSpacing = this.spacing, pageOffset: PdfParagraphPageOffset? = this.pageOffset,
     ): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter, format, listLabel, anchoredImages,
-        semantics, contents, Decoration(borders, lines, spacing, pageOffset, minimumLineStyle))
+        semantics, contents, Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight))
 
     val runs: List<PdfInline> = Collections.unmodifiableList(ArrayList(runs))
     val anchoredImages: List<PdfAnchoredImage> = Collections.unmodifiableList(ArrayList(anchoredImages))
     val lines: List<PdfLineDrawing> = Collections.unmodifiableList(ArrayList(decoration.lines))
     init {
+        require(minimumLineHeight == null || minimumLineHeight.isFinite() && minimumLineHeight in 0f..14_400f) { "Invalid minimum line height" }
+        require(minimumLineHeight == null || format.exactLineHeight == null && format.automaticLineSpacing == null) { "Conflicting minimum line policy" }
         require(pageOffset == null || format.leftIndent + pageOffset.x >= 0 && format.rightIndent - pageOffset.x >= 0 &&
             format.leftIndent + format.firstLineIndent + pageOffset.x >= 0) { "Alternating offset exceeds paragraph indentation" }
         require(this.lines.size <= 32) { "Paragraph line budget exceeded" }

@@ -549,7 +549,7 @@ internal class NativeDocxReader(
                 for (key in openBookmarks) bookmarkNames[key]?.let { bookmarkRuns.getValue(it).addAll(converted) }
             } }
             check(pendingDestinations.isEmpty(), "Bookmark requires following visible paragraph text")
-            val markStyle = markFace?.takeIf { geometry.automatic != null || runs.isEmpty() }?.let(::textStyle)
+            val markStyle = markFace?.takeIf { geometry.automatic != null || geometry.minimum != null || runs.isEmpty() }?.let(::textStyle)
             val content = runs.ifEmpty { listOf(PdfTextRun(" ", markStyle ?: textStyle(base))) }
             check(content.none { it is PdfImageRun } || content.size == 1, "Mixed image/text paragraphs are outside the proof profile")
             val label = listEntry?.let { entry ->
@@ -579,6 +579,7 @@ internal class NativeDocxReader(
                 }, geometry.outline), contents = contents, borders = geometry.borders, lines = lineDrawings)
                 .withSpacing(PdfParagraphSpacing(automaticBefore, modernTableAlignment, automaticAfter))
                 .withPageOffset(pageOffset)
+                .withMinimumLineHeight(geometry.minimum)
                 .withMinimumLineStyle(markStyle ?: if (geometry.automatic != null &&
                     (content.singleOrNull() is PdfImageRun || content.singleOrNull() is PdfVectorRun)) textStyle(base) else null)
         }
@@ -1135,6 +1136,7 @@ internal class NativeDocxReader(
     }
 
     private data class Geometry(val before: Float = 0f, val after: Float = 0f, val line: Float? = null,
+        val minimum: Float? = null,
         val autoBefore: Boolean = false, val autoAfter: Boolean = false,
         val mirror: Boolean = false,
         val alignment: PdfAlignment = PdfAlignment.LEFT, val left: Float = 0f, val right: Float = 0f, val first: Float = 0f,
@@ -1194,8 +1196,9 @@ internal class NativeDocxReader(
             if (it.value("line") != null || it.value("lineRule") != null) {
                 val line = it.value("line") ?: reject("Missing line spacing")
                 result = when (it.value("lineRule") ?: "auto") {
-                    "exact" -> result.copy(line = twips(line), automatic = null)
-                    "auto" -> result.copy(line = null, automatic = PdfAutomaticLineSpacing(number(line) / 240f))
+                    "exact" -> result.copy(line = twips(line), automatic = null, minimum = null)
+                    "auto" -> result.copy(line = null, automatic = PdfAutomaticLineSpacing(number(line) / 240f), minimum = null)
+                    "atLeast" -> result.copy(line = null, automatic = null, minimum = twips(line))
                     else -> reject("Unsupported line spacing policy")
                 }
             }

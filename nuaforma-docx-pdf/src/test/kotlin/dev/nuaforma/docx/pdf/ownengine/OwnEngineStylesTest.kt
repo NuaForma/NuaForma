@@ -59,7 +59,7 @@ class OwnEngineStylesTest {
             "word/styles.xml" to {s:String->s.replace("w:asciiTheme=\"minorHAnsi\"","w:asciiTheme=\"unknown\"")},
             "word/styles.xml" to {s:String->s.replace("<w:basedOn w:val=\"AutoBase\"/>","<w:basedOn w:val=\"AutoDerived\"/>")},
             "word/styles.xml" to {s:String->s.replace("<w:name w:val=\"TableBase\"/>","<w:name w:val=\"TableBase\"/><w:tblStylePr w:type=\"unknown\"/>")},
-            "word/document.xml" to {s:String->s.replace("w:lineRule=\"auto\"","w:lineRule=\"atLeast\"")})
+            "word/document.xml" to {s:String->s.replace("w:lineRule=\"auto\"","w:lineRule=\"unknown\"")})
         for((part,change)in cases)assertThrows(IllegalArgumentException::class.java) {read(mutate(part,change))}
     }
 

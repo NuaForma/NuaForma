@@ -220,7 +220,8 @@ internal object PageLayouter {
     }
 
     internal fun automaticBox(p: PdfParagraph, measurer: TextMeasurer): Pair<Float, Float>? {
-        val policy = p.format.automaticLineSpacing ?: return null
+        val minimumHeight = p.minimumLineHeight
+        val multiple = p.format.automaticLineSpacing?.multiple ?: if (minimumHeight != null) 1f else return null
         val vectorsOnly = p.runs.all { it is PdfVectorRun }
         val objectHeight = (p.runs.singleOrNull() as? PdfImageRun)?.image?.height ?:
             p.runs.takeIf { vectorsOnly }?.filterIsInstance<PdfVectorRun>()?.maxOfOrNull { it.height }
@@ -232,9 +233,9 @@ internal object PageLayouter {
             val baseline = maxOf(objectHeight, fontBaseline + if (vectorsOnly) minimum?.naturalDescent ?: 0f else 0f)
             // An unprinted paragraph mark supplies a minimum box, not extra descent below a taller image.
             val naturalHeight = maxOf(baseline, fontBaseline + (minimum?.naturalDescent ?: 0f))
-            val height = naturalHeight * policy.multiple
+            val height = maxOf(naturalHeight * multiple, minimumHeight ?: 0f)
             if (!height.isFinite() || height !in 1f..14_400f || height < naturalHeight) overflow()
-            return height to baseline
+            return height to (baseline + if (minimumHeight != null) height - naturalHeight else 0f)
         }
         val styles = p.runs.mapNotNull { when (it) {
             is PdfVectorRun -> null
@@ -258,9 +259,10 @@ internal object PageLayouter {
         val ascent = maxOf(all.maxOfOrNull { it.naturalAscent } ?: 0f, vectorHeight)
         val descent = all.maxOfOrNull { it.naturalDescent } ?: 0f
         val gap = all.maxOfOrNull { it.lineGap } ?: 0f
-        val height = (ascent + descent + gap) * policy.multiple
+        val naturalHeight = ascent + descent + gap
+        val height = maxOf(naturalHeight * multiple, minimumHeight ?: 0f)
         if (!height.isFinite() || height !in 1f..14_400f || height < ascent + descent + gap) overflow()
-        return height to (ascent + gap)
+        return height to (ascent + gap + if (minimumHeight != null) height - naturalHeight else 0f)
     }
 
     internal fun unwrappedTextWidth(runs: List<PdfTextRun>, measurer: TextMeasurer): Float {
