@@ -64,3 +64,7 @@ Otherwise supported logos retain unused extended-pen metadata and valid null pen
 ## JPEG and label metadata (source #226)
 
 Supported embedded JPEG pictures and validated `LabelInfo.xml` metadata remain in templates instead of being removed solely for their package type. The reader normalizes these only in its internal PDF print model; visible markings and unsupported policy/drawing behavior retain their ordinary checks. No new permissive option is introduced. See [format and security boundaries](native-picture-compatibility.md). This source behavior is not part of published alpha.7.
+
+## Header identifiers and web-export preferences (source #227)
+
+Validated identifier-only header shape defaults remain in templates containing supported VML frames or lines. Known `relyOnVML`/`targetScreenSz` preferences also remain; they do not select a renderer or change printed geometry. Visible/unknown defaults and malformed metadata still reject or require explicit cleanup removals. See [the source profile and regression scope](word-editor-settings.md). This is not part of published alpha.7.

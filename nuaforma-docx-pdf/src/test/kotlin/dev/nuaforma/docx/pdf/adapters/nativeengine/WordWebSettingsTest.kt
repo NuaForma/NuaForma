@@ -49,4 +49,26 @@ class WordWebSettingsTest {
         for (content in listOf("<w:allowPNG w:val=\"invalid\"/>", "<w:divs><w:div w:id=\"1\"><w:marTop w:val=\"invalid\"/></w:div></w:divs>"))
             assertThrows(NativeDocxReadException::class.java) { normalize(content) }
     }
+
+    @Test
+    fun `VML web export flags and defined screen targets never become print properties`() {
+        for (value in listOf("", " w:val=\"1\"", " w:val=\"0\"", " w:val=\"true\"", " w:val=\"false\"", " w:val=\"on\"", " w:val=\"off\"")) {
+            assertTrue(normalize("<w:relyOnVML$value/>").children.isEmpty())
+        }
+        for (size in listOf("544x376", "640x480", "720x512", "800x600", "1024x768", "1152x882", "1152x900", "1280x1024", "1600x1200", "1800x1440", "1920x1200")) {
+            assertTrue(normalize("<w:relyOnVML/><w:targetScreenSz w:val=\"$size\"/>").children.isEmpty())
+        }
+    }
+
+    @Test
+    fun `new web preferences reject duplicates foreign attributes nested objects and invalid values`() {
+        for (bad in listOf("<w:relyOnVML/><w:relyOnVML/>", "<w:targetScreenSz w:val=\"800x600\"/><w:targetScreenSz w:val=\"800x600\"/>",
+            "<w:relyOnVML w:val=\"yes\"/>", "<w:targetScreenSz/>", "<w:targetScreenSz w:val=\"800X600\"/>",
+            "<w:targetScreenSz w:val=\"999999x999999\"/>", "<w:targetScreenSz val=\"800x600\"/>",
+            "<w:relyOnVML>text</w:relyOnVML>", "<w:relyOnVML><w:p/></w:relyOnVML>",
+            "<w:targetScreenSz w:val=\"800x600\"><w:p/></w:targetScreenSz>")) {
+            assertThrows(NativeDocxReadException::class.java, { normalize(bad) }, bad)
+        }
+    }
+
 }
