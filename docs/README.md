@@ -20,6 +20,7 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [Marked template diagnostic PDF](template-diagnostic-pdf.md): development-only parser error navigation, available since 0.3.0-alpha.4.
 
 - [Word notes](../tools/pdf-evaluation/own-engine/NOTES.md): qualified footnotes/endnotes, bounded Chicago symbols and automatic separator spacing (source #230).
+- [Lists and minimum line spacing](native-list-spacing-compatibility.md): source-ordered table lists, deeper starts, bounded overrides, `atLeast` and one-section note restart preferences (source #231).
 
 ## Deploy and operate
 

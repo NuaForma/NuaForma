@@ -1,5 +1,7 @@
 # Shared PDF engine: alpha foundation
 
+Source #231 adds optional immutable `PdfParagraph.minimumLineHeight` and `withMinimumLineHeight(points)`, preserving existing constructors and copy methods. Natural font boxes can exceed the minimum; copies and layout transformations retain it. See the [policy, API and qualification limits](../docs/native-list-spacing-compatibility.md). This is unreleased source behavior.
+
 Source work for #149 adds bounded `PdfVectorRun` polylines, with point-based square
 dimensions and opaque RGB strokes. This neutral model remains independent of
 template/provider contracts. See
