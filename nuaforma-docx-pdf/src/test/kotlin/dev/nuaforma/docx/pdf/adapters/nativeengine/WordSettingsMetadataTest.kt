@@ -11,6 +11,20 @@ class WordSettingsMetadataTest {
     private val word15 = "http://schemas.microsoft.com/office/word/2012/wordml"
 
     @Test
+    fun `style pane sorting accepts defined names and Word legacy codes but rejects malformed preferences`() {
+        for (value in listOf("name", "priority", "font", "basedOn", "type", "default") + (0..5).map { "000$it" }) {
+            assertTrue(normalize("<w:stylePaneSortMethod w:val=\"$value\"/>").elements().isEmpty())
+        }
+        for (bad in listOf("<w:stylePaneSortMethod/>", "<w:stylePaneSortMethod w:val=\"0006\"/>",
+            "<w:stylePaneSortMethod val=\"0000\"/>", "<w:stylePaneSortMethod w:val=\"0\"/>",
+            "<w:stylePaneSortMethod w:val=\"type\">text</w:stylePaneSortMethod>",
+            "<w:stylePaneSortMethod w:val=\"type\"><w:p/></w:stylePaneSortMethod>",
+            "<w:stylePaneSortMethod w:val=\"0000\"/><w:stylePaneSortMethod w:val=\"0004\"/>")) {
+            assertThrows(NativeDocxReadException::class.java, { normalize(bad) }, bad)
+        }
+    }
+
+    @Test
     fun `privacy and drawing-grid preferences are validated nonprinting editor metadata`() {
         val values = """<w:removePersonalInformation/><w:removeDateAndTime/><w:doNotUseMarginsForDrawingGridOrigin w:val="true"/>
             <w:drawingGridHorizontalSpacing w:val="100"/><w:drawingGridVerticalSpacing w:val="284"/>

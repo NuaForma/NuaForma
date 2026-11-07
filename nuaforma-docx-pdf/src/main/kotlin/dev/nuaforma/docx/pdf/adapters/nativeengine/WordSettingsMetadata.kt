@@ -40,7 +40,12 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
 
             fun valid(condition: Boolean) { if (!condition) throw failure(part, child) }
 
-            if (child.name.namespaceURI == word && child.name.localPart in editorToggles + drawingMeasures) {
+            if (child.name.namespaceURI == word && child.name.localPart == "stylePaneSortMethod") {
+                valid(editorNames.add(child.name.localPart))
+                leaf(child, setOf("val")) { throw failure(part, child) }
+                valid(child.attribute(word, "val") in setOf("name", "priority", "font", "basedOn", "type", "default", "0000", "0001", "0002", "0003", "0004", "0005"))
+                settings.children.remove(child)
+            } else if (child.name.namespaceURI == word && child.name.localPart in editorToggles + drawingMeasures) {
                 valid(editorNames.add(child.name.localPart))
                 if (child.name.localPart in editorToggles) toggle(child, word) { throw failure(part, child) }
                 else {
