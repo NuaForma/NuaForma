@@ -24,6 +24,14 @@ class PdfEngine @JvmOverloads constructor(private val validator: PdfConformanceV
         val snapshot = ArrayList(fonts)
         require(snapshot.size <= 16 && snapshot.map { it.id }.toSet().size == snapshot.size) { "Provide at most 16 uniquely named fonts; text must reference a supplied face" }
         require(snapshot.sumOf { it.byteSize.toLong() } <= 33_554_432) { "Font resources exceed the foundation limit" }
+        var vectorPoints = 0L
+        for (paragraph in document.allParagraphs()) for (run in paragraph.runs) {
+            control.checkActive()
+            if (run is PdfVectorRun) {
+                vectorPoints += run.vector.paths.sumOf { it.points.size }
+                if (vectorPoints > 20_000) throw PdfRenderException(PdfFailureCode.RESOURCE_LIMIT, "Inline vector geometry budget exceeded")
+            }
+        }
         val images = document.allParagraphs().flatMap { it.runs.filterIsInstance<PdfImageRun>().map { run -> run.image } + it.anchoredImages.map { anchor -> anchor.image } } +
             document.pageSequences.flatMap { sequence ->
                 sequence.blocks + sequence.flow?.bands.orEmpty().flatMap { it.blocks }

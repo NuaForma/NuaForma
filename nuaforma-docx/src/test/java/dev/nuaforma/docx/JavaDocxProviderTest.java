@@ -5,6 +5,27 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class JavaDocxProviderTest {
+
+    @Test
+    void checkboxWorksThroughExistingJavaProviderAndRequestConstructors() throws Exception {
+        var parts = SyntheticDocx.INSTANCE.parts("Accepted {(customer.name == 'Ada') | checkbox()}");
+        var output = new java.io.ByteArrayOutputStream();
+        var request = new GenerationRequest(new java.io.ByteArrayInputStream(SyntheticDocx.INSTANCE.zip(parts)),
+            new GenerationRequirements(new FormatRequest(DocumentFormat.DOCX), new FormatRequest(DocumentFormat.DOCX)),
+            java.util.Map.of("customer", java.util.Map.of("name", "Ada"), "reference", "NF149"));
+        DocumentProvider provider = new DocxProvider();
+        provider.generate(request, output, new GenerationContext());
+        var document = new String(SyntheticDocx.INSTANCE.unzip(output.toByteArray()).get("word/document.xml"),
+            java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(document.contains("custGeom"));
+        assertFalse(document.contains("checkbox()"));
+        var definition = ((ContentPipeProvider) provider).contentPipes().stream()
+            .filter(pipe -> pipe.getName().equals("checkbox")).findFirst().orElseThrow();
+        assertEquals(Boolean.TRUE, definition.getArguments().get(0).getDefaultValue());
+        assertEquals("check", definition.getArguments().get(1).getDefaultValue());
+        assertEquals("empty", definition.getArguments().get(2).getDefaultValue());
+    }
+
     @Test
     void builtInRichTextWorksThroughExistingJavaFacadeAndMetadataConstructors() throws Exception {
         var parts = new java.util.LinkedHashMap<>(SyntheticDocx.INSTANCE.parts("Java {details | richText(\"rtf\")}"));

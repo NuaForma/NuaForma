@@ -1,5 +1,10 @@
 # Shared PDF engine: alpha foundation
 
+Source work for #149 adds bounded `PdfVectorRun` polylines, with point-based square
+dimensions and opaque RGB strokes. This neutral model remains independent of
+template/provider contracts. See
+[the source contract](../docs/checkbox-content.md).
+
 Version 0.4.0-alpha.4 (#203) supports unwrapped page/paragraph-relative images and text frames in measured page bands, including resolved page fields. Signed image y offsets are bounded and checked against the final physical page. Unwrapped body images can coexist with notes when they do not overlap the reserved footnote area. See the [qualification and explicit limits](../tools/pdf-evaluation/own-engine/WORD_FLOATING_BANDS.md).
 
 Version 0.4.0-alpha.3 (#196) adds optional measured page-band reservation, minimum paragraph-mark line metrics, standalone automatic image lines and signed indents within physical page bounds. Existing callers retain strict band bounds unless they opt into `PdfPageBand.withContentReservation()`. The source-specific EMF decoder remains in the DOCX adapter; see the [compatibility profile](../tools/pdf-evaluation/own-engine/WORD_COMPATIBILITY.md).

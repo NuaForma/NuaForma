@@ -1,5 +1,11 @@
 # NuaForma — Architecture
 
+The approved #149 extension uses bounded opaque polyline content in contract 0.10,
+DOCX DrawingML insertion in the owning adapter, strict structural reading in
+`nuaforma-docx-pdf` and atomic inline vectors in the independent `nuaforma-pdf`
+model. No package or dependency is added; existing constructors are retained.
+See [the vector boundary and qualification scope](docs/checkbox-content.md).
+
 NuaForma is an embeddable Kotlin/JVM document-generation engine with optional format modules and a thin REST service. This document is the source of truth for agreed architecture decisions and requirements; [AGENTS.md](AGENTS.md) contains agent workflow and development instructions.
 
 The Gradle build, initial public provider contracts, core provider discovery/selection, registered DOCX and optional DOCX/PDF providers, a separate round-trip facade, a format-independent template language and bounded Ktor REST transport exist. The [contracts guide](nuaforma-contracts/README.md), [core guide](nuaforma-core/README.md), [DOCX guide](nuaforma-docx/README.md), [PDF guide](nuaforma-docx-pdf/README.md), [template language specification](nuaforma-template/README.md) and [server guide](nuaforma-server/README.md) describe the development APIs and limitations. Word processing reuses the approved additive `TemplateSession` facade for structural scopes and shared budgets; existing provider and compiled-text APIs remain unchanged. Requested DOCX/PDF watermarks and REST-to-engine parity are implemented and qualified. Equivalent OpenAPI JSON/YAML downloads, a local contract export, the [native AMD64/ARM64 service container](deployment/pdf-runtime/SERVICE.md) and [operator font/extension mounts](deployment/pdf-runtime/MOUNTS.md) are implemented. Public binary distribution remains gated by candidate-specific licensing/source provision. The remaining decisions describe intended product behavior. Implement only the requested milestone and validate capabilities before documenting them as available. Workstation-specific instructions do not belong here.

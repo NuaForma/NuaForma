@@ -18,6 +18,23 @@ internal class ContentRegistry(pipes: List<ContentPipe>) {
 
     fun missingAsNull(name: String): Boolean = entries[name]?.definition?.missingAsNull == true
 
+    /** Check known literals without reading branch data or executing any extension callback. */
+    fun validate(name: String, arguments: List<Expression>, step: () -> Unit) {
+        val definitions = entries[name]?.definition?.arguments ?: Safety.fail(DiagnosticCodes.INVALID_TEMPLATE,
+            RejectionReason.CONTENT_PIPE_IS_NOT_SUPPORTED_BY_THE_SELECTED_GENERATOR)
+        if (arguments.size !in definitions.count { it.required }..definitions.size) invalid()
+        arguments.forEachIndexed { index, argument ->
+            step()
+            if (argument is Expression.Literal) validateArgument(argument.value, definitions[index], step)
+        }
+    }
+
+    private fun validateArgument(argument: Any?, definition: OptionDefinition, step: () -> Unit) {
+        if (argument != null && !matches(argument, definition.type)) invalid()
+        if (argument == null && (definition.required || definition.defaultValue != null)) invalid()
+        if (argument != null && definition.allowedValues.isNotEmpty() && definition.allowedValues.none { equivalent(argument, it, step) }) invalid()
+    }
+
     fun apply(name: String, value: Any?, arguments: List<Any?>, options: GenerationOptions, context: GenerationContext, step: () -> Unit): ContentResult {
         val entry = entries[name] ?: Safety.fail(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.CONTENT_PIPE_IS_NOT_SUPPORTED_BY_THE_SELECTED_GENERATOR)
         val definitions = entry.definition.arguments
@@ -25,9 +42,7 @@ internal class ContentRegistry(pipes: List<ContentPipe>) {
         val supplied = definitions.mapIndexed { index, definition ->
             step()
             val argument = if (index < arguments.size) arguments[index] else definition.defaultValue
-            if (argument != null && !matches(argument, definition.type)) invalid()
-            if (definition.required && argument == null) invalid()
-            if (argument != null && definition.allowedValues.isNotEmpty() && definition.allowedValues.none { equivalent(argument, it, step) }) invalid()
+            validateArgument(argument, definition, step)
             argument
         }
         context.checkActive()

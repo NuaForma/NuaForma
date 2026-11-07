@@ -6,6 +6,7 @@ import dev.nuaforma.docx.internal.FontPolicy
 import dev.nuaforma.docx.internal.WatermarkPolicy
 import dev.nuaforma.docx.internal.ImagePipe
 import dev.nuaforma.docx.internal.RichTextPipe
+import dev.nuaforma.docx.internal.CheckboxPipe
 import java.io.OutputStream
 import dev.nuaforma.template.TemplatePipes
 
@@ -20,11 +21,13 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
     constructor(deploymentFonts: DeploymentFonts, pipes: List<ContentPipe>) : this(deploymentFonts) {
         registerContent(pipes)
     }
+
     constructor(deploymentFonts: DeploymentFonts, pipes: List<ContentPipe>, valuePipes: TemplatePipes) : this(deploymentFonts, valuePipes) {
         registerContent(pipes)
     }
+
     private fun registerContent(pipes: List<ContentPipe>) {
-        require(pipes.size <= 126) { "Content pipe registrations exceed the generator limit including built-in image and richText" }
+        require(pipes.size <= 125) { "Content pipe registrations exceed the generator limit including built-in image, richText and checkbox" }
         this.pipes = java.util.Collections.unmodifiableList(pipes.map { implementation ->
             val captured = implementation.definition
             object : ContentPipe {
@@ -34,31 +37,38 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
             }
         })
         definitions = this.pipes.map { it.definition }
-        require(definitions.map { it.name }.distinct().size == definitions.size && definitions.none { it.name in setOf("image", "richText") }) { "Content pipe registrations must be unique; image and richText are reserved" }
+        require(definitions.map { it.name }.distinct().size == definitions.size && definitions.none { it.name in setOf("image", "richText", "checkbox") }) { "Content pipe registrations must be unique; image, richText and checkbox are reserved" }
         checkPipeNames()
         require(definitions.all { definition -> definition.support.any {
             it.input == DocumentFormat.DOCX && it.output == DocumentFormat.DOCX && it.profiles.isEmpty()
         } }) { "DOCX content pipes must declare unprofiled DOCX-to-DOCX support" }
     }
+
     init { checkPipeNames() }
+
     private fun checkPipeNames() {
-        require(valuePipes.definitions().none { value -> value.name in setOf("image", "richText") || definitions.any { it.name == value.name } }) {
+        require(valuePipes.definitions().none { value -> value.name in setOf("image", "richText", "checkbox") || definitions.any { it.name == value.name } }) {
             "Value and content pipe names must not collide"
         }
     }
+
     override fun templatePipes(): List<TemplatePipeDefinition> = valuePipes.definitions()
-    override fun contentPipes(): List<ContentPipeDefinition> = java.util.Collections.unmodifiableList(listOf(ImagePipe.DEFINITION, RichTextPipe.DEFINITION) + definitions.map { definition ->
+
+    override fun contentPipes(): List<ContentPipeDefinition> = java.util.Collections.unmodifiableList(listOf(ImagePipe.DEFINITION, RichTextPipe.DEFINITION, CheckboxPipe.DEFINITION) + definitions.map { definition ->
         ContentPipeDefinition(definition.name, definition.description, definition.arguments,
             definition.support.filter { it.input == DocumentFormat.DOCX && it.output == DocumentFormat.DOCX && it.profiles.isEmpty() }, definition.nullBehavior,
             definition.contentTypes, definition.missingAsNull)
     })
+
     override fun fontCatalog(context: GenerationContext): FontCatalog { context.checkActive(); deploymentFonts.reportFailures(context.logging); return deploymentFonts.catalog }
+
     override fun capabilities() = ProviderCapabilities(setOf(DocumentFormat.DOCX), setOf(DocumentFormat.DOCX),
         outputOptions = mapOf(DocumentFormat.DOCX to listOf(
             OptionDefinition("fontMode", OptionType.STRING, "Preserve template fonts, validate supplied families, or embed supplied font faces", defaultValue = "preserve", allowedValues = listOf("preserve", "validate", "embed")),
             OptionDefinition("fontSelection", OptionType.STRING, "Declared resources, or actually used supported font faces; used requires fontMode embed", defaultValue = "declared", allowedValues = listOf("declared", "used")),
             OptionDefinition("fonts", OptionType.ARRAY, "Bounded font family/face/resource declarations; embedding follows OpenType permissions"))),
         generalOptions = listOf(OptionDefinition("watermark", OptionType.OBJECT, "Optional text watermark using the template language and request data, with color, opacity and rotation; existing header objects are retained")))
+
     override fun availability() = ProviderAvailability(setOf(DocumentFormat.DOCX), setOf(DocumentFormat.DOCX))
     override fun availability(context: GenerationContext): ProviderAvailability {
         context.checkActive()
@@ -94,19 +104,19 @@ class DocxProvider private constructor(private val deploymentFonts: DeploymentFo
     /** Explicit development copy: validate template syntax, mark the original source and leave instructions literal. */
     @Throws(GenerationException::class, java.io.IOException::class)
     fun diagnosticCopy(request: GenerationRequest, output: OutputStream, context: GenerationContext, explanationFontFamily: String): Diagnostic =
-        Docx4jDocuments.diagnosticCopy(request, output, context, listOf(ImagePipe(context), RichTextPipe(context)) + pipes, valuePipes, explanationFontFamily)
+        Docx4jDocuments.diagnosticCopy(request, output, context, listOf(ImagePipe(context), RichTextPipe(context), CheckboxPipe()) + pipes, valuePipes, explanationFontFamily)
 
     /** Development-only source copy; PDF layout, fonts and validation are not required. */
     fun inspectionCopy(request: GenerationRequest, output: OutputStream, context: GenerationContext, diagnostic: Diagnostic?, preview: Boolean) =
         Docx4jDocuments.inspectionCopy(request, output, context, diagnostic, preview,
-            listOf(ImagePipe(context), RichTextPipe(context)) + pipes, valuePipes)
+            listOf(ImagePipe(context), RichTextPipe(context), CheckboxPipe()) + pipes, valuePipes)
 
     private fun generateDocument(request: GenerationRequest, output: OutputStream, context: GenerationContext, detachWatermark: Boolean): DocxConversionResult {
         context.checkActive()
         deploymentFonts.reportFailures(context.logging)
         val assessment = assess(request.requirements)
         if (assessment.status != AssessmentStatus.SUPPORTED) throw GenerationException(assessment.diagnostics)
-        val decoration = Docx4jDocuments.generate(deploymentFonts.bind(request), output, context, listOf(ImagePipe(context), RichTextPipe(context)) + pipes, valuePipes, deploymentFonts, detachWatermark)
+        val decoration = Docx4jDocuments.generate(deploymentFonts.bind(request), output, context, listOf(ImagePipe(context), RichTextPipe(context), CheckboxPipe()) + pipes, valuePipes, deploymentFonts, detachWatermark)
         return DocxConversionResult(GenerationResult(request.requirements.output), decoration.first, decoration.second)
     }
 }

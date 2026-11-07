@@ -57,7 +57,28 @@ internal class Format(val kind: String, val pattern: String) {
 }
 
 internal class Program(private val nodes: List<Node>, private val depth: Int, private val pipes: TemplatePipes) : CompiledTemplate {
-    fun validateDepth(state: Evaluation, scopeDepth: Int) { state.checkDepth(scopeDepth + depth - 1) }
+
+    fun validateDepth(state: Evaluation, scopeDepth: Int) {
+        state.checkDepth(scopeDepth + depth - 1)
+    }
+
+    fun validateContent(state: Evaluation) {
+
+        fun walk(values: List<Node>) {
+            for (node in values) {
+                state.step()
+                when (node) {
+                    is Node.Content -> state.validateContent(node)
+                    is Node.Condition -> { walk(node.yes); walk(node.no) }
+                    is Node.Repeat -> walk(node.children)
+                    else -> Unit
+                }
+            }
+        }
+
+        walk(nodes)
+    }
+
     fun expand(state: Evaluation, scope: Map<String, Any?>, scopeDepth: Int): List<TemplateFragment> {
         validateDepth(state, scopeDepth)
         return state.fragments { state.render(nodes, scope) }
@@ -79,6 +100,18 @@ internal class Program(private val nodes: List<Node>, private val depth: Int, pr
 internal class Evaluation(val data: Map<String, Any?>, val options: GenerationOptions, private val context: GenerationContext,
                           private val content: ContentRegistry = ContentRegistry(emptyList()), val valuePipes: TemplatePipes = TemplatePipes.of(emptyList())) {
     val contentNames: Set<String> get() = content.names
+
+    fun validateContent(node: Node.Content) {
+        offset = node.offset
+        try { content.validate(node.name, node.arguments, ::step) }
+        catch (error: dev.nuaforma.contracts.GenerationException) {
+            throw dev.nuaforma.contracts.GenerationException(error.diagnostics.map {
+                it.rejectionReason?.let { reason -> dev.nuaforma.contracts.Diagnostic(it.code, reason, it.severity,
+                    it.location ?: "template:${node.offset}", it.part) } ?: it
+            })
+        }
+    }
+
     private val values = ValueRegistry(valuePipes)
     private val copies = PipeValues(context, ::step)
     private var pipeCalls = 0L

@@ -28,6 +28,7 @@ internal class NativeDocxReader(
     private val parsed = linkedMapOf<String, XmlElement>()
     private var metafiles = dev.nuaforma.docx.pdf.adapters.nativeengine.emf.NativeEmfImages(context, null, false)
     private val lineReader = NativeDocxLines({ node -> source.current = node; activePart = provenance[node] ?: activePart }, ::reject)
+    private val vectorReader = NativeDocxVectors({ node -> source.current = node; activePart = provenance[node] ?: activePart }, ::reject)
 
     private fun parse(bytes: ByteArray, part: String): XmlElement {
         activePart = part
@@ -439,7 +440,11 @@ internal class NativeDocxReader(
                         PdfTextRun(text.ifEmpty { " " }, textStyle(face), navigation)
                     }
                     "tab" -> { check(link == null, "Linked tabs are not qualified"); attributes(item, emptySet()); check(item.elements().isEmpty(), "Invalid tab control"); PdfTab(textStyle(face)) }
-                    "pict", "drawing" -> { if (lineReader.isLine(item)) {
+                    "pict", "drawing" -> { if (vectorReader.isVector(item)) {
+                        check(link == null && pendingDestinations.isEmpty() && !face.underline && !face.strikethrough && !face.superscript,
+                            "Navigation or text decorations on inline vectors are not qualified")
+                        vectorReader.read(item)
+                    } else if (lineReader.isLine(item)) {
                         check(link == null && pendingDestinations.isEmpty(), "Navigation on drawn lines is not qualified")
                         check(lineDrawings.size < 32, "Paragraph line budget exceeded")
                         lineDrawings += lineReader.drawing(item, page); null
@@ -516,7 +521,8 @@ internal class NativeDocxReader(
                 }, geometry.outline), contents = contents, borders = geometry.borders, lines = lineDrawings)
                 .withSpacing(PdfParagraphSpacing(automaticBefore, modernTableAlignment, automaticAfter))
                 .withPageOffset(pageOffset)
-                .withMinimumLineStyle(markStyle ?: if (content.singleOrNull() is PdfImageRun && geometry.automatic != null) textStyle(base) else null)
+                .withMinimumLineStyle(markStyle ?: if (geometry.automatic != null &&
+                    (content.singleOrNull() is PdfImageRun || content.singleOrNull() is PdfVectorRun)) textStyle(base) else null)
         }
 
         fun readTable(table: XmlElement, partRelations: Map<String, String>, fields: Boolean, depth: Int = 0): PdfTable {

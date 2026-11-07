@@ -6,6 +6,21 @@ import org.junit.jupiter.api.Test
 import java.util.concurrent.Executors
 
 class ContentPipesTest {
+
+    @Test
+    fun `unselected content branches validate literal arguments without evaluating data or calling pipes`() {
+        var calls = 0
+        val session = ContentTemplates.open(emptyMap<String, Any?>(), listOf(pipe { _, _ -> calls++; ContentResult.Empty }))
+        for (source in listOf("{#if false}{missing | label(12)}{/if}",
+            "{#if false}{missing | label(\"a\", \"b\")}{/if}",
+            "{#if false}{#each rows as row}{row | label(null)}{/each}{/if}")) {
+            assertThrows(GenerationException::class.java) { session.validate(source) }
+        }
+        session.validate("{#if false}{missing | label(dynamic)}{/if}")
+        session.expandContent("{#if false}{missing | label(dynamic)}{/if}")
+        assertEquals(0, calls)
+    }
+
     @Test
     fun `missing values become null only for an opted-in content pipe and never for arguments or ordinary placeholders`() {
         var calls = 0

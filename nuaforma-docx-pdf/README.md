@@ -1,5 +1,9 @@
 # NuaForma DOCX/PDF provider
 
+Source #149 supports bounded inline vector checkboxes through the
+same native reader and shared PDF engine. See the [source feature and contract
+scope](../docs/checkbox-content.md); this is not part of published alpha.7.
+
 Version 0.4.0-alpha.5 (#208) retains validated style revision metadata and identifies rejected image elements/attributes at their concrete source locations. Playground cleanup can remove the focused construct while retaining a supported logo and surrounding story; normal generation remains strict. See [scope and review requirements](../docs/template-cleanup.md#style-revisions-and-focused-drawing-failures-040-alpha5-208).
 
 Version 0.4.0-alpha.4 (#203) preserves qualified unwrapped floating images and existing VML/DrawingML text frames in page bands, zero-valued Word relative-size placeholders, and nonprinting paragraph-mark highlighting. Unwrapped objects preserve their physical coordinates without moving ordinary footer text or reserving extra body space. Unsupported anchor children identify their own XML location, so cleanup can retain the rest of the story. See the [floating-story qualification](../tools/pdf-evaluation/own-engine/WORD_FLOATING_BANDS.md).
