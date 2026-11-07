@@ -254,7 +254,7 @@ internal object PdfBoxWriter {
                                             fail(PdfFailureCode.UNSUPPORTED_TEXT, "Underline exceeds the qualified font bounds")
                                         // OpenType post.underlinePosition denotes the top edge, unlike PostScript's center coordinate.
                                         command("re", number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift) + (position - thickness) * element.style.size),
-                                            number(measurer.measure(element.text, element.style).width), number(thickness * element.style.size))
+                                            number(element.trailingDecorationWidth ?: measurer.measure(element.text, element.style).width), number(thickness * element.style.size))
                                         command("f")
                                     }
                                     if (element.style.strikethrough) {
@@ -265,7 +265,7 @@ internal object PdfBoxWriter {
                                         if (position - thickness < box.lowerLeftY / 1000f || position > box.upperRightY / 1000f)
                                             fail(PdfFailureCode.UNSUPPORTED_TEXT, "Strikeout exceeds the qualified font bounds")
                                         command("re", number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift) + (position - thickness) * element.style.size),
-                                            number(measurer.measure(element.text, element.style).width), number(thickness * element.style.size))
+                                            number(element.trailingDecorationWidth ?: measurer.measure(element.text, element.style).width), number(thickness * element.style.size))
                                         command("f")
                                     }
                                     if (element.style.languageTag != null) command("EMC")

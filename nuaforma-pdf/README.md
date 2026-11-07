@@ -1,5 +1,7 @@
 # Shared PDF engine: alpha foundation
 
+Source #232 adds nullable immutable `PdfParagraph.underlineTrailingSpaces` and `withUnderlineTrailingSpaces(enabled)`. Explicit trailing-space decoration preserves visible glyph positions and clips at the paragraph edge; null keeps existing behavior. Existing constructors and copy methods remain compatible. See the [Word typography and neutral policy qualification](../docs/word-typography-preferences.md). This is unreleased source behavior.
+
 Source #231 adds optional immutable `PdfParagraph.minimumLineHeight` and `withMinimumLineHeight(points)`, preserving existing constructors and copy methods. Natural font boxes can exceed the minimum; copies and layout transformations retain it. See the [policy, API and qualification limits](../docs/native-list-spacing-compatibility.md). This is unreleased source behavior.
 
 Source work for #149 adds bounded `PdfVectorRun` polylines, with point-based square

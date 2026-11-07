@@ -17,7 +17,7 @@ internal enum class StrokeLayer { FLOW, BACKGROUND, FOREGROUND }
 internal data class PositionedStroke(val x: Float, val top: Float, val endX: Float, val endY: Float, val stroke: PdfLineStroke,
     val pageX: Boolean = false, val pageY: Boolean = false, val layer: StrokeLayer = StrokeLayer.FLOW,
     val joinOwner: PdfParagraph? = null, val joinFollowing: PdfParagraph? = null, val pageOffset: PdfParagraphPageOffset? = null) : PositionedElement
-internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false, val navigation: PdfTextNavigation? = null, val logicalOwner: String? = null, val span: PdfSpanSemantics? = null, val logicalOffset: Int? = null, val pageOffset: PdfParagraphPageOffset? = null) : PositionedElement
+internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false, val navigation: PdfTextNavigation? = null, val logicalOwner: String? = null, val span: PdfSpanSemantics? = null, val logicalOffset: Int? = null, val pageOffset: PdfParagraphPageOffset? = null, val trailingDecorationWidth: Float? = null) : PositionedElement
 internal data class PositionedImage(val image: PdfImage, val x: Float, val top: Float, val foreground: Boolean = false, val pageOffset: PdfParagraphPageOffset? = null, val pageY: Boolean = false) : PositionedElement
 internal data class PositionedRectangle(val x: Float, val top: Float, val width: Float, val height: Float, val fill: PdfColor?, val border: PdfBorder?) : PositionedElement
 internal data class PositionedTableBorder(val x: Float, val top: Float, val length: Float, val horizontal: Boolean, val stroke: PdfEdgeStroke, val group: Any) : PositionedElement
@@ -138,6 +138,17 @@ internal object PageLayouter {
                                 block.semantics?.takeUnless { fragment.decoration || fragment.text.isEmpty() }?.let { fragment.sourceStart + prefix })
                             x += fragment.metrics.width
                         }
+                        if (block.underlineTrailingSpaces == true) {
+                            if (paragraphBidi != null && spaces.any { it.style?.let { style -> style.underline || style.strikethrough } == true })
+                                throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Bidi trailing-space decoration is not qualified")
+                            val edge = page.margins.left + lineLeft() + availableWidth()
+                            for (space in spaces) {
+                                val length = minOf(space.metrics.width, maxOf(0f, edge - x))
+                                if (space.style?.let { it.underline || it.strikethrough } == true && length > 0f)
+                                    elements += PositionedText(" ", requireNotNull(space.style), x, baseline, decoration = true, trailingDecorationWidth = length)
+                                x += space.metrics.width
+                            }
+                        }
                         top += height
                         line = mutableListOf()
                         lineWidth = 0f
@@ -200,9 +211,15 @@ internal object PageLayouter {
                         lineWidth += wordWidth
                     }
                     if (line.isEmpty() && spaces.isNotEmpty()) {
-                        if (spaces.sumOf { it.metrics.width.toDouble() } > availableWidth()) overflow()
-                        line += spaces
-                        lineWidth = spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
+                        if (block.underlineTrailingSpaces == null) {
+                            if (spaces.sumOf { it.metrics.width.toDouble() } > availableWidth()) overflow()
+                            line += spaces
+                            lineWidth = spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
+                        } else {
+                            line += spaces.map { space -> space.copy(text = " ",
+                                style = requireNotNull(space.style).copy(underline = false).withStrikethrough(false),
+                                metrics = space.metrics.copy(width = 0f)) }
+                        }
                     }
                     flush()
                     val strokes = mutableListOf<PositionedElement>()

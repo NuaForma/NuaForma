@@ -11,6 +11,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class JavaPdfEngineTest {
 
     @Test
+    void javaCallerCanChooseImmutableTrailingUnderlinePolicy() {
+        var original = new PdfParagraph(List.of(new PdfTextRun("Java spaces   ", new PdfTextStyle("regular", 11))));
+        var paragraph = original.withUnderlineTrailingSpaces(true).withMinimumLineHeight(28f);
+        assertEquals(true, paragraph.getUnderlineTrailingSpaces());
+        assertEquals(null, original.getUnderlineTrailingSpaces());
+        assertEquals(null, paragraph.withUnderlineTrailingSpaces(null).getUnderlineTrailingSpaces());
+        assertEquals(28f, paragraph.getMinimumLineHeight());
+    }
+
+    @Test
     void javaCallerCanSetMinimumLineHeightWithoutChangingExistingConstructors() throws IOException {
         var original = new PdfParagraph(List.of(new PdfTextRun("Java minimum spacing", new PdfTextStyle("regular", 10))));
         var paragraph = original.withMinimumLineHeight(28f);
