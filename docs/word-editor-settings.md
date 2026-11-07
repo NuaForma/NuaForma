@@ -1,4 +1,4 @@
-# Word editor and web-export metadata (source #227 / #229)
+# Word editor and web-export metadata (source #227 / #229 / #230)
 
 This source change is not part of published `0.4.0-alpha.7`. Public APIs, dependencies, output profiles and renderer selection are unchanged.
 
@@ -25,6 +25,12 @@ Validated `removePersonalInformation` and [`removeDateAndTime`](https://learn.mi
 The native reader also accepts `drawingGridHorizontalSpacing`, `drawingGridVerticalSpacing`, `drawingGridHorizontalOrigin`, `drawingGridVerticalOrigin`, `displayHorizontalDrawingGridEvery`, `displayVerticalDrawingGridEvery` and `doNotUseMarginsForDrawingGridOrigin` as editor drawing-grid preferences. Numeric values must be explicit nonnegative integer twips/counts within signed 32-bit range; spacing must be positive. Zero display frequency and origin values are supported. These preferences do not relocate existing anchored objects, change page geometry or activate text-grid layout. Effective `snapToGrid`, document grids and compatibility settings still pass their separate qualification.
 
 Only the internal print-model copy loses this metadata. Normal DOCX generation and cleanup preserve the original qualified declarations. A4/Letter pixel comparisons with existing header/footer objects verify that these settings leave output unchanged in all four supported PDF profiles.
+
+## Style editing preferences (source #230)
+
+Validated `stylePaneSortMethod` is a [UI sort preference](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.stylepanesortmethods). The qualified values are `name`, `priority`, `font`, `basedOn`, `type`, `default` and Word's legacy codes `0000` through `0005`. The setting must be a unique leaf with one namespaced value; unknown values, attributes, children and visible content reject. It does not reorder paragraphs or change style inheritance.
+
+Validated style `w:next` declares the paragraph style suggested when an editor inserts a new paragraph. It does not assign a style to existing following paragraphs. The reader retains independent `pStyle`, `rStyle` and `basedOn` behavior; missing targets, self-targets and cycles in these unused editor preferences are not traversed. Each style may have one `next` leaf with a nonblank identifier of at most 253 characters, without controls or other attributes/content. The original declaration is retained in DOCX generation and cleanup. Invalid metadata still identifies its actual source node.
 
 ## Verification and Playground
 

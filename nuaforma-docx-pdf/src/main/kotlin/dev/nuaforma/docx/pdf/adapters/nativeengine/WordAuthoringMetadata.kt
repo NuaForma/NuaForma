@@ -12,8 +12,11 @@ internal object WordAuthoringMetadata {
 
     fun normalize(root: XmlElement, part: String, complexText: Boolean, failure: ((XmlElement) -> NativeDocxReadException)? = null) {
         var current = root
+
         fun reject(): Nothing = throw (failure?.invoke(current) ?: NativeDocxReadException("Unsupported Word authoring or compatibility settings", part))
+
         fun XmlElement.value(name: String) = attribute(W, name)
+
         val nodes = root.descendants().toList()
         for (node in nodes) {
             current = node
@@ -64,15 +67,17 @@ internal object WordAuthoringMetadata {
                 "styles" -> node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart == "latentStyles" }
                 "style" -> {
                     styleRevision(node) { child -> current = child; reject() }
-                    val links = node.elements().filter { it.name.namespaceURI == W && it.name.localPart == "link" }
-                    if (links.size > 1) { current = links[1]; reject() }
-                    for (link in links) {
-                        current = link
-                        if (link.attributes.keys.any { it.namespaceURI != W || it.localPart != "val" } ||
-                            link.value("val")?.let { it.isNotBlank() && it.length <= 253 } != true ||
-                            link.elements().isNotEmpty() || link.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject()
-                        // Pairing is an editor affordance; pStyle/rStyle still select independent definitions.
-                        node.children.remove(link)
+                    for (name in listOf("link", "next")) {
+                        val metadata = node.elements().filter { it.name.namespaceURI == W && it.name.localPart == name }
+                        if (metadata.size > 1) { current = metadata[1]; reject() }
+                        for (entry in metadata) {
+                            current = entry
+                            if (entry.attributes.keys.any { it.namespaceURI != W || it.localPart != "val" } ||
+                                entry.value("val")?.let { it.isNotBlank() && it.length <= 253 && it.none(Char::isISOControl) } != true ||
+                                entry.elements().isNotEmpty() || entry.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject()
+                            // Editor pairing and ENTER behavior do not select styles for existing paragraphs.
+                            node.children.remove(entry)
+                        }
                     }
                     node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart in setOf("uiPriority", "qFormat", "semiHidden", "unhideWhenUsed", "locked") }
                 }
