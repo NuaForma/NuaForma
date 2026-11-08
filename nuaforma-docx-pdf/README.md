@@ -125,3 +125,5 @@ Selected for 0.4.0-alpha.6, #213 qualifies passive Word picture metadata and cor
 Unreleased #223 qualifies unused solid/null extended-pen metadata and valid BS_NULL/PS_NULL combinations. Actual pattern/bitmap failures identify the relevant BrushStyle, cbBmi or cbBits instead of one generic pattern-pen message. See [qualified pen semantics and remaining limits](../docs/word-picture-metadata.md#solid-and-null-pen-metadata-unreleased-223). No new dependency, font or published release is introduced.
 
 Source #235 qualifies inherited/direct `w:jc=both`, numbering cleanup bookkeeping, internal JPEG/PNG package previews and valid Word font-save preferences. These passive preferences do not change supplied-font or PDF embedding policy. See [qualification and limits](../docs/word-justification-metadata.md).
+
+Unreleased #236 qualifies valid `autoSpaceDE`/`autoSpaceDN` switches for unaffected text and explicitly disabled settings, with field-aware guards for active East Asian spacing. See [qualification, references and limits](../docs/word-automatic-text-spacing.md). The shared PDF API and font policy are unchanged.

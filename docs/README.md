@@ -100,3 +100,5 @@ Version 0.4.0-alpha.7 (#218) treats bounded EMF header-description text as unuse
 Unreleased #223 qualifies solid/null extended-pen metadata and separates actual pattern/bitmap failures in diagnostics. See [the pen profile](word-picture-metadata.md#solid-and-null-pen-metadata-unreleased-223); this source change is not a new published alpha.
 
 - [Paragraph justification and passive Word metadata](word-justification-metadata.md): source qualification, Word reference and retained strict boundaries.
+
+- [Automatic East Asian text spacing](word-automatic-text-spacing.md): qualified inactive switches, field-aware guards and A4/Letter Word references.
