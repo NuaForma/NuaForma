@@ -4,6 +4,21 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class PdfTextStyleTest {
+
+    @Test
+    fun `synthetic bold is immutable and survives every existing style copy path`() {
+        val base = PdfTextStyle("regular", 14f)
+        val bold = base.withSyntheticBold(true)
+        assertFalse(base.syntheticBold)
+        assertTrue(bold.syntheticBold)
+        assertNotEquals(base, bold)
+        assertEquals(bold, bold.copy())
+        assertEquals(bold.hashCode(), bold.copy().hashCode())
+        assertTrue(bold.withStrikethrough(true).withFontFeatures(PdfFontFeatures(PdfKerning.PAIRS)).copy(size = 18f).syntheticBold)
+        assertTrue(bold.toString().contains("syntheticBold=true"))
+        assertEquals(base, bold.withSyntheticBold(false))
+    }
+
     @Test fun `style value semantics and legacy copies preserve the extra decoration`() {
         val base = PdfTextStyle("regular", 11f, PdfColor(10, 20, 30), "nl", true, 2f)
         val strike = base.withStrikethrough(true)
@@ -20,6 +35,7 @@ class PdfTextStyleTest {
         assertNotEquals(base.copy(baselineShift = 0f), base.copy(baselineShift = -0f))
         assertEquals(2, setOf(base, strike, strike.copy()).size)
     }
+
     @Test fun `old Java and Kotlin default constructor and copy descriptors still execute`() {
         val type = PdfTextStyle::class.java
         val marker = Class.forName("kotlin.jvm.internal.DefaultConstructorMarker")
@@ -33,5 +49,8 @@ class PdfTextStyleTest {
         assertEquals(style, copy.invoke(null, style, null, 0f, null, null, false, 0f, 63, null))
         val decorated = style.withStrikethrough(true)
         assertEquals(decorated, copy.invoke(null, decorated, null, 0f, null, null, false, 0f, 63, null))
+        val synthetic = decorated.withSyntheticBold(true)
+        assertEquals(synthetic, copy.invoke(null, synthetic, null, 0f, null, null, false, 0f, 63, null))
     }
+
 }

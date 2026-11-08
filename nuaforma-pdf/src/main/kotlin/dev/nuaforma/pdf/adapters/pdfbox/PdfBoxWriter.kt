@@ -231,9 +231,15 @@ internal object PdfBoxWriter {
                                     val font = fonts.getValue(element.style.fontId)
                                     usedFonts += element.style.fontId
                                     if (font.willBeSubset()) element.text.codePoints().forEach { font.addToSubset(it) }
+                                    if (element.style.syntheticBold) command("q")
                                     command("BT")
                                     command("Tf", page.resources.add(font), number(element.style.size))
                                     command("rg", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
+                                    if (element.style.syntheticBold) {
+                                        command("RG", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
+                                        command("w", number(element.style.size / 35f))
+                                        command("Tr", COSInteger.get(2))
+                                    }
                                     command("Tm", number(1f), number(0f), number(0f), number(1f), number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift)))
                                     if (element.style.fontFeatures.active) {
                                         val shape = shaper.shape(element.text, element.style)
@@ -246,6 +252,10 @@ internal object PdfBoxWriter {
                                         }
                                     } else command("Tj", COSString(encoding.normal(element.style.fontId, element.text)))
                                     command("ET")
+                                    if (element.style.syntheticBold) {
+                                        command("Q")
+                                        command("rg", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
+                                    }
                                     if (element.style.underline) {
                                         val metrics = lineMetrics[element.style.fontId]
                                         val position = metrics?.getOrNull(3)?.takeIf { it.isFinite() } ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified underline metrics")

@@ -26,3 +26,12 @@ Extract `NotoSerif/hinted/ttf/NotoSerif-Regular.ttf` and `OFL.txt` from `NotoSer
 | NotoSerif-OFL.txt | `cee9892f9f0cc8fe882c9e9537ee6a89621d86ee7ceaf70b02e2b2b1c25c061a` |
 
 This face supplies real standard ligatures and OpenType kerning. The Word oracle activates this exact font temporarily through `export_word_fonts.ps1`, records its hash and deactivates it in `finally`. Portable tests read only retained font bytes. Existing Liberation Sans assets and raster references remain unchanged.
+
+## Synthetic-bold qualification faces (#234)
+
+The unmodified hinted `NotoSerif-Light.ttf` and `NotoSerif-LightItalic.ttf` faces come from the same reviewed release ZIP and source/tag above, under the same adjacent `NotoSerif-OFL.txt`. Extract the matching files under `NotoSerif/hinted/ttf/`. Their actual families include `Noto Serif Light`; they supply only regular/italic faces, allowing Word to demonstrate synthetic bold without proprietary font fixtures. They remain test-only, outside published library JARs and production images.
+
+| File | SHA-256 |
+|---|---|
+| NotoSerif-Light.ttf | `0f3960036f3f9c3c88f813ac9c51681645c21df60aadaf4a34a4767a2e8aadbd` |
+| NotoSerif-LightItalic.ttf | `320bf4124bb3f702602265aa543ceada4e9de54b4dfd00e84382c1febae91e94` |

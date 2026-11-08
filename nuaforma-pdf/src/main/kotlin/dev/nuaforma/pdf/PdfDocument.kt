@@ -345,9 +345,11 @@ class PdfTextStyle private constructor(
     val baselineShift: Float,
     private val decoration: Decoration,
 ) {
-    private class Decoration(val strike: Boolean = false, val features: PdfFontFeatures = PdfFontFeatures())
+    private class Decoration(val strike: Boolean = false, val features: PdfFontFeatures = PdfFontFeatures(), val syntheticBold: Boolean = false)
     val strikethrough: Boolean get() = decoration.strike
     val fontFeatures: PdfFontFeatures get() = decoration.features
+
+    val syntheticBold: Boolean get() = decoration.syntheticBold
 
     @JvmOverloads
     constructor(fontId: String, size: Float, color: PdfColor = PdfColor(0, 0, 0), languageTag: String? = null,
@@ -358,9 +360,12 @@ class PdfTextStyle private constructor(
                 baselineShift: Float, strikethrough: Boolean) :
         this(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough))
 
-    fun withStrikethrough(value: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(value, fontFeatures))
+    fun withStrikethrough(value: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(value, fontFeatures, syntheticBold))
 
-    fun withFontFeatures(features: PdfFontFeatures): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough, features))
+    fun withFontFeatures(features: PdfFontFeatures): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough, features, syntheticBold))
+
+    /** Explicit fill-and-stroke emboldening; advances and font bytes remain unchanged. */
+    fun withSyntheticBold(enabled: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough, fontFeatures, enabled))
 
     /** Keep Kotlin's original copy and copy$default descriptors, retaining additional decorations. */
     fun copy(fontId: String = this.fontId, size: Float = this.size, color: PdfColor = this.color,
@@ -386,7 +391,7 @@ class PdfTextStyle private constructor(
 
     override fun equals(other: Any?): Boolean = other is PdfTextStyle && fontId == other.fontId &&
         java.lang.Float.compare(size, other.size) == 0 && color == other.color && languageTag == other.languageTag &&
-        underline == other.underline && java.lang.Float.compare(baselineShift, other.baselineShift) == 0 && strikethrough == other.strikethrough && fontFeatures == other.fontFeatures
+        underline == other.underline && java.lang.Float.compare(baselineShift, other.baselineShift) == 0 && strikethrough == other.strikethrough && fontFeatures == other.fontFeatures && syntheticBold == other.syntheticBold
 
     override fun hashCode(): Int {
         var result = fontId.hashCode()
@@ -394,11 +399,12 @@ class PdfTextStyle private constructor(
         result = 31 * result + (languageTag?.hashCode() ?: 0); result = 31 * result + underline.hashCode()
         result = 31 * result + baselineShift.hashCode()
         if (strikethrough) result = 31 * result + true.hashCode()
-        return if (fontFeatures.active) 31 * result + fontFeatures.hashCode() else result
+        if (fontFeatures.active) result = 31 * result + fontFeatures.hashCode()
+        return if (syntheticBold) 31 * result + true.hashCode() else result
     }
 
     override fun toString(): String = "PdfTextStyle(fontId=$fontId, size=$size, color=$color, languageTag=$languageTag, underline=$underline, baselineShift=$baselineShift" +
-        (if (strikethrough) ", strikethrough=true" else "") + (if (fontFeatures.active) ", fontFeatures=$fontFeatures)" else ")")
+        (if (strikethrough) ", strikethrough=true" else "") + (if (fontFeatures.active) ", fontFeatures=$fontFeatures" else "") + (if (syntheticBold) ", syntheticBold=true)" else ")")
 
     init {
         require(languageTag == null || languageTag.length <= 64 && languageTag.matches(Regex("[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*"))) { "Invalid text language tag" }
