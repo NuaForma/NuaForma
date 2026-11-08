@@ -83,6 +83,11 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
                     toggle(child, word) { throw failure(part, child) }
                     settings.children.remove(child)
                 }
+                "embedTrueTypeFonts", "saveSubsetFonts" -> {
+                    valid(editorNames.add(child.name.localPart))
+                    toggle(child, word) { throw failure(part, child) }
+                    settings.children.remove(child)
+                }
                 "embedSystemFonts", "doNotIncludeSubdocsInStats", "noPunctuationKerning" -> {
                     toggle(child, word) { throw failure(part, child) }
                     settings.children.remove(child)

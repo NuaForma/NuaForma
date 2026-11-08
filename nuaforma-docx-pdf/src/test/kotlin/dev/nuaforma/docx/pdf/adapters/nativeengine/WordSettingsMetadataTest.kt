@@ -51,6 +51,17 @@ class WordSettingsMetadataTest {
         }
     }
 
+    @Test
+    fun `font saving preferences do not override output font policy and reject malformed toggles`() {
+        for (name in listOf("embedTrueTypeFonts", "saveSubsetFonts")) {
+            for (value in listOf("", " w:val=\"1\"", " w:val=\"0\"", " w:val=\"true\"", " w:val=\"false\"", " w:val=\"on\"", " w:val=\"off\""))
+                assertTrue(normalize("<w:$name$value/>").elements().isEmpty())
+            for (bad in listOf("<w:$name w:val=\"invalid\"/>", "<w:$name val=\"1\"/>",
+                "<w:$name>text</w:$name>", "<w:$name><w:p/></w:$name>", "<w:$name/><w:$name/>"))
+                assertThrows(NativeDocxReadException::class.java, { normalize(bad) }, bad)
+        }
+    }
+
     private fun xml(content: String) = ConversionXml(context).read(content.toByteArray())
 
     private fun normalize(content: String, document: String = "") = xml("""<w:settings xmlns:w="$word" xmlns:w15="$word15">$content</w:settings>""").also { root ->
