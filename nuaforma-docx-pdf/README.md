@@ -1,5 +1,7 @@
 # NuaForma DOCX/PDF provider
 
+Source #233 qualifies [passive Office package resources](../docs/word-passive-office-package.md): bounded property-panel metadata, equivalent auxiliary styles and owned unused font/theme resources. Caller fonts remain mandatory; active bindings and divergent effects reject. The Playground shares this admission and focused cleanup. This is unreleased source behavior.
+
 Source #232 qualifies [Word typography preferences](../docs/word-typography-preferences.md): trailing-space underlining, effective punctuation containment and hyphenation suppression, simple-script Far East preferences, style/grammar editor metadata and bounded standard-contextual ligatures. Active unqualified layout remains an explicit error. The Playground uses the same provider and preserves qualified constructs during cleanup. This is unreleased source behavior.
 
 Source #230 qualifies validated style-pane sort preferences, next-paragraph style metadata and bounded Chicago note numbering with ordinary automatic separator spacing. See the [editor preferences](../docs/word-editor-settings.md#style-editing-preferences-source-230) and [note profile](../tools/pdf-evaluation/own-engine/NOTES.md#chicago-numbering-and-automatic-separators-source-230). This is unreleased source behavior; existing paragraph styles and strict unsupported-feature failures remain.
