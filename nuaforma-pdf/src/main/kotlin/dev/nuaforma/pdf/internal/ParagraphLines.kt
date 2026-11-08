@@ -19,13 +19,15 @@ internal object ParagraphLines {
     }
 
     fun decorate(p: PdfParagraph, raw: List<List<PositionedElement>>, height: Float, width: Float,
-        previous: PdfParagraph?, next: PdfParagraph?, owner: PdfParagraph = p): FlowLayouter.MeasuredParagraph {
+        previous: PdfParagraph?, next: PdfParagraph?, owner: PdfParagraph = p,
+        lineHeights: List<Float> = List(raw.size) { height }): FlowLayouter.MeasuredParagraph {
+        require(lineHeights.size == raw.size)
         val frame = frame(p, previous, next, owner)
-        val heights = raw.indices.map { height + (if (it == 0) frame.before else 0f) + (if (it == raw.lastIndex) frame.after else 0f) }
+        val heights = raw.indices.map { lineHeights[it] + (if (it == 0) frame.before else 0f) + (if (it == raw.lastIndex) frame.after else 0f) }
         val lines = raw.mapIndexed { index, elements ->
             val inset = if (index == 0) frame.before else 0f
             val marks = mutableListOf<PositionedElement>()
-            strokes(p, frame, width, inset, height, index == 0, index == raw.lastIndex, marks)
+            strokes(p, frame, width, inset, lineHeights[index], index == 0, index == raw.lastIndex, marks)
             marks.map { ParagraphPageOffsets.mark(it, p.pageOffset) } + elements.map { FlowLayouter.translate(it, 0f, inset) }
         }
         return FlowLayouter.MeasuredParagraph(p, lines, height, heights)

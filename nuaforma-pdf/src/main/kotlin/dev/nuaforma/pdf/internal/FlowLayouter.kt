@@ -224,19 +224,19 @@ internal object FlowLayouter {
 
     internal fun paragraph(p: PdfParagraph, width: Float, measurer: TextMeasurer, previous: PdfParagraph? = null, next: PdfParagraph? = null, owner: PdfParagraph = p, lineArea: ((Int) -> Pair<Float, Float>)? = null): MeasuredParagraph {
         if (p.anchoredImages.isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Anchored images are supported only in body paragraphs")
-        val height = PageLayouter.automaticBox(p, measurer)?.first ?: p.format.exactLineHeight ?: fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paginated proof requires explicit exact line spacing")
+        if (p.format.automaticLineSpacing == null && p.minimumLineHeight == null && p.format.exactLineHeight == null)
+            fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paginated proof requires an explicit line spacing policy")
         val normalized = p.copy(spaceBefore = 0f, spaceAfter = 0f, borders = null, lines = emptyList())
         val local = PageLayouter.layout(PdfDocument(PdfPage(width, 14_400f, PdfMargins(0f, 0f, 0f, 0f)), listOf(normalized)), measurer, lineArea, measurement = true)
-        val lines = local.elements.groupBy { element -> when (element) {
-            is PositionedVector -> element.top + element.run.height
-            is PositionedText -> element.baseline
-            is PositionedImage -> element.top + element.image.height
-            is PositionedStroke -> error("Unexpected paragraph stroke")
-            is PositionedRectangle -> error("Unexpected paragraph rectangle")
-            is PositionedTableBorder -> error("Unexpected paragraph table border")
-            is PositionedBox -> error("Unexpected paragraph frame")
-        } }.values.mapIndexed { index, line -> line.map { translate(it, 0f, -index * height) } }
-        return ParagraphLines.decorate(p, lines, height, width, previous, next, owner)
+        val heights = local.lineBoxes.map { it.height }
+        val height = heights.firstOrNull() ?: p.format.exactLineHeight ?: PageLayouter.automaticBox(p, measurer)?.first
+            ?: fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph line metrics are unavailable")
+        val uniform = heights.all { it == height }
+        val lines = local.lineBoxes.mapIndexed { index, box ->
+            val origin = if (uniform) index * height else box.top
+            local.elements.subList(box.from, box.until).map { translate(it, 0f, -origin) }
+        }
+        return ParagraphLines.decorate(p, lines, height, width, previous, next, owner, heights)
     }
 
     private fun band(band: PdfPageBand, footer: Boolean, page: PdfPage, number: Int, totalPages: Int, sequencePages: Int, measurer: TextMeasurer, target: MutableList<PositionedElement>) {
