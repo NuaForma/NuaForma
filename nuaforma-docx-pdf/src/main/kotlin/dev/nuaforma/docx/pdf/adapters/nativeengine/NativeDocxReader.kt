@@ -54,6 +54,10 @@ internal class NativeDocxReader(
     private fun readDocument(bytes: ByteArray): PdfDocument {
         val parts = unpack(bytes)
         parts.filterKeys { it.endsWith(".xml") || it.endsWith(".rels") }.forEach { (name, content) -> parse(content, name) }
+        for ((part, root) in parsed) WordMarkupCompatibility(context).normalize(root) { node, message ->
+            source.current = node
+            source.failure(message, part)
+        }
         WordAuxiliaryParts(context) { name, node, message -> source.current = node; source.failure(message, name) }.normalize(parsed, parts.keys)
         WordThumbnailMetadata(context).normalize(parsed, parts)
         WordSensitivityMetadata(context).removeFromPrintModel(parsed)
@@ -843,7 +847,11 @@ internal class NativeDocxReader(
             val anchor = node.elements().singleOrNull() ?: reject("Invalid floating drawing")
             check(anchor.name.namespaceURI == wp && anchor.name.localPart == "anchor", "Floating anchor required")
             val expected = mapOf("distT" to "0", "distB" to "0", "distL" to "0", "distR" to "0", "simplePos" to "0", "relativeHeight" to "0", "behindDoc" to "0", "locked" to "0", "layoutInCell" to "1", "allowOverlap" to "1")
-            check(anchor.attributes.size == expected.size && anchor.attributes.all { it.key.namespaceURI.isEmpty() && expected[it.key.localPart] == it.value }, "Unsupported floating anchor policy")
+            val booleans = setOf("simplePos", "behindDoc", "locked", "layoutInCell", "allowOverlap")
+            check(anchor.attributes.size == expected.size && anchor.attributes.all {
+                val value = if (it.key.localPart in booleans) when (it.value) { "true" -> "1"; "false" -> "0"; else -> it.value } else it.value
+                it.key.namespaceURI.isEmpty() && expected[it.key.localPart] == value
+            }, "Unsupported floating anchor policy")
 
             fun one(parent: XmlElement, ns: String, name: String) = parent.elements().singleOrNull { it.name.namespaceURI == ns && it.name.localPart == name } ?: reject("Missing or duplicate drawing property")
 
@@ -866,7 +874,7 @@ internal class NativeDocxReader(
             check(graphic.attribute("", "uri") == wps && graphic.elements().size == 1, "Unsupported floating graphic")
             val shape = one(graphic, wps, "wsp")
             check(shape.elements().size == 4 && shape.elements().all { it.name.namespaceURI == wps && it.name.localPart in setOf("cNvSpPr", "spPr", "txbx", "bodyPr") }, "Unsupported shape content")
-            check(one(shape, wps, "cNvSpPr").attribute("", "txBox") == "1", "Text frame required")
+            check(one(shape, wps, "cNvSpPr").attribute("", "txBox") in setOf("1", "true"), "Text frame required")
             val props = one(shape, wps, "spPr")
             check(props.elements().all { it.name.namespaceURI == drawing && it.name.localPart in setOf("xfrm", "prstGeom", "solidFill", "noFill", "ln") }, "Unsupported shape effects")
             val transform = one(props, drawing, "xfrm")
