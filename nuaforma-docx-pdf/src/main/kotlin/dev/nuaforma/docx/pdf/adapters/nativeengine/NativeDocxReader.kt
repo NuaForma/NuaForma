@@ -55,6 +55,7 @@ internal class NativeDocxReader(
         val parts = unpack(bytes)
         parts.filterKeys { it.endsWith(".xml") || it.endsWith(".rels") }.forEach { (name, content) -> parse(content, name) }
         WordAuxiliaryParts(context) { name, node, message -> source.current = node; source.failure(message, name) }.normalize(parsed, parts.keys)
+        WordThumbnailMetadata(context).normalize(parsed, parts)
         WordSensitivityMetadata(context).removeFromPrintModel(parsed)
         val propertyValues = WordPackageMetadata(context).removeFromPrintModel(parsed)
         WordContentTypeMetadata(context).removeFromPrintModel(parsed) { name, node, message ->
@@ -581,7 +582,7 @@ internal class NativeDocxReader(
                 PdfListLabel(entry.value, textStyle(markerFace), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval)
             }
             val alignment = if (geometry.direction == PdfTextDirection.RIGHT_TO_LEFT) when (geometry.alignment) {
-                PdfAlignment.LEFT -> PdfAlignment.RIGHT; PdfAlignment.RIGHT -> PdfAlignment.LEFT; PdfAlignment.CENTER -> PdfAlignment.CENTER
+                PdfAlignment.LEFT -> PdfAlignment.RIGHT; PdfAlignment.RIGHT -> PdfAlignment.LEFT; PdfAlignment.CENTER -> PdfAlignment.CENTER; PdfAlignment.JUSTIFY -> PdfAlignment.JUSTIFY
             } else geometry.alignment
             check(geometry.direction != PdfTextDirection.RIGHT_TO_LEFT || geometry.left == 0f && geometry.right == 0f, "RTL source indentation is not qualified")
             val pageOffset = if (geometry.mirror) {
@@ -1243,7 +1244,7 @@ internal class NativeDocxReader(
                 after = it.value("after")?.let(::twips) ?: result.after)
         }
         property.one("jc")?.let { result = result.copy(alignment = when (it.value("val")) {
-            "left" -> PdfAlignment.LEFT; "center" -> PdfAlignment.CENTER; "right" -> PdfAlignment.RIGHT; else -> reject("Unsupported alignment")
+            "left" -> PdfAlignment.LEFT; "center" -> PdfAlignment.CENTER; "right" -> PdfAlignment.RIGHT; "both" -> PdfAlignment.JUSTIFY; else -> reject("Unsupported alignment")
         }) }
         property.one("ind")?.let {
             attributes(it, setOf("left", "right", "firstLine", "hanging"))
@@ -1361,7 +1362,7 @@ internal class NativeDocxReader(
                     budget(parts.size < minOf(64, context.limits.maxArchiveEntries))
                     check(entry.name !in parts && !entry.isDirectory, "Invalid or duplicate ZIP entries")
                     activePart = entry.name.take(256)
-                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docMetadata/LabelInfo\\.xml|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|stylesWithEffects|numbering|settings|footnotes|endnotes|fontTable|webSettings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|theme/_rels/theme1\\.xml\\.rels|_rels/(?:document|settings|footnotes|endnotes|fontTable|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|fonts/[A-Za-z0-9_.-]+\\.(?i:odttf|ttf)|media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g))|customXml/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
+                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docMetadata/LabelInfo\\.xml|docProps/thumbnail\\.(?:jpeg|jpg|png)|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|stylesWithEffects|numbering|settings|footnotes|endnotes|fontTable|webSettings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|theme/_rels/theme1\\.xml\\.rels|_rels/(?:document|settings|footnotes|endnotes|fontTable|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|fonts/[A-Za-z0-9_.-]+\\.(?i:odttf|ttf)|media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g))|customXml/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(8192)
                     while (true) {

@@ -210,7 +210,7 @@ class PdfTextBox @JvmOverloads constructor(
     }
 }
 
-enum class PdfAlignment { LEFT, CENTER, RIGHT }
+enum class PdfAlignment { LEFT, CENTER, RIGHT, JUSTIFY }
 
 /** Physical geometry and body-flow keep rules; exact line boxes use an experimental 80% baseline.
  * Keep flags default off in the neutral model; readers resolve their source-format defaults.

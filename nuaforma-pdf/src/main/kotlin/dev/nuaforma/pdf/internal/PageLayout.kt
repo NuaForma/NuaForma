@@ -58,6 +58,8 @@ internal object PageLayouter {
                     val format = block.format
                     if (format.textDirection != null && block.runs.filterIsInstance<PdfTextRun>().any { it.navigation != null || it.semantics != null })
                         throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Bidi navigation is not qualified")
+                    if (format.alignment == PdfAlignment.JUSTIFY && format.textDirection != null)
+                        throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Bidi justification is not qualified")
                     val automatic = automaticBox(block, measurer)
                     if (format.textDirection != null && block.runs.any { it !is PdfTextRun })
                         throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Bidi tabs and inline images are not qualified")
@@ -70,7 +72,7 @@ internal object PageLayouter {
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Mixed Hebrew and LTR text is not qualified for logical extraction")
                     }
                     val label = block.listLabel
-                    if (label != null && format.alignment != PdfAlignment.LEFT) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "List body alignment is outside the qualified profile")
+                    if (label != null && format.alignment !in setOf(PdfAlignment.LEFT, PdfAlignment.JUSTIFY)) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "List body alignment is outside the qualified profile")
                     label?.let { requireSupportedText(it.value.text) }
                     val marker = label?.let { measurer.measure(it.value.text, it.style) }
                     val markerAnchor = format.leftIndent + format.firstLineIndent
@@ -109,7 +111,7 @@ internal object PageLayouter {
                         java.text.Bidi(text, if (direction == PdfTextDirection.RIGHT_TO_LEFT) java.text.Bidi.DIRECTION_RIGHT_TO_LEFT else java.text.Bidi.DIRECTION_LEFT_TO_RIGHT)
                     }
 
-                    fun flush() {
+                    fun flush(justify: Boolean = false) {
                         if (line.isEmpty()) return
                         val ascent = maxOf(line.maxOf { if (automatic == null) it.metrics.ascent else it.metrics.naturalAscent }, if (firstLine) (if (automatic == null) marker?.ascent else marker?.naturalAscent) ?: 0f else 0f)
                         val descent = maxOf(line.maxOf { if (automatic == null) it.metrics.descent else it.metrics.naturalDescent }, if (firstLine) (if (automatic == null) marker?.descent else marker?.naturalDescent) ?: 0f else 0f)
@@ -121,22 +123,31 @@ internal object PageLayouter {
                         val prefix = (label?.value?.text?.length ?: 0) + if (label == null || label.suffix == PdfListSuffix.NOTHING) 0 else 1
                         if (firstLine && label != null) elements += PositionedText(label.value.text, label.style, page.margins.left + area().first + markerLeft, baseline, logicalOwner = block.semantics?.id, span = block.semantics?.let { PdfSpanSemantics(semanticChildId(it.id, "label"), PdfSemanticRole.LABEL) }, logicalOffset = block.semantics?.let { 0 })
                         var x = page.margins.left + lineLeft() + when (format.alignment) {
-                            PdfAlignment.LEFT -> 0f
+                            PdfAlignment.LEFT, PdfAlignment.JUSTIFY -> 0f
                             PdfAlignment.CENTER -> remaining / 2
                             PdfAlignment.RIGHT -> remaining
                         }
+                        val firstContent = line.indexOfFirst { it.text.any { char -> char != ' ' } }
+                        val lastContent = line.indexOfLast { it.text.any { char -> char != ' ' } }
+                        val stretch = if (justify && format.alignment == PdfAlignment.JUSTIFY && remaining > 0f)
+                            line.mapIndexed { index, fragment -> if (index > firstContent && index < lastContent &&
+                                fragment.text.all { it == ' ' }) fragment.text.length else 0 } else List(line.size) { 0 }
+                        val spaceCount = stretch.sum()
+                        val extraPerSpace = if (spaceCount == 0) 0f else remaining / spaceCount
                         if (paragraphBidi != null) {
                             val slices = line.map { LogicalTextSlice(it.text, requireNotNull(it.style), it.sourceStart) }
                             for (run in BidiLine.visualRuns(paragraphBidi, slices)) {
                                 elements += PositionedText(run.text, run.style, x, baseline, logicalOwner = block.semantics?.id, logicalOffset = block.semantics?.let { run.sourceStart + prefix })
                                 x += measurer.measure(run.text, run.style).width
                             }
-                        } else for (fragment in line) {
+                        } else for ((fragmentIndex, fragment) in line.withIndex()) {
+                            val extra = stretch[fragmentIndex] * extraPerSpace
                             if (fragment.vector != null) elements += PositionedVector(fragment.vector, x, baseline - fragment.vector.height)
                             else if (fragment.image != null) elements += PositionedImage(fragment.image, x, baseline - fragment.image.height)
                             else elements += PositionedText(fragment.text, requireNotNull(fragment.style), x + fragment.paintOffset, baseline, fragment.decoration, fragment.navigation, block.semantics?.id, fragment.semantics,
-                                block.semantics?.takeUnless { fragment.decoration || fragment.text.isEmpty() }?.let { fragment.sourceStart + prefix })
-                            x += fragment.metrics.width
+                                block.semantics?.takeUnless { fragment.decoration || fragment.text.isEmpty() }?.let { fragment.sourceStart + prefix },
+                                trailingDecorationWidth = if (extra > 0f) fragment.metrics.width + extra else null)
+                            x += fragment.metrics.width + extra
                         }
                         if (block.underlineTrailingSpaces == true) {
                             if (paragraphBidi != null && spaces.any { it.style?.let { style -> style.underline || style.strikethrough } == true })
@@ -200,7 +211,7 @@ internal object PageLayouter {
                         val spaceWidth = spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
                         if (lineWidth + spaceWidth + wordWidth > availableWidth() + .001f) {
                             if (line.isEmpty()) overflow()
-                            flush()
+                            flush(justify = true)
                             spaces.clear()
                         }
                         if (wordWidth > availableWidth() + .001f) overflow()
