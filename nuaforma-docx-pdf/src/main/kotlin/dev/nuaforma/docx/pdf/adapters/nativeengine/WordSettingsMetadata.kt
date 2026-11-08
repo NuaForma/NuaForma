@@ -29,6 +29,7 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
 
     fun normalize(parts: Map<String, XmlElement>, failure: (String, XmlElement) -> NativeDocxReadException): Formatting {
         normalizeGrids(parts, failure)
+        normalizeRightIndents(parts, failure)
         val settings = parts[part] ?: return Formatting()
         val compatibility = settings.elements().filter { it.name.namespaceURI == word && it.name.localPart == "compat" }
         if (compatibility.size > 1) throw failure(part, compatibility[1])
@@ -117,6 +118,19 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
             }
         }
         return formatting
+    }
+
+    /** Only reached after every section grid has been validated as inactive. */
+    private fun normalizeRightIndents(parts: Map<String, XmlElement>, failure: (String, XmlElement) -> NativeDocxReadException) {
+        for ((part, root) in parts) for (parent in root.descendants().filter { it.name.namespaceURI == word && it.name.localPart == "pPr" }) {
+            val switches = parent.elements().filter { it.name.namespaceURI == word && it.name.localPart == "adjustRightInd" }
+            if (switches.size > 1) throw failure(part, switches[1])
+            for (node in switches) {
+                context.checkActive()
+                toggle(node, word) { throw failure(part, node) }
+                parent.children.remove(node)
+            }
+        }
     }
 
     private fun normalizeGrids(parts: Map<String, XmlElement>, failure: (String, XmlElement) -> NativeDocxReadException) {
