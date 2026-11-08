@@ -107,6 +107,19 @@ internal class NativeDocxReader(
         val blockBoundaryTextRanges = mutableSetOf<String>()
         parsed.forEach { (name, root) -> activePart = name; blockBoundaryTextRanges += NativeDocxBookmarks(context).normalize(root, { source.current = it }, ::reject) }
         staticFields.index(parsed.values)
+        WordAutomaticTextSpacing(context).normalize(parsed, { field ->
+            source.current = field
+            activePart = provenance[field] ?: activePart
+            val instruction = NativeDocxFields.instruction(field.value("instr") ?: reject("Missing field instruction"), ::reject)
+            when (instruction.kind) {
+                "DOCPROPERTY" -> staticFields.propertyText(instruction)
+                "SET" -> instruction.literal
+                else -> null
+            }
+        }) { part, node, message ->
+            source.current = node
+            source.failure(message, part)
+        }
         for (name in listOf("word/fontTable.xml", "word/webSettings.xml")) parsed[name]?.let { root ->
             activePart = name
             source.current = root

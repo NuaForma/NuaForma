@@ -1,0 +1,8 @@
+{
+  "sourceSha256": "c07cbf70b7e132cef3b3c256bc15eeb98f1833e70af2f6ecf837b2b425e4666c",
+  "wordPdfSha256": "a389a445b8912c955d2cf267c1353ba7128fe3d178cc0c410a631544dadc2f37",
+  "goldenSha256": "329de809e14dbb19d5009f6d988c847444e7b030a0365b23162c93eb05c15a95",
+  "dpi": 96,
+  "review": "Initial full-page Word/engine renders reviewed: matching line breaks, indents, Greek/Cyrillic text and geometry; no clipping or overlaps. Qualified glyph bounds: 0.75pt horizontal, 0.4pt baseline.",
+  "policy": "Immutable initial engine golden; zero masks/tolerance. Replacement requires explicit approval and documented visual differences."
+}
