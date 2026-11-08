@@ -4,10 +4,10 @@ import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
 
-/** Qualify inactive East Asian spacing without inventing inter-character advances. */
+/** Qualify inactive spacing and baseline alignment without inventing script-specific metrics. */
 internal class WordAutomaticTextSpacing(private val context: GenerationContext) {
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-    private val names = setOf("autoSpaceDE", "autoSpaceDN")
+    private val names = setOf("autoSpaceDE", "autoSpaceDN", "textAlignment")
     private data class Switch(val part: String, val parent: XmlElement, val node: XmlElement, val enabled: Boolean)
 
     fun normalize(parts: Map<String, XmlElement>, fieldText: (XmlElement) -> String? = { null },
@@ -18,31 +18,43 @@ internal class WordAutomaticTextSpacing(private val context: GenerationContext) 
             for (node in parent.elements().filter { it.name.namespaceURI == word && it.name.localPart in names }) {
                 context.checkActive()
                 val value = node.attribute(word, "val")
+                val alignment = node.name.localPart == "textAlignment"
+                val values = if (alignment) setOf("auto", "baseline") else setOf(null, "1", "0", "true", "false", "on", "off")
                 if (!seen.add(node.name.localPart) || node.elements().isNotEmpty() ||
                     node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
                     node.attributes.keys.any { it.namespaceURI != word || it.localPart != "val" } ||
-                    value !in setOf(null, "1", "0", "true", "false", "on", "off"))
-                    throw failure(part, node, "Invalid automatic text spacing switch")
-                switches += Switch(part, parent, node, value !in setOf("0", "false", "off"))
+                    value !in values)
+                    throw failure(part, node, if (alignment) "Unsupported paragraph text alignment" else "Invalid automatic text spacing switch")
+                switches += Switch(part, parent, node, if (alignment) value == "auto" else value !in setOf("0", "false", "off"))
             }
         }
-        val enabled = switches.firstOrNull { it.enabled }
-        if (enabled != null && containsEastAsianText(parts.values, fieldText))
+        val enabled = switches.firstOrNull { it.enabled && it.node.name.localPart != "textAlignment" }
+        if (enabled != null && containsText(parts.values, fieldText, ::eastAsian))
             throw failure(enabled.part, enabled.node, "Automatic East Asian character spacing is not qualified for this text")
+        val alignment = switches.firstOrNull { it.enabled && it.node.name.localPart == "textAlignment" }
+        if (alignment != null && (WordAuthoringMetadata.containsComplexText(parts.values) ||
+                containsText(parts.values, fieldText) { eastAsian(it) || complexScript(it) }))
+            throw failure(alignment.part, alignment.node, "Automatic paragraph text alignment is not qualified for this text")
         for (entry in switches) {
             context.checkActive()
             entry.parent.children.remove(entry.node)
         }
     }
 
-    private fun containsEastAsianText(roots: Collection<XmlElement>, fieldText: (XmlElement) -> String?): Boolean {
+    private fun containsText(roots: Collection<XmlElement>, fieldText: (XmlElement) -> String?, matches: (String) -> Boolean): Boolean {
         val stories = setOf("document", "body", "hdr", "ftr", "footnotes", "endnotes")
         for (root in roots.filter { it.name.namespaceURI == word && it.name.localPart in stories }) for (node in root.descendants()) {
             context.checkActive()
-            if (node.children.filterIsInstance<XmlText>().any { eastAsian(it.text) }) return true
-            if (node.name.namespaceURI == word && node.name.localPart == "fldSimple" && fieldText(node)?.let(::eastAsian) == true) return true
+            if (node.children.filterIsInstance<XmlText>().any { matches(it.text) }) return true
+            if (node.name.namespaceURI == word && node.name.localPart == "fldSimple" && fieldText(node)?.let(matches) == true) return true
         }
         return false
+    }
+
+    private fun complexScript(text: String): Boolean {
+        context.checkActive()
+        return text.codePoints().anyMatch { code -> Character.isLetter(code) && Character.UnicodeScript.of(code) !in
+            setOf(Character.UnicodeScript.LATIN, Character.UnicodeScript.GREEK, Character.UnicodeScript.CYRILLIC) }
     }
 
     private fun eastAsian(text: String): Boolean {
