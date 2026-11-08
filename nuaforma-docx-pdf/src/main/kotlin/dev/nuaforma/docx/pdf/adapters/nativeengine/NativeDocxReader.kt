@@ -33,7 +33,7 @@ internal class NativeDocxReader(
 
     private fun parse(bytes: ByteArray, part: String): XmlElement {
         activePart = part
-        return parsed.getOrPut(part) { xml.read(bytes).also { root ->
+        return parsed.getOrPut(part) { xml.readPart(bytes, part).also { root ->
             source.index(root, part)
             source.current = root
             root.descendants().forEach { provenance[it] = part }
@@ -50,8 +50,13 @@ internal class NativeDocxReader(
     private fun readDocument(bytes: ByteArray): PdfDocument {
         val parts = unpack(bytes)
         parts.filterKeys { it.endsWith(".xml") || it.endsWith(".rels") }.forEach { (name, content) -> parse(content, name) }
+        WordAuxiliaryParts(context) { name, node, message -> source.current = node; source.failure(message, name) }.normalize(parsed, parts.keys)
         WordSensitivityMetadata(context).removeFromPrintModel(parsed)
         val propertyValues = WordPackageMetadata(context).removeFromPrintModel(parsed)
+        WordContentTypeMetadata(context).removeFromPrintModel(parsed) { name, node, message ->
+            source.current = node
+            source.failure(message, name)
+        }
         val bibliography = WordBibliographyMetadata(context).removeFromPrintModel(parsed)
         bibliography.forEach { parsed.remove(it) }
         val automaticHyphenationSource = parsed["word/settings.xml"]?.elements()?.firstOrNull {
@@ -1351,7 +1356,7 @@ internal class NativeDocxReader(
                     budget(parts.size < minOf(64, context.limits.maxArchiveEntries))
                     check(entry.name !in parts && !entry.isDirectory, "Invalid or duplicate ZIP entries")
                     activePart = entry.name.take(256)
-                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docMetadata/LabelInfo\\.xml|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|numbering|settings|footnotes|endnotes|fontTable|webSettings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|_rels/(?:document|settings|footnotes|endnotes|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g))|customXml/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
+                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docMetadata/LabelInfo\\.xml|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|stylesWithEffects|numbering|settings|footnotes|endnotes|fontTable|webSettings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|theme/_rels/theme1\\.xml\\.rels|_rels/(?:document|settings|footnotes|endnotes|fontTable|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|fonts/[A-Za-z0-9_.-]+\\.(?i:odttf|ttf)|media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g))|customXml/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(8192)
                     while (true) {

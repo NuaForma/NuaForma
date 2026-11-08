@@ -116,7 +116,7 @@ internal class CleanupPackage(private val original: ByteArray, private val conte
         changed = true
     }
 
-    fun root(part: String): XmlElement? = parts[part]?.let { parsed.getOrPut(part) { xml.read(it) } }
+    fun root(part: String): XmlElement? = parts[part]?.let { parsed.getOrPut(part) { xml.readPart(it, part) } }
 
     fun touch(part: String) {
         edited += part
