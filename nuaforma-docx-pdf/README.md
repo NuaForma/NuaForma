@@ -133,3 +133,5 @@ Valid `adjustRightInd` paragraph switches are qualified within the existing abse
 Paragraph text baselines, bounded automatic alignment, omitted Latin run-language inheritance and validated alternate style display names are qualified in source. Source/cleanup bytes remain intact; see [paragraph metadata](../docs/word-paragraph-metadata.md) for script boundaries, references and regressions.
 
 Qualified `mc:AlternateContent` is selected before PDF template evaluation and native reading, including development inspection. Namespace bindings determine the selected representation; unsupported selected geometry remains rejected. Supported cleanup preserves source bytes. See [conditional Word objects](../docs/word-markup-compatibility.md).
+
+Unreleased #241 supports qualified mixed font sizes in automatically spaced paragraphs using each physical line's actual font metrics. Minimum line heights, fragmentation and supported container layouts share those measurements; [mixed natural line spacing](../docs/mixed-natural-line-spacing.md) documents Word references, preserved goldens and remaining bidi/floating-image boundaries.

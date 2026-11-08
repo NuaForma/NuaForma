@@ -108,3 +108,5 @@ Unreleased #223 qualifies solid/null extended-pen metadata and separates actual 
 - [Paragraph metadata](word-paragraph-metadata.md): qualified baselines, inherited run language and alternate style display names.
 
 - [Conditional Word objects](word-markup-compatibility.md): one selected representation for native PDF processing and diagnostics.
+
+- [Mixed natural line spacing](mixed-natural-line-spacing.md): physical wrapped-line metrics, variable-height pagination and bounded combinations.
