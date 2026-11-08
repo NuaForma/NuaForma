@@ -131,3 +131,5 @@ Unreleased #236 qualifies valid `autoSpaceDE`/`autoSpaceDN` switches for unaffec
 Valid `adjustRightInd` paragraph switches are qualified within the existing absent/default-grid profile; active document grids remain unsupported. Source/cleanup bytes and right-indent geometry are retained. See [automatic right-indent adjustment](../docs/word-right-indent-adjustment.md).
 
 Paragraph text baselines, bounded automatic alignment, omitted Latin run-language inheritance and validated alternate style display names are qualified in source. Source/cleanup bytes remain intact; see [paragraph metadata](../docs/word-paragraph-metadata.md) for script boundaries, references and regressions.
+
+Qualified `mc:AlternateContent` is selected before PDF template evaluation and native reading, including development inspection. Namespace bindings determine the selected representation; unsupported selected geometry remains rejected. Supported cleanup preserves source bytes. See [conditional Word objects](../docs/word-markup-compatibility.md).
