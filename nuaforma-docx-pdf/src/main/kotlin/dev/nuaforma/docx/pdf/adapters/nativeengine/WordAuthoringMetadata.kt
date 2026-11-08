@@ -66,6 +66,7 @@ internal object WordAuthoringMetadata {
                 }
                 "styles" -> node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart == "latentStyles" }
                 "style" -> {
+                    styleAliases(node) { child -> current = child; reject() }
                     val updates = node.elements().filter { it.name.namespaceURI == W && it.name.localPart == "autoRedefine" }
                     for (update in updates) {
                         current = update
@@ -105,6 +106,17 @@ internal object WordAuthoringMetadata {
                 "lang" -> if (!complexText) node.attributes.keys.removeIf { it.namespaceURI == W && it.localPart in setOf("bidi", "eastAsia") }
                 "r" -> node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart == "lastRenderedPageBreak" }
             }
+        }
+    }
+
+    private fun styleAliases(style: XmlElement, reject: (XmlElement) -> Nothing) {
+        val aliases = style.elements().filter { it.name.namespaceURI == W && it.name.localPart == "aliases" }
+        for (alias in aliases) {
+            val value = alias.attribute(W, "val") ?: reject(alias)
+            if (aliases.size != 1 || alias.attributes.keys.any { it.namespaceURI != W || it.localPart != "val" } ||
+                value.codePointCount(0, value.length) > 253 || alias.elements().isNotEmpty() ||
+                alias.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject(alias)
+            style.children.remove(alias)
         }
     }
 
