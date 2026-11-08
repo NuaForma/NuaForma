@@ -1142,11 +1142,13 @@ internal class NativeDocxReader(
             result = result.copy(family = family)
         }
         property.one("lang")?.let {
-            attributes(it, setOf("val")); check(it.elements().isEmpty(), "Invalid run language")
-            val language = it.value("val") ?: reject("Missing run language")
-            // Validate using the shared language contract; source mapping remains format-specific.
-            PdfTextStyle("regular", 11f, languageTag = language)
-            result = result.copy(languageTag = language)
+            attributes(it, setOf("val"))
+            check(it.elements().isEmpty() && it.children.filterIsInstance<XmlText>().all { text -> text.text.isBlank() }, "Invalid run language")
+            it.value("val")?.let { language ->
+                // An omitted Latin language inherits; explicit values retain shared validation.
+                PdfTextStyle("regular", 11f, languageTag = language)
+                result = result.copy(languageTag = language)
+            }
         }
         property.one("sz")?.let { result = result.copy(size = number(it.value("val")) / 2) }
 
