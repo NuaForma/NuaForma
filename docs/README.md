@@ -102,3 +102,5 @@ Unreleased #223 qualifies solid/null extended-pen metadata and separates actual 
 - [Paragraph justification and passive Word metadata](word-justification-metadata.md): source qualification, Word reference and retained strict boundaries.
 
 - [Automatic East Asian text spacing](word-automatic-text-spacing.md): qualified inactive switches, field-aware guards and A4/Letter Word references.
+
+- [Automatic right-indent adjustment](word-right-indent-adjustment.md): validated inactive-grid paragraph switches and unchanged Word/golden geometry.
