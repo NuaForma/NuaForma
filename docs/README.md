@@ -59,6 +59,8 @@ Choose a guide for the task you want to complete. Module guides are the technica
 
 ## Source versus published versions
 
+Unreleased #234 qualifies [Word-compatible synthetic bold](word-synthetic-bold.md) and its additive neutral style API, with unchanged DOCX embedding and EMF font policies.
+
 Unreleased #233 qualifies [passive Office package resources](word-passive-office-package.md), with strict graph checks and unchanged caller-font requirements.
 
 This checkout uses the native DOCX reader and shared `nuaforma-pdf` renderer. Libraries target Java 17; server/Playground use Java 25, with separate Java 17 PDF validators. This guide targets the native engine selected for `0.4.0-alpha.7`. Consult the actual signed release and matching Maven/container artifacts for published availability; older LibreOffice-based images do not gain this implementation automatically. Source builds and checks do not themselves publish artifacts. Local evaluation can use staged libraries and the source container; publication retains its candidate-specific qualification and approval gates.
