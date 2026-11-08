@@ -129,3 +129,5 @@ Source #235 qualifies inherited/direct `w:jc=both`, numbering cleanup bookkeepin
 Unreleased #236 qualifies valid `autoSpaceDE`/`autoSpaceDN` switches for unaffected text and explicitly disabled settings, with field-aware guards for active East Asian spacing. See [qualification, references and limits](../docs/word-automatic-text-spacing.md). The shared PDF API and font policy are unchanged.
 
 Valid `adjustRightInd` paragraph switches are qualified within the existing absent/default-grid profile; active document grids remain unsupported. Source/cleanup bytes and right-indent geometry are retained. See [automatic right-indent adjustment](../docs/word-right-indent-adjustment.md).
+
+Paragraph text baselines, bounded automatic alignment, omitted Latin run-language inheritance and validated alternate style display names are qualified in source. Source/cleanup bytes remain intact; see [paragraph metadata](../docs/word-paragraph-metadata.md) for script boundaries, references and regressions.
