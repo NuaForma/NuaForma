@@ -187,6 +187,16 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
             val options = PdfOptions.read(request.requirements.output.options)
             val fonts = suppliedFonts(request, context)
             val availableFonts = fonts.associateBy { it.family.lowercase(Locale.ROOT) to it.face }
+
+            fun resolvedFont(family: String, bold: Boolean, italic: Boolean): NativePdfFont {
+                val name = family.lowercase(Locale.ROOT)
+                val face = when { bold && italic -> "boldItalic"; bold -> "bold"; italic -> "italic"; else -> "regular" }
+                return availableFonts[name to face]
+                    ?: if (bold) availableFonts[name to if (italic) "italic" else "regular"]
+                        ?: fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE)
+                    else fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE)
+            }
+
             val usedFonts = linkedMapOf<Pair<String, String>, NativePdfFont>()
             val filled = BoundedBuffer(minOf(8_388_608L, context.limits.maxExpandedBytes), context)
             val intermediate = GenerationRequest(request.template, GenerationRequirements(request.requirements.input,
@@ -201,23 +211,28 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
             } else processor.generateForConversion(intermediate, filled, context)
             onPrepared?.invoke(filled.toByteArray())
             val intermediateSize = filled.size()
+
             fun fontReference(family: String, bold: Boolean, italic: Boolean): String {
-                val face = when { bold && italic -> "boldItalic"; bold -> "bold"; italic -> "italic"; else -> "regular" }
-                val identity = family.lowercase(Locale.ROOT) to face
-                val font = availableFonts[identity] ?: fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE)
+                val font = resolvedFont(family, bold, italic)
+                val identity = font.family.lowercase(Locale.ROOT) to font.face
                 usedFonts.putIfAbsent(identity, font)
                 if (usedFonts.size > 16 || usedFonts.values.sumOf { it.byteSize.toLong() } > minOf(33_554_432L, context.limits.maxExpandedBytes - intermediateSize)) {
                     fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.PDF_CONVERSION_BYTE_BUDGET_WAS_EXCEEDED)
                 }
                 return "font${usedFonts.keys.indexOf(identity)}"
             }
-            val reader = NativeDocxReader(context, ::fontReference)
+
+            val reader = NativeDocxReader(context, ::fontReference) { family, bold, italic ->
+                bold && resolvedFont(family, bold, italic).face == if (italic) "italic" else "regular"
+            }
             val imageFonts = mutableMapOf<Triple<String, Boolean, Boolean>, java.awt.Font>()
             val document = reader.read(filled.toByteArray(), { family, bold, italic ->
                 imageFonts.getOrPut(Triple(family.lowercase(Locale.ROOT), bold, italic)) {
-                    fontReference(family, bold, italic)
                     val face = when { bold && italic -> "boldItalic"; bold -> "bold"; italic -> "italic"; else -> "regular" }
-                    val font = requireNotNull(availableFonts[family.lowercase(Locale.ROOT) to face])
+                    // EMF has its own raster text qualification; do not silently synthesize image fonts.
+                    val font = availableFonts[family.lowercase(Locale.ROOT) to face]
+                        ?: fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE)
+                    fontReference(family, bold, italic)
                     try { font.source().openStream().use { java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, it) } }
                     catch (_: java.awt.FontFormatException) { fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE) }
                 }

@@ -13,7 +13,11 @@ import java.util.zip.ZipInputStream
 internal class NativeDocxReader(
     private val context: GenerationContext,
     private val fontId: (String, Boolean, Boolean) -> String,
+    private val syntheticBold: (String, Boolean, Boolean) -> Boolean,
 ) {
+
+    constructor(context: GenerationContext, fontId: (String, Boolean, Boolean) -> String) : this(context, fontId, { _, _, _ -> false })
+
     private val xml = ConversionXml(context)
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private val rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -1077,6 +1081,7 @@ internal class NativeDocxReader(
             if (face.openType) PdfKerning.OPENTYPE else PdfKerning.PAIRS else PdfKerning.NONE
         return PdfTextStyle(face.id(fontId), size, face.color, face.languageTag, face.underline, if (face.superscript) nominal - size else 0f, face.strikethrough)
             .withFontFeatures(PdfFontFeatures(kern, face.standardLigatures && face.openType))
+            .withSyntheticBold(syntheticBold(requireNotNull(face.family), face.bold, face.italic))
     }
 
     private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>): Face {
