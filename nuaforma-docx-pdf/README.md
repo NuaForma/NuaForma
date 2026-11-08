@@ -123,3 +123,5 @@ Selected alpha.6 (#170) preserves concrete native rejection details and source c
 Selected for 0.4.0-alpha.6, #213 qualifies passive Word picture metadata and corrects EMF header classification, with the cleanup download beside its control in Playground. See [qualified scope and regression coverage](../docs/word-picture-metadata.md).
 
 Unreleased #223 qualifies unused solid/null extended-pen metadata and valid BS_NULL/PS_NULL combinations. Actual pattern/bitmap failures identify the relevant BrushStyle, cbBmi or cbBits instead of one generic pattern-pen message. See [qualified pen semantics and remaining limits](../docs/word-picture-metadata.md#solid-and-null-pen-metadata-unreleased-223). No new dependency, font or published release is introduced.
+
+Source #235 qualifies inherited/direct `w:jc=both`, numbering cleanup bookkeeping, internal JPEG/PNG package previews and valid Word font-save preferences. These passive preferences do not change supplied-font or PDF embedding policy. See [qualification and limits](../docs/word-justification-metadata.md).

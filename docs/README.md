@@ -98,3 +98,5 @@ Version 0.4.0-alpha.6 (#213) preserves qualified picture metadata and described 
 Version 0.4.0-alpha.7 (#218) treats bounded EMF header-description text as unused metadata, retaining otherwise supported logos without requiring a terminator. Invalid ranges and unsupported graphics remain errors. See the [compatibility policy](word-picture-metadata.md#bounded-description-compatibility-040-alpha7-218). See the [release notes](../release-notes/0.4.0-alpha.7.md) and [candidate audit](release-0.4.0-alpha.7-audit.md).
 
 Unreleased #223 qualifies solid/null extended-pen metadata and separates actual pattern/bitmap failures in diagnostics. See [the pen profile](word-picture-metadata.md#solid-and-null-pen-metadata-unreleased-223); this source change is not a new published alpha.
+
+- [Paragraph justification and passive Word metadata](word-justification-metadata.md): source qualification, Word reference and retained strict boundaries.

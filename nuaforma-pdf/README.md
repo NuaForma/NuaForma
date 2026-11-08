@@ -170,3 +170,5 @@ Requested watermarks work with standard PDF, PDF/A-2b and PDF/A-3b. PDF/A-1b rej
 ## Rich-text source feature
 
 The selected alpha.5 release adds immutable single strikeout through `PdfTextStyle.withStrikethrough`. The writer uses OpenType OS/2 metrics. Original six-property Java/Kotlin constructor/copy/destructuring descriptors remain executable; value methods are explicit and Kotlin reflection no longer reports a data class. See [the compatibility and qualification guide](../docs/rich-text.md). The RTF parser stays outside this neutral library.
+
+Source #235 adds `PdfAlignment.JUSTIFY` for bounded LTR paragraphs, with wrapped-line space expansion, unstretched final lines and retained indentation. See [qualification and limits](../docs/word-justification-metadata.md).
