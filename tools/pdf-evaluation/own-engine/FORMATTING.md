@@ -152,3 +152,9 @@ Source #251 adds `document-variable-storage/{a4,letter}`: unused braces and non-
 Source #252 adds `unicode-spaces/{a4,letter}` with independent explicit/implicit Word controls, 40 measured markers and two initially reviewed goldens. [Qualification and rebuild](../../../docs/word-unicode-spaces.md) retain ordinary XML-space restrictions.
 
 Source #253 adds `table-bookmark-ends/{a4,letter}` with independently exported paragraph/interleaved controls, 12 measured markers and two initially reviewed goldens. [Qualification and rebuild](../../../docs/word-fields-and-bookmarks.md#ordered-table-bookmark-endings-source-253) preserve strict range balance and text-reference boundaries.
+
+## Proofing, tray selection, editing bookmarks and font hints (#254–#257)
+
+`proofing-display-preferences`, `printer-tray-selection` and `editing-bookmark` derive from the passive-package A4/Letter controls and reuse the existing `typography-preferences` images. `default-font-hints` derives from `mixed-latin-fonts`, retaining its two-page A4/Letter images and 42 markers per paper. Source parts, actual Word exports, receipts and golden provenance are retained in each new folder; existing PNGs are referenced rather than copied or replaced.
+
+Build sources with `build_proofing_display_fixture.py`, `build_paper_source_fixture.py`, `build_editing_bookmark_fixture.py` and `build_default_font_hint_fixture.py`, each with `--base nuaforma-docx-pdf/src/test/resources --output <fresh-build-directory>`. Independently export with the exact existing fixture fonts. Ten Word-reference pages must retain control pixels; tests cover all four PDF profiles, original/cleanup bytes and focused malformed-source rejection. Caller/private corpus fonts stay outside resources. No reference generation or golden replacement occurs during tests.

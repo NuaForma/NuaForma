@@ -113,10 +113,10 @@ Unreleased #223 qualifies solid/null extended-pen metadata and separates actual 
 
 - [Word compatibility modes](word-compatibility-modes.md): qualified mode-14 layout, strict settings validation and independent Word references.
 - [Word run theme colors](word-theme-colors.md): bounded palette resolution, HSL tint/shade, style inheritance and original-source validation.
-- [Initial sections and form protection](word-initial-section-metadata.md): bounded initial-continuous admission, preserved editing metadata and mixed-paper Word proofs.
+- [Initial sections, form protection and printer trays](word-initial-section-metadata.md): bounded initial-continuous admission, preserved editing metadata and mixed-paper Word proofs.
 - [Physical OOXML trash items](word-package-trash.md): bounded admission of standard discarded ZIP data without template or layout participation.
 - [Mixed Latin font roles](word-mixed-latin-fonts.md): independent ASCII/high-ANSI inheritance, Word comparisons, script limits and unchanged shared PDF contracts.
-- [Passive picture and revision-recording preferences](word-passive-editing-preferences.md): original-source validation, preserved templates and unchanged printed pages.
+- [Passive picture, revision and proofing preferences](word-passive-editing-preferences.md): original-source validation, preserved templates and unchanged printed pages.
 
 Unreleased #250 extends [passive custom XML storage](word-passive-office-package.md#unbound-custom-xml-data-source-250) with bounded unbound data, exact owned graphs and preserved template bytes. Active bindings remain unsupported.
 
@@ -125,3 +125,5 @@ Unreleased #251 qualifies [unused document-variable storage](word-passive-editin
 Unreleased #252 qualifies [Unicode spaces at run boundaries](word-unicode-spaces.md), preserving nonbreaking content without redundant XML space markers.
 
 Unreleased #253 extends [bookmark qualification](word-fields-and-bookmarks.md#ordered-table-bookmark-endings-source-253) with ordered table-level endings and the existing strict text-reference guard.
+
+Unreleased #254–#257 qualify original proofing preferences, printer-tray metadata, empty unused editing bookmarks and explicit default font hints through the linked Word guides above. Their A4/Letter counterfactuals retain existing Word/golden pixels and original template bytes.
