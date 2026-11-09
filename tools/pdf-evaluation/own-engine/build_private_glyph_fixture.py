@@ -12,20 +12,22 @@ def run(text,family='Liberation Sans',size=22,color='000000',bold=False):
     return '<w:r><w:rPr><w:rFonts w:ascii="'+family+'" w:hAnsi="'+family+'"/><w:sz w:val="'+str(size)+'"/>'+('<w:b/>' if bold else '')+'<w:color w:val="'+color+'"/></w:rPr><w:t xml:space="preserve">'+escape(text)+'</w:t></w:r>'
 
 
-def paragraph(content):
-    return '<w:p><w:pPr><w:spacing w:before="120" w:after="60" w:line="480" w:lineRule="exact"/></w:pPr>'+content+'</w:p>'
+def paragraph(content, automatic=False):
+    line = '240' if automatic else '480'
+    rule = 'auto' if automatic else 'exact'
+    return '<w:p><w:pPr><w:spacing w:before="120" w:after="60" w:line="'+line+'" w:lineRule="'+rule+'"/></w:pPr>'+content+'</w:p>'
 
 
-def build(base,output):
+def build(base,output,automatic=False):
     for mode in ['control','private']:
         for paper in ['a4','letter']:
             with ZipFile(base/'passive-office-package'/paper/'source.docx') as z:parts={name:z.read(name) for name in z.namelist()}
             old=parts['word/document.xml'].decode();prefix=old.split('<w:body>')[0];section='<w:sectPr>'+old.split('<w:sectPr>')[1].split('</w:sectPr>')[0]+'</w:sectPr>'
-            body=paragraph(run('R00 Symbol glyphs '+paper.upper(),size=28,bold=True))
+            body=paragraph(run('R00 Symbol glyphs '+paper.upper(),size=28,bold=True),automatic)
             for index,(label,private,assigned,color) in enumerate(ICONS,1):
                 point=private if mode=='private' else assigned
-                body+=paragraph(run(f'R0{index} {label}: ')+run(chr(point),FAMILY,32,color)+run(' same physical glyph'))
-            body+=paragraph(run('R05 Literal words stay searchable.'))
+                body+=paragraph(run(f'R0{index} {label}: ')+run(chr(point),FAMILY,32,color)+run(' same physical glyph'),automatic)
+            body+=paragraph(run('R05 Literal words stay searchable.'),automatic)
             parts['word/document.xml']=(prefix+'<w:body>'+body+section+'</w:body></w:document>').encode()
             target=output/mode/paper;target.mkdir(parents=True,exist_ok=False)
             with ZipFile(target/'source.docx','x',ZIP_DEFLATED) as z:
@@ -36,4 +38,5 @@ def build(base,output):
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--base',type=Path,required=True);parser.add_argument('--output',type=Path,required=True)
-    args=parser.parse_args();build(args.base,args.output)
+    parser.add_argument('--automatic-lines',action='store_true')
+    args=parser.parse_args();build(args.base,args.output,args.automatic_lines)

@@ -262,7 +262,7 @@ internal object PageLayouter {
         val objectHeight = (p.runs.singleOrNull() as? PdfImageRun)?.image?.height ?:
             p.runs.takeIf { vectorsOnly }?.filterIsInstance<PdfVectorRun>()?.maxOfOrNull { it.height }
         if (objectHeight != null) {
-            val minimum = p.minimumLineStyle?.let { measurer.measure(" ", it) }
+            val minimum = p.minimumLineStyle?.let { measurer.measure("", it) }
             val fontBaseline = (minimum?.naturalAscent ?: 0f) + (minimum?.lineGap ?: 0f)
             // Word places a standalone inline shape at the bottom of the paragraph-mark box.
             // A paragraph with visible text retains its ordinary text baseline below.
@@ -278,7 +278,7 @@ internal object PageLayouter {
             is PdfTextRun -> it.style; is PdfTab -> it.style; is PdfPageField -> it.style
             else -> throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Automatic inline image spacing is not qualified")
         } } + listOfNotNull(p.listLabel?.style)
-        val metrics = styles.map { measurer.measure(" ", it) }
+        val metrics = styles.map { measurer.measure("", it) }
         if (metrics.any { !it.naturalAscent.isFinite() || !it.naturalDescent.isFinite() || !it.lineGap.isFinite() })
             throw PdfRenderException(PdfFailureCode.INVALID_RESOURCE, "Natural font line metrics are unavailable")
         if (!allowMixed) {
@@ -288,7 +288,7 @@ internal object PageLayouter {
         }
         // The caller supplies the actual physical line. Never reuse a paragraph-wide maximum
         // when wrapped lines contain different sizes, faces or raised note markers.
-        val minimum = p.minimumLineStyle?.let { measurer.measure(" ", it) }
+        val minimum = p.minimumLineStyle?.let { measurer.measure("", it) }
         if (minimum != null && (!minimum.naturalAscent.isFinite() || !minimum.naturalDescent.isFinite() || !minimum.lineGap.isFinite()))
             throw PdfRenderException(PdfFailureCode.INVALID_RESOURCE, "Minimum line metrics are unavailable")
         val all = metrics + listOfNotNull(minimum)

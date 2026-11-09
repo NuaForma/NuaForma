@@ -13,7 +13,9 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.Arguments
+import java.util.stream.Stream
 import java.io.ByteArrayOutputStream
 import java.nio.file.Files
 import java.nio.file.Path
@@ -21,6 +23,15 @@ import java.security.MessageDigest
 import javax.imageio.ImageIO
 
 class NativePrivateGlyphTest {
+    companion object {
+
+        @JvmStatic
+        fun fixtures(): Stream<Arguments> = listOf("private-glyphs", "private-glyph-natural-lines").flatMap { fixture ->
+            PdfFontEmbedding.entries.map { embedding -> Arguments.of(fixture, embedding) }
+        }.stream()
+
+    }
+
     @TempDir lateinit var temporary: Path
     private val equivalents = mapOf('\u2709' to '\uF003', '\u2665' to '\uF004', '\u2713' to '\uF00C', '\u00D7' to '\uF00D')
 
@@ -59,12 +70,12 @@ class NativePrivateGlyphTest {
     }
 
     @ParameterizedTest
-    @EnumSource(PdfFontEmbedding::class)
-    fun `private glyphs retain exact alias-control pixels and original characters in independently validated PDF profiles`(embedding: PdfFontEmbedding) {
+    @MethodSource("fixtures")
+    fun `private glyphs retain exact alias-control pixels and original characters in independently validated PDF profiles`(fixture: String, embedding: PdfFontEmbedding) {
         val provider = configured(embedding)
-        val output = Files.createDirectories(Path.of("build/258-private-glyphs/${embedding.name.lowercase()}"))
+        val output = Files.createDirectories(Path.of("build/private-glyph-fixtures/$fixture/${embedding.name.lowercase()}"))
         for (paper in listOf("a4", "letter")) {
-            val folder = "/private-glyphs/$paper/"
+            val folder = "/$fixture/$paper/"
             val source = bytes(folder + "source.docx")
             val original = source.copyOf()
             val control = bytes(folder + "control-source.docx")

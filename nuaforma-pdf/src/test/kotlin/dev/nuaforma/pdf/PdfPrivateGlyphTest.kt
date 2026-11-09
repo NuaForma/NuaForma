@@ -107,4 +107,76 @@ class PdfPrivateGlyphTest {
         }
     }
 
+
+    @Test
+    fun `natural and minimum line boxes measure actual symbol fonts without a printable space`() {
+        TTFParser().parse(RandomAccessReadBuffer(resource("FontAwesomeFree-Solid.ttf"))).use { font ->
+            assertEquals(0, font.unicodeCmapLookup.getGlyphId(' '.code))
+        }
+        val engine = PdfEngine()
+        for (embedding in PdfFontEmbedding.entries) for (minimum in listOf<Float?>(null, 32f)) {
+
+            fun natural(text: String): PdfDocument {
+                val original = document(text)
+                val paragraph = (original.blocks.single() as PdfParagraph).copy(
+                    format = if (minimum == null) PdfParagraphFormat(automaticLineSpacing = PdfAutomaticLineSpacing()) else PdfParagraphFormat())
+                    .withMinimumLineStyle(PdfTextStyle("symbols", 16f)).withMinimumLineHeight(minimum)
+                return PdfDocument(original.page, listOf(paragraph))
+            }
+
+            Loader.loadPDF(engine.render(natural(aliases), fonts(embedding))).use { control ->
+                Loader.loadPDF(engine.render(natural(privateText), fonts(embedding))).use { actual ->
+                    assertEquals("Before $privateText after", PDFTextStripper().getText(actual).trim())
+                    assertImagesMatch(PDFRenderer(control).renderImageWithDPI(0, 96f), PDFRenderer(actual).renderImageWithDPI(0, 96f)) {
+                        pixelTolerance = 0.0; allowedDifferentPixelsPercent = 0.0; threshold = 1
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `unprinted symbol paragraph marks establish natural minimum boxes for text and vectors`() {
+        val style = PdfTextStyle("regular", 11f)
+        val minimum = PdfTextStyle("symbols", 22f)
+        val format = PdfParagraphFormat(automaticLineSpacing = PdfAutomaticLineSpacing())
+        val vector = PdfVectorRun(PdfVector(listOf(PdfVectorPath(listOf(PdfVectorPoint(100, 100), PdfVectorPoint(900, 900))))),
+            12f, 12f, PdfColor(0, 139, 144))
+        val paragraphs = listOf(
+            PdfParagraph(listOf(PdfTextRun("Body", style)), format = format).withMinimumLineStyle(minimum),
+            PdfParagraph(listOf(vector), format = format).withMinimumLineStyle(minimum))
+        val doc = PdfDocument(PdfPage(300f, 200f, PdfMargins(20f, 20f, 20f, 20f)), paragraphs)
+        Loader.loadPDF(PdfEngine().render(doc, fonts())).use { pdf ->
+            assertEquals("Body", PDFTextStripper().getText(pdf).trim())
+            assertEquals(1, pdf.numberOfPages)
+        }
+        val unavailable = paragraphs.first().withMinimumLineStyle(PdfTextStyle("unavailable", 22f))
+        assertEquals(PdfFailureCode.FONT_UNAVAILABLE, assertThrows(PdfRenderException::class.java) {
+            PdfEngine().render(PdfDocument(doc.page, listOf(unavailable)), fonts())
+        }.code)
+    }
+
+    @Test
+    fun `symbol list labels use natural metrics while actual printed spaces still require their glyph`() {
+        val style = PdfTextStyle("symbols", 16f)
+        val format = PdfParagraphFormat(automaticLineSpacing = PdfAutomaticLineSpacing(), leftIndent = 40f, firstLineIndent = -20f)
+
+        fun list(suffix: PdfListSuffix) = PdfDocument(PdfPage(300f, 200f, PdfMargins(20f, 20f, 20f, 20f)),
+            listOf(PdfParagraph(listOf(PdfTextRun("Item", PdfTextStyle("regular", 11f))), format = format,
+                listLabel = PdfListLabel(PdfListValue("symbols", 0, null, privateText.take(1)), style, suffix = suffix))))
+
+        for (suffix in listOf(PdfListSuffix.TAB, PdfListSuffix.NOTHING)) {
+            Loader.loadPDF(PdfEngine().render(list(suffix), fonts())).use { pdf ->
+                val text = PDFTextStripper().getText(pdf)
+                assertTrue(text.contains(privateText.take(1)) && text.contains("Item"))
+            }
+        }
+        assertEquals(PdfFailureCode.MISSING_GLYPH, assertThrows(PdfRenderException::class.java) {
+            PdfEngine().render(list(PdfListSuffix.SPACE), fonts())
+        }.code)
+        assertEquals(PdfFailureCode.MISSING_GLYPH, assertThrows(PdfRenderException::class.java) {
+            PdfEngine().render(document(privateText + " "), fonts())
+        }.code)
+    }
+
 }
