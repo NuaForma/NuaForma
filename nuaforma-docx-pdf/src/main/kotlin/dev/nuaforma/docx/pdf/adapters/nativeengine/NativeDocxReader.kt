@@ -67,6 +67,10 @@ internal class NativeDocxReader(
                 source.current = node
                 throw source.failure(message, part)
             }
+            WordInactiveRunProperties.validateSource(root) { node, message ->
+                source.current = node
+                throw source.failure(message, part)
+            }
             WordTableWidths.normalizeSource(root) { node, message ->
                 source.current = node
                 throw source.failure(message, part)
@@ -1244,8 +1248,11 @@ internal class NativeDocxReader(
     private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>, themeColors: WordThemeColors): Face {
         if (property == null) return initial
         val word14 = "http://schemas.microsoft.com/office/word/2010/wordml"
-        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern", "spacing"), setOf(word14 to "ligatures"))
+        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern", "spacing", "dstrike", "w"), setOf(word14 to "ligatures"))
         var result = initial
+        for (node in listOf("dstrike", "w").mapNotNull { property.one(it) }) {
+            WordInactiveRunProperties.requireInactive(node) { origin, message -> source.current = origin; reject(message) }
+        }
         property.one("spacing")?.let { node ->
             result = result.copy(characterSpacing = WordRunSpacing.read(node) { origin, message -> source.current = origin; reject(message) })
         }

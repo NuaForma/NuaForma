@@ -1,0 +1,11 @@
+{
+  "issue": 270,
+  "sha256": {
+    "source.docx": "c6c5d369d3608d502c1b5c4ca58a90d4d4a68438f8ae8b0923b6063af9a88a48",
+    "word-reference.pdf": "8bb44f7a898c6a6f35418119abffcf3f8da5054bb2b65355a72755046b39b365",
+    "word-reference.pdf.provenance.json": "cd01a82f6dca4e8eef29876157efcac37bd0aad7ec0a887b6c0caf72030128de",
+    "existing-page-1.png": "2cfbf683e07c9d5b80b4fbaa916aadd684f45cba986ba54dfffd228a35683b17"
+  },
+  "golden": "preferred-table-widths/a4/page-1.png",
+  "note": "Actual Word and native inactive variants retain exact original pixels. No golden replaced."
+}
