@@ -120,6 +120,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     throw source.failure("Invalid original Word editing preference", part)
                 }
+                if (part == "word/settings.xml") WordSettingsMetadata(context).validateDocumentVariablesSource(root) { node ->
+                    source.current = node
+                    throw source.failure("Invalid original document-variable storage", part)
+                }
                 WordThemeColors.validateSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)

@@ -41,11 +41,41 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
         }
     }
 
+    fun validateDocumentVariablesSource(root: XmlElement, reject: (XmlElement) -> Nothing) {
+        if (root.name.namespaceURI != word || root.name.localPart != "settings") return
+        val matches = root.elements().filter { it.name.localPart == "docVars" }
+        if (matches.size > 1) reject(matches[1])
+        val names = mutableSetOf<String>()
+        var total = 0
+        for (container in matches) {
+            context.checkActive()
+            if (container.name.namespaceURI != word || container.attributes.isNotEmpty() ||
+                container.children.filterIsInstance<XmlText>().any { !it.text.isBlank() } || container.elements().size > 1_000) reject(container)
+            for (node in container.elements()) {
+                total += documentVariableSize(node, names, reject)
+                if (total > 65_536) reject(node)
+            }
+        }
+    }
+
+    private fun documentVariableSize(node: XmlElement, names: MutableSet<String>, reject: (XmlElement) -> Nothing): Int {
+        context.checkActive()
+        if (node.name.namespaceURI != word || node.name.localPart != "docVar") reject(node)
+        leaf(node, setOf("name", "val")) { reject(node) }
+        val name = node.attribute(word, "name") ?: reject(node)
+        val value = node.attribute(word, "val") ?: reject(node)
+        if (name.isBlank() || name.length > 255 || name.any(Char::isISOControl) ||
+            !names.add(name.lowercase(java.util.Locale.ROOT)) || value.length > 16_384) reject(node)
+        return name.length + value.length
+    }
+
     fun normalize(parts: Map<String, XmlElement>, failure: (String, XmlElement) -> NativeDocxReadException): Formatting {
         for ((name, root) in parts) WordSectionMetadata.normalizeForms(root) { node, _ -> throw failure(name, node) }
         normalizeGrids(parts, failure)
         normalizeRightIndents(parts, failure)
         val settings = parts[part] ?: return Formatting()
+        validateDocumentVariablesSource(settings) { throw failure(part, it) }
+        settings.children.removeAll(settings.elements().filter { it.name.namespaceURI == word && it.name.localPart == "docVars" }.toSet())
         val compatibility = settings.elements().filter { it.name.namespaceURI == word && it.name.localPart == "compat" }
         if (compatibility.size > 1) throw failure(part, compatibility[1])
         var formatting = Formatting()
