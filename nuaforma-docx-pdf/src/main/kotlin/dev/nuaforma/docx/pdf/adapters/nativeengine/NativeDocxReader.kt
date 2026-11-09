@@ -74,6 +74,10 @@ internal class NativeDocxReader(
                 source.failure(message, part)
             }
             val observe = normalizations?.let { WordSourceNormalization.observe(root, part, source) }
+            WordGridHistoryMetadata.normalizeSource(root, context) { node, message ->
+                source.current = node
+                throw source.failure(message, part)
+            }
             WordRunSpacing.validateSource(root) { node, message ->
                 source.current = node
                 throw source.failure(message, part)

@@ -155,6 +155,13 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     throw source.failure(message, part)
                 }
+                if (WordGridHistoryMetadata.normalizeSource(root, context) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }) {
+                    archive.touch(part)
+                    changed = true
+                }
                 WordRunSpacing.validateSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)
