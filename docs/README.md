@@ -117,3 +117,7 @@ Unreleased #223 qualifies solid/null extended-pen metadata and separates actual 
 - [Physical OOXML trash items](word-package-trash.md): bounded admission of standard discarded ZIP data without template or layout participation.
 - [Mixed Latin font roles](word-mixed-latin-fonts.md): independent ASCII/high-ANSI inheritance, Word comparisons, script limits and unchanged shared PDF contracts.
 - [Passive picture and revision-recording preferences](word-passive-editing-preferences.md): original-source validation, preserved templates and unchanged printed pages.
+
+Unreleased #250 extends [passive custom XML storage](word-passive-office-package.md#unbound-custom-xml-data-source-250) with bounded unbound data, exact owned graphs and preserved template bytes. Active bindings remain unsupported.
+
+Unreleased #251 qualifies [unused document-variable storage](word-passive-editing-preferences.md#unused-document-variable-storage-source-251), with original-source checks and unchanged template bytes. Displayed `DOCVARIABLE` fields remain unsupported.
