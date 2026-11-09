@@ -24,7 +24,12 @@ internal class NativeDocxNumbering(root: XmlElement?, body: XmlElement, private 
             focus(p)
             val chain = styles(p)
             var id: String? = null
-            for (style in chain) style.one("pPr")?.one("numPr")?.let { id = numProperties(it).first ?: id }
+            var inheritedLevel: Int? = null
+            for (style in chain) style.one("pPr")?.one("numPr")?.let {
+                val properties = numProperties(it)
+                id = properties.first ?: id
+                inheritedLevel = properties.second ?: inheritedLevel
+            }
             val direct = p.one("pPr")?.one("numPr")?.let(::numProperties)
             id = direct?.first ?: id
             focus(p)
@@ -32,16 +37,7 @@ internal class NativeDocxNumbering(root: XmlElement?, body: XmlElement, private 
             if (id == null) { require(direct?.second == null) { "List level without an instance" }; continue }
             require(p !in frames) { "Numbering in text frames is outside the qualified source profile" }
             val instance = requireNotNull(instances[id]) { "Unknown numbering instance" }
-            val associated = chain.asReversed().firstNotNullOfOrNull { style ->
-                instance.levels.indexOfFirst { it.one("pStyle")?.value("val") == style.value("styleId") }.takeIf { it >= 0 }
-            }
-            val level = direct?.second ?: associated ?: 0
-            for (style in chain) style.one("pPr")?.one("numPr")?.let { node ->
-                val declared = numProperties(node).second
-                focus(p)
-                require(declared == null || associated != null && declared == associated) { "Inconsistent style-linked numbering level is outside the qualified profile" }
-            }
-            require(direct?.second == null || associated == null || direct.second == associated) { "Overriding a linked style level is outside the qualified profile" }
+            val level = direct?.second ?: inheritedLevel ?: 0
             require(level in instance.levels.indices) { "Unknown numbering level" }
             require(selected.size < 2_000) { "Source list step budget exceeded" }
             val restart = level in instance.starts && startedOverrides.add(id to level)

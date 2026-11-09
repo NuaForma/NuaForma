@@ -82,6 +82,10 @@ internal class NativeDocxReader(
                 source.current = node
                 throw source.failure(message, part)
             }
+            WordNumberingMetadata(context).validateParagraphNumberingSource(root) { node ->
+                source.current = node
+                source.failure("Unsupported original Word paragraph numbering", part)
+            }
             WordCellMargins.normalizeSource(root) { node, message ->
                 source.current = node
                 throw source.failure(message, part)

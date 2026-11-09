@@ -10,6 +10,38 @@ internal class WordNumberingMetadata(private val context: GenerationContext) {
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private val word15 = "http://schemas.microsoft.com/office/word/2012/wordml"
     private val durable = "http://schemas.microsoft.com/office/word/2016/wordml/cid"
+    private val paragraphNumber = Regex("[+]?[0-9]{1,7}")
+
+    fun validateParagraphNumberingSource(root: XmlElement, failure: (XmlElement) -> NativeDocxReadException) {
+        for (properties in root.descendants().filter { it.name == QName(word, "pPr") }) {
+            context.checkActive()
+            val declarations = properties.elements().filter { it.name.localPart == "numPr" }
+            if (declarations.size > 1) throw failure(declarations[1])
+            for (declaration in declarations) validateParagraphNumbering(declaration, failure)
+        }
+    }
+
+    private fun validateParagraphNumbering(node: XmlElement, failure: (XmlElement) -> NativeDocxReadException) {
+        numberingAttributes(node, emptySet(), failure)
+        if (node.name != QName(word, "numPr") || node.elements().isEmpty() ||
+            node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) throw failure(node)
+        val seen = mutableSetOf<String>()
+        for (child in node.elements()) {
+            context.checkActive()
+            numberingAttributes(child, setOf("val"), failure)
+            val value = child.attribute(word, "val")
+            if (child.name.namespaceURI != word || child.name.localPart !in setOf("numId", "ilvl") ||
+                !seen.add(child.name.localPart) || child.elements().isNotEmpty() ||
+                child.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } || value == null ||
+                !value.matches(paragraphNumber) || value.toIntOrNull() !in
+                0..(if (child.name.localPart == "ilvl") 8 else 1_000_000)) throw failure(child)
+        }
+    }
+
+    private fun numberingAttributes(node: XmlElement, allowed: Set<String>, failure: (XmlElement) -> NativeDocxReadException) {
+        val unsupported = node.attributes.keys.filter { it.namespaceURI != word || it.localPart !in allowed }.toSet()
+        if (unsupported.isNotEmpty()) throw failure(node).also { it.unsupportedAttributes = unsupported }
+    }
 
     fun validateStyleLinksSource(root: XmlElement, failure: (XmlElement) -> NativeDocxReadException) {
         if (root.name.namespaceURI != word || root.name.localPart != "numbering") throw failure(root)
