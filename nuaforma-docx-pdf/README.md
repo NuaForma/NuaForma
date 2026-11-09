@@ -1,5 +1,7 @@
 # NuaForma DOCX/PDF provider
 
+Unreleased source #273–#278 adds qualified print-source metadata, default horizontal flow and fractional layout spellings. See [scope and verification](../docs/word-review-and-numeric-spellings.md).
+
 Unreleased source #268–#271 resolves qualified cell margins and inactive run properties, preserves legal first-row fragments and admits qualified final-line tabs. See [Word mapping and qualification](../docs/word-cell-margins-and-final-tabs.md).
 
 Unreleased source #259/#265/#266/#267 admits qualified Word width spellings, theme cell fills and run character spacing, and distinguishes omitted from explicit table indents. See [width spelling and placement](../docs/preferred-table-widths.md), [theme fills](../docs/theme-cell-fills.md) and [character spacing](../docs/character-spacing.md).

@@ -1,5 +1,7 @@
 # First own-engine DOCX fidelity proof
 
+Unreleased source #273–#278 adds qualified print-source metadata, default horizontal flow and fractional layout spellings. See [scope and verification](../../../docs/word-review-and-numeric-spellings.md).
+
 The [synthetic-bold proof](../../../docs/word-synthetic-bold.md) compares actual Word fill-and-stroke text with the shared neutral style API, using portable Noto Serif Light references and strict per-profile goldens.
 
 The [passive Office package proof](../../../docs/word-passive-office-package.md) adds synthetic A4/Letter metadata/resource graphs with real Word exports, reusing existing immutable typography goldens.

@@ -1,5 +1,7 @@
 # NuaForma documentation
 
+- [Word print-source metadata and numeric spellings](word-review-and-numeric-spellings.md): qualified review/view/preview metadata, horizontal defaults and integer binding (#273–#278).
+
 - [Cell margins and final-line tabs](word-cell-margins-and-final-tabs.md): physical cell frames, first-row fragmentation and inactive run formatting (source #268–#271).
 - [Minimum table row heights](minimum-table-row-heights.md): neutral physical row floors and three-page Word controls on A4/Letter (source #264).
 - [Image compression-state metadata](image-compression-states.md): qualified embedded picture hints and seven-image Word controls (source #262).
