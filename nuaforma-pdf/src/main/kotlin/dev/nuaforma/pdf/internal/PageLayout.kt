@@ -293,13 +293,12 @@ internal object PageLayouter {
             throw PdfRenderException(PdfFailureCode.INVALID_RESOURCE, "Minimum line metrics are unavailable")
         val all = metrics + listOfNotNull(minimum)
         val vectorHeight = p.runs.filterIsInstance<PdfVectorRun>().maxOfOrNull { it.height } ?: 0f
-        val ascent = maxOf(all.maxOfOrNull { it.naturalAscent } ?: 0f, vectorHeight)
+        val ascent = maxOf(all.maxOfOrNull { it.naturalAscent + it.lineGap } ?: 0f, vectorHeight)
         val descent = all.maxOfOrNull { it.naturalDescent } ?: 0f
-        val gap = all.maxOfOrNull { it.lineGap } ?: 0f
-        val naturalHeight = ascent + descent + gap
+        val naturalHeight = ascent + descent
         val height = maxOf(naturalHeight * multiple, minimumHeight ?: 0f)
-        if (!height.isFinite() || height !in 1f..14_400f || height < ascent + descent + gap) overflow()
-        return height to (ascent + gap + if (minimumHeight != null) height - naturalHeight else 0f)
+        if (!height.isFinite() || height !in 1f..14_400f || height < naturalHeight) overflow()
+        return height to (ascent + if (minimumHeight != null) height - naturalHeight else 0f)
     }
 
     internal fun unwrappedTextWidth(runs: List<PdfTextRun>, measurer: TextMeasurer): Float {

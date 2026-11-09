@@ -6,6 +6,7 @@ import dev.nuaforma.pdf.internal.TextMeasurer
 import dev.nuaforma.pdf.internal.TextMetrics
 import dev.nuaforma.pdf.internal.TableLayouter
 import dev.nuaforma.pdf.internal.PositionedStroke
+import dev.nuaforma.pdf.internal.PageLayouter
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.text.PDFTextStripper
 import org.apache.pdfbox.text.TextPosition
@@ -155,6 +156,37 @@ class PdfMixedNaturalLinesTest {
                 assertEquals(13.618f, y[2] - y[1], .03f, "$prefix large-to-small baseline advance")
             }
         }
+    }
+
+
+    @Test
+    fun `mixed line tops keep each font ascent and gap together including paragraph mark minima`() {
+        val dominant = PdfTextStyle("dominant", 10f)
+        val secondary = PdfTextStyle("secondary", 10f)
+        val p = PdfParagraph(listOf(PdfTextRun("A", dominant), PdfTextRun("B", secondary)),
+            format = PdfParagraphFormat(automaticLineSpacing = PdfAutomaticLineSpacing()))
+        for ((gap, expected) in listOf(.5f to (16f to 14f), 5f to (17f to 15f))) {
+            val measure = TextMeasurer { _, style ->
+                when (style.fontId) {
+                    "dominant" -> TextMetrics(5f, 14f, 2f, lineGap = 0f)
+                    "secondary" -> TextMetrics(5f, 10f, 2f, lineGap = gap)
+                    else -> TextMetrics(0f, 8f, 2f, lineGap = 10f)
+                }
+            }
+            assertEquals(expected, PageLayouter.automaticBox(p, measure))
+            assertEquals(20f to 18f, PageLayouter.automaticBox(
+                p.withMinimumLineStyle(PdfTextStyle("mark", 10f)), measure))
+        }
+    }
+
+    @Test
+    fun `a taller inline vector does not inherit another font line gap`() {
+        val vector = PdfVectorRun(PdfVector(listOf(PdfVectorPath(listOf(PdfVectorPoint(100, 100), PdfVectorPoint(900, 900))))),
+            18f, 18f, PdfColor(0, 139, 144))
+        val p = PdfParagraph(listOf(PdfTextRun("A", PdfTextStyle("regular", 10f)), vector),
+            format = PdfParagraphFormat(automaticLineSpacing = PdfAutomaticLineSpacing()))
+        val measure = TextMeasurer { _, _ -> TextMetrics(5f, 10f, 2f, lineGap = .5f) }
+        assertEquals(20f to 18f, PageLayouter.automaticBox(p, measure))
     }
 
 }

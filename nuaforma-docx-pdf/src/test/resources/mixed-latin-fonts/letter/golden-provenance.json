@@ -5,7 +5,7 @@
     {
       "page": 1,
       "file": "page-1.png",
-      "sha256": "45e2d0abfb03b33cd5cffdbb25f449dc8efbfdec952ee087aee51313b5d88cf9"
+      "sha256": "7b850c69d62b69d79fa4837436c23fb900f6b39670571b00c109f6570b93699f"
     },
     {
       "page": 2,
@@ -19,9 +19,27 @@
     "case": "letter",
     "markers": 42,
     "maxDx": 0.17999268,
-    "maxDy": 0.39059448,
+    "maxDy": 0.10998535,
     "maxSize": 0.0,
     "maxColorChannel": 0
   },
-  "policy": "Immutable reviewed engine references; replacing existing goldens requires a documented reason and approval."
+  "policy": "Immutable reviewed engine references; replacing existing goldens requires a documented reason and approval.",
+  "approvedReplacement": {
+    "issue": 263,
+    "date": "2026-11-09",
+    "maintainerApproved": true,
+    "previousPage1Sha256": "45e2d0abfb03b33cd5cffdbb25f449dc8efbfdec952ee087aee51313b5d88cf9",
+    "newPage1Sha256": "7b850c69d62b69d79fa4837436c23fb900f6b39670571b00c109f6570b93699f",
+    "reason": "Keep each font ascent with its own line gap instead of adding another font gap to the dominant ascent. Actual Word character positions improve; source DOCX, Word references and page 2 stay unchanged.",
+    "characterComparison": {
+      "paper": "letter",
+      "characters": 843,
+      "oldMaxY": 1.5003052,
+      "newMaxY": 0.15997314,
+      "oldMeanY": 0.30769488,
+      "newMeanY": 0.059349775,
+      "improved": 250,
+      "worsened": 0
+    }
+  }
 }

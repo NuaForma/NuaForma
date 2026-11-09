@@ -4,7 +4,7 @@
   "pages": [
     {
       "page": 1,
-      "sha256": "45e2d0abfb03b33cd5cffdbb25f449dc8efbfdec952ee087aee51313b5d88cf9",
+      "sha256": "7b850c69d62b69d79fa4837436c23fb900f6b39670571b00c109f6570b93699f",
       "resource": "/mixed-latin-fonts/letter/page-1.png"
     },
     {
@@ -27,5 +27,11 @@
   "legacySourceSha256": "a4b8f4626f2a5a55763899d5e5e875326fb6ad37e48fb551c0e7f681f056413f",
   "legacyWordPdfSha256": "dd492bc2f7e98469ab3dc8cbef9eb56a616e05056efc22c55c7d9df8226a939f",
   "wordPixelsUnchangedByDefaultFontHints": true,
-  "masks": 0
+  "masks": 0,
+  "approvedReferenceUpdate": {
+    "issue": 263,
+    "date": "2026-11-09",
+    "maintainerApproved": true,
+    "note": "Reuses the approved mixed-Latin first-page replacement; no additional image replaced. Default font hints preserve Word pixels and do not change layout. Source, Word reference and second page remain unchanged."
+  }
 }

@@ -76,7 +76,7 @@ class NativeMixedLatinFontTest {
                             assertEquals(location.page, position.page, marker)
                             assertEquals(location.face, position.face, marker)
                             assertEquals(location.x, position.x, .3f, marker)
-                            assertEquals(location.y, position.y, 1.5f, marker)
+                            assertEquals(location.y, position.y, .2f, marker)
                             assertEquals(location.size, position.size, .05f, marker)
                             assertEquals(location.rgb, position.rgb, marker)
                         }
