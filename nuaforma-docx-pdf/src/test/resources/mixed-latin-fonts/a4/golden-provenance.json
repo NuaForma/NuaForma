@@ -1,0 +1,27 @@
+{
+  "sourceSha256": "dd92931ba5a91b10bda669792b167cad59a5dd66be92b8527a76b0b1b1eea5ec",
+  "wordPdfSha256": "da5b81e051165a357b67f25dcb2818d8c4c3440e893d290ce350b096d765c772",
+  "pages": [
+    {
+      "page": 1,
+      "file": "page-1.png",
+      "sha256": "bf932e999f5ee5d8952c524ab41039edeb7569818484fdda37d7bba11a32d8c6"
+    },
+    {
+      "page": 2,
+      "file": "page-2.png",
+      "sha256": "59c4e43eda25895c92d6c5dd2b0d5b36748edcbf2ad265e8c028422793560414"
+    }
+  ],
+  "dpi": 96,
+  "reviewedAgainstWord": true,
+  "wordMetrics": {
+    "case": "a4",
+    "markers": 42,
+    "maxDx": 0.15802002,
+    "maxDy": 0.390625,
+    "maxSize": 0.0,
+    "maxColorChannel": 0
+  },
+  "policy": "Immutable reviewed engine references; replacing existing goldens requires a documented reason and approval."
+}

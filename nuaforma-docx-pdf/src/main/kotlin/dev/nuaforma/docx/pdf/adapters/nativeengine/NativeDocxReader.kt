@@ -346,7 +346,7 @@ internal class NativeDocxReader(
         var linkCounter = 0
         var sequenceIndex = 0
 
-        fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false, tableStyles: List<XmlElement> = emptyList()): PdfParagraph {
+        fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false, tableStyles: List<XmlElement> = emptyList(), uniformFonts: Boolean = false): PdfParagraph {
             source.current = paragraph
             context.checkActive()
             crossParagraphBookmarks += openBookmarks.mapNotNull { bookmarkNames[it] }
@@ -398,6 +398,8 @@ internal class NativeDocxReader(
                     resolved.size in setOf(11f, 12f)) resolved.copy(size = result.size) else resolved
             }
 
+            check(!uniformFonts || !mixedFonts(base), "Mixed font selection in generated contents styles is not qualified")
+
             fun faceFor(properties: XmlElement?, initial: Face = base): Face {
                 val characterStyle = properties?.one("rStyle")?.value("val")
                 val inherited = characterStyle?.let { id ->
@@ -418,6 +420,26 @@ internal class NativeDocxReader(
 
             val pendingDestinations = mutableListOf<PdfDestination>()
             var contents: PdfContents? = null
+
+            var emittedTextRuns = 0
+
+            fun textRuns(run: PdfTextRun, face: Face): List<PdfTextRun> {
+                val segments = if (!mixedFonts(face)) listOf(WordLatinFontSelection.Segment(run.text, false)) else {
+                    check(face.rtl != true, "Mixed complex-script font selection is not qualified")
+                    WordLatinFontSelection.segments(run.text, context, ::reject, ::fontRunsBound)
+                }
+                fontRunsBound(emittedTextRuns + segments.size <= 1_000)
+                emittedTextRuns += segments.size
+                check(segments.size <= 1 || run.semantics == null, "Native text spans cannot duplicate preassigned semantic identifiers")
+                return segments.mapIndexed { index, segment ->
+                    val navigation = if (index == 0) run.navigation else run.navigation?.takeIf { it.link != null }?.let {
+                        PdfTextNavigation(it.link, emptyList(), it.logicalId)
+                    }
+                    run.copy(text = segment.text,
+                        style = if (segment.highAnsi) textStyle(face.copy(family = face.highAnsiFamily)) else run.style,
+                        navigation = navigation)
+                }
+            }
 
             fun readRun(run: XmlElement, link: PdfLink? = null, logicalLink: String? = null): List<PdfInline> {
             source.current = run
@@ -456,7 +478,7 @@ internal class NativeDocxReader(
                             val textRun = XmlElement(javax.xml.namespace.QName(word, "r", "w"))
                             textRun.children += XmlElement(javax.xml.namespace.QName(word, "t", "w"), children = mutableListOf(XmlText("Contents")))
                             sample.children += textRun
-                            val resolved = readParagraph(sample, partRelations)
+                            val resolved = readParagraph(sample, partRelations, uniformFonts = true)
                             PdfContentsLevel(level, (resolved.runs.single() as PdfTextRun).style, resolved.format, resolved.spaceBefore, resolved.spaceAfter)
                         }
                         contents = PdfContents(levels, instruction.linked)
@@ -478,7 +500,7 @@ internal class NativeDocxReader(
                         check(value.codePoints().noneMatch { Character.UnicodeScript.of(it) == Character.UnicodeScript.HEBREW },
                             "Hebrew static fields are outside the qualified field direction profile")
                         val navigation = pendingDestinations.takeIf { it.isNotEmpty() }?.let { PdfTextNavigation(destinations = it.toList()) }.also { pendingDestinations.clear() }
-                        return listOf(PdfTextRun(value, style, navigation))
+                        return textRuns(PdfTextRun(value, style, navigation), face)
                     }
                     if (fields) {
                         check(instruction.kind in setOf("PAGE", "NUMPAGES", "SECTIONPAGES"), "Only page counts in page bands are qualified")
@@ -496,6 +518,7 @@ internal class NativeDocxReader(
                     }
                     val target = if (kind == PdfReferenceKind.SEQUENCE_PAGES) "sequence$sequenceIndex" else instruction.argument
                     if (kind == PdfReferenceKind.TEXT) {
+                        check(!mixedFonts(face), "Mixed font selection in dynamic text references is not qualified")
                         textReferences += requireNotNull(target)
                         textReferenceSources.putIfAbsent(target, run)
                     }
@@ -555,7 +578,7 @@ internal class NativeDocxReader(
                         lineDrawings += lineReader.drawing(item, page); null
                     } else { check(link == null && pendingDestinations.isEmpty() && !face.underline && !face.strikethrough, "Navigation or text decorations on pictures are not qualified"); PdfImageRun(image(item, partRelations, parts)) } }
                     else -> reject("Unsupported run content")
-                } }
+                } }.flatMap { inline -> if (inline is PdfTextRun) textRuns(inline, face) else listOf(inline) }
             }
 
             val runs = paragraph.elements().flatMap { node -> when (node.name.localPart) {
@@ -602,7 +625,10 @@ internal class NativeDocxReader(
             val label = listEntry?.let { entry ->
                 check(content.all { it is PdfTextRun || it is PdfReferenceField || it is PdfSequenceField }, "List images and inline tabs are outside the proof")
                 val markerFace = resolveRun(entry.level.one("rPr"), base)
-                PdfListLabel(entry.value, textStyle(markerFace), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval)
+                val markerSegments = if (mixedFonts(markerFace)) WordLatinFontSelection.segments(entry.value.text, context, ::reject, ::fontRunsBound) else emptyList()
+                check(markerSegments.size <= 1, "Mixed font selection within one list label is not qualified")
+                val selected = if (markerSegments.singleOrNull()?.highAnsi == true) markerFace.copy(family = markerFace.highAnsiFamily) else markerFace
+                PdfListLabel(entry.value, textStyle(selected), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval)
             }
             val alignment = if (geometry.direction == PdfTextDirection.RIGHT_TO_LEFT) when (geometry.alignment) {
                 PdfAlignment.LEFT -> PdfAlignment.RIGHT; PdfAlignment.RIGHT -> PdfAlignment.LEFT; PdfAlignment.CENTER -> PdfAlignment.CENTER; PdfAlignment.JUSTIFY -> PdfAlignment.JUSTIFY
@@ -1095,12 +1121,18 @@ internal class NativeDocxReader(
 
     private data class Face(val family: String? = null, val size: Float? = null, val bold: Boolean = false,
         val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null, val underline: Boolean = false, val superscript: Boolean = false, val strikethrough: Boolean = false,
-        val kerningThreshold: Float = 0f, val standardLigatures: Boolean = false, val openType: Boolean = false) {
+        val kerningThreshold: Float = 0f, val standardLigatures: Boolean = false, val openType: Boolean = false, val highAnsiFamily: String? = null) {
 
         fun id(resolve: (String, Boolean, Boolean) -> String): String = resolve(
             requireNotNull(family) { "An explicit font family is required" }, bold, italic)
 
     }
+
+    private fun fontRunsBound(condition: Boolean) {
+        check(condition, "Mixed font selection exceeds the paragraph run limit")
+    }
+
+    private fun mixedFonts(face: Face) = face.highAnsiFamily != null && !face.family.equals(face.highAnsiFamily, true)
 
     private fun textStyle(face: Face): PdfTextStyle {
         val nominal = face.size ?: reject("Missing font size")
@@ -1147,13 +1179,14 @@ internal class NativeDocxReader(
             fun family(name: String): String? = it.value(name + "Theme")?.let { key ->
                 val kind = when (key) { "majorAscii", "majorHAnsi" -> "major"; "minorAscii", "minorHAnsi" -> "minor"; else -> reject("Unsupported theme font role") }
                 themeFonts[kind] ?: reject("Unresolved theme font")
-            } ?: it.value(name) ?: initial.family
+            } ?: it.value(name) ?: if (name == "hAnsi") initial.highAnsiFamily ?: initial.family else initial.family
 
             val family = family("ascii") ?: reject("Explicit Latin font required")
-            check(family("hAnsi") == family, "Mixed font families are unsupported")
+            val highAnsi = family("hAnsi") ?: reject("Explicit high-ANSI font required")
+            check(family.isNotBlank() && highAnsi.isNotBlank(), "Empty Latin font family")
             check(it.value("cs") == null || it.value("cs") == family, "Separate complex-script font faces are outside this proof")
             check(it.value("eastAsia") == null || it.value("eastAsia") == family, "Separate East Asian font faces are outside this profile")
-            result = result.copy(family = family)
+            result = result.copy(family = family, highAnsiFamily = highAnsi)
         }
         property.one("lang")?.let {
             attributes(it, setOf("val"))

@@ -123,6 +123,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     throw source.failure(message, part)
                 }
+                WordLatinFontSelection.validateSource(root) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }
             }
             return if (changed) archive.bytes() else bytes
         }
