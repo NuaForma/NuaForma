@@ -11,7 +11,8 @@ source changes.
   gaps. HTML-compatible automatic gaps are 14 points. Contextual spacing and cell
   edges suppress the applicable automatic gap. `doNotUseHTMLParagraphAutoSpacing`
   instead retains physical gaps and adds adjacent before/after gaps. Modern forced
-  page starts suppress before-spacing; compatibility mode 12 retains it. Ordinary
+  page starts suppress before-spacing; compatibility mode 12 retains it. Unreleased
+  [source #244](../../../docs/word-compatibility-modes.md) also qualifies legacy mode 14. Ordinary
   document starts preserve physical before-spacing.
 - Mirrored physical left/right indents resolve after pagination, using physical
   page parity even when section display numbers restart. Modern compatibility
@@ -23,7 +24,8 @@ source changes.
   formatting. Parent/child layers are resolved within each region. Repeated header
   rows receive first-row formatting. Missing band sizes disable that band; explicit
   sizes 0–3 are qualified. Legacy Normal-style size 11/12 and left-justification
-  exceptions apply only in compatibility mode 12 with the override switch disabled.
+  exceptions apply in the qualified legacy modes with the override switch disabled;
+  the original matrix covers mode 12 and source #244 extends qualification to mode 14.
   Positional conditional formatting on merged cells and explicit `cnfStyle` remain
   unsupported rather than receiving guessed geometry.
 - `w:kern` uses the final effective font size and its half-point threshold; zero
@@ -126,3 +128,7 @@ It cannot update checked-in references. Review candidate pages against the genui
 Word exports before initially adding a new golden; ordinary tests never regenerate
 goldens. Test results and CI qualification belong in the delivery PR, rather than
 assuming that a source guide alone proves a passing build.
+
+## Qualified run theme colors
+
+Unreleased #245 resolves bounded embedded palettes for run-content colors, including Word HSL tint/shade precedence and the ordinary style cascade. [The qualification guide](../../../docs/word-theme-colors.md) describes exact base colors, the one-channel bound for intermediate transforms, four new reviewed golden pages and the PDF color-operator regression. This does not enable theme-based borders, shading or DrawingML effects.

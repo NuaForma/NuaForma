@@ -110,3 +110,6 @@ Unreleased #223 qualifies solid/null extended-pen metadata and separates actual 
 - [Conditional Word objects](word-markup-compatibility.md): one selected representation for native PDF processing and diagnostics.
 
 - [Mixed natural line spacing](mixed-natural-line-spacing.md): physical wrapped-line metrics, variable-height pagination and bounded combinations.
+
+- [Word compatibility modes](word-compatibility-modes.md): qualified mode-14 layout, strict settings validation and independent Word references.
+- [Word run theme colors](word-theme-colors.md): bounded palette resolution, HSL tint/shade, style inheritance and original-source validation.
