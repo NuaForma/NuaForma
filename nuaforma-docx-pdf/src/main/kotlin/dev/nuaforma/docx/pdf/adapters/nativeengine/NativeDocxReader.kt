@@ -950,10 +950,12 @@ internal class NativeDocxReader(
             val indent = declaredIndent?.let { node ->
                 WordNumericSpellings.tableIndentPoints(node) { origin, message -> source.current = origin; reject(message) }
             } ?: 0f
+            // Word clamps negative indentation in nested tables without changing the source property.
+            val effectiveIndent = if (depth > 0) indent.coerceAtLeast(0f) else indent
             val physicalIndent = if (depth == 0 && !modernTableAlignment) {
                 // Legacy Word distinguishes an omitted indent from an explicitly declared zero.
                 if (declaredIndent == null) 0f else indent - padding.left
-            } else indent + (border?.width ?: 0f) / 2
+            } else effectiveIndent + (border?.width ?: 0f) / 2
             return PdfTable(widths, rows, padding, border, count, physicalIndent, if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else if (automaticLayout) PdfTableWidthPolicy.AUTO_FIT else PdfTableWidthPolicy.FIXED, preferredWidth = resolvedTableWidth)
         }
 
