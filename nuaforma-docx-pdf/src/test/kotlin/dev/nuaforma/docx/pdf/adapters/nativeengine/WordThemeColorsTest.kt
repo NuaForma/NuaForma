@@ -114,4 +114,43 @@ class WordThemeColorsTest {
             assertEquals(rgb("663399"), second.resolve(color("w:themeColor=\"accent1\"")))
         }
     }
+
+    private fun fill(properties: String) = root("""<w:shd xmlns:w="$word" xmlns:x="urn:unknown" w:val="clear" w:color="auto" $properties/>""")
+
+    @Test
+    fun `cell fills prefer the actual theme and Word none removes the fill instead of using its cache`() {
+        val selected = theme(palette.entries.joinToString("") { (name, value) ->
+            "<a:$name><a:srgbClr val=\"${if (name == "dk2") "1F497D" else value}\"/></a:$name>"
+        })
+        val colors = colors(selected)
+        for ((shade, expected) in listOf("D9" to "D9D9D9", "A6" to "A6A6A6", "F2" to "F2F2F2")) {
+            assertEquals(rgb(expected), colors.cellFill(fill("w:fill=\"FF0000\" w:themeFill=\"background1\" w:themeFillShade=\"$shade\"")))
+        }
+        assertEquals(rgb("8DB3E2"), colors.cellFill(fill("w:fill=\"FF0000\" w:themeFill=\"text2\" w:themeFillTint=\"66\"")))
+        assertNull(colors.cellFill(fill("w:fill=\"336699\" w:themeFill=\"none\"")))
+        assertEquals(rgb("336699"), colors.resolve(color("w:val=\"336699\" w:themeColor=\"none\"")))
+        assertEquals(rgb("123456"), colors.cellFill(fill("w:fill=\"123456\"")))
+        assertNull(colors.cellFill(fill("w:fill=\"auto\"")))
+    }
+
+    @Test
+    fun `original cell theme attributes and missing palettes reject explicitly`() {
+        for (properties in listOf("w:themeFill=\"unknown\"", "w:themeFill=\"background1\" extra=\"1\"",
+            "x:themeFill=\"background1\"", "w:themeFill=\"background1\" w:themeFillShade=\"GG\"",
+            "w:themeFill=\"none\" w:themeFillTint=\"99\"", "w:themeFillTint=\"99\"",
+            "w:themeFill=\"background1\" w:fill=\"invalid\"")) {
+            val element = fill(properties)
+            assertThrows(NativeDocxReadException::class.java) { colors().cellFill(element) }
+            val propertiesRoot = root("""<w:tcPr xmlns:w="$word" xmlns:x="urn:unknown"><w:shd w:val="clear" w:color="auto" $properties/></w:tcPr>""")
+            assertThrows(NativeDocxReadException::class.java) {
+                WordThemeColors.validateSource(propertiesRoot) { _, message -> throw NativeDocxReadException(message, "word/styles.xml") }
+            }
+        }
+        assertThrows(NativeDocxReadException::class.java) { colors(null).cellFill(fill("w:themeFill=\"accent1\"")) }
+        val duplicates = root("""<w:tcPr xmlns:w="$word"><w:shd w:val="clear" w:color="auto" w:themeFill="background1"/><w:shd w:val="clear" w:color="auto" w:fill="123456"/></w:tcPr>""")
+        assertThrows(NativeDocxReadException::class.java) {
+            WordThemeColors.validateSource(duplicates) { _, message -> throw NativeDocxReadException(message, "word/styles.xml") }
+        }
+    }
+
 }

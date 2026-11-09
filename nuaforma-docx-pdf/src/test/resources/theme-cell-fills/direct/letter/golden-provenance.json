@@ -1,0 +1,15 @@
+{
+  "issue": 265,
+  "initialGolden": true,
+  "renderer": "Native PDF engine; PDFBox 96 dpi",
+  "wordReference": "Actual Microsoft Word ExportAsFixedFormat",
+  "reviewedOn": "2026-11-09",
+  "visualReview": "All initial full pages visually reviewed: cell fills, borders, text and page bands. Direct/style native pixels identical and RGB samples match actual Word.",
+  "sha256": {
+    "page-1.png": "0545181486069725d685d720139025733e2d2f9a6fc7063f7439ccb8044c7097",
+    "source.docx": "5b81831897fcda1c3f90057093beaa63727167eaa99ad1c1da799d37cb286ee7",
+    "word-reference.pdf": "6a2a015467cf833b0f3892523bf1be186a05b3b6cb8adcb3aefb01ea4cec7ead",
+    "word-reference.pdf.provenance.json": "5146c22e47d3e242dafa24d90abe186968cb721982ee4ed089d97b5735c070a4"
+  },
+  "note": "New synthetic fixtures; no prior golden replaced. Source and Word references remain immutable."
+}

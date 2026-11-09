@@ -821,11 +821,7 @@ internal class NativeDocxReader(
                     val preferredCellWidth = if (automaticLayout) preferredWidth(cellWidth) else null
                     if (naturalWidths) automaticDimension(cellWidth ?: reject("Missing cell width"))
                     else if (!automaticLayout) check(kotlin.math.abs(dimension(cellWidth ?: reject("Missing cell width")) - widths.subList(column, column + span).sum()) < 0.01f, "Inconsistent cell width")
-                    val background = cellProperties.mapNotNull { it.one("shd") }.lastOrNull()?.let {
-                        attributes(it, setOf("val", "color", "fill"))
-                        check(it.value("val") == "clear" && it.value("color") == "auto", "Unsupported cell shading")
-                        it.value("fill")?.takeUnless { fill -> fill == "auto" }?.let(::color)
-                    }
+                    val background = cellProperties.mapNotNull { it.one("shd") }.lastOrNull()?.let(themeColors::cellFill)
                     val blocks = cell.elements().filter { it.name.localPart != "tcPr" }.map { child ->
                         when (child.name.localPart) { "p" -> readParagraph(child, partRelations, fields, cellStyles); "tbl" -> readTable(child, partRelations, fields, depth + 1); else -> reject("Unsupported cell block") }
                     }.let { content ->
