@@ -24,9 +24,9 @@ internal object WordLayoutOracle {
 
     fun render(source: ByteArray, family: String = "Liberation Sans"): ByteArray = PdfEngine().render(OwnEngineDocxReader(family).read(source), fonts(family))
 
-    private data class Position(val page: Int, val x: Float, val y: Float, val size: Float, val face: String, val rgb: Int)
+    data class Position(val page: Int, val x: Float, val y: Float, val size: Float, val face: String, val rgb: Int)
 
-    private fun positions(pdf: PDDocument, marker: Regex): Map<String, Position> {
+    fun positions(pdf: PDDocument, marker: Regex): Map<String, Position> {
         val result = linkedMapOf<String, Position>()
         val colors = java.util.IdentityHashMap<TextPosition, Int>()
         object : PDFTextStripper() {
@@ -99,7 +99,7 @@ internal object WordLayoutOracle {
         } }
     }
 
-    private fun verifyTableFills(source: ByteArray, word: PDDocument, actual: PDDocument) {
+    fun verifyTableFills(source: ByteArray, word: PDDocument, actual: PDDocument) {
         val model = OwnEngineDocxReader().read(source)
         val table = model.blocks.filterIsInstance<PdfTable>().single()
         val expected = PDFRenderer(word).renderImageWithDPI(0, 96f)

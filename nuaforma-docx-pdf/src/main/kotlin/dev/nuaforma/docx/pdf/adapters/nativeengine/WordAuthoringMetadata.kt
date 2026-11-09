@@ -29,6 +29,7 @@ internal object WordAuthoringMetadata {
             if (node.name.namespaceURI != W) continue
             when (node.name.localPart) {
                 "settings" -> {
+                    compatibilityContainers(node) { entry -> current = entry; reject() }
                     val ignored = setOf("zoom", "rsids", "proofState", "listSeparator", "mathPr", "themeFontLang", "shapeDefaults", "hyphenationZone")
                     for (child in node.elements()) {
                         current = child
@@ -45,16 +46,7 @@ internal object WordAuthoringMetadata {
                             if (child.value("val") != "doNotCompress") reject()
                             node.children.remove(child)
                         } else if (name == "compat") {
-                            for (setting in child.elements()) {
-                                current = setting
-                                if (setting.name.namespaceURI != W || setting.name.localPart != "compatSetting" || setting.value("uri") != "http://schemas.microsoft.com/office/word") reject()
-                                val accepted = when (setting.value("name")) {
-                                    "compatibilityMode" -> setting.value("val") in setOf("12", "15")
-                                    "useWord2013TrackBottomHyphenation" -> setting.value("val") in setOf("0", "1")
-                                    else -> false
-                                }
-                                if (!accepted) reject()
-                            }
+                            compatibility(child) { entry -> current = entry; reject() }
                             node.children.remove(child)
                         } else if (name == "clrSchemeMapping") {
                             val expected = mapOf("bg1" to "light1", "t1" to "dark1", "bg2" to "light2", "t2" to "dark2") +
@@ -128,6 +120,48 @@ internal object WordAuthoringMetadata {
                 revision.elements().isNotEmpty() || revision.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject(revision)
             // Editing-session identity has no print behavior; retain the original package bytes.
             style.children.remove(revision)
+        }
+    }
+
+    /** Check original named metadata before the DOCX serializer can discard invalid structure. */
+    fun validateCompatibilitySource(root: XmlElement, failure: (XmlElement) -> NativeDocxReadException) {
+        if (root.name.namespaceURI != W || root.name.localPart != "settings") return
+        for (container in compatibilityContainers(root) { throw failure(it) }) {
+            val names = mutableSetOf<String>()
+            for (setting in container.elements().filter { it.name.localPart == "compatSetting" }) {
+                namedCompatibilityShape(setting) { throw failure(it) }
+                if (!names.add(requireNotNull(setting.attribute(W, "name")))) throw failure(setting)
+            }
+        }
+    }
+
+    private fun compatibilityContainers(settings: XmlElement, reject: (XmlElement) -> Nothing): List<XmlElement> {
+        val containers = settings.elements().filter { it.name.namespaceURI == W && it.name.localPart == "compat" }
+        if (containers.size > 1) reject(containers[1])
+        for (container in containers)
+            if (container.attributes.isNotEmpty() || container.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject(container)
+        return containers
+    }
+
+    private fun namedCompatibilityShape(setting: XmlElement, reject: (XmlElement) -> Nothing) {
+        if (setting.name.namespaceURI != W || setting.name.localPart != "compatSetting" || setting.attributes.size != 3 ||
+            setting.attributes.keys.any { it.namespaceURI != W || it.localPart !in setOf("name", "uri", "val") } ||
+            setting.elements().isNotEmpty() || setting.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject(setting)
+    }
+
+    private fun compatibility(root: XmlElement, reject: (XmlElement) -> Nothing) {
+        val names = mutableSetOf<String>()
+        for (setting in root.elements()) {
+            namedCompatibilityShape(setting, reject)
+            if (setting.attribute(W, "uri") != "http://schemas.microsoft.com/office/word") reject(setting)
+            val name = setting.attribute(W, "name") ?: reject(setting)
+            if (!names.add(name)) reject(setting)
+            val accepted = when (name) {
+                "compatibilityMode" -> setting.attribute(W, "val") in setOf("12", "14", "15")
+                "useWord2013TrackBottomHyphenation" -> setting.attribute(W, "val") in setOf("0", "1")
+                else -> false
+            }
+            if (!accepted) reject(setting)
         }
     }
 

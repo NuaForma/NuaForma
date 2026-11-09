@@ -1,0 +1,17 @@
+{
+  "sourceSha256": "57beb9efc4aec9cb1893e035e6f939ca32cd5b5d7e7589748347e39d71125eeb",
+  "wordPdfSha256": "2f24c02a2dbdf4a3438ad51972a1f204eecb8b60fa85cee7fae246cdc179d5b8",
+  "dpi": 96,
+  "pages": [
+    {
+      "page": 1,
+      "resource": "/conditional-tables/word12-legacy/page-1.png",
+      "sha256": "5b483e00f2d9f3fecbe6c5bbd7b18167663bfa06ed7d870acbc297ed11727714"
+    }
+  ],
+  "reviewedAgainstWord": true,
+  "reusedFromQualifiedMode12": true,
+  "policy": "Immutable reviewed engine references; changing existing golden files requires a specific reason and approval.",
+  "legacySourceSha256": "763b5e4b59d2f49c62db7b20fb2bfb7635bb11b19dd5206ec1d4c6df6b2dc42d",
+  "wordReferenceRastersPixelExactToLegacy": true
+}

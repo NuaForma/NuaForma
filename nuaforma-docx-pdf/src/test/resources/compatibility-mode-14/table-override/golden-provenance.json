@@ -1,0 +1,17 @@
+{
+  "sourceSha256": "105158452065e60c652f1f698c5c7a16cbacc0aba24638b6725f2e2b4b38862f",
+  "wordPdfSha256": "13bd1dbe4d75ec1de1e7cecd597df5cfa466fbdb0a87f1ce11fe223b10fe910e",
+  "dpi": 96,
+  "pages": [
+    {
+      "page": 1,
+      "resource": "/conditional-tables/word12-override/page-1.png",
+      "sha256": "7a755a59b04073af3c54f9c0bed9d23c8efaa2d0b7eef88f7d2e3949a1e9f804"
+    }
+  ],
+  "reviewedAgainstWord": true,
+  "reusedFromQualifiedMode12": true,
+  "policy": "Immutable reviewed engine references; changing existing golden files requires a specific reason and approval.",
+  "legacySourceSha256": "468d3550487efbae4cd2f9614ec7c7d16146419ef7f01608a6fe3caef3aab856",
+  "wordReferenceRastersPixelExactToLegacy": true
+}

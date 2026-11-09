@@ -111,6 +111,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     archive.touch(part)
                     changed = true
                 }
+                if (part == "word/settings.xml") WordAuthoringMetadata.validateCompatibilitySource(root) { node ->
+                    source.current = node
+                    source.failure("Unsupported original Word compatibility structure", part)
+                }
             }
             return if (changed) archive.bytes() else bytes
         }

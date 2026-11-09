@@ -1,0 +1,20 @@
+{
+  "sourceSha256": "8f6afbcbcf14b7c59b1910f72b0bdbfb6c5b047d2342e1106004b27d4acb2c29",
+  "wordPdfSha256": "1e650fee987e7dab2f93204edfbd9fd9915f0d375e81dd2347fabd66b12330b2",
+  "dpi": 96,
+  "pages": [
+    {
+      "page": 1,
+      "resource": "/compatibility-mode-14/spacing-letter/page-1.png",
+      "sha256": "83a33cf3a8f9fe186544a9160418312e8ec10598fed16bfb17f9b7ed4bbcab5e"
+    },
+    {
+      "page": 2,
+      "resource": "/compatibility-mode-14/spacing-letter/page-2.png",
+      "sha256": "a919b5f9329ff4b5e76e928a9a24fb00ec6118c13e785fcf67bce49dca4e2ae1"
+    }
+  ],
+  "reviewedAgainstWord": true,
+  "reusedFromQualifiedMode12": false,
+  "policy": "Immutable reviewed engine references; changing existing golden files requires a specific reason and approval."
+}
