@@ -1,0 +1,10 @@
+{
+  "issue": 276,
+  "note": "Actual Word source/export pair verified. Native references were reviewed and provider comparisons pass. Protected references are reused where recorded; positive fractional indentation uses a new initial reference from its independently checked integer control. No existing golden replaced.",
+  "sha256": {
+    "source.docx": "41a8fb898f4735fa6181f0203bc86df25707e9e0846da97cd15e9777a66d89d1",
+    "word-reference.pdf": "afb9c52f3d5bc8792316463391139945f0b0dfe639fec79d9a00b5621d115623",
+    "word-reference.pdf.provenance.json": "aa4c287a760ae25517a0e00776d3e3ddc4e9dbbf585aec67c065f2f30367aa7d",
+    "page-1.png": "ff15973ce88a9bf77e5d93bf685b7b3ccf612a46fb6c69b64ff684e004ca99a0"
+  }
+}

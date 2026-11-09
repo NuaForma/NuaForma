@@ -16,7 +16,7 @@ internal object WordNumericSpellings {
         for (parent in root.descendants().filter { it.name.namespaceURI == word }) {
             changed = when (parent.name.localPart) {
                 "tblGrid" -> grid(parent, reject)
-                "tblPr" -> tableMargins(parent, reject)
+                "tblPr" -> tableProperties(parent, reject)
                 "pPr" -> automaticSpacing(parent, reject)
                 else -> false
             } || changed
@@ -59,6 +59,18 @@ internal object WordNumericSpellings {
             changed = integer(node, "w", 1, reject) || changed
         }
         return changed
+    }
+
+    private fun tableProperties(parent: XmlElement, reject: (XmlElement, String) -> Nothing): Boolean {
+        val nodes = parent.elements().filter { it.name.localPart == "tblInd" }
+        if (nodes.size > 1) reject(nodes[1], "Duplicate original table indentation")
+        var changed = false
+        for (node in nodes) {
+            leaf(node, setOf("w", "type"), reject)
+            if (node.attribute(word, "type") != "dxa") reject(node, "Only physical table indentation is qualified")
+            changed = integer(node, "w", 0, reject) || changed
+        }
+        return tableMargins(parent, reject) || changed
     }
 
     private fun tableMargins(parent: XmlElement, reject: (XmlElement, String) -> Nothing): Boolean {
