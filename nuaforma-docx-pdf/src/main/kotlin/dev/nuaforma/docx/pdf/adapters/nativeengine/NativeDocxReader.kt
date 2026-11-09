@@ -305,6 +305,10 @@ internal class NativeDocxReader(
         val normal = styles.values.singleOrNull { it.value("type") == "paragraph" && it.value("default") in setOf("1", "true") }?.value("styleId")
             ?: reject("Explicit default paragraph style is required")
 
+        val defaultTables = styles.values.filter { it.value("type") == "table" && it.value("default") in setOf("1", "true", "on") }
+        check(defaultTables.size <= 1, "Multiple default table styles are not qualified")
+        val defaultTable = defaultTables.singleOrNull()?.value("styleId")
+
         fun chain(id: String, type: String, seen: Set<String> = emptySet()): List<XmlElement> {
             check(id !in seen && seen.size < 16, "Cyclic or excessive style inheritance")
             val style = styles[id] ?: reject("Unknown style")
@@ -675,7 +679,8 @@ internal class NativeDocxReader(
             children(table, setOf("tblPr", "tblGrid", "tr", "bookmarkEnd"))
             val properties = table.one("tblPr") ?: reject("Explicit table properties required")
             children(properties, setOf("tblStyle", "tblW", "tblInd", "tblLayout", "tblBorders", "tblCellMar", "tblLook", "tblStyleRowBandSize", "tblStyleColBandSize"))
-            val tableStyles = properties.one("tblStyle")?.let { chain(it.value("val") ?: reject("Missing table style"), "table") } ?: emptyList()
+            val tableStyleId = properties.one("tblStyle")?.let { it.value("val") ?: reject("Missing table style") } ?: defaultTable
+            val tableStyles = tableStyleId?.let { chain(it, "table") } ?: emptyList()
             val rowNodes = table.elements().filter { it.name.localPart == "tr" }
             val headerCount = rowNodes.takeWhile { row -> row.one("trPr")?.one("tblHeader")?.let { it.value("val") in setOf(null, "1", "true", "on") } == true }.size
             val regions = NativeDocxTableStyles(tableStyles, properties, rowNodes.size,
@@ -716,7 +721,7 @@ internal class NativeDocxReader(
             val cellMargins = regions.property("tblCellMar") ?: reject("Explicit cell margins required")
             children(cellMargins, setOf("top", "right", "bottom", "left"))
 
-            fun edge(name: String): Float = dimension(cellMargins.one(name) ?: reject("Missing cell margin"))
+            fun edge(name: String): Float = dimension(regions.margin(name) ?: reject("Missing cell margin"))
 
             val padding = PdfMargins(edge("top"), edge("right"), edge("bottom"), edge("left"))
             val resolvedTableWidth = preferredTableWidth?.let { preference ->
@@ -730,10 +735,8 @@ internal class NativeDocxReader(
             }
             val borderNodes = regions.property("tblBorders")
             borderNodes?.let { children(it, setOf("top", "left", "bottom", "right", "insideH", "insideV")) }
-            val borders = borderNodes?.elements().orEmpty().map {
-                attributes(it, setOf("val", "sz", "color"))
-                check(it.value("val") == "single", "Only solid table borders are supported")
-                PdfBorder(number(it.value("sz")) / 8, color(it.value("color")))
+            val borders = borderNodes?.elements().orEmpty().map { node ->
+                WordTableBorders.read(node) { origin, message -> source.current = origin; reject(message) }
             }
             check(borders.isEmpty() || borders.size == 6 && borders.distinct().size == 1, "Only uniform table borders are supported")
             val border = borders.firstOrNull()
@@ -755,18 +758,8 @@ internal class NativeDocxReader(
 
                 fun stroke(name: String): PdfEdgeStroke? {
                     val edge = node.one(name) ?: return when (name) { "top" -> inherited.top; "right" -> inherited.right; "bottom" -> inherited.bottom; else -> inherited.left }
-                    attributes(edge, setOf("val", "sz", "color")); children(edge, emptySet())
-                    edge.value("sz")?.let { value -> val size = value.toIntOrNull(); check(size != null && size in 1..32, "Invalid cell border width") }
-                    edge.value("color")?.let(::color)
-                    return when (edge.value("val")) {
-                        "none" -> fallbackStroke
-                        "nil" -> null
-                        "single" -> {
-                            val size = edge.value("sz")?.toIntOrNull()?.takeIf { it in 1..32 } ?: reject("Invalid cell border width")
-                            ranked(PdfBorder(size / 8f, color(edge.value("color"))))
-                        }
-                        else -> reject("Only solid cell borders are qualified")
-                    }
+                    val stroke = WordTableBorders.read(edge) { origin, message -> source.current = origin; reject(message) }
+                    return if (edge.value("val") == "none") fallbackStroke else stroke?.let(::ranked)
                 }
 
                 return PdfCellBorders(stroke("top"), stroke("right"), stroke("bottom"), stroke("left"))

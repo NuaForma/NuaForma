@@ -9,6 +9,8 @@ import org.apache.pdfbox.text.PDFTextStripper
 import org.apache.pdfbox.text.TextPosition
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.junit.jupiter.api.io.TempDir
 import java.io.ByteArrayOutputStream
 import java.nio.file.Files
@@ -45,16 +47,17 @@ class NativePreferredTableTest {
     }, PdfProcessValidator(Path.of(System.getProperty("nuaforma.pdf.validation.java")),
         Files.list(Path.of(System.getProperty("nuaforma.pdf.validation"))).use { paths -> paths.filter { it.toString().endsWith(".jar") }.sorted().toList() }, temporary)))
 
-    @Test
-    fun `preferred tables retain Word contents on both papers through the real provider and all PDF profiles`() {
+    @ParameterizedTest
+    @ValueSource(strings = ["preferred-table-widths", "table-style-defaults"])
+    fun `table layout fixtures retain Word contents on both papers through the real provider and all PDF profiles`(fixture: String) {
         val provider = provider()
-        val output = Files.createDirectories(Path.of("build/259-preferred-tables"))
+        val output = Files.createDirectories(Path.of("build/table-layout-fixtures/$fixture"))
         for (paper in listOf("a4", "letter")) {
-            val source = resource("/preferred-table-widths/$paper/source.docx")
+            val source = resource("/$fixture/$paper/source.docx")
             val original = source.copyOf()
-            val reference = resource("/preferred-table-widths/$paper/word-reference.pdf")
-            val proof = resource("/preferred-table-widths/$paper/word-reference.pdf.provenance.json").decodeToString()
-            val goldenProof = resource("/preferred-table-widths/$paper/golden-provenance.json").decodeToString()
+            val reference = resource("/$fixture/$paper/word-reference.pdf")
+            val proof = resource("/$fixture/$paper/word-reference.pdf.provenance.json").decodeToString()
+            val goldenProof = resource("/$fixture/$paper/golden-provenance.json").decodeToString()
             assertTrue(proof.contains(hash(source)) && proof.contains(hash(reference)))
             assertTrue(goldenProof.contains(hash(source)) && goldenProof.contains(hash(reference)))
             val clean = ByteArrayOutputStream()
@@ -62,6 +65,17 @@ class NativePreferredTableTest {
             assertArrayEquals(source, clean.toByteArray())
             Loader.loadPDF(reference).use { word ->
                 val expected = PDFTextStripper().getText(word).replace(Regex("\\s+"), " ").trim()
+                if (fixture == "table-style-defaults") {
+                    val control = resource("/$fixture/$paper/control-source.docx")
+                    val controlReference = resource("/$fixture/$paper/control-word-reference.pdf")
+                    val controlProof = resource("/$fixture/$paper/control-word-reference.pdf.provenance.json").decodeToString()
+                    assertTrue(controlProof.contains(hash(control)) && controlProof.contains(hash(controlReference)))
+                    Loader.loadPDF(controlReference).use { originalWord ->
+                        assertImagesMatch(PDFRenderer(originalWord).renderImageWithDPI(0, 96f), PDFRenderer(word).renderImageWithDPI(0, 96f)) {
+                            pixelTolerance = 0.0; allowedDifferentPixelsPercent = 0.0; threshold = 1
+                        }
+                    }
+                }
                 val expectedMarkers = markers(word)
                 assertEquals(26, expectedMarkers.size)
                 for (profile in listOf("standard", "pdfa-1b", "pdfa-2b", "pdfa-3b")) {
@@ -80,7 +94,7 @@ class NativePreferredTableTest {
                             assertEquals(position.xDirAdj, measured.xDirAdj, .1f, label)
                             assertEquals(position.yDirAdj, measured.yDirAdj, .2f, label)
                         }
-                        val golden = resource("/preferred-table-widths/$paper/page-1.png")
+                        val golden = resource("/$fixture/$paper/page-1.png")
                         assertTrue(goldenProof.contains(hash(golden)))
                         assertImagesMatch(ImageIO.read(golden.inputStream()), PDFRenderer(actual).renderImageWithDPI(0, 96f)) {
                             pixelTolerance = 0.0; allowedDifferentPixelsPercent = 0.0; threshold = 1
@@ -104,14 +118,18 @@ class NativePreferredTableTest {
         }
     }
 
-    @Test
-    fun `invalid original width attributes and duplicates retain source diagnostics without output`() {
+    @ParameterizedTest
+    @ValueSource(strings = ["preferred-table-widths", "table-style-defaults"])
+    fun `invalid original table attributes and duplicates retain source diagnostics without output`(fixture: String) {
         val provider = provider()
-        val parts = PdfFixture.unzip(resource("/preferred-table-widths/a4/source.docx"))
+        val parts = PdfFixture.unzip(resource("/$fixture/a4/source.docx"))
         val before = parts.getValue("word/document.xml").decodeToString()
-        val original = "<w:tblW w:w=\"6400\" w:type=\"dxa\"/>"
-        for (replacement in listOf(original.replace("/>", " extra=\"1\"/>"), original + original,
-            "<w:tblW w:w=\"5001\" w:type=\"pct\"/>", "<w:tblW w:w=\"6400\" w:type=\"unknown\"/>")) {
+        val original = if (fixture == "preferred-table-widths") "<w:tblW w:w=\"6400\" w:type=\"dxa\"/>"
+            else "<w:top w:val=\"none\" w:sz=\"0\" w:color=\"auto\" w:space=\"0\"/>"
+        val invalid = listOf(original.replace("/>", " extra=\"1\"/>"), original + original) +
+            if (fixture == "preferred-table-widths") listOf("<w:tblW w:w=\"5001\" w:type=\"pct\"/>", "<w:tblW w:w=\"6400\" w:type=\"unknown\"/>")
+            else listOf(original.replace("w:space=\"0\"", "w:space=\"1\""), original.replace("w:val=\"none\"", "w:val=\"double\""))
+        for (replacement in invalid) {
             val after = before.replace(original, replacement)
             assertNotEquals(before, after)
             val source = PdfFixture.zip(parts.mapValues { (part, bytes) -> if (part == "word/document.xml") after.toByteArray() else bytes })
@@ -123,6 +141,22 @@ class NativePreferredTableTest {
             }
             assertEquals(0, output.size())
             assertTrue(error.diagnostics.any { it.code == DiagnosticCodes.UNSUPPORTED_INPUT && it.part == "word/document.xml" && it.sourceContext?.path != null })
+        }
+    }
+
+    @Test
+    fun `an unused decorative table style does not block or change the rendered document`() {
+        val parts = PdfFixture.unzip(resource("/table-style-defaults/a4/source.docx"))
+        val definition = """<w:style w:type="table" w:styleId="UnusedDecorative"><w:name w:val="Unused decorative"/><w:tblPr><w:tblBorders><w:top w:val="double" w:sz="8" w:color="112233" w:space="1" w:themeColor="accent1"/></w:tblBorders></w:tblPr></w:style>"""
+        val source = PdfFixture.zip(parts.mapValues { (name, bytes) -> if (name in setOf("word/styles.xml", "word/stylesWithEffects.xml"))
+            bytes.decodeToString().replace("</w:styles>", "$definition</w:styles>").toByteArray() else bytes })
+        val output = ByteArrayOutputStream()
+        provider().generate(GenerationRequest(source.inputStream(), GenerationRequirements(FormatRequest(DocumentFormat.DOCX),
+            FormatRequest(DocumentFormat.PDF, mapOf("profile" to "standard")))), output, GenerationContext())
+        Loader.loadPDF(output.toByteArray()).use { pdf ->
+            assertImagesMatch(ImageIO.read(resource("/table-style-defaults/a4/page-1.png").inputStream()), PDFRenderer(pdf).renderImageWithDPI(0, 96f)) {
+                pixelTolerance = 0.0; allowedDifferentPixelsPercent = 0.0; threshold = 1
+            }
         }
     }
 

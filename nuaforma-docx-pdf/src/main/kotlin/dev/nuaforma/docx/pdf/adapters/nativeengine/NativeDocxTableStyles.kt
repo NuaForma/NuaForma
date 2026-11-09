@@ -53,6 +53,13 @@ internal class NativeDocxTableStyles(
 
     fun property(name: String): XmlElement? = tableProperties.mapNotNull { child(it, name) }.lastOrNull()
 
+    fun margin(name: String): XmlElement? = tableProperties.mapNotNull { properties ->
+        child(properties, "tblCellMar")?.let { margins ->
+            validate(margins, emptySet(), setOf("top", "right", "bottom", "left"))
+            child(margins, name)
+        }
+    }.lastOrNull()
+
     private val look = property("tblLook")?.also { validate(it, flags.keys + "val", emptySet()) }
     private val bitmask = look?.let { node -> value(node, "val")?.let { raw ->
         if (!raw.matches(Regex("[A-Fa-f0-9]{4}"))) reject(node, "Invalid table look mask")
