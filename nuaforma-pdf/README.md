@@ -1,5 +1,7 @@
 # Shared PDF engine: alpha foundation
 
+Unreleased source #268–#271 adds optional physical cell margins, legal first-row fragments and qualified final-line tabs in justified paragraphs. See [the model, Word controls and retained limits](../docs/word-cell-margins-and-final-tabs.md).
+
 Source #266 adds immutable `PdfTextStyle.characterSpacing` / `withCharacterSpacing(points)`, default zero, for physical tracking in the shared renderer. See [scope, shaping bounds and independent Word qualification](../docs/character-spacing.md).
 
 Source #258 admits font-defined BMP private-use glyphs while retaining coverage, embedding and shaping bounds. Per-document character aliases preserve source text under full/subset embedding. See [the independent glyph reference and limits](../docs/private-font-glyphs.md).

@@ -1,5 +1,6 @@
 # NuaForma documentation
 
+- [Cell margins and final-line tabs](word-cell-margins-and-final-tabs.md): physical cell frames, first-row fragmentation and inactive run formatting (source #268–#271).
 - [Minimum table row heights](minimum-table-row-heights.md): neutral physical row floors and three-page Word controls on A4/Letter (source #264).
 - [Image compression-state metadata](image-compression-states.md): qualified embedded picture hints and seven-image Word controls (source #262).
 - [Font-defined private glyphs](private-font-glyphs.md): bounded caller-font symbols and preserved logical aliases (source #258).

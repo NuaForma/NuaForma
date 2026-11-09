@@ -1,5 +1,7 @@
 # NuaForma — Architecture
 
+Approved source #268 adds optional physical `PdfTableCell.margins` in the existing shared PDF model, without dependencies. Null retains table defaults. The DOCX adapter resolves partial edges, Word row maxima and border insets; future ODT input can supply its own physical margins. See [the shared model and qualification](docs/word-cell-margins-and-final-tabs.md).
+
 Approved source #266 adds immutable `PdfTextStyle.characterSpacing` and `withCharacterSpacing(points)` in the shared PDF artifact, defaulting to zero and retaining existing constructors/copies. DOCX resolves original run spacing; shaping, advances, wrapping and decorations share the physical setting. No dependency is added. See [character spacing](docs/character-spacing.md).
 
 Approved source #264 adds optional `PdfTableRow.minimumHeight` in points to the existing shared PDF artifact, with natural height as the default and no new dependency. The DOCX adapter resolves Word content measurements and cell frames into this physical floor; a later ODT adapter can use the same model. See [minimum table row heights](docs/minimum-table-row-heights.md).
