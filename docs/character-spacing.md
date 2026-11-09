@@ -15,3 +15,13 @@ Font shaping/cache keys include tracking and remain request-safe. Qualified simp
 The synthetic A4/Letter sources contain direct spacing, character/paragraph styles, zero overrides, Cyrillic/Greek text, bold, decorations and three wrapped paragraphs. Actual Microsoft Word exports retain source/PDF provenance. Sixty-four Word markers per paper, including fourteen following-run origins, differ by at most .151 points horizontally and .181 points vertically. New initial native goldens were visually reviewed; no existing golden is replaced. The provider test independently validates standard PDF and PDF/A-1b/2b/3b and requires exact golden pixels.
 
 The existing Playground generation/cleanup paths inherit the same reader and renderer. There is no UI switch, new artifact or release/site change. Corpus success establishes conversion, not independent Word fidelity for private samples.
+
+The combined normal build passes 1,563 tests with no failures, errors or skips. Real HTTP qualification retains exact pixels for 152 profile pages and source-located rejection for 62 invalid cases. The local 250-source round keeps nine complete PDFs and 241 rejections; seventeen first diagnostics change, with no new complete PDF. All previous nine PDFs/thirteen pages remain pixel-exact. These counts do not imply Word fidelity for the private corpus.
+
+Rebuild synthetic sources without overwriting references:
+
+```sh
+python3 tools/pdf-evaluation/own-engine/build_character_spacing_fixture.py --base nuaforma-docx-pdf/src/test/resources/preferred-table-widths --output build/character-spacing-source
+```
+
+The maintained builders for spacing, cell fills, table indents and width spellings reproduce all 28 source packages entry-for-entry after decompression. ZIP bytes may differ across compression runtimes; retained Word exports/provenance remain unchanged.

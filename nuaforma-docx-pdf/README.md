@@ -1,5 +1,7 @@
 # NuaForma DOCX/PDF provider
 
+Unreleased source #259/#265/#266/#267 admits qualified Word width spellings, theme cell fills and run character spacing, and distinguishes omitted from explicit table indents. See [width spelling and placement](../docs/preferred-table-widths.md), [theme fills](../docs/theme-cell-fills.md) and [character spacing](../docs/character-spacing.md).
+
 Source #264 accepts qualified direct minimum row heights, including omitted-rule Word declarations. See [source mapping, pagination and Word comparisons](../docs/minimum-table-row-heights.md). Exact clipping heights remain unsupported.
 
 Source #262 accepts qualified image compression-state hints while preserving source attributes, image bytes and existing drawing bounds. See [the source checks and Word controls](../docs/image-compression-states.md).

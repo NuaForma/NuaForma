@@ -133,3 +133,6 @@ Unreleased #252 qualifies [Unicode spaces at run boundaries](word-unicode-spaces
 Unreleased #253 extends [bookmark qualification](word-fields-and-bookmarks.md#ordered-table-bookmark-endings-source-253) with ordered table-level endings and the existing strict text-reference guard.
 
 Unreleased #254–#257 qualify original proofing preferences, printer-tray metadata, empty unused editing bookmarks and explicit default font hints through the linked Word guides above. Their A4/Letter counterfactuals retain existing Word/golden pixels and original template bytes.
+
+- [Character spacing](character-spacing.md): shared physical tracking and qualified DOCX translation (#266).
+- [Theme cell fills](theme-cell-fills.md): direct/inherited theme backgrounds and Word controls (#265).

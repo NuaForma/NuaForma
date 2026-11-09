@@ -1,5 +1,7 @@
 # Shared PDF engine: alpha foundation
 
+Source #266 adds immutable `PdfTextStyle.characterSpacing` / `withCharacterSpacing(points)`, default zero, for physical tracking in the shared renderer. See [scope, shaping bounds and independent Word qualification](../docs/character-spacing.md).
+
 Source #258 admits font-defined BMP private-use glyphs while retaining coverage, embedding and shaping bounds. Per-document character aliases preserve source text under full/subset embedding. See [the independent glyph reference and limits](../docs/private-font-glyphs.md).
 
 Source #264 adds optional `PdfTableRow.minimumHeight` in points, retaining natural sizing by default. See [the shared physical floor, pagination and verification](../docs/minimum-table-row-heights.md).
