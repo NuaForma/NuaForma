@@ -56,14 +56,15 @@ internal class NativeDocxReader(
         } }.also { source.current = it }
     }
 
-    fun read(bytes: ByteArray, imageFonts: ((String, Boolean, Boolean) -> java.awt.Font)? = null, inspectImages: Boolean = false): PdfDocument {
+    fun read(bytes: ByteArray, imageFonts: ((String, Boolean, Boolean) -> java.awt.Font)? = null, inspectImages: Boolean = false,
+        normalizations: MutableList<WordSourceNormalization>? = null): PdfDocument {
         metafiles = dev.nuaforma.docx.pdf.adapters.nativeengine.emf.NativeEmfImages(context, imageFonts, inspectImages)
-        return try { readDocument(bytes) }
+        return try { readDocument(bytes, normalizations) }
         catch (error: NativeDocxReadException) { throw error }
         catch (_: IllegalArgumentException) { throw source.failure("Unsupported combination of native document formatting", activePart) }
     }
 
-    private fun readDocument(bytes: ByteArray): PdfDocument {
+    private fun readDocument(bytes: ByteArray, normalizations: MutableList<WordSourceNormalization>?): PdfDocument {
         val parts = unpack(bytes)
         parts.filterKeys { it.endsWith(".xml") || it.endsWith(".rels") }.forEach { (name, content) -> parse(content, name) }
         normalizeReviewAnnotations()
@@ -72,15 +73,16 @@ internal class NativeDocxReader(
                 source.current = node
                 source.failure(message, part)
             }
+            val observe = normalizations?.let { WordSourceNormalization.observe(root, part, source) }
             WordRunSpacing.validateSource(root) { node, message ->
                 source.current = node
                 throw source.failure(message, part)
             }
-            WordCellMargins.validateSource(root) { node, message ->
+            WordCellMargins.normalizeSource(root) { node, message ->
                 source.current = node
                 throw source.failure(message, part)
             }
-            WordInactiveRunProperties.validateSource(root) { node, message ->
+            WordInactiveRunProperties.normalizeSource(root) { node, message ->
                 source.current = node
                 throw source.failure(message, part)
             }
@@ -92,6 +94,7 @@ internal class NativeDocxReader(
                 source.current = node
                 throw source.failure(message, part)
             }
+            if (observe != null) normalizations.addAll(observe())
         }
         WordAuxiliaryParts(context) { name, node, message -> source.current = node; source.failure(message, name) }.normalize(parsed, parts.keys)
         WordThumbnailMetadata(context).normalize(parsed, parts)

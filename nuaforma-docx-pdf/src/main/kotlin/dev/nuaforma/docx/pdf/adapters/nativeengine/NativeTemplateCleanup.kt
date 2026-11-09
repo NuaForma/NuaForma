@@ -24,9 +24,11 @@ internal class NativeTemplateCleanup(private val context: GenerationContext) {
             val bytes = pkg.bytes()
             val error = try {
                 val fonts = linkedMapOf<Triple<String, Boolean, Boolean>, String>()
+                val normalizations = mutableListOf<WordSourceNormalization>()
                 NativeDocxReader(context) { family, bold, italic ->
                     fonts.getOrPut(Triple(family.lowercase(java.util.Locale.ROOT), bold, italic)) { "cleanup-font-${fonts.size + 1}" }
-                }.read(bytes, inspectImages = true)
+                }.read(bytes, inspectImages = true, normalizations = normalizations)
+                if (normalizeAttributes(pkg, normalizations)) return@repeat
                 return bytes to TemplateCleanupReport(pkg.changes)
             } catch (failure: NativeDocxReadException) { failure }
             val previousChanges = pkg.changes.size
@@ -34,6 +36,20 @@ internal class NativeTemplateCleanup(private val context: GenerationContext) {
         }
         throw GenerationException(listOf(Diagnostic(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED,
             RejectionReason.CONVERSION_XML_STRUCTURE_BUDGET_WAS_EXCEEDED)))
+    }
+
+    private fun normalizeAttributes(pkg: CleanupPackage, normalizations: List<WordSourceNormalization>): Boolean {
+        for ((part, changes) in normalizations.groupBy { it.part }) {
+            val root = requireNotNull(pkg.root(part))
+            for (change in changes) {
+                val node = requireNotNull(locate(root, change.route)) { "Missing original normalization target" }.second
+                node.attributes.putAll(change.attributes)
+            }
+            pkg.touch(part)
+            pkg.record(TemplateCleanupAction.RESTORE_REQUIRED_STRUCTURE, part, null,
+                "Canonicalized qualified Word attribute spellings on ${changes.size} elements; document content was preserved")
+        }
+        return normalizations.isNotEmpty()
     }
 
     private fun removeMalformedOptionalXml(pkg: CleanupPackage) {

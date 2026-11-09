@@ -61,6 +61,8 @@ internal class NativeDocxSource(private val context: GenerationContext) {
         DocumentSourceContext(explanation, null, null, excerpt)
     }
 
+    fun routeOf(node: XmlElement): List<Pair<javax.xml.namespace.QName, Int>> = route(origins[node] ?: node)
+
     private fun route(node: XmlElement): List<Pair<javax.xml.namespace.QName, Int>> {
         val result = mutableListOf<Pair<javax.xml.namespace.QName, Int>>()
         var current: XmlElement? = node
