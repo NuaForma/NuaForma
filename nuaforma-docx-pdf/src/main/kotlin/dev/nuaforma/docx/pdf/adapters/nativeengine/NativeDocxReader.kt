@@ -879,8 +879,12 @@ internal class NativeDocxReader(
             }
             val count = headerFlags.takeWhile { it }.size
             check(headerFlags.drop(count).none { it }, "Table headers must be leading rows")
-            val indent = regions.property("tblInd")?.let(::dimension) ?: 0f
-            val physicalIndent = if (depth == 0 && !modernTableAlignment) indent - padding.left else indent + (border?.width ?: 0f) / 2
+            val declaredIndent = regions.property("tblInd")
+            val indent = declaredIndent?.let(::dimension) ?: 0f
+            val physicalIndent = if (depth == 0 && !modernTableAlignment) {
+                // Legacy Word distinguishes an omitted indent from an explicitly declared zero.
+                if (declaredIndent == null) 0f else indent - padding.left
+            } else indent + (border?.width ?: 0f) / 2
             return PdfTable(widths, rows, padding, border, count, physicalIndent, if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else if (automaticLayout) PdfTableWidthPolicy.AUTO_FIT else PdfTableWidthPolicy.FIXED, preferredWidth = resolvedTableWidth)
         }
 

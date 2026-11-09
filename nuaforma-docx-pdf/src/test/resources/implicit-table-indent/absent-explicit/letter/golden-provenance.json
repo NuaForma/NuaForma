@@ -1,0 +1,15 @@
+{
+  "issue": 267,
+  "initialGolden": true,
+  "renderer": "Native PDF engine; PDFBox 96 dpi",
+  "wordReference": "Actual Microsoft Word ExportAsFixedFormat",
+  "reviewedOn": "2026-11-09",
+  "visualReview": "All sixteen initial full pages visually reviewed: table placement, borders and page bands. Word glyph inventory and positions checked on every variant, max dx .202 and dy .201 pt.",
+  "sha256": {
+    "page-1.png": "4ddd0df12cea0843ec170459b50a93e1917914c7286253cd719d72b566af6d5e",
+    "source.docx": "46d5bf458ab3a2b9a21a72d4e42d71803c2adbce1d1b43b95a1cdf2a13ee83e2",
+    "word-reference.pdf": "239fcaccb847aab49edc4621c72768f7fe224183cc808fcba3d56b4b5fbe99cd",
+    "word-reference.pdf.provenance.json": "badbb295d7c0660a371e975eba8f3c577828252a7ae4ccc18a7709ea644e4bc2"
+  },
+  "note": "New synthetic fixtures; no prior golden replaced. Source and Word references remain immutable."
+}
