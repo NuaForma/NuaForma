@@ -1,0 +1,24 @@
+{
+  "issues": [
+    286
+  ],
+  "golden": "mirror-indents/letter-flip/page-1.png",
+  "goldenDirectory": "mirror-indents/letter-flip/",
+  "note": "Exact-source Word export matches its independent counterfactual and the existing Word baseline pixel-for-pixel. Reuse corresponding protected native golden pages without replacing or copying them.",
+  "sha256": {
+    "source.docx": "ff16ad60f52fdc757f590275aa852fc3c794f605acab47202177b8eba0ca5d5a",
+    "word-reference.pdf": "2ef92c5aaa423ea8b20cfe68c7de52c3d04e6424cf226c4179230801aeb9cb2e",
+    "word-reference.pdf.provenance.json": "86147d70a985a0e46ca019a7189579618dbd8a5d9c88e15622e7aa6f3de82128",
+    "existing-page-1.png": "939ad0a44231115a90d7db3c58b980abbd3f764dd57614c9b34ea006f694b7f3",
+    "existing-page-2.png": "2b107604f7c7bc83193df8dbb4716a91b717bb05648b5c77172f2bb9ee80d166",
+    "existing-page-3.png": "605333cf5d632c9b5359ec345838226cd6195ac45698ee7d1094c0dd6d94a098",
+    "existing-page-4.png": "db75b232175d0361327ab8bc610ccc02b03c2ac4086b8cd4a629f25418176869"
+  },
+  "wordComparison": {
+    "case": "mirrored/rtl-disabled/letter",
+    "wordControlPixelsExact": true,
+    "existingWordBaselinePixelsExact": true,
+    "textExact": true,
+    "pages": 4
+  }
+}

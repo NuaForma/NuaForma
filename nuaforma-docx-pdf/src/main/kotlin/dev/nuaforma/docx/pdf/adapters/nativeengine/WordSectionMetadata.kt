@@ -3,7 +3,7 @@ package dev.nuaforma.docx.pdf.adapters.nativeengine
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
 
-/** Validate original section settings and omit only nonprinting editing protection and printer tray selection and explicit default horizontal flow from the render view. */
+/** Validate qualified section defaults before omitting nonprinting preferences from the render view. */
 internal object WordSectionMetadata {
     private const val W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private val starts = setOf("nextPage", "continuous", "oddPage", "evenPage", "nextColumn")
@@ -17,13 +17,13 @@ internal object WordSectionMetadata {
     fun normalizeForms(root: XmlElement, reject: (XmlElement, String) -> Nothing) {
         for (section in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart == "sectPr" }) {
             validateSection(section, reject)
-            section.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart in setOf("formProt", "paperSrc", "textDirection") }
+            section.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart in setOf("formProt", "paperSrc", "textDirection", "rtlGutter") }
         }
     }
 
     private fun validateSection(section: XmlElement, reject: (XmlElement, String) -> Nothing) {
         validatePaperSource(section, reject)
-        for (name in listOf("type", "formProt", "textDirection")) {
+        for (name in listOf("type", "formProt", "textDirection", "rtlGutter")) {
             val settings = section.elements().filter { it.name.localPart == name }
             if (settings.size > 1) reject(settings[1], "Duplicate original section property: $name")
             for (setting in settings) {

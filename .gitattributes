@@ -45,3 +45,4 @@ gradlew.bat text eol=crlf
 /nuaforma-docx-pdf/src/test/resources/word-numbering-style/*/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 
 /nuaforma-docx-pdf/src/test/resources/passive-print-metadata/*/*/*/*.provenance.json -text
+/nuaforma-docx-pdf/src/test/resources/zero-gutter/*/*/*/*.provenance.json -text
