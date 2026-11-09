@@ -179,7 +179,8 @@ internal class NativeDocxReader(
             }
             section.one("type")?.let { type ->
                 attributes(type, setOf("val")); children(type, emptySet())
-                check(type.value("val") == "nextPage", "Only next-page section transitions are qualified")
+                val initialContinuous = section === ranges.first().first && type.value("val") == "continuous"
+                check(type.value("val") == "nextPage" || initialContinuous, "Only next-page transitions or an initial continuous section are qualified")
             }
             val size = section.one("pgSz") ?: reject("Missing page size")
             attributes(size, setOf("w", "h", "orient", "code"))

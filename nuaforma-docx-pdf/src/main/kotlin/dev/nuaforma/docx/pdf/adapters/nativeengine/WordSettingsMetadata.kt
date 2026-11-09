@@ -28,6 +28,7 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
     }
 
     fun normalize(parts: Map<String, XmlElement>, failure: (String, XmlElement) -> NativeDocxReadException): Formatting {
+        for ((name, root) in parts) WordSectionMetadata.normalizeForms(root) { node, _ -> throw failure(name, node) }
         normalizeGrids(parts, failure)
         normalizeRightIndents(parts, failure)
         val settings = parts[part] ?: return Formatting()

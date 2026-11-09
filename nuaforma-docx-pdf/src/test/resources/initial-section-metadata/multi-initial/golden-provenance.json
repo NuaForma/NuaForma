@@ -1,0 +1,20 @@
+{
+  "sourceSha256": "6847812ae05d566891ae1109e6c3cbb21ed5b1af5f0ea84fbcb921fa8631979b",
+  "wordPdfSha256": "e51d04d7cf5a064a89d58cc6eb81792f5077e1ad629d52b08e1e84f5f96d465e",
+  "pages": [
+    {
+      "page": 1,
+      "resource": "/initial-section-metadata/multi-initial/page-1.png",
+      "sha256": "d7217ecd73963813d039b75ea67d4698a7191b0fa0598ea0876d75f0be5d56c2"
+    },
+    {
+      "page": 2,
+      "resource": "/initial-section-metadata/multi-initial/page-2.png",
+      "sha256": "79dbf3ff8b7c57c5763b19594b1b9f0c4b38d12dbf29e40dac37ea21df0d7ada"
+    }
+  ],
+  "dpi": 96,
+  "reviewedAgainstWord": true,
+  "wordPixelsUnchangedByInitialMetadata": true,
+  "policy": "Immutable reviewed engine references; replacing existing goldens requires a documented reason and approval."
+}

@@ -1,0 +1,23 @@
+{
+  "sourceSha256": "f951d9ecb85252d3669a777be5bc8109fe07ac1250157736bf74437da21eb74c",
+  "wordPdfSha256": "06da44ba134f706cea4d6944013015cb075d4e9a9b424ee3f53000259a9797ee",
+  "pages": [
+    {
+      "page": 1,
+      "resource": "/theme-colors/a4/page-1.png",
+      "sha256": "8f4dc77a67c58ad1fd950de69e2eebd08ed1d55a9e8fb6563d4d0fca7d355e8f"
+    },
+    {
+      "page": 2,
+      "resource": "/theme-colors/a4/page-2.png",
+      "sha256": "58b9e4e437dd95cca33b652e4a292ee3f329f997092b43af93364400baf4385a"
+    }
+  ],
+  "dpi": 96,
+  "reviewedAgainstWord": true,
+  "wordPixelsUnchangedByInitialMetadata": true,
+  "policy": "Immutable reviewed engine references; replacing existing goldens requires a documented reason and approval.",
+  "reusedFrom": "theme-colors/a4",
+  "legacySourceSha256": "431b4cdfe8925db8b0599696e3ce750c069d696d351d08c88a0f0076c6cec143",
+  "legacyWordPdfSha256": "3a277d914bb18f37a4aeff38010927fbc238ac5d2eeaba83d7497a0830270473"
+}
