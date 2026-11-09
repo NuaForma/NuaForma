@@ -97,6 +97,7 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
             val archive = try { CleanupPackage(bytes, context) }
             catch (_: ZipException) { return bytes }
             catch (_: IllegalArgumentException) { return bytes }
+            WordCustomXmlMetadata(context).validateSource(archive.parts)
             val source = NativeDocxSource(context)
             val selection = WordMarkupCompatibility(context)
             var changed = false
