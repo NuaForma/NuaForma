@@ -170,15 +170,31 @@ class PdfTableRow @JvmOverloads constructor(cells: List<PdfTableCell>, val allow
 /** FIXED retains the grid; FIT_CONTENTS is unwrapped; AUTO_FIT negotiates preferences and wrapping. */
 enum class PdfTableWidthPolicy { FIXED, FIT_CONTENTS, AUTO_FIT }
 
-class PdfTable @JvmOverloads constructor(
+class PdfTable private constructor(
     columnWidths: List<Float>, rows: List<PdfTableRow>,
-    val cellMargins: PdfMargins = PdfMargins(4f, 6f, 4f, 6f),
-    val border: PdfBorder? = PdfBorder(0.5f, PdfColor(184, 197, 204)),
-    val repeatedHeaderRows: Int = 0, val leftIndent: Float = 0f,
-    val widthPolicy: PdfTableWidthPolicy = PdfTableWidthPolicy.FIXED,
-    override val semantics: PdfBlockSemantics? = null,
-    val preferredWidth: PdfPreferredWidth? = null,
+    val cellMargins: PdfMargins, val border: PdfBorder?,
+    val repeatedHeaderRows: Int, val leftIndent: Float,
+    val widthPolicy: PdfTableWidthPolicy, override val semantics: PdfBlockSemantics?,
+    val preferredWidth: PdfPreferredWidth?, overflow: TableOverflow,
 ) : PdfBlock {
+    private class TableOverflow(val right: Float)
+
+    @JvmOverloads constructor(
+        columnWidths: List<Float>, rows: List<PdfTableRow>,
+        cellMargins: PdfMargins = PdfMargins(4f, 6f, 4f, 6f),
+        border: PdfBorder? = PdfBorder(0.5f, PdfColor(184, 197, 204)),
+        repeatedHeaderRows: Int = 0, leftIndent: Float = 0f,
+        widthPolicy: PdfTableWidthPolicy = PdfTableWidthPolicy.FIXED,
+        semantics: PdfBlockSemantics? = null, preferredWidth: PdfPreferredWidth? = null,
+    ) : this(columnWidths, rows, cellMargins, border, repeatedHeaderRows, leftIndent,
+        widthPolicy, semantics, preferredWidth, TableOverflow(0f))
+
+    /** Additional right-margin space in points; physical page and parent-cell bounds still apply. */
+    val rightOverflow: Float = overflow.right
+
+    fun withRightOverflow(points: Float): PdfTable = PdfTable(columnWidths, rows, cellMargins, border,
+        repeatedHeaderRows, leftIndent, widthPolicy, semantics, preferredWidth, TableOverflow(points))
+
     val columnWidths: List<Float> = Collections.unmodifiableList(ArrayList(columnWidths))
     val rows: List<PdfTableRow> = Collections.unmodifiableList(ArrayList(rows))
     init {
@@ -193,6 +209,7 @@ class PdfTable @JvmOverloads constructor(
         require(this.rows.size in 1..500) { "Invalid table rows" }
         require(repeatedHeaderRows in 0..minOf(4, this.rows.size - 1)) { "Invalid repeated table headers" }
         require(leftIndent.isFinite() && leftIndent in -14_400f..14_400f) { "Invalid table indentation" }
+        require(rightOverflow.isFinite() && rightOverflow in 0f..14_400f) { "Invalid right table overflow" }
         placements()
     }
 

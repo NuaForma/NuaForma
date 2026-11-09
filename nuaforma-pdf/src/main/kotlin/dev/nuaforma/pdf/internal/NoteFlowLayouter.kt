@@ -144,7 +144,7 @@ internal object NoteFlowLayouter {
                 }
                 is PdfTable -> {
                     val table = TableLayouter.measure(block, measurer, width)
-                    TableLayouter.checkWidth(table.table, width, page.margins.left)
+                    TableLayouter.checkWidth(table.table, width, page.margins.left, page.width - page.margins.left)
                     val left = page.margins.left + block.leftIndent
                     if (block.rows.any { it.allowSplit }) unsupported("Splitting table rows with notes is not qualified")
                     val complex = block.rows.any { row -> row.cells.any { it.rowSpan > 1 || it.blocks.any { value -> value is PdfTable } } }

@@ -1,0 +1,24 @@
+{
+  "issues": [
+    287
+  ],
+  "golden": "legacy-table-overflow/12-percent-50-negative/a4/page-1.png",
+  "note": "Exact-source Word export, independent text/paper/embedded-font and marker geometry qualification. Initial native reference reviewed visually; automatic physical controls reuse exact existing signed-indent goldens. No protected golden replaced.",
+  "sha256": {
+    "source.docx": "bd24c1e094d42368b134be72960b637af497b47bac16ca2484e035d625efbaaa",
+    "word-reference.pdf": "f22614539fa05d09554b1e6cbffd34bae50aec4991544b1f6c49d037967095f4",
+    "word-reference.pdf.provenance.json": "624bf18d24e953ace992a6527d5a41580962519a9d60ddf610557b3a26d50c65",
+    "page-1.png": "5d9a8bdb6fb5dd897c1a8331c36af31c99299870be67572f4f4f3d8fdc54206c"
+  },
+  "wordComparison": {
+    "case": "12-percent-50-negative-a4",
+    "pass": true,
+    "pagesEqual": true,
+    "textEqual": true,
+    "markersEqual": true,
+    "fontsEmbedded": true,
+    "paperEqual": true,
+    "maxDx": 0.01599884033203125,
+    "maxDy": 0.0799560546875
+  }
+}

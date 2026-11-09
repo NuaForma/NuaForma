@@ -34,7 +34,7 @@ internal object TableWidthResolver {
         if (widths.any { it <= 0f }) unsupported()
         if (framed.sum() > 14_400f) overflow()
         return PdfTable(framed, table.rows,
-            table.cellMargins, table.border, table.repeatedHeaderRows, table.leftIndent, semantics = table.semantics)
+            table.cellMargins, table.border, table.repeatedHeaderRows, table.leftIndent, semantics = table.semantics, preferredWidth = table.preferredWidth).withRightOverflow(table.rightOverflow)
     }
 
     private fun framedWidth(content: Float, margins: PdfMargins): Float {

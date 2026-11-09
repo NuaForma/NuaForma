@@ -177,8 +177,16 @@ internal object TableLayouter {
         edge(policy.right, frame.x + frame.width, frame.top, frame.height + verticalExtra, false)
     }
 
-    fun checkWidth(table: PdfTable, available: Float, left: Float) {
-        if (left + table.leftIndent < 0 || table.leftIndent + table.columnWidths.sum() > available + 0.01f) overflow("Table exceeds its containing width")
+    fun checkWidth(table: PdfTable, available: Float, left: Float, physicalRight: Float = available) {
+        val right = table.leftIndent + table.columnWidths.sum()
+        val limit = minOf(available + table.rightOverflow, physicalRight)
+        if (left + table.leftIndent < 0 || right > limit + 0.01f) overflow("Table exceeds its containing width")
+        if (table.rightOverflow > 0f) {
+            val stroke = maxOf(table.border?.width ?: 0f, table.rows.maxOf { row ->
+                row.cells.maxOfOrNull { it.borders?.right?.border?.width ?: 0f } ?: 0f
+            }) / 2f
+            if (right + stroke > physicalRight) overflow("Table exceeds its physical right boundary")
+        }
     }
 
     private fun translate(element: PositionedElement, x: Float, y: Float): PositionedElement = when (element) {

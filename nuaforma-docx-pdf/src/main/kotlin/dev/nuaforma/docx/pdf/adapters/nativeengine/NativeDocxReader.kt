@@ -957,6 +957,7 @@ internal class NativeDocxReader(
                 if (declaredIndent == null) 0f else indent - padding.left
             } else effectiveIndent + (border?.width ?: 0f) / 2
             return PdfTable(widths, rows, padding, border, count, physicalIndent, if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else if (automaticLayout) PdfTableWidthPolicy.AUTO_FIT else PdfTableWidthPolicy.FIXED, preferredWidth = resolvedTableWidth)
+                .withRightOverflow(if (depth == 0 && !modernTableAlignment && declaredIndent != null && preferredTableWidth?.percent != null) padding.right else 0f)
         }
 
         fun readBox(pict: XmlElement, partRelations: Map<String, String>, fields: Boolean = false): PdfTextBox {

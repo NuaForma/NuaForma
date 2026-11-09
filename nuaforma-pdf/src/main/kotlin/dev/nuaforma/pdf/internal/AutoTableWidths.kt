@@ -7,7 +7,7 @@ internal object AutoTableWidths {
     private data class Constraint(val placement: TablePlacement, val minimum: Float, val maximum: Float)
 
     fun resolve(table: PdfTable, measurer: TextMeasurer, availableWidth: Float): PdfTable {
-        val available = minOf(14_400f, availableWidth - table.leftIndent)
+        val available = minOf(14_400f, availableWidth - table.leftIndent + table.rightOverflow)
         if (!available.isFinite() || available <= 0f) overflow()
         val constraints = constraints(table, measurer, 0)
         val padding = table.cellMargins.left + table.cellMargins.right
@@ -35,7 +35,7 @@ internal object AutoTableWidths {
         val target = minOf(available, maxOf(minimum.sum(), physical ?: preferred.sum()))
         val widths = fit(preferred, minimum, target)
         return PdfTable(widths, table.rows, table.cellMargins, table.border, table.repeatedHeaderRows,
-            table.leftIndent, semantics = table.semantics, preferredWidth = table.preferredWidth)
+            table.leftIndent, semantics = table.semantics, preferredWidth = table.preferredWidth).withRightOverflow(table.rightOverflow)
     }
 
     private fun preferred(value: PdfPreferredWidth?, reference: Float): Float? = value?.let {

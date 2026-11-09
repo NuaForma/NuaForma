@@ -49,3 +49,5 @@ gradlew.bat text eol=crlf
 /nuaforma-docx-pdf/src/test/resources/zero-gutter/*/*/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 
 /nuaforma-docx-pdf/src/test/resources/nested-table-indent/*/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+/nuaforma-docx-pdf/src/test/resources/legacy-table-overflow/*/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

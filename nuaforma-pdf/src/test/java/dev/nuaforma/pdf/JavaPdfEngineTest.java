@@ -11,6 +11,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class JavaPdfEngineTest {
 
     @Test
+    void javaCallerRetainsExistingTableConstructorsAndOptsIntoRightOverflow() {
+        var cell = new PdfTableCell(List.of(new PdfParagraph(List.of(new PdfTextRun("Row", new PdfTextStyle("regular", 10))))));
+        var rows = List.of(new PdfTableRow(List.of(cell)));
+        var plain = new PdfTable(List.of(250f), rows);
+        var full = new PdfTable(List.of(250f), rows, new PdfMargins(4, 6, 4, 6), null,
+            0, 0, PdfTableWidthPolicy.AUTO_FIT, null, PdfPreferredWidth.points(250));
+        assertEquals(0f, plain.getRightOverflow());
+        assertEquals(0f, full.getRightOverflow());
+        assertEquals(10f, full.withRightOverflow(10).getRightOverflow());
+        assertEquals(full.getRows(), full.withRightOverflow(10).getRows());
+    }
+
+    @Test
     void javaCallerCanSetAndRetainCharacterSpacing() {
         var plain = new PdfTextStyle("regular", 12);
         var tracked = plain.withCharacterSpacing(.75f);
