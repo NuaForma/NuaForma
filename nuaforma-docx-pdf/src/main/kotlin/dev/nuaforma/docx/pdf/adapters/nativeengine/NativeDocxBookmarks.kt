@@ -8,11 +8,52 @@ import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
 internal class NativeDocxBookmarks(private val context: GenerationContext) {
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
-    /** Check untouched table-ending ranges before the DOCX binder can discard malformed marker properties. */
-    fun validateTableSource(root: XmlElement, focus: (XmlElement) -> Unit, reject: (String) -> Nothing) {
-        if (root.descendants().any { isWord(it, "tbl") && it.elements().any { child -> isWord(child, "bookmarkEnd") } }) {
+    /** Check original table-ending and editing ranges before the DOCX binder can discard malformed marker properties. */
+    fun validateSource(root: XmlElement, focus: (XmlElement) -> Unit, reject: (String) -> Nothing) {
+        val editing = root.descendants().filter { it.name.localPart == "bookmarkStart" && it.attribute(word, "name") == "_GoBack" }.toList()
+        for (node in editing) {
+            focus(node)
+            if (!isWord(node, "bookmarkStart")) reject("Invalid editing bookmark namespace")
+        }
+        if (editing.isNotEmpty() || root.descendants().any { isWord(it, "tbl") && it.elements().any { child -> isWord(child, "bookmarkEnd") } }) {
             validate(root, focus, reject)
         }
+    }
+
+    /** Omit only unused empty Word editing-position ranges; keep every paragraph and visible bookmark. */
+    fun normalizeEditing(roots: Collection<XmlElement>, focus: (XmlElement) -> Unit, reject: (String) -> Nothing) {
+        val starts = roots.flatMap { root -> root.descendants().filter { isWord(it, "bookmarkStart") && it.attribute(word, "name") == "_GoBack" }.toList() }
+        if (starts.isEmpty()) return
+        if (starts.size > 1) { focus(starts[1]); reject("Duplicate editing bookmark name") }
+        for (root in roots) {
+            context.checkActive()
+            validateSource(root, focus, reject)
+        }
+        if (roots.any(::referencesEditingBookmark)) return
+        val start = starts.single()
+        for (root in roots) for (parent in root.descendants().toList()) {
+            context.checkActive()
+            val elements = parent.elements()
+            val index = elements.indexOfFirst { it === start }
+            if (index < 0) continue
+            if (!isWord(parent, "p") && !isWord(parent, "body")) return
+            val end = elements.getOrNull(index + 1) ?: return
+            if (!isWord(end, "bookmarkEnd") || end.attribute(word, "id") != start.attribute(word, "id")) return
+            val between = parent.children.subList(parent.children.indexOf(start) + 1, parent.children.indexOf(end))
+            if (between.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) return
+            parent.children.remove(start)
+            parent.children.remove(end)
+            return
+        }
+    }
+
+    private fun referencesEditingBookmark(root: XmlElement): Boolean {
+        val nodes = root.descendants().toList()
+        if (nodes.any { isWord(it, "fldSimple") && it.attribute(word, "instr")?.contains("_GoBack", ignoreCase = true) == true ||
+                isWord(it, "hyperlink") && it.attribute(word, "anchor")?.equals("_GoBack", ignoreCase = true) == true }) return true
+        return nodes.filter { isWord(it, "instrText") }.joinToString("") { node ->
+            node.children.filterIsInstance<XmlText>().joinToString("") { it.text }
+        }.contains("_GoBack", ignoreCase = true)
     }
 
     /** Return block-ended ranges that require paragraph-aware text-reference resolution. */

@@ -59,13 +59,13 @@ class NativeDocxBookmarksTest {
         val body = "<w:p>$start$text</w:p><w:tbl>$end<w:tr><w:tc><w:p>$text</w:p></w:tc></w:tr></w:tbl>"
         val root = xml.read("""<w:body xmlns:w="$word">$body</w:body>""".toByteArray())
         val before = xml.write(root)
-        NativeDocxBookmarks(context).validateTableSource(root, {}, { error(it) })
+        NativeDocxBookmarks(context).validateSource(root, {}, { error(it) })
         assertArrayEquals(before, xml.write(root))
         for (invalid in listOf(end.replace("/>", " extra=\"1\"/>"), end.replace("/>", ">text</w:bookmarkEnd>"))) {
             val changed = xml.read("""<w:body xmlns:w="$word">${body.replace(end, invalid)}</w:body>""".toByteArray())
             var focused: XmlElement? = null
             assertThrows(IllegalArgumentException::class.java) {
-                NativeDocxBookmarks(context).validateTableSource(changed, { focused = it }, { throw IllegalArgumentException(it) })
+                NativeDocxBookmarks(context).validateSource(changed, { focused = it }, { throw IllegalArgumentException(it) })
             }
             assertEquals("bookmarkEnd", focused?.name?.localPart)
         }
