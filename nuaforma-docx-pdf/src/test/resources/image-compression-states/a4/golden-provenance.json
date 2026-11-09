@@ -1,0 +1,28 @@
+{
+  "sourceSha256": "77da4f5f0c9309ec5165c6a51f38fd6c46df4e7ace65ac4b5e4ef84bfeb7644e",
+  "controlSourceSha256": "1f1a57df4274ba247f811e2305173baa435e9330329f8154c70169f54fbf022f",
+  "wordPdfSha256": "435116f13a5175ce2886ed42db7f16f1227fda65d7efe17d82c6e5c16a43476e",
+  "controlWordPdfSha256": "b6bf484b48101fb590c89e364d756d5f5f52569befbef91d8c391eb18408fa16",
+  "engineControlPdfSha256": "7236d0e740c0f52fe2b24274d18ee43d2e3513dd73cbdf5c624dc77d707b5d52",
+  "wordVariantRastersEqual": true,
+  "reviewedAgainstWord": true,
+  "wordImageMetrics": {
+    "paper": "a4",
+    "images": 7,
+    "dx": 0.0,
+    "dy": 0.020000457763671875,
+    "dw": 0.0,
+    "dh": 0.0
+  },
+  "initialGolden": true,
+  "dpi": 96,
+  "masks": 0,
+  "pages": [
+    {
+      "page": 1,
+      "file": "page-1.png",
+      "sha256": "6e096bb93a9838e6f429bba6f48d89a35bf90028fbe99394c41afd8e6456f4a5"
+    }
+  ],
+  "policy": "Initial image from the qualified pre-compression-state control, reviewed against actual Word exports. All seven source image placements are retained. Existing goldens remain unchanged; replacement requires explicit approval."
+}

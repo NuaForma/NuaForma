@@ -2,6 +2,7 @@ package dev.nuaforma.docx.pdf.adapters.nativeengine
 
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
+import javax.xml.namespace.QName
 
 /** Only known nonprinting picture metadata is omitted from this request's rendering view. */
 internal object WordPictureMetadata {
@@ -12,6 +13,23 @@ internal object WordPictureMetadata {
     private val locks = setOf("noGrp", "noSelect", "noRot", "noChangeAspect", "noMove", "noResize", "noEditPoints",
         "noAdjustHandles", "noChangeArrowheads", "noChangeShapeType", "noCrop")
     private val booleans = setOf("0", "1", "false", "true")
+
+    private const val W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    private const val R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+    private val compressionStates = setOf("none", "email", "screen", "print", "hqprint")
+
+    fun compressionState(name: QName, value: String): Boolean =
+        name.namespaceURI.isEmpty() && name.localPart == "cstate" && value in compressionStates
+
+    fun validateSource(root: XmlElement, reject: (XmlElement, String) -> Nothing) {
+        if (root.name.namespaceURI != W || root.name.localPart !in setOf("document", "hdr", "ftr", "footnotes", "endnotes")) return
+        for (node in root.descendants().filter { it.isName(A, "blip") }) {
+            val valid = node.attributes.all { (name, value) ->
+                name.namespaceURI == R && name.localPart == "embed" || compressionState(name, value)
+            }
+            if (!valid) reject(node, "Unsupported original embedded image attribute or compression state")
+        }
+    }
 
     fun normalize(root: XmlElement, reject: (XmlElement, String) -> Nothing) {
         val pictures = root.descendants().filter { it.isName(PIC, "pic") }.toList()

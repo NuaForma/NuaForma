@@ -1,5 +1,7 @@
 # NuaForma DOCX/PDF provider
 
+Source #262 accepts qualified image compression-state hints while preserving source attributes, image bytes and existing drawing bounds. See [the source checks and Word controls](../docs/image-compression-states.md).
+
 Source #258 passes qualified private-use symbols to the shared engine with the supplied physical font. See [glyph bounds and Word-control provenance](../docs/private-font-glyphs.md).
 
 Source #260 resolves declared default table styles and inherited margin edges, with bounded ordinary border metadata. See [the table-style profile](../docs/word-table-style-defaults.md).

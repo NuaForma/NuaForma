@@ -1396,7 +1396,9 @@ internal class NativeDocxReader(
         }
         val extent = inline.elements().singleOrNull { it.name.namespaceURI == wp && it.name.localPart == "extent" } ?: reject("Missing image extent")
         val blip = inline.descendants().singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "blip" } ?: reject("Missing image relationship")
-        imageAttributes(blip) { name, _ -> name.namespaceURI == rel && name.localPart == "embed" }
+        imageAttributes(blip) { name, value ->
+            name.namespaceURI == rel && name.localPart == "embed" || WordPictureMetadata.compressionState(name, value)
+        }
         source.current = blip
         val target = relations[blip.attribute(rel, "embed")] ?: reject("Missing embedded image")
         at(blip, target.startsWith("media/"), "Invalid image relationship")

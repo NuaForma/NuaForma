@@ -1,5 +1,6 @@
 # NuaForma documentation
 
+- [Image compression-state metadata](image-compression-states.md): qualified embedded picture hints and seven-image Word controls (source #262).
 - [Font-defined private glyphs](private-font-glyphs.md): bounded caller-font symbols and preserved logical aliases (source #258).
 - [Word table style defaults](word-table-style-defaults.md): default/derived table margins and ordinary border variants (source #260).
 - [Preferred table widths](preferred-table-widths.md): shared automatic layout with physical/percentage preferences (source #259).
