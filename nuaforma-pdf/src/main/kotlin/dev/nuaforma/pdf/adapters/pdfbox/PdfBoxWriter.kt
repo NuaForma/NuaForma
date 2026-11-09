@@ -64,7 +64,14 @@ internal object PdfBoxWriter {
                 control.checkActive()
                 val font = fonts[style.fontId] ?: fail(PdfFailureCode.FONT_UNAVAILABLE, "Referenced font is not supplied")
                 val width = try {
-                    if (style.fontFeatures.active) shaper.shape(text, style).advance else font.getStringWidth(text) * style.size / 1000f
+                    if (style.fontFeatures.active) shaper.shape(text, style).advance else {
+                        if (style.characterSpacing < 0f) text.codePoints().forEach { point ->
+                            val glyphWidth = font.getStringWidth(String(Character.toChars(point))) * style.size / 1000f
+                            if (glyphWidth + style.characterSpacing < 0f)
+                                fail(PdfFailureCode.UNSUPPORTED_TEXT, "Character spacing reverses glyph advances")
+                        }
+                        font.getStringWidth(text) * style.size / 1000f + text.codePointCount(0, text.length) * style.characterSpacing
+                    }
                 } catch (_: IllegalArgumentException) {
                     fail(PdfFailureCode.MISSING_GLYPH, "The supplied font cannot encode requested text")
                 }
@@ -240,6 +247,7 @@ internal object PdfBoxWriter {
                                     if (element.style.syntheticBold) command("q")
                                     command("BT")
                                     command("Tf", page.resources.add(font), number(element.style.size))
+                                    command("Tc", number(if (element.style.fontFeatures.active) 0f else element.style.characterSpacing))
                                     command("rg", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
                                     if (element.style.syntheticBold) {
                                         command("RG", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))

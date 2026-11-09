@@ -62,6 +62,9 @@ internal object PageLayouter {
                         throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Bidi navigation is not qualified")
                     if (format.alignment == PdfAlignment.JUSTIFY && format.textDirection != null)
                         throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Bidi justification is not qualified")
+                    if (format.textDirection == PdfTextDirection.RIGHT_TO_LEFT && (block.runs.any { it is PdfTextRun && it.style.characterSpacing != 0f } ||
+                            block.listLabel?.style?.characterSpacing?.let { it != 0f } == true))
+                        throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "RTL character spacing is not qualified")
                     val automaticSpacing = format.automaticLineSpacing != null || block.minimumLineHeight != null
                     if (automaticSpacing && format.textDirection != null) automaticBox(block, measurer, allowMixed = false)
                     if (format.textDirection != null && block.runs.any { it !is PdfTextRun })

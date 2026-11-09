@@ -11,6 +11,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class JavaPdfEngineTest {
 
     @Test
+    void javaCallerCanSetAndRetainCharacterSpacing() {
+        var plain = new PdfTextStyle("regular", 12);
+        var tracked = plain.withCharacterSpacing(.75f);
+        assertEquals(0f, plain.getCharacterSpacing());
+        assertEquals(.75f, tracked.withStrikethrough(true).withSyntheticBold(true).getCharacterSpacing());
+        assertEquals(.75f, tracked.withFontFeatures(new PdfFontFeatures(PdfKerning.PAIRS, false)).getCharacterSpacing());
+        assertEquals(.75f, tracked.copy("regular", 14, new PdfColor(0, 0, 0), null, false, 0).getCharacterSpacing());
+        assertEquals(plain, tracked.withCharacterSpacing(0));
+    }
+
+    @Test
     void javaCallerCanSetOptionalPhysicalRowMinimum() {
         var cell = new PdfTableCell(List.of(new PdfParagraph(List.of(new PdfTextRun("Row", new PdfTextStyle("regular", 10))))));
         assertEquals(40f, new PdfTableRow(List.of(cell), true, false, 40f).getMinimumHeight());

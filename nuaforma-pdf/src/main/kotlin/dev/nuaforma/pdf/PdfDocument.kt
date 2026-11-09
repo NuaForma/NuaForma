@@ -354,11 +354,14 @@ class PdfTextStyle private constructor(
     val baselineShift: Float,
     private val decoration: Decoration,
 ) {
-    private class Decoration(val strike: Boolean = false, val features: PdfFontFeatures = PdfFontFeatures(), val syntheticBold: Boolean = false)
+    private class Decoration(val strike: Boolean = false, val features: PdfFontFeatures = PdfFontFeatures(), val syntheticBold: Boolean = false, val characterSpacing: Float = 0f)
     val strikethrough: Boolean get() = decoration.strike
     val fontFeatures: PdfFontFeatures get() = decoration.features
 
     val syntheticBold: Boolean get() = decoration.syntheticBold
+
+    /** Additional advance after each text character, in points; zero retains natural spacing. */
+    val characterSpacing: Float get() = decoration.characterSpacing
 
     @JvmOverloads
     constructor(fontId: String, size: Float, color: PdfColor = PdfColor(0, 0, 0), languageTag: String? = null,
@@ -369,12 +372,15 @@ class PdfTextStyle private constructor(
                 baselineShift: Float, strikethrough: Boolean) :
         this(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough))
 
-    fun withStrikethrough(value: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(value, fontFeatures, syntheticBold))
+    fun withStrikethrough(value: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(value, fontFeatures, syntheticBold, characterSpacing))
 
-    fun withFontFeatures(features: PdfFontFeatures): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough, features, syntheticBold))
+    fun withFontFeatures(features: PdfFontFeatures): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough, features, syntheticBold, characterSpacing))
 
     /** Explicit fill-and-stroke emboldening; advances and font bytes remain unchanged. */
-    fun withSyntheticBold(enabled: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough, fontFeatures, enabled))
+    fun withSyntheticBold(enabled: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough, fontFeatures, enabled, characterSpacing))
+
+    fun withCharacterSpacing(points: Float): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift,
+        Decoration(strikethrough, fontFeatures, syntheticBold, if (points == 0f) 0f else points))
 
     /** Keep Kotlin's original copy and copy$default descriptors, retaining additional decorations. */
     fun copy(fontId: String = this.fontId, size: Float = this.size, color: PdfColor = this.color,
@@ -400,7 +406,7 @@ class PdfTextStyle private constructor(
 
     override fun equals(other: Any?): Boolean = other is PdfTextStyle && fontId == other.fontId &&
         java.lang.Float.compare(size, other.size) == 0 && color == other.color && languageTag == other.languageTag &&
-        underline == other.underline && java.lang.Float.compare(baselineShift, other.baselineShift) == 0 && strikethrough == other.strikethrough && fontFeatures == other.fontFeatures && syntheticBold == other.syntheticBold
+        underline == other.underline && java.lang.Float.compare(baselineShift, other.baselineShift) == 0 && strikethrough == other.strikethrough && fontFeatures == other.fontFeatures && syntheticBold == other.syntheticBold && java.lang.Float.compare(characterSpacing, other.characterSpacing) == 0
 
     override fun hashCode(): Int {
         var result = fontId.hashCode()
@@ -409,17 +415,19 @@ class PdfTextStyle private constructor(
         result = 31 * result + baselineShift.hashCode()
         if (strikethrough) result = 31 * result + true.hashCode()
         if (fontFeatures.active) result = 31 * result + fontFeatures.hashCode()
+        if (characterSpacing != 0f) result = 31 * result + characterSpacing.hashCode()
         return if (syntheticBold) 31 * result + true.hashCode() else result
     }
 
     override fun toString(): String = "PdfTextStyle(fontId=$fontId, size=$size, color=$color, languageTag=$languageTag, underline=$underline, baselineShift=$baselineShift" +
-        (if (strikethrough) ", strikethrough=true" else "") + (if (fontFeatures.active) ", fontFeatures=$fontFeatures" else "") + (if (syntheticBold) ", syntheticBold=true)" else ")")
+        (if (strikethrough) ", strikethrough=true" else "") + (if (fontFeatures.active) ", fontFeatures=$fontFeatures" else "") + (if (syntheticBold) ", syntheticBold=true" else "") + (if (characterSpacing != 0f) ", characterSpacing=$characterSpacing" else "") + ")"
 
     init {
         require(languageTag == null || languageTag.length <= 64 && languageTag.matches(Regex("[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*"))) { "Invalid text language tag" }
         require(fontId.matches(Regex("[A-Za-z0-9_-]{1,64}"))) { "Invalid font ID" }
         require(size.isFinite() && size in 1f..200f) { "Invalid font size" }
         require(baselineShift.isFinite() && baselineShift in -200f..200f) { "Invalid baseline shift" }
+        require(characterSpacing.isFinite() && characterSpacing in -14_400f..14_400f) { "Invalid character spacing" }
     }
 }
 

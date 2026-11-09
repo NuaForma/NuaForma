@@ -59,6 +59,10 @@ internal class NativeDocxReader(
                 source.current = node
                 source.failure(message, part)
             }
+            WordRunSpacing.validateSource(root) { node, message ->
+                source.current = node
+                throw source.failure(message, part)
+            }
             WordTableWidths.normalizeSource(root) { node, message ->
                 source.current = node
                 throw source.failure(message, part)
@@ -661,6 +665,11 @@ internal class NativeDocxReader(
                 PdfParagraphPageOffset(geometry.right - geometry.left + maxOf(0f, -geometry.first),
                     if (!modernTableAlignment && formatting.flipLegacyMirrorIndents) PdfPageSide.ODD else PdfPageSide.EVEN)
             } else null
+            if (geometry.direction == PdfTextDirection.RIGHT_TO_LEFT && (content.any { it is PdfTextRun && it.style.characterSpacing != 0f } ||
+                    label?.style?.characterSpacing?.let { it != 0f } == true)) {
+                source.current = paragraph
+                reject("Character spacing in RTL paragraphs is not qualified")
+            }
             return PdfParagraph(content, geometry.before, geometry.after, PdfParagraphFormat(alignment, geometry.left, geometry.right,
                 geometry.first, geometry.line, !formatting.additiveParagraphSpacing,
                 geometry.keepWithNext, geometry.keepLines, geometry.widowControl, geometry.pageBreakBefore, geometry.outline,
@@ -1178,7 +1187,7 @@ internal class NativeDocxReader(
 
     private data class Face(val family: String? = null, val size: Float? = null, val bold: Boolean = false,
         val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null, val underline: Boolean = false, val superscript: Boolean = false, val strikethrough: Boolean = false,
-        val kerningThreshold: Float = 0f, val standardLigatures: Boolean = false, val openType: Boolean = false, val highAnsiFamily: String? = null) {
+        val kerningThreshold: Float = 0f, val standardLigatures: Boolean = false, val openType: Boolean = false, val highAnsiFamily: String? = null, val characterSpacing: Float = 0f) {
 
         fun id(resolve: (String, Boolean, Boolean) -> String): String = resolve(
             requireNotNull(family) { "An explicit font family is required" }, bold, italic)
@@ -1199,13 +1208,17 @@ internal class NativeDocxReader(
         return PdfTextStyle(face.id(fontId), size, face.color, face.languageTag, face.underline, if (face.superscript) nominal - size else 0f, face.strikethrough)
             .withFontFeatures(PdfFontFeatures(kern, face.standardLigatures && face.openType))
             .withSyntheticBold(syntheticBold(requireNotNull(face.family), face.bold, face.italic))
+            .withCharacterSpacing(face.characterSpacing)
     }
 
     private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>, themeColors: WordThemeColors): Face {
         if (property == null) return initial
         val word14 = "http://schemas.microsoft.com/office/word/2010/wordml"
-        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern"), setOf(word14 to "ligatures"))
+        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern", "spacing"), setOf(word14 to "ligatures"))
         var result = initial
+        property.one("spacing")?.let { node ->
+            result = result.copy(characterSpacing = WordRunSpacing.read(node) { origin, message -> source.current = origin; reject(message) })
+        }
         property.one("kern")?.let {
             attributes(it, setOf("val")); children(it, emptySet())
             check(it.children.filterIsInstance<XmlText>().all { text -> text.text.isBlank() }, "Invalid kerning setting")
