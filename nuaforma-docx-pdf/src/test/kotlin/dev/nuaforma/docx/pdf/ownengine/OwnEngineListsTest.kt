@@ -53,9 +53,9 @@ class OwnEngineListsTest {
         }
     }
 
-    @Test fun `unsupported numbering links formats overrides references and inconsistent styles fail explicitly`() {
+    @Test fun `unsupported numbering redirections formats overrides references and inconsistent styles fail explicitly`() {
         val cases=listOf(
-            "word/numbering.xml" to {s:String->s.replaceFirst("<w:multiLevelType", "<w:styleLink w:val=\"Normal\"/><w:multiLevelType")},
+            "word/numbering.xml" to {s:String->s.replaceFirst("<w:multiLevelType", "<w:numStyleLink w:val=\"Normal\"/><w:multiLevelType")},
             "word/numbering.xml" to {s:String->s.replace("w:val=\"decimalZero\"","w:val=\"chineseCounting\"")},
             "word/numbering.xml" to {s:String->s.replaceFirst("<w:startOverride w:val=\"7\"/>","<w:lvl w:ilvl=\"0\"/>")},
             "word/numbering.xml" to {s:String->s.replaceFirst("w:abstractNumId=\"1\"","w:abstractNumId=\"2\"")},

@@ -194,9 +194,19 @@ internal class NativeDocxNumbering(root: XmlElement?, body: XmlElement, private 
 
     private fun children(node: XmlElement, allowed: Set<String>) {
         focus(node)
-        require(node.elements().all { it.name.namespaceURI == W && it.name.localPart in allowed }) { "Unsupported numbering feature" }
+        val unsupported = node.elements().firstOrNull { it.name.namespaceURI != W || it.name.localPart !in allowed }
+        if (unsupported != null) {
+            focus(unsupported)
+            throw IllegalArgumentException("Unsupported numbering feature")
+        }
         require(node.children.filterIsInstance<XmlText>().all { it.text.isBlank() }) { "Unexpected numbering text" }
-        require(node.elements().groupBy { it.name.localPart }.all { (name, nodes) -> name in setOf("abstractNum", "num", "lvl", "lvlOverride") || nodes.size == 1 }) { "Duplicate numbering property" }
+        val duplicate = node.elements().groupBy { it.name.localPart }.values.firstOrNull {
+            it.first().name.localPart !in setOf("abstractNum", "num", "lvl", "lvlOverride") && it.size > 1
+        }
+        if (duplicate != null) {
+            focus(duplicate[1])
+            throw IllegalArgumentException("Duplicate numbering property")
+        }
     }
 
     private fun XmlElement.one(name: String) = elements().singleOrNull { it.name.namespaceURI == W && it.name.localPart == name }

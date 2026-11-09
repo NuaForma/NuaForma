@@ -3,6 +3,7 @@ package dev.nuaforma.docx.pdf.adapters.nativeengine
 import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
+import javax.xml.namespace.QName
 
 /** List-gallery identifiers and explicitly disabled section restarts do not change printed numbering. */
 internal class WordNumberingMetadata(private val context: GenerationContext) {
@@ -10,7 +11,27 @@ internal class WordNumberingMetadata(private val context: GenerationContext) {
     private val word15 = "http://schemas.microsoft.com/office/word/2012/wordml"
     private val durable = "http://schemas.microsoft.com/office/word/2016/wordml/cid"
 
+    fun validateStyleLinksSource(root: XmlElement, failure: (XmlElement) -> NativeDocxReadException) {
+        if (root.name.namespaceURI != word || root.name.localPart != "numbering") throw failure(root)
+        for (definition in root.elements().filter { it.name.localPart == "abstractNum" }) {
+            val links = definition.elements().filter { it.name.localPart == "styleLink" }
+            if (links.size > 1) throw failure(links[1])
+            for (link in links) {
+                context.checkActive()
+                val value = link.attribute(word, "val")
+                if (definition.name.namespaceURI != word || link.name.namespaceURI != word ||
+                    link.attributes.keys.any { it.namespaceURI != word || it.localPart != "val" } ||
+                    link.elements().isNotEmpty() || link.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
+                    value.isNullOrBlank() || value.length > 253) throw failure(link)
+            }
+        }
+    }
+
     fun normalize(root: XmlElement, failure: (XmlElement) -> NativeDocxReadException) {
+        validateStyleLinksSource(root, failure)
+        for (definition in root.elements().filter { it.name.namespaceURI == word && it.name.localPart == "abstractNum" }) {
+            definition.children.removeAll(definition.elements().filter { it.name.namespaceURI == word && it.name.localPart == "styleLink" }.toSet())
+        }
         val cleanup = root.elements().filter { it.name.namespaceURI == word && it.name.localPart == "numIdMacAtCleanup" }
         if (cleanup.size > 1) throw failure(cleanup[1])
         for (node in cleanup) {
