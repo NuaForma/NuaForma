@@ -37,3 +37,7 @@ gradlew.bat text eol=crlf
 /nuaforma-docx-pdf/src/test/resources/horizontal-section-flow/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 
 /nuaforma-docx-pdf/src/test/resources/fractional-table-indent/word-parser-observation.jsonl -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve signed-indent and grid-history Word receipts exactly.
+/nuaforma-docx-pdf/src/test/resources/signed-table-indent/*/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/signed-table-indent/word-parser-observation.jsonl -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

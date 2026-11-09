@@ -61,7 +61,7 @@ class NativeFractionalTableIndentTest {
     fun `invalid physical indentation values units duplicates and attributes fail before binding`() {
         val support = NativeWordFeatureSupport(temporary)
         val source = "/fractional-table-indent/15-fraction/a4/source.docx"
-        for (value in listOf("-0.1", "288000.1", "1e3", "10%")) support.rejectChanged(source, "word/document.xml", "tblInd") {
+        for (value in listOf("-288000.1", "288000.1", "1e3", "10%")) support.rejectChanged(source, "word/document.xml", "tblInd") {
             it.replace("<w:tblInd w:w=\"100.8\" w:type=\"dxa\"/>", "<w:tblInd w:w=\"$value\" w:type=\"dxa\"/>")
         }
         for (replacement in listOf("<w:tblInd w:w=\"100.8\" w:type=\"pct\"/>",

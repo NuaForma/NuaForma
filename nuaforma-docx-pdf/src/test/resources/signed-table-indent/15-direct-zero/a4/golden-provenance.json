@@ -1,0 +1,24 @@
+{
+  "issues": [
+    279
+  ],
+  "golden": "implicit-table-indent/15-explicit/a4/page-1.png",
+  "note": "Initial synthetic native reference, visually inspected with independent exact-source Word text, geometry, paper and embedded-font checks. Existing protected references are reused without replacement.",
+  "sha256": {
+    "source.docx": "5624fdea667412005127abc89cc4bd9173b5abaa56b547d35753c385ed02ae23",
+    "word-reference.pdf": "e5890915a7fd84bfde3ffbc80604828bf29a4533668a3988ff0f24f0b8affb7b",
+    "word-reference.pdf.provenance.json": "477beb83e1ffb2d5bb75204761a650b8cbf4352b0622d8de6844bfa851602632",
+    "page-1.png": "3f35e09fb8260d95ed34cfcd1f4c01142e19defca4db8f477a8da8fe57e39602"
+  },
+  "wordComparison": {
+    "case": "signed-15-direct-zero-a4",
+    "pass": true,
+    "pagesEqual": true,
+    "textEqual": true,
+    "markersEqual": true,
+    "fontsEmbedded": true,
+    "paperEqual": true,
+    "maxDx": 0.0800018310546875,
+    "maxDy": 0.0799560546875
+  }
+}

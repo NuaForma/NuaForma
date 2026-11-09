@@ -10,6 +10,7 @@ internal object WordNumericSpellings {
     private const val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private val sides = setOf("top", "right", "bottom", "left")
     private val decimal = Regex("[0-9]{1,6}(?:\\.[0-9]{1,18})?")
+    private val signedDecimal = Regex("-?[0-9]{1,6}(?:\\.[0-9]{1,18})?")
 
     fun normalizeSource(root: XmlElement, reject: (XmlElement, String) -> Nothing): Boolean {
         var changed = false
@@ -42,7 +43,7 @@ internal object WordNumericSpellings {
 
     private fun integer(node: XmlElement, name: String, minimum: Int, reject: (XmlElement, String) -> Nothing): Boolean {
         val raw = node.attribute(word, name) ?: reject(node, "Missing original Word numeric measurement")
-        if (!raw.matches(decimal)) reject(node, "Invalid original Word numeric measurement")
+        if (!raw.matches(if (minimum < 0) signedDecimal else decimal)) reject(node, "Invalid original Word numeric measurement")
         val value = raw.toBigDecimal()
         if (value < BigDecimal(minimum) || value > BigDecimal(288_000)) reject(node, "Word numeric measurement exceeds the qualified bounds")
         val canonical = value.toInt().toString()
@@ -61,6 +62,13 @@ internal object WordNumericSpellings {
         return changed
     }
 
+    fun tableIndentPoints(node: XmlElement, reject: (XmlElement, String) -> Nothing): Float {
+        leaf(node, setOf("w", "type"), reject)
+        if (node.attribute(word, "type") != "dxa") reject(node, "Only physical table indentation is qualified")
+        integer(node, "w", -288_000, reject)
+        return requireNotNull(node.attribute(word, "w")).toInt() / 20f
+    }
+
     private fun tableProperties(parent: XmlElement, reject: (XmlElement, String) -> Nothing): Boolean {
         val nodes = parent.elements().filter { it.name.localPart == "tblInd" }
         if (nodes.size > 1) reject(nodes[1], "Duplicate original table indentation")
@@ -68,7 +76,7 @@ internal object WordNumericSpellings {
         for (node in nodes) {
             leaf(node, setOf("w", "type"), reject)
             if (node.attribute(word, "type") != "dxa") reject(node, "Only physical table indentation is qualified")
-            changed = integer(node, "w", 0, reject) || changed
+            changed = integer(node, "w", -288_000, reject) || changed
         }
         return tableMargins(parent, reject) || changed
     }
