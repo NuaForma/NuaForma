@@ -11,8 +11,11 @@ internal class WordThumbnailMetadata(private val context: GenerationContext) {
     private val contentTypes = "http://schemas.openxmlformats.org/package/2006/content-types"
 
     fun normalize(parsed: MutableMap<String, XmlElement>, parts: Map<String, ByteArray>) {
-        val names = parts.keys.filter { it.matches(Regex("docProps/thumbnail\\.(?:jpeg|jpg|png)")) }
-        val root = parsed["_rels/.rels"] ?: return
+        val names = parts.keys.filter { it.matches(Regex("docProps/thumbnail\\.(?:jpeg|jpg|png|emf)")) }
+        val root = parsed["_rels/.rels"] ?: run {
+            if (names.isNotEmpty()) throw NativeDocxReadException("Orphan package thumbnail metadata", names.first())
+            return
+        }
         val links = root.elements().filter { it.attribute("", "Type") == thumbnailType }
         if (names.isEmpty() && links.isEmpty()) return
 
@@ -42,7 +45,12 @@ internal class WordThumbnailMetadata(private val context: GenerationContext) {
         valid(overrides.size <= 1 && defaults.size <= 1 && (overrides.isNotEmpty() || defaults.isNotEmpty()), "[Content_Types].xml")
         val declaration = (overrides.ifEmpty { defaults }).single()
         valid(declaration.name.namespaceURI == contentTypes && declaration.name.localPart == if (overrides.isEmpty()) "Default" else "Override", "[Content_Types].xml")
-        valid(declaration.attribute("", "ContentType") == if (name.endsWith(".png")) "image/png" else "image/jpeg", "[Content_Types].xml")
+        val expectedType = when {
+            name.endsWith(".png") -> "image/png"
+            name.endsWith(".emf") -> "image/x-emf"
+            else -> "image/jpeg"
+        }
+        valid(declaration.attribute("", "ContentType") == expectedType, "[Content_Types].xml")
         root.children.remove(link)
     }
 
