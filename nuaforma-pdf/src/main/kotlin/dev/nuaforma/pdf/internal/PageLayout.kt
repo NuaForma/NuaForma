@@ -110,6 +110,7 @@ internal object PageLayouter {
                     if (availableWidth() <= 0 || width - format.leftIndent - format.rightIndent <= 0) overflow()
                     var line = mutableListOf<Fragment>()
                     var lineWidth = 0f
+                    var lineContainsTab = false
                     val spaces = mutableListOf<Fragment>()
                     val groups = words(block.runs, measurer, format.textDirection != null)
                     val paragraphBidi = format.textDirection?.let { direction ->
@@ -119,6 +120,8 @@ internal object PageLayouter {
 
                     fun flush(justify: Boolean = false) {
                         if (line.isEmpty()) return
+                        if (justify && lineContainsTab && format.alignment == PdfAlignment.JUSTIFY)
+                            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Tabs in non-final justified lines are not qualified")
                         val automatic = if (automaticSpacing) automaticBox(block.copy(runs = line.map { fragment ->
                             fragment.vector ?: fragment.image?.let(::PdfImageRun) ?: PdfTextRun(fragment.text, requireNotNull(fragment.style))
                         }, listLabel = block.listLabel.takeIf { firstLine }), measurer) else null
@@ -174,6 +177,7 @@ internal object PageLayouter {
                         top += height
                         line = mutableListOf()
                         lineWidth = 0f
+                        lineContainsTab = false
                         firstLine = false
                         lineIndex++
                     }
@@ -182,7 +186,9 @@ internal object PageLayouter {
                         checkCancellation()
                         val control = word.singleOrNull()?.tab
                         if (control != null) {
-                            if (format.alignment != PdfAlignment.LEFT) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Tab paragraphs require left body alignment")
+                            if (format.alignment !in setOf(PdfAlignment.LEFT, PdfAlignment.JUSTIFY))
+                                throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Tab paragraphs require left alignment or qualified final-line justification")
+                            lineContainsTab = true
                             line += spaces; lineWidth += spaces.sumOf { it.metrics.width.toDouble() }.toFloat(); spaces.clear()
                             val settings = format.tabs ?: PdfTabSettings()
                             val cursor = lineLeft() + lineWidth

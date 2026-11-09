@@ -43,7 +43,11 @@ internal class NativeWordFeatureSupport(temporary: Path) {
         return output.toByteArray()
     }
 
-    private fun text(document: PDDocument) = PDFTextStripper().apply { sortByPosition = true }.getText(document).replace(Regex("[\\p{Z}\\s]+"), "")
+    private fun text(document: PDDocument, normalizeTabLeaders: Boolean): String {
+        val text = PDFTextStripper().apply { sortByPosition = true }.getText(document).replace(Regex("[\\p{Z}\\s]+"), "")
+        // Leader glyph counts differ with fractional advances; content, marker geometry and native golden pixels still assert.
+        return if (normalizeTabLeaders) text.replace(Regex("[.]{2,}|[-]{2,}|[_]{2,}"), "") else text
+    }
 
     fun rejectChanged(sourcePath: String, part: String, element: String, transform: (String) -> String) {
         val source = bytes(sourcePath)
@@ -106,7 +110,8 @@ internal class NativeWordFeatureSupport(temporary: Path) {
     }
 
     fun verify(folder: String, profiles: List<String>, pattern: Regex, markerCount: Int,
-               tails: Boolean = false, colors: Boolean = false, golden: String = folder + "page-1.png", pageCount: Int = 1) {
+               tails: Boolean = false, colors: Boolean = false, golden: String = folder + "page-1.png", pageCount: Int = 1,
+               normalizeTabLeaders: Boolean = false) {
         val source = bytes(folder + "source.docx")
         val reference = bytes(folder + "word-reference.pdf")
         val images = (1..pageCount).map { if (it == 1) bytes(golden) else bytes(folder + "page-$it.png") }
@@ -120,7 +125,7 @@ internal class NativeWordFeatureSupport(temporary: Path) {
             val wordImages = (0 until pageCount).map { PDFRenderer(word).renderImageWithDPI(it, 96f) }
             for (profile in profiles) Loader.loadPDF(generate(source, profile)).use { actual ->
                 assertEquals(pageCount, actual.numberOfPages)
-                assertEquals(text(word), text(actual))
+                assertEquals(text(word, normalizeTabLeaders), text(actual, normalizeTabLeaders))
                 for (page in 0 until pageCount) {
                     assertEquals(word.getPage(page).mediaBox.width, actual.getPage(page).mediaBox.width, .1f)
                     assertEquals(word.getPage(page).mediaBox.height, actual.getPage(page).mediaBox.height, .1f)
