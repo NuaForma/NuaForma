@@ -1197,7 +1197,8 @@ internal class NativeDocxReader(
             node.elements().forEach { leaf -> attributes(leaf, setOf("val")); check(leaf.elements().isEmpty(), "Invalid numbering reference"); check(number(leaf.value("val")) <= if (leaf.name.localPart == "ilvl") 8 else 1_000_000, "Numbering reference exceeds bounds") }
         }
         property.one("rFonts")?.let {
-            attributes(it, setOf("ascii", "hAnsi", "asciiTheme", "hAnsiTheme", "cs", "eastAsia"))
+            attributes(it, setOf("ascii", "hAnsi", "asciiTheme", "hAnsiTheme", "cs", "eastAsia", "hint"))
+            check(it.value("hint") in setOf(null, "default"), "Only default font hints are qualified")
 
             fun family(name: String): String? = it.value(name + "Theme")?.let { key ->
                 val kind = when (key) { "majorAscii", "majorHAnsi" -> "major"; "minorAscii", "minorHAnsi" -> "minor"; else -> reject("Unsupported theme font role") }
