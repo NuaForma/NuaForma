@@ -43,26 +43,27 @@ internal class WordNumberingMetadata(private val context: GenerationContext) {
         if (unsupported.isNotEmpty()) throw failure(node).also { it.unsupportedAttributes = unsupported }
     }
 
-    fun validateStyleLinksSource(root: XmlElement, failure: (XmlElement) -> NativeDocxReadException) {
+    fun validateDefinitionNamesSource(root: XmlElement, failure: (XmlElement) -> NativeDocxReadException) {
         if (root.name.namespaceURI != word || root.name.localPart != "numbering") throw failure(root)
         for (definition in root.elements().filter { it.name.localPart == "abstractNum" }) {
-            val links = definition.elements().filter { it.name.localPart == "styleLink" }
-            if (links.size > 1) throw failure(links[1])
-            for (link in links) {
+            val names = definition.elements().filter { it.name.localPart in setOf("styleLink", "name") }
+            val duplicate = names.groupBy { it.name.localPart }.values.firstOrNull { it.size > 1 }
+            if (duplicate != null) throw failure(duplicate[1])
+            for (node in names) {
                 context.checkActive()
-                val value = link.attribute(word, "val")
-                if (definition.name.namespaceURI != word || link.name.namespaceURI != word ||
-                    link.attributes.keys.any { it.namespaceURI != word || it.localPart != "val" } ||
-                    link.elements().isNotEmpty() || link.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
-                    value.isNullOrBlank() || value.length > 253) throw failure(link)
+                val value = node.attribute(word, "val")
+                if (definition.name.namespaceURI != word || node.name.namespaceURI != word ||
+                    node.attributes.keys.any { it.namespaceURI != word || it.localPart != "val" } ||
+                    node.elements().isNotEmpty() || node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
+                    value.isNullOrBlank() || value.length > 253) throw failure(node)
             }
         }
     }
 
     fun normalize(root: XmlElement, failure: (XmlElement) -> NativeDocxReadException) {
-        validateStyleLinksSource(root, failure)
+        validateDefinitionNamesSource(root, failure)
         for (definition in root.elements().filter { it.name.namespaceURI == word && it.name.localPart == "abstractNum" }) {
-            definition.children.removeAll(definition.elements().filter { it.name.namespaceURI == word && it.name.localPart == "styleLink" }.toSet())
+            definition.children.removeAll(definition.elements().filter { it.name.namespaceURI == word && it.name.localPart in setOf("styleLink", "name") }.toSet())
         }
         val cleanup = root.elements().filter { it.name.namespaceURI == word && it.name.localPart == "numIdMacAtCleanup" }
         if (cleanup.size > 1) throw failure(cleanup[1])

@@ -132,7 +132,7 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     throw source.failure("Invalid original document-variable storage", part)
                 }
-                if (part == "word/numbering.xml") WordNumberingMetadata(context).validateStyleLinksSource(root) { node ->
+                if (part == "word/numbering.xml") WordNumberingMetadata(context).validateDefinitionNamesSource(root) { node ->
                     source.current = node
                     source.failure("Unsupported original Word numbering-style definition", part)
                 }

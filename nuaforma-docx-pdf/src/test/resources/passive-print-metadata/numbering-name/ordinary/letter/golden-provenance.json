@@ -1,0 +1,21 @@
+{
+  "issues": [
+    283
+  ],
+  "golden": "word-numbering-style/control0/letter/page-1.png",
+  "goldenDirectory": "word-numbering-style/control0/letter/",
+  "note": "Exact-source Word export matches its independent counterfactual and the existing Word baseline pixel-for-pixel. Reuse corresponding protected native golden pages without replacing or copying them.",
+  "sha256": {
+    "source.docx": "f1aea3125fae631a30ec2d4ca081a734c1858f9cc36ac53c0d99e951b2e7b612",
+    "word-reference.pdf": "f13debc4b2e9b2d2d95db356f5d4b07982c55c0f703549c1eee23da66e663be8",
+    "word-reference.pdf.provenance.json": "33db541743aa0183c1e3c0ea2ece79192840718a3f90dd3f751b30b286f6d006",
+    "existing-page-1.png": "e92ca0659e399eaa74f742ab05bebd40b9210e609a36a11eb0fd99a1ef30317f"
+  },
+  "wordComparison": {
+    "case": "numbering-name/ordinary/letter",
+    "wordControlPixelsExact": true,
+    "existingWordBaselinePixelsExact": true,
+    "textExact": true,
+    "pages": 1
+  }
+}
