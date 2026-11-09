@@ -84,6 +84,10 @@ internal class NativeDocxReader(
                 source.current = node
                 throw source.failure(message, part)
             }
+            WordNumericSpellings.normalizeSource(root) { node, message ->
+                source.current = node
+                throw source.failure(message, part)
+            }
             WordTableWidths.normalizeSource(root) { node, message ->
                 source.current = node
                 throw source.failure(message, part)

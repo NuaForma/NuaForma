@@ -1,0 +1,10 @@
+{
+  "issue": 274,
+  "note": "New initial native reference. Independent Word raw/floor/ceil controls preserve the numeric truncation policy. No existing golden replaced.",
+  "sha256": {
+    "source.docx": "59e8e4d4af4502fa4ccbe78251c215c4e0f9204bd293b589bb7241b499d26a25",
+    "word-reference.pdf": "fe29ea801d9ff8480be0e4c332eac6361931819a6894bc1b90a9dc568afaf061",
+    "word-reference.pdf.provenance.json": "d521bc0536fbce5ca15e6deb68cd1be6e100bdc95e5c8e07335f9385d14a1b7e",
+    "page-1.png": "e0bf3697304b62657cc344274422366112c1799bd98018323c6c14b68c16b5db"
+  }
+}
