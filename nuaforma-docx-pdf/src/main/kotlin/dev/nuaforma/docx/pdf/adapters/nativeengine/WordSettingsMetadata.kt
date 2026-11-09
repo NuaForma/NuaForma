@@ -14,7 +14,8 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
     private val part = "word/settings.xml"
     private val compatibilityNames = setOf("overrideTableStyleFontSizeAndJustification", "enableOpenTypeFeatures",
         "doNotFlipMirrorIndents", "differentiateMultirowTableHeaders")
-    private val editorToggles = setOf("removePersonalInformation", "removeDateAndTime", "doNotUseMarginsForDrawingGridOrigin")
+    private val editorToggles = setOf("removePersonalInformation", "removeDateAndTime", "doNotUseMarginsForDrawingGridOrigin",
+        "doNotAutoCompressPictures", "trackRevisions")
     private val drawingMeasures = setOf("drawingGridHorizontalSpacing", "drawingGridVerticalSpacing",
         "drawingGridHorizontalOrigin", "drawingGridVerticalOrigin", "displayHorizontalDrawingGridEvery", "displayVerticalDrawingGridEvery")
 
@@ -24,6 +25,19 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
         for (name in listOf("linePitch", "charSpace")) {
             val value = node.attribute(word, name) ?: continue
             if (value.toIntOrNull() == null) reject()
+        }
+    }
+
+    fun validateEditingSource(root: XmlElement, reject: (XmlElement) -> Nothing) {
+        if (root.name.namespaceURI != word || root.name.localPart != "settings") return
+        for (name in editorToggles) {
+            context.checkActive()
+            val matches = root.elements().filter { it.name.localPart == name }
+            if (matches.size > 1) reject(matches[1])
+            for (node in matches) {
+                if (node.name.namespaceURI != word) reject(node)
+                toggle(node, word) { reject(node) }
+            }
         }
     }
 
