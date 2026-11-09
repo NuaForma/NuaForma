@@ -1,0 +1,21 @@
+{
+  "issues": [
+    284
+  ],
+  "golden": "image-compression-states/a4/page-1.png",
+  "goldenDirectory": "image-compression-states/a4/",
+  "note": "Exact-source Word export matches its independent counterfactual and the existing Word baseline pixel-for-pixel. Reuse corresponding protected native golden pages without replacing or copying them.",
+  "sha256": {
+    "source.docx": "7735ccb0efccfaa38b6e3e953aa06849bdbeeb8b1747c0b13a2c6d509df20838",
+    "word-reference.pdf": "c4b4a85d0a2dc9b72ab15dc3871ed70e5592210a49b33f8736c181a51ef0f521",
+    "word-reference.pdf.provenance.json": "95cb54ef50be816b454fe5594b98a63f39fd8751456ecfbb289e3ea87617a358",
+    "existing-page-1.png": "6e096bb93a9838e6f429bba6f48d89a35bf90028fbe99394c41afd8e6456f4a5"
+  },
+  "wordComparison": {
+    "case": "image-save-dpi/dpi96/a4",
+    "wordControlPixelsExact": true,
+    "existingWordBaselinePixelsExact": true,
+    "textExact": true,
+    "pages": 1
+  }
+}

@@ -10,6 +10,7 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
         val overrideNormalTableStyle: Boolean = false, val openTypeFeatures: Boolean = false,
         val automaticHyphenation: Boolean = false, val underlineTrailingSpaces: Boolean? = null)
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    private val word14 = "http://schemas.microsoft.com/office/word/2010/wordml"
     private val word15 = "http://schemas.microsoft.com/office/word/2012/wordml"
     private val part = "word/settings.xml"
     private val compatibilityNames = setOf("overrideTableStyleFontSizeAndJustification", "enableOpenTypeFeatures",
@@ -31,6 +32,12 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
 
     fun validateEditingSource(root: XmlElement, reject: (XmlElement) -> Nothing) {
         if (root.name.namespaceURI != word || root.name.localPart != "settings") return
+        val dpi = root.elements().filter { it.name.localPart == "defaultImageDpi" }
+        if (dpi.size > 1) reject(dpi[1])
+        for (node in dpi) {
+            context.checkActive()
+            imageSaveDpi(node) { reject(node) }
+        }
         for (name in editorToggles) {
             context.checkActive()
             val matches = root.elements().filter { it.name.localPart == name }
@@ -40,6 +47,14 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
                 toggle(node, word) { reject(node) }
             }
         }
+    }
+
+    private fun imageSaveDpi(node: XmlElement, reject: () -> Nothing) {
+        if (node.name.namespaceURI != word14 || node.name.localPart != "defaultImageDpi" ||
+            node.elements().isNotEmpty() || node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
+            node.attributes.keys.any { it.namespaceURI != word14 || it.localPart != "val" }) reject()
+        val value = node.attribute(word14, "val") ?: reject()
+        if (!value.matches(Regex("[+]?[0-9]{1,10}")) || value.toLongOrNull() !in 1L..2_147_483_647L) reject()
     }
 
     fun validateReadOnlySource(root: XmlElement, reject: (XmlElement) -> Nothing) {
@@ -91,6 +106,7 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
         normalizeGrids(parts, failure)
         normalizeRightIndents(parts, failure)
         val settings = parts[part] ?: return Formatting()
+        validateEditingSource(settings) { throw failure(part, it) }
         validateReadOnlySource(settings) { throw failure(part, it) }
         validateDocumentVariablesSource(settings) { throw failure(part, it) }
         settings.children.removeAll(settings.elements().filter { it.name.namespaceURI == word && it.name.localPart == "docVars" }.toSet())
@@ -107,7 +123,10 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
 
             fun valid(condition: Boolean) { if (!condition) throw failure(part, child) }
 
-            if (child.name.namespaceURI == word && child.name.localPart == "stylePaneSortMethod") {
+            if (child.name.namespaceURI == word14 && child.name.localPart == "defaultImageDpi") {
+                imageSaveDpi(child) { throw failure(part, child) }
+                settings.children.remove(child)
+            } else if (child.name.namespaceURI == word && child.name.localPart == "stylePaneSortMethod") {
                 valid(editorNames.add(child.name.localPart))
                 leaf(child, setOf("val")) { throw failure(part, child) }
                 valid(child.attribute(word, "val") in setOf("name", "priority", "font", "basedOn", "type", "default", "0000", "0001", "0002", "0003", "0004", "0005"))
