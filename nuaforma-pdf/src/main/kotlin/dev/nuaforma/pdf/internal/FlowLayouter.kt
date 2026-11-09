@@ -145,6 +145,7 @@ internal object FlowLayouter {
                     val headerHeight = measured.offsets[block.repeatedHeaderRows]
                     val freshData = freshHeight() - headerHeight
                     if (freshData <= measured.frame + measured.closing) overflow()
+                    if (block.rows.drop(block.repeatedHeaderRows).any { (it.minimumHeight ?: 0f) + measured.closing > freshData + .001f }) overflow()
                     val left = page.margins.left + block.leftIndent
 
                     fun headers() {
@@ -174,7 +175,8 @@ internal object FlowLayouter {
                             top += sum
                             continue
                         }
-                        if (!row.allowSplit && height + measured.closing <= freshData) { nextPage(); headers(); continue }
+                        val minimumOwnsHeight = row.minimumHeight?.let { it >= height - .001f } == true
+                        if ((!row.allowSplit || minimumOwnsHeight) && height + measured.closing <= freshData) { nextPage(); headers(); continue }
                         if (measured.customBorders && !row.allowSplit) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Oversized non-splitting custom-border rows are not qualified")
                         if (!row.allowSplit && !row.splitOversized) overflow()
                         if (measured.cells.any { it.placement.cell.rowSpan > 1 }) overflow()
@@ -265,7 +267,7 @@ internal object FlowLayouter {
 
         fun resolveTable(t: PdfTable): PdfTable = PdfTable(t.columnWidths, t.rows.map { row -> PdfTableRow(row.cells.map { cell ->
             PdfTableCell(cell.blocks.map { when (it) { is PdfParagraph -> resolve(it); is PdfTable -> resolveTable(it); is PdfImage -> it; is PdfTextBox -> error("Frame in table") } }, cell.background, cell.columnSpan, cell.rowSpan, cell.verticalAlignment, cell.borders, cell.preferredWidth)
-        }, row.allowSplit, row.splitOversized) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent, t.widthPolicy, t.semantics, t.preferredWidth)
+        }, row.allowSplit, row.splitOversized, row.minimumHeight) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent, t.widthPolicy, t.semantics, t.preferredWidth)
 
         val floatingImages = mutableListOf<Pair<PdfAnchoredImage, Float>>()
         val floatingBoxes = mutableListOf<Pair<PdfTextBox, Float>>()

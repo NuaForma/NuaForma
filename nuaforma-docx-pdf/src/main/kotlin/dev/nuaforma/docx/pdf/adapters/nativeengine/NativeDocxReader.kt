@@ -766,6 +766,7 @@ internal class NativeDocxReader(
             }
 
             val headerFlags = mutableListOf<Boolean>()
+            val rowMinimums = mutableListOf<Float?>()
             data class CellSpec(val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment, val borders: PdfCellBorders?, val preferredWidth: PdfPreferredWidth?, var rows: Int = 1)
             val specs = mutableListOf<Pair<List<CellSpec>, Boolean>>()
             var previous = mapOf<Int, CellSpec>()
@@ -783,7 +784,10 @@ internal class NativeDocxReader(
                 source.current = row
                 children(row, setOf("trPr", "tc"))
                 val rowProperties = row.one("trPr")
-                rowProperties?.let { children(it, setOf("cantSplit", "tblHeader")) }
+                rowProperties?.let { children(it, setOf("cantSplit", "tblHeader", "trHeight")) }
+                rowMinimums += rowProperties?.one("trHeight")?.let { node ->
+                    WordRowHeights.read(node) { origin, message -> source.current = origin; reject(message) }
+                }
 
                 fun enabled(node: XmlElement): Boolean = when (node.value("val")) { null, "1", "true" -> true; "0", "false" -> false; else -> reject("Invalid row toggle") }
 
@@ -851,7 +855,18 @@ internal class NativeDocxReader(
             }
             bookmarksBefore()
             val customBorders = specs.any { (cells, _) -> cells.any { it.borders != null } }
-            val rows = specs.map { (cells, allow) -> PdfTableRow(cells.map { PdfTableCell(it.blocks, it.background, it.span, it.rows, it.alignment, if (customBorders) it.borders ?: fallbackBorders else null, it.preferredWidth) }, allow, splitOversized = true) }
+            val rows = specs.mapIndexed { rowIndex, (cells, allow) ->
+                val resolved = cells.map { PdfTableCell(it.blocks, it.background, it.span, it.rows, it.alignment,
+                    if (customBorders) it.borders ?: fallbackBorders else null, it.preferredWidth) }
+                val minimum = rowMinimums[rowIndex]?.let { contentFloor ->
+                    val topBorder = maxOf(border?.width ?: 0f, resolved.maxOfOrNull { it.borders?.top?.border?.width ?: 0f } ?: 0f)
+                    val physical = contentFloor + padding.top + padding.bottom + topBorder
+                    source.current = rowNodes[rowIndex].one("trPr")?.one("trHeight") ?: rowNodes[rowIndex]
+                    check(physical <= 14_400f, "Minimum row height exceeds the physical layout limit")
+                    physical
+                }
+                PdfTableRow(resolved, allow, splitOversized = true, minimumHeight = minimum)
+            }
             if (customBorders) {
                 val styles = rows.flatMap { it.cells }.flatMap { cell -> cell.borders!!.let { listOfNotNull(it.top, it.right, it.bottom, it.left) } }.map { it.border }.distinct()
                 check(styles.size <= 1, "Conflicting cell-border colors and widths are not qualified")

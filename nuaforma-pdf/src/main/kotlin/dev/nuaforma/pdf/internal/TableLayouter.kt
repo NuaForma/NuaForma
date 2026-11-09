@@ -30,7 +30,7 @@ internal object TableLayouter {
             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Conflicting custom borders with merged or nested cells are not qualified")
         }
         val topInsets = table.rows.map { row -> maxOf(table.border?.width ?: 0f, row.cells.maxOfOrNull { it.borders?.top?.border?.width ?: 0f } ?: 0f) }
-        val heights = MutableList(table.rows.size) { 0f }
+        val heights = MutableList(table.rows.size) { table.rows[it].minimumHeight ?: 0f }
         val frame = table.cellMargins.top + table.cellMargins.bottom + (table.border?.width ?: 0f)
         val cells = table.placements().map { placement ->
             PageLayouter.checkCancellation()

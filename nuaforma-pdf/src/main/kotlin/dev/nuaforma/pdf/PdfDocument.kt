@@ -144,9 +144,14 @@ class PdfTableCell @JvmOverloads constructor(
     }
 }
 
-class PdfTableRow @JvmOverloads constructor(cells: List<PdfTableCell>, val allowSplit: Boolean = false, val splitOversized: Boolean = false) {
+/** Optional physical row-advance floor in points, including the cell frame; null retains natural sizing. */
+class PdfTableRow @JvmOverloads constructor(cells: List<PdfTableCell>, val allowSplit: Boolean = false,
+    val splitOversized: Boolean = false, val minimumHeight: Float? = null) {
     val cells: List<PdfTableCell> = Collections.unmodifiableList(ArrayList(cells))
-    init { require(this.cells.size in 0..16) { "Invalid column count" } }
+    init {
+        require(this.cells.size in 0..16) { "Invalid column count" }
+        require(minimumHeight == null || minimumHeight.isFinite() && minimumHeight in 0f..14_400f) { "Invalid minimum row height" }
+    }
 }
 
 /** FIXED retains the grid; FIT_CONTENTS is unwrapped; AUTO_FIT negotiates preferences and wrapping. */

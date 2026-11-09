@@ -11,6 +11,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class JavaPdfEngineTest {
 
     @Test
+    void javaCallerCanSetOptionalPhysicalRowMinimum() {
+        var cell = new PdfTableCell(List.of(new PdfParagraph(List.of(new PdfTextRun("Row", new PdfTextStyle("regular", 10))))));
+        assertEquals(40f, new PdfTableRow(List.of(cell), true, false, 40f).getMinimumHeight());
+        org.junit.jupiter.api.Assertions.assertNull(new PdfTableRow(List.of(cell)).getMinimumHeight());
+    }
+
+    @Test
     void javaCallerCanDeclareAutomaticTablePreferences() {
         var paragraph = new PdfParagraph(List.of(new PdfTextRun("Java table", new PdfTextStyle("regular", 11))));
         var cell = new PdfTableCell(List.of(paragraph), null, 1, 1, PdfVerticalAlignment.TOP, null,

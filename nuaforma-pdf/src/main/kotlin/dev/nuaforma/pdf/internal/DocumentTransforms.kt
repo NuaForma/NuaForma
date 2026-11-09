@@ -46,7 +46,7 @@ internal object DocumentTransforms {
                     PdfTableRow(row.cells.mapIndexed { cellIndex, cell -> PdfTableCell(
                         blocks(cell.blocks, semanticChildId(key, "r$rowIndex-c$cellIndex"), Scope.CELL), cell.background,
                         cell.columnSpan, cell.rowSpan, cell.verticalAlignment, cell.borders, cell.preferredWidth)
-                    }, row.allowSplit, row.splitOversized)
+                    }, row.allowSplit, row.splitOversized, row.minimumHeight)
                 }, block.cellMargins, block.border, block.repeatedHeaderRows, block.leftIndent, block.widthPolicy, metadata(block, key, PdfSemanticRole.TABLE), block.preferredWidth))
             }
         }

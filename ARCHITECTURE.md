@@ -1,5 +1,7 @@
 # NuaForma — Architecture
 
+Approved source #264 adds optional `PdfTableRow.minimumHeight` in points to the existing shared PDF artifact, with natural height as the default and no new dependency. The DOCX adapter resolves Word content measurements and cell frames into this physical floor; a later ODT adapter can use the same model. See [minimum table row heights](docs/minimum-table-row-heights.md).
+
 Approved source #259 adds format-neutral `PdfTableWidthPolicy.AUTO_FIT`, immutable `PdfPreferredWidth.points(...)` / `.percent(...)`, and optional `preferredWidth` on tables and cells in the existing `nuaforma-pdf` artifact. The source adapter resolves DOCX units; shared layout uses the actual containing width and request-local metrics. See [scope and qualification](docs/preferred-table-widths.md).
 
 The approved #149 extension uses bounded opaque polyline content in contract 0.10,

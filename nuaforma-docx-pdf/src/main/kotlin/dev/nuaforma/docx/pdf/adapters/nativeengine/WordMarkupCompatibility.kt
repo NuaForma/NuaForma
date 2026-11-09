@@ -139,6 +139,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     throw source.failure(message, part)
                 }
+                WordRowHeights.validateSource(root) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }
                 WordTableBorders.validateSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)
