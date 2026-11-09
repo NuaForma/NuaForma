@@ -1,0 +1,11 @@
+{
+  "issue": 273,
+  "golden": "preferred-table-widths/a4/page-1.png",
+  "note": "Actual Word export without markup is pixel-exact to the existing preferred-width Word control. Native provider and real HTTP output reuse the protected control golden; no golden replaced.",
+  "sha256": {
+    "source.docx": "2c137708ecc068832225ea2922697654bd4b3e7a493eee0083447b423939711d",
+    "word-reference.pdf": "763e2cef96ffe5398311b4be755bbcba8bfb9fefd6687f38222162d141714647",
+    "word-reference.pdf.provenance.json": "17d8f77b0094844ed7b85507beaead078ea234ed6f3e142d4641d709586c7983",
+    "existing-page-1.png": "2cfbf683e07c9d5b80b4fbaa916aadd684f45cba986ba54dfffd228a35683b17"
+  }
+}

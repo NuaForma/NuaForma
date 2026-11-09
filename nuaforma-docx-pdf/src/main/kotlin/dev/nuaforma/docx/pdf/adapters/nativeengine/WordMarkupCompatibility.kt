@@ -100,7 +100,11 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
             WordCustomXmlMetadata(context).validateSource(archive.parts)
             val source = NativeDocxSource(context)
             val selection = WordMarkupCompatibility(context)
-            var changed = false
+            var changed = try { normalizeReviewAnnotations(archive, context, source, selection) }
+            catch (error: GenerationException) {
+                if (error.diagnostics.any { it.code == DiagnosticCodes.INVALID_TEMPLATE }) return bytes
+                throw error
+            }
             for (part in archive.parts.keys.filter { it.startsWith("word/") && it.endsWith(".xml") }) {
                 val root = try { archive.root(part) ?: continue }
                 catch (error: GenerationException) {
@@ -178,6 +182,32 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                 }
             }
             return if (changed) archive.bytes() else bytes
+        }
+
+        private fun normalizeReviewAnnotations(archive: CleanupPackage, context: GenerationContext,
+            source: NativeDocxSource, selection: WordMarkupCompatibility): Boolean {
+            val definitions = WordReviewMetadata.definitions.filter { it.path in archive.parts }
+            if (definitions.isEmpty()) return false
+            val auxiliary = setOf("[Content_Types].xml", "word/_rels/document.xml.rels") +
+                definitions.map { "word/_rels/${it.file}.xml.rels" }
+            val roots = linkedMapOf<String, XmlElement>()
+            var changed = false
+            for (part in archive.parts.keys.filter { it in auxiliary || it.startsWith("word/") && it.endsWith(".xml") }) {
+                val root = archive.root(part) ?: continue
+                source.index(root, part)
+                roots[part] = root
+                if (selection.normalize(root) { node, detail -> source.current = node; source.failure(detail, part) }) {
+                    archive.touch(part)
+                    changed = true
+                }
+            }
+            val review = WordReviewAnnotations(context) { part, node, detail ->
+                source.current = node
+                source.failure(detail, part)
+            }.normalize(roots)
+            review.removed.forEach { archive.remove(it, "Qualified review metadata is excluded from the clean PDF source") }
+            review.edited.forEach(archive::touch)
+            return changed || review.removed.isNotEmpty() || review.edited.isNotEmpty()
         }
 
     }

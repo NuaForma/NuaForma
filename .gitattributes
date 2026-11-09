@@ -25,3 +25,15 @@ gradlew.bat text eol=crlf
 /nuaforma-docx-pdf/src/test/resources/split-cell-margins/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 /nuaforma-docx-pdf/src/test/resources/inactive-run-properties/*/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 /nuaforma-docx-pdf/src/test/resources/cell-margins/*/word-padding-observation.jsonl -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Keep independent review/numeric Word-export receipts byte-exact.
+/nuaforma-docx-pdf/src/test/resources/review-annotations/*/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/fractional-numeric/*/*/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve independent Word receipts for default formatting and opaque previews.
+/nuaforma-docx-pdf/src/test/resources/view-settings/*/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/fractional-table-indent/*/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/emf-thumbnail/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/horizontal-section-flow/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+/nuaforma-docx-pdf/src/test/resources/fractional-table-indent/word-parser-observation.jsonl -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
