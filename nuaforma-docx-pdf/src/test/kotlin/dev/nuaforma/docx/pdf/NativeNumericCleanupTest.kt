@@ -63,8 +63,10 @@ class NativeNumericCleanupTest {
         val actualRoot = xml.readPart(actual.getValue("word/document.xml"), "word/document.xml")
         assertEquals(expectedRoot.descendants().map { it.name to it.attributes }.toList(),
             actualRoot.descendants().map { it.name to it.attributes }.toList())
+
         fun text(root: dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement) = root.descendants()
             .flatMap { it.children.filterIsInstance<dev.nuaforma.docx.pdf.adapters.ooxml.XmlText>() }.map { it.text }.toList()
+
         assertEquals(text(expectedRoot), text(actualRoot))
     }
 
