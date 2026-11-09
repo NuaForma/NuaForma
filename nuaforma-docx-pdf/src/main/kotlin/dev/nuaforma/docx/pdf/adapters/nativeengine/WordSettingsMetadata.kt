@@ -15,7 +15,7 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
     private val compatibilityNames = setOf("overrideTableStyleFontSizeAndJustification", "enableOpenTypeFeatures",
         "doNotFlipMirrorIndents", "differentiateMultirowTableHeaders")
     private val editorToggles = setOf("removePersonalInformation", "removeDateAndTime", "doNotUseMarginsForDrawingGridOrigin",
-        "doNotAutoCompressPictures", "trackRevisions")
+        "doNotAutoCompressPictures", "trackRevisions", "hideSpellingErrors", "hideGrammaticalErrors")
     private val drawingMeasures = setOf("drawingGridHorizontalSpacing", "drawingGridVerticalSpacing",
         "drawingGridHorizontalOrigin", "drawingGridVerticalOrigin", "displayHorizontalDrawingGridEvery", "displayVerticalDrawingGridEvery")
 
