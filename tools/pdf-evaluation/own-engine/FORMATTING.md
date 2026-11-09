@@ -148,3 +148,7 @@ Source #249 adds two Word exports with passive save/recording preferences. Word 
 Source #250 qualifies bounded unbound custom XML using `unbound-custom-xml/{a4,letter}`: two independent Word references, unchanged base goldens and all four PDF profiles. Stored data never becomes printed or templated text. See [the qualification and rebuild procedure](../../../docs/word-passive-office-package.md#unbound-custom-xml-data-source-250).
 
 Source #251 adds `document-variable-storage/{a4,letter}`: unused braces and non-Latin values must not change Word pages, existing goldens, caller fonts or any PDF profile. [Qualification and rebuild](../../../docs/word-passive-editing-preferences.md#unused-document-variable-storage-source-251) include explicit displayed-field rejection.
+
+Source #252 adds `unicode-spaces/{a4,letter}` with independent explicit/implicit Word controls, 40 measured markers and two initially reviewed goldens. [Qualification and rebuild](../../../docs/word-unicode-spaces.md) retain ordinary XML-space restrictions.
+
+Source #253 adds `table-bookmark-ends/{a4,letter}` with independently exported paragraph/interleaved controls, 12 measured markers and two initially reviewed goldens. [Qualification and rebuild](../../../docs/word-fields-and-bookmarks.md#ordered-table-bookmark-endings-source-253) preserve strict range balance and text-reference boundaries.

@@ -145,3 +145,7 @@ Unreleased #247 also admits standard, untyped [OOXML trash items](../docs/word-p
 Source #248 qualifies bounded [mixed Latin font roles](../docs/word-mixed-latin-fonts.md), preserving independent ASCII/high-ANSI inheritance and actual supplied families through the existing neutral text model. Source #249 validates [passive picture and revision-recording preferences](../docs/word-passive-editing-preferences.md) without accepting tracked content or changing image bytes. The Playground shares both profiles and the original-source diagnostics. These changes are unreleased source behavior.
 
 Source #251 qualifies [bounded unused document-variable storage](../docs/word-passive-editing-preferences.md#unused-document-variable-storage-source-251). Values remain in the template without becoming print text or instructions. Original metadata errors retain development locations; `DOCVARIABLE` field rendering is not added. This behavior is unreleased.
+
+Source #252 qualifies [nonbreaking Unicode-space boundaries](../docs/word-unicode-spaces.md) without redundant preservation markers, with unchanged glyph/font rules and Word-backed wrapping tests. This is unreleased source behavior.
+
+Source #253 qualifies [ordered bookmark endings in tables](../docs/word-fields-and-bookmarks.md#ordered-table-bookmark-endings-source-253), preserving row order and destinations. Text REF to affected block-ended ranges remains unsupported. This is unreleased source behavior.

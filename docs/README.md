@@ -121,3 +121,7 @@ Unreleased #223 qualifies solid/null extended-pen metadata and separates actual 
 Unreleased #250 extends [passive custom XML storage](word-passive-office-package.md#unbound-custom-xml-data-source-250) with bounded unbound data, exact owned graphs and preserved template bytes. Active bindings remain unsupported.
 
 Unreleased #251 qualifies [unused document-variable storage](word-passive-editing-preferences.md#unused-document-variable-storage-source-251), with original-source checks and unchanged template bytes. Displayed `DOCVARIABLE` fields remain unsupported.
+
+Unreleased #252 qualifies [Unicode spaces at run boundaries](word-unicode-spaces.md), preserving nonbreaking content without redundant XML space markers.
+
+Unreleased #253 extends [bookmark qualification](word-fields-and-bookmarks.md#ordered-table-bookmark-endings-source-253) with ordered table-level endings and the existing strict text-reference guard.
