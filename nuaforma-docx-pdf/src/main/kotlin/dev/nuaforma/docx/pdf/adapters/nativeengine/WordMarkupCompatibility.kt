@@ -124,6 +124,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     throw source.failure("Invalid original Word editing preference", part)
                 }
+                if (part == "word/settings.xml") WordSettingsMetadata(context).validateReadOnlySource(root) { node ->
+                    source.current = node
+                    throw source.failure("Invalid original read-only recommendation", part)
+                }
                 if (part == "word/settings.xml") WordSettingsMetadata(context).validateDocumentVariablesSource(root) { node ->
                     source.current = node
                     throw source.failure("Invalid original document-variable storage", part)

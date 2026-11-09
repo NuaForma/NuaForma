@@ -15,7 +15,8 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
     private val compatibilityNames = setOf("overrideTableStyleFontSizeAndJustification", "enableOpenTypeFeatures",
         "doNotFlipMirrorIndents", "differentiateMultirowTableHeaders")
     private val editorToggles = setOf("removePersonalInformation", "removeDateAndTime", "doNotUseMarginsForDrawingGridOrigin",
-        "doNotAutoCompressPictures", "trackRevisions", "hideSpellingErrors", "hideGrammaticalErrors")
+        "doNotAutoCompressPictures", "trackRevisions", "hideSpellingErrors", "hideGrammaticalErrors",
+        "displayBackgroundShape", "doNotShadeFormData")
     private val drawingMeasures = setOf("drawingGridHorizontalSpacing", "drawingGridVerticalSpacing",
         "drawingGridHorizontalOrigin", "drawingGridVerticalOrigin", "displayHorizontalDrawingGridEvery", "displayVerticalDrawingGridEvery")
 
@@ -39,6 +40,22 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
                 toggle(node, word) { reject(node) }
             }
         }
+    }
+
+    fun validateReadOnlySource(root: XmlElement, reject: (XmlElement) -> Nothing) {
+        if (root.name.namespaceURI != word || root.name.localPart != "settings") return
+        val nodes = root.elements().filter { it.name.localPart == "writeProtection" }
+        if (nodes.size > 1) reject(nodes[1])
+        for (node in nodes) {
+            context.checkActive()
+            if (node.name.namespaceURI != word) reject(node)
+            recommendation(node) { reject(node) }
+        }
+    }
+
+    private fun recommendation(node: XmlElement, reject: () -> Nothing) {
+        leaf(node, setOf("recommended"), reject)
+        boolean(node.attribute(word, "recommended"), reject)
     }
 
     fun validateDocumentVariablesSource(root: XmlElement, reject: (XmlElement) -> Nothing) {
@@ -74,6 +91,7 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
         normalizeGrids(parts, failure)
         normalizeRightIndents(parts, failure)
         val settings = parts[part] ?: return Formatting()
+        validateReadOnlySource(settings) { throw failure(part, it) }
         validateDocumentVariablesSource(settings) { throw failure(part, it) }
         settings.children.removeAll(settings.elements().filter { it.name.namespaceURI == word && it.name.localPart == "docVars" }.toSet())
         val compatibility = settings.elements().filter { it.name.namespaceURI == word && it.name.localPart == "compat" }
@@ -146,6 +164,10 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
                     leaf(child, filters + "val") { throw failure(part, child) }
                     valid(child.attribute(word, "val")?.matches(Regex("[A-Fa-f0-9]{4}")) != false)
                     valid(child.attributes.filterKeys { it.localPart in filters }.values.all { it in setOf("1", "0", "true", "false", "on", "off") })
+                    settings.children.remove(child)
+                }
+                "writeProtection" -> {
+                    recommendation(child) { throw failure(part, child) }
                     settings.children.remove(child)
                 }
                 "documentProtection" -> {
