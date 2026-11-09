@@ -228,8 +228,8 @@ internal class NativeDocxReader(
         val relations = readRelations(relationRoot)
         check(("word/settings.xml" in parts) == relations.values.contains("settings.xml"), "Settings relationship/part mismatch")
         check(("word/theme/theme1.xml" in parts) == relations.values.contains("theme/theme1.xml"), "Theme relationship/part mismatch")
-        val themeFonts = parts["word/theme/theme1.xml"]?.let { bytes ->
-            val theme = parse(bytes, "word/theme/theme1.xml")
+        val theme = parts["word/theme/theme1.xml"]?.let { parse(it, "word/theme/theme1.xml") }
+        val themeFonts = theme?.let { theme ->
             check(theme.name.namespaceURI == drawing && theme.name.localPart == "theme", "Invalid theme root")
             val scheme = theme.elements().singleOrNull { it.name.localPart == "themeElements" }?.elements()?.singleOrNull { it.name.localPart == "fontScheme" }
                 ?: reject("Missing theme font scheme")
@@ -242,7 +242,12 @@ internal class NativeDocxReader(
             }
         } ?: emptyMap()
 
-        fun resolveRun(property: XmlElement?, initial: Face) = runProperties(property, initial, themeFonts)
+        val themeColors = WordThemeColors(theme) { node, message ->
+            source.current = node
+            throw source.failure(message, provenance[node] ?: activePart)
+        }
+
+        fun resolveRun(property: XmlElement?, initial: Face) = runProperties(property, initial, themeFonts, themeColors)
 
         val neighbors = java.util.IdentityHashMap<XmlElement, Pair<XmlElement?, XmlElement?>>()
 
@@ -1106,7 +1111,7 @@ internal class NativeDocxReader(
             .withSyntheticBold(syntheticBold(requireNotNull(face.family), face.bold, face.italic))
     }
 
-    private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>): Face {
+    private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>, themeColors: WordThemeColors): Face {
         if (property == null) return initial
         val word14 = "http://schemas.microsoft.com/office/word/2010/wordml"
         children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern"), setOf(word14 to "ligatures"))
@@ -1180,12 +1185,7 @@ internal class NativeDocxReader(
         property.one("szCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && number(it.value("val")) / 2 == result.size, "Separate complex-script sizes are not qualified") }
         property.one("bCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && enabled(it) == result.bold, "Separate complex-script weight is not qualified") }
         property.one("iCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && enabled(it) == result.italic, "Separate complex-script slant is not qualified") }
-        property.one("color")?.let {
-            attributes(it, setOf("val"))
-            val value = it.value("val") ?: reject("Missing color")
-            check(value.matches(Regex("[0-9A-Fa-f]{6}")), "Only explicit RGB colors are supported")
-            result = result.copy(color = PdfColor(value.substring(0, 2).toInt(16), value.substring(2, 4).toInt(16), value.substring(4, 6).toInt(16)))
-        }
+        property.one("color")?.let { result = result.copy(color = themeColors.resolve(it)) }
         return result
     }
 
