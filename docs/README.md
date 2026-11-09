@@ -1,5 +1,6 @@
 # NuaForma documentation
 
+- [Word print preferences and contained nested tables](word-print-preferences-and-contained-tables.md): numbering display names, image save-DPI, theme locks, zero-gutter positioning, bounded nested indentation and legacy percentage-table right margins (#283–#287, #279 follow-up; locally qualified, unreleased).
 - [Word table placement and numbering inheritance](word-table-and-numbering-inheritance.md): signed physical indentation, previous grids, definition links and inherited numbering levels (#279–#282).
 - [Word print-source metadata and numeric spellings](word-review-and-numeric-spellings.md): qualified review/view/preview metadata, horizontal defaults and integer binding (#273–#278).
 

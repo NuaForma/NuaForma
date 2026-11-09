@@ -1,5 +1,7 @@
 # NuaForma DOCX/PDF provider
 
+Unreleased #283–#287 and the #279 follow-up qualify [print preferences and contained nested indentation](../docs/word-print-preferences-and-contained-tables.md), including the approved additive right-margin option in the shared model and no new dependencies.
+
 Unreleased source #279–#282 adds bounded signed table indentation, historical grids and Word-backed numbering inheritance. See [scope, restrictions and verification](../docs/word-table-and-numbering-inheritance.md).
 
 Unreleased source #273–#278 adds qualified print-source metadata, default horizontal flow and fractional layout spellings. See [scope and verification](../docs/word-review-and-numeric-spellings.md).

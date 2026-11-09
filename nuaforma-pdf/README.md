@@ -8,6 +8,8 @@ Source #258 admits font-defined BMP private-use glyphs while retaining coverage,
 
 Source #264 adds optional `PdfTableRow.minimumHeight` in points, retaining natural sizing by default. See [the shared physical floor, pagination and verification](../docs/minimum-table-row-heights.md).
 
+Source #287 adds optional immutable `PdfTable.rightOverflow` / `.withRightOverflow(points)` for explicitly bounded right-margin use, defaulting to zero with existing constructors retained. Physical page and nested-cell bounds remain enforced. Its current qualification status is recorded in [the print-preference and table guide](../docs/word-print-preferences-and-contained-tables.md).
+
 Source #259 adds `PdfTableWidthPolicy.AUTO_FIT`, `PdfPreferredWidth.points(...)` / `.percent(...)`, and optional table/cell `preferredWidth`. See [the shared width model and qualification](../docs/preferred-table-widths.md).
 
 Source #234 adds immutable `PdfTextStyle.syntheticBold` / `withSyntheticBold(enabled)` for explicit Word-compatible fill-and-stroke text. Existing constructors/copies remain compatible. See [qualification and font-selection limits](../docs/word-synthetic-bold.md). This is unreleased source behavior.

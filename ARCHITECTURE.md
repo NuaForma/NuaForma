@@ -1,5 +1,7 @@
 # NuaForma — Architecture
 
+Approved source #287 adds immutable `PdfTable.rightOverflow` and `withRightOverflow(points)` in the existing shared PDF artifact. Existing constructors retain zero and their Java 17 signatures. Shared width resolution and layout preserve the allowance while enforcing physical page and nested-cell bounds; DOCX opts in only for qualified legacy percentage tables with declared effective indentation. No dependency or package is added. See [the scope and qualification](docs/word-print-preferences-and-contained-tables.md).
+
 Approved source #268 adds optional physical `PdfTableCell.margins` in the existing shared PDF model, without dependencies. Null retains table defaults. The DOCX adapter resolves partial edges, Word row maxima and border insets; future ODT input can supply its own physical margins. See [the shared model and qualification](docs/word-cell-margins-and-final-tabs.md).
 
 Approved source #266 adds immutable `PdfTextStyle.characterSpacing` and `withCharacterSpacing(points)` in the shared PDF artifact, defaulting to zero and retaining existing constructors/copies. DOCX resolves original run spacing; shaping, advances, wrapping and decorations share the physical setting. No dependency is added. See [character spacing](docs/character-spacing.md).
