@@ -53,6 +53,11 @@ class PackageTrashTest {
             }
             assertEquals(DiagnosticCodes.INVALID_TEMPLATE, error.diagnostics.single().code)
             assertEquals("[Content_Types].xml", error.diagnostics.single().part)
+            assertEquals("Physical OOXML trash items must not have a content type", error.diagnostics.single().sourceContext?.explanation)
+            assertEquals(if (declaration.startsWith("<Default")) "Default" else "Override", error.diagnostics.single().sourceContext?.construct)
+            assertTrue(error.diagnostics.single().location!!.startsWith("xml:"))
+            assertEquals("", error.diagnostics.single().sourceContext?.excerpt)
+            assertFalse(error.diagnostics.toString().contains("NOT_A_TEMPLATE"))
             assertEquals(0, output.size())
         }
     }

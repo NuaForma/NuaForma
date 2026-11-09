@@ -2,6 +2,7 @@ package dev.nuaforma.docx.adapters.docx4j
 
 import dev.nuaforma.contracts.RejectionReason
 import dev.nuaforma.contracts.Diagnostic
+import dev.nuaforma.contracts.DocumentSourceContext
 import dev.nuaforma.contracts.GenerationException
 import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.contracts.GenerationContext
@@ -61,13 +62,13 @@ internal object PackageValidation {
                         if (event.local == "Override" && event.namespace == CONTENT_TYPES) {
                             val name = event.attributes["PartName"] ?: invalid(RejectionReason.MISSING_CONTENT_TYPE_PART_NAME)
                             val type = event.attributes["ContentType"] ?: invalid(RejectionReason.MISSING_CONTENT_TYPE)
-                            if (name.removePrefix("/") in trashNames) invalid(RejectionReason.DOCX_CONTAINS_AN_INVALID_STRUCTURED_VALUE_REPAIR_THE_DOCUMENT)
+                            if (name.removePrefix("/") in trashNames) typedTrash("Override")
                             if (!name.startsWith('/') || overrides.put(name.removePrefix("/"), type) != null) invalid(RejectionReason.INVALID_OR_DUPLICATE_CONTENT_TYPE_OVERRIDE)
                         }
                         if (event.local == "Default" && event.namespace == CONTENT_TYPES) {
                             val extension = event.attributes["Extension"] ?: invalid(RejectionReason.MISSING_CONTENT_TYPE_EXTENSION)
                             val type = event.attributes["ContentType"] ?: invalid(RejectionReason.MISSING_CONTENT_TYPE)
-                            if (trashNames.isNotEmpty() && extension.equals("dat", true)) invalid(RejectionReason.DOCX_CONTAINS_AN_INVALID_STRUCTURED_VALUE_REPAIR_THE_DOCUMENT)
+                            if (trashNames.isNotEmpty() && extension.equals("dat", true)) typedTrash("Default")
                             if (defaults.put(extension, type) != null) invalid(RejectionReason.DUPLICATE_DEFAULT_CONTENT_TYPE)
                         }
                     }
@@ -184,8 +185,11 @@ internal object PackageValidation {
             malformed(part, error)
         } catch (error: GenerationException) {
             throw GenerationException(error.diagnostics.map { diagnostic ->
-                diagnostic.rejectionReason?.let { Diagnostic(diagnostic.code, it, diagnostic.severity,
-                    "xml:${reader.location.lineNumber.coerceAtLeast(0)}:${reader.location.columnNumber.coerceAtLeast(0)}", part) } ?: diagnostic
+                diagnostic.rejectionReason?.let { reason ->
+                    val mapped = Diagnostic(diagnostic.code, reason, diagnostic.severity,
+                        "xml:${reader.location.lineNumber.coerceAtLeast(0)}:${reader.location.columnNumber.coerceAtLeast(0)}", part)
+                    diagnostic.sourceContext?.let { mapped.withSourceContext(it) } ?: mapped
+                } ?: diagnostic
             })
         } finally { reader.close() }
     }
@@ -220,6 +224,11 @@ internal object PackageValidation {
             return size
         }
     }
+
+    private fun typedTrash(construct: String): Nothing = throw GenerationException(listOf(
+        Diagnostic(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.DOCX_CONTAINS_AN_INVALID_STRUCTURED_VALUE_REPAIR_THE_DOCUMENT,
+            part = "[Content_Types].xml").withSourceContext(DocumentSourceContext(
+            "Physical OOXML trash items must not have a content type", null, construct, ""))))
 
     private fun invalid(reason: RejectionReason): Nothing = DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, reason)
     private fun unsupported(reason: RejectionReason): Nothing = DocxFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, reason)
