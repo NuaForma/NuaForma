@@ -1,5 +1,7 @@
 # NuaForma DOCX/PDF provider
 
+Unreleased source #279–#282 adds bounded signed table indentation, historical grids and Word-backed numbering inheritance. See [scope, restrictions and verification](../docs/word-table-and-numbering-inheritance.md).
+
 Unreleased source #273–#278 adds qualified print-source metadata, default horizontal flow and fractional layout spellings. See [scope and verification](../docs/word-review-and-numeric-spellings.md).
 
 Unreleased source #268–#271 resolves qualified cell margins and inactive run properties, preserves legal first-row fragments and admits qualified final-line tabs. See [Word mapping and qualification](../docs/word-cell-margins-and-final-tabs.md).
