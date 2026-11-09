@@ -156,8 +156,12 @@ internal object FlowLayouter {
                     var index = block.repeatedHeaderRows
                     val first = measured.heights[index]
                     val firstRow = block.rows[index]
-                    if (!fits(headerHeight + minOf(first, freshData - measured.closing) + measured.closing) ||
-                        !firstRow.allowSplit && first > freshData && top > page.margins.top + 0.001f) nextPage()
+                    val oversizedSplittable = firstRow.allowSplit && first + measured.closing > freshData
+                    val firstFits = if (oversizedSplittable) {
+                        val capacity = bottom - top - headerHeight - measured.frameAt(index) - measured.closing
+                        TableLayouter.cut(measured, index, 0f, maxOf(0f, capacity)) > .001f
+                    } else fits(headerHeight + minOf(first, freshData - measured.closing) + measured.closing)
+                    if (!firstFits || !firstRow.allowSplit && first > freshData && top > page.margins.top + 0.001f) nextPage()
                     headers()
                     val tableStartPage = pages.size
                     while (index < block.rows.size) {
