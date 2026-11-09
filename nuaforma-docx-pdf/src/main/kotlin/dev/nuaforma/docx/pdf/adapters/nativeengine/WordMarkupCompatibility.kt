@@ -132,6 +132,9 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     throw source.failure(message, part)
                 }
+                NativeDocxBookmarks(context).validateTableSource(root, { source.current = it }) { message ->
+                    throw source.failure(message, part)
+                }
                 WordLatinFontSelection.validateSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)

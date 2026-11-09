@@ -346,6 +346,15 @@ internal class NativeDocxReader(
         var linkCounter = 0
         var sequenceIndex = 0
 
+        fun finishBookmark(node: XmlElement, tableEnding: Boolean = false) {
+            source.current = node
+            attributes(node, setOf("id")); children(node, emptySet())
+            val key = activePart to (node.value("id") ?: reject("Missing bookmark ID"))
+            check(key in openBookmarks, "Unmatched bookmark end")
+            if (tableEnding) blockBoundaryTextRanges += bookmarkNames.getValue(key)
+            openBookmarks.remove(key)
+        }
+
         fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false, tableStyles: List<XmlElement> = emptyList(), uniformFonts: Boolean = false): PdfParagraph {
             source.current = paragraph
             context.checkActive()
@@ -598,8 +607,7 @@ internal class NativeDocxReader(
                     emptyList()
                 }
                 "bookmarkEnd" -> {
-                    attributes(node, setOf("id")); children(node, emptySet())
-                    check(openBookmarks.remove(activePart to (node.value("id") ?: reject("Missing bookmark ID"))), "Unmatched bookmark end")
+                    finishBookmark(node)
                     emptyList()
                 }
                 "hyperlink" -> {
@@ -661,7 +669,7 @@ internal class NativeDocxReader(
         fun readTable(table: XmlElement, partRelations: Map<String, String>, fields: Boolean, depth: Int = 0): PdfTable {
             source.current = table
             check(depth <= 1, "Only one nested table level is supported")
-            children(table, setOf("tblPr", "tblGrid", "tr"))
+            children(table, setOf("tblPr", "tblGrid", "tr", "bookmarkEnd"))
             val properties = table.one("tblPr") ?: reject("Explicit table properties required")
             children(properties, setOf("tblStyle", "tblW", "tblInd", "tblLayout", "tblBorders", "tblCellMar", "tblLook", "tblStyleRowBandSize", "tblStyleColBandSize"))
             val tableStyles = properties.one("tblStyle")?.let { chain(it.value("val") ?: reject("Missing table style"), "table") } ?: emptyList()
@@ -746,7 +754,18 @@ internal class NativeDocxReader(
             data class CellSpec(val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment, val borders: PdfCellBorders?, var rows: Int = 1)
             val specs = mutableListOf<Pair<List<CellSpec>, Boolean>>()
             var previous = mapOf<Int, CellSpec>()
+            val events = table.elements().iterator()
+
+            fun bookmarksBefore(row: XmlElement? = null) {
+                for (event in events) {
+                    if (event === row) return
+                    if (event.name.localPart == "bookmarkEnd") finishBookmark(event, tableEnding = true)
+                }
+            }
+
             for ((rowIndex, row) in rowNodes.withIndex()) {
+                bookmarksBefore(row)
+                source.current = row
                 children(row, setOf("trPr", "tc"))
                 val rowProperties = row.one("trPr")
                 rowProperties?.let { children(it, setOf("cantSplit", "tblHeader")) }
@@ -814,6 +833,7 @@ internal class NativeDocxReader(
                 specs += cells to allowSplit
                 previous = active
             }
+            bookmarksBefore()
             val customBorders = specs.any { (cells, _) -> cells.any { it.borders != null } }
             val rows = specs.map { (cells, allow) -> PdfTableRow(cells.map { PdfTableCell(it.blocks, it.background, it.span, it.rows, it.alignment, if (customBorders) it.borders ?: fallbackBorders else null) }, allow, splitOversized = true) }
             if (customBorders) {

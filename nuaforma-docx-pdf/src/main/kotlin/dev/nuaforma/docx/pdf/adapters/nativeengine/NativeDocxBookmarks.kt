@@ -8,6 +8,13 @@ import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
 internal class NativeDocxBookmarks(private val context: GenerationContext) {
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
+    /** Check untouched table-ending ranges before the DOCX binder can discard malformed marker properties. */
+    fun validateTableSource(root: XmlElement, focus: (XmlElement) -> Unit, reject: (String) -> Nothing) {
+        if (root.descendants().any { isWord(it, "tbl") && it.elements().any { child -> isWord(child, "bookmarkEnd") } }) {
+            validate(root, focus, reject)
+        }
+    }
+
     /** Return block-ended ranges that require paragraph-aware text-reference resolution. */
     fun normalize(root: XmlElement, focus: (XmlElement) -> Unit, reject: (String) -> Nothing): Set<String> {
         val bodies = root.descendants().filter { isWord(it, "body") && it.elements().any(::bookmark) }.toList()
