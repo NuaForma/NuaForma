@@ -3,6 +3,8 @@ package dev.nuaforma.docx.pdf.adapters.nativeengine
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
 import dev.nuaforma.pdf.PdfPreferredWidth
+import java.math.BigDecimal
+import javax.xml.namespace.QName
 
 /** Validate original width preferences before a DOCX binding library can discard attributes. */
 internal object WordTableWidths {
@@ -24,23 +26,54 @@ internal object WordTableWidths {
         }
     }
 
+    /** Canonicalize only qualified Word numeric spellings before integer-only DOCX binding. */
+    fun normalizeSource(root: XmlElement, reject: (XmlElement, String) -> Nothing): Boolean {
+        validateSource(root, reject)
+        var changed = false
+        for (node in root.descendants()) if (node.name.namespaceURI == word && node.name.localPart in setOf("tblW", "tcW")) {
+            val raw = requireNotNull(node.attribute(word, "w"))
+            val canonical = measurement(node, reject).toString()
+            if (raw != canonical) {
+                node.attributes[QName(word, "w")] = canonical
+                changed = true
+            }
+        }
+        return changed
+    }
+
     fun preferred(node: XmlElement, reject: (XmlElement, String) -> Nothing): PdfPreferredWidth? {
         validate(node, setOf("w", "type"), reject)
-        val raw = node.attribute(word, "w") ?: reject(node, "Missing preferred width")
-        if (!raw.matches(Regex("[0-9]{1,6}"))) reject(node, "Invalid preferred width measurement")
-        val width = raw.toInt()
+        val width = measurement(node, reject)
         return when (node.attribute(word, "type") ?: "dxa") {
+            "auto", "nil" -> null
+            "dxa" -> PdfPreferredWidth.points(width / 20f)
+            "pct" -> PdfPreferredWidth.percent(width / 50f)
+            else -> reject(node, "Unsupported preferred width unit")
+        }
+    }
+
+    private fun measurement(node: XmlElement, reject: (XmlElement, String) -> Nothing): Int {
+        val raw = node.attribute(word, "w") ?: reject(node, "Missing preferred width")
+        if (!raw.matches(Regex("[0-9]{1,6}(?:\\.[0-9]{1,6})?%?"))) reject(node, "Invalid preferred width measurement")
+        val percent = raw.endsWith('%')
+        val value = raw.removeSuffix("%").toBigDecimal()
+        val unit = node.attribute(word, "type") ?: "dxa"
+        if (percent && unit != "pct") reject(node, "Percentage spelling requires percentage width units")
+        return when (unit) {
             "auto", "nil" -> {
-                if (width != 0) reject(node, "Automatic widths require zero measurement")
-                null
+                if (value.signum() != 0) reject(node, "Automatic widths require zero measurement")
+                0
             }
             "dxa" -> {
-                if (width > 288_000) reject(node, "Invalid preferred physical width")
-                PdfPreferredWidth.points(width / 20f)
+                if (value > BigDecimal(288_000)) reject(node, "Invalid preferred physical width")
+                // Word truncates positive fractional twips; do not round them upwards.
+                value.toInt()
             }
             "pct" -> {
-                if (width > 5_000) reject(node, "Preferred percentage exceeds the containing width")
-                PdfPreferredWidth.percent(width / 50f)
+                val fiftieths = if (percent) value * BigDecimal(50) else value
+                if (fiftieths > BigDecimal(5_000)) reject(node, "Preferred percentage exceeds the containing width")
+                try { fiftieths.intValueExact() }
+                catch (_: ArithmeticException) { reject(node, "Preferred percentage is not an exact fiftieth") }
             }
             else -> reject(node, "Unsupported preferred width unit")
         }

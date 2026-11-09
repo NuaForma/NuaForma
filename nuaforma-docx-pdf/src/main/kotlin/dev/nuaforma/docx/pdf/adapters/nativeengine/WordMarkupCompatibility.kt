@@ -147,9 +147,12 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     throw source.failure(message, part)
                 }
-                WordTableWidths.validateSource(root) { node, message ->
+                if (WordTableWidths.normalizeSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)
+                }) {
+                    archive.touch(part)
+                    changed = true
                 }
                 WordLatinFontSelection.validateSource(root) { node, message ->
                     source.current = node

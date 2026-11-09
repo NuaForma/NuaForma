@@ -54,9 +54,15 @@ internal class NativeDocxReader(
     private fun readDocument(bytes: ByteArray): PdfDocument {
         val parts = unpack(bytes)
         parts.filterKeys { it.endsWith(".xml") || it.endsWith(".rels") }.forEach { (name, content) -> parse(content, name) }
-        for ((part, root) in parsed) WordMarkupCompatibility(context).normalize(root) { node, message ->
-            source.current = node
-            source.failure(message, part)
+        for ((part, root) in parsed) {
+            WordMarkupCompatibility(context).normalize(root) { node, message ->
+                source.current = node
+                source.failure(message, part)
+            }
+            WordTableWidths.normalizeSource(root) { node, message ->
+                source.current = node
+                throw source.failure(message, part)
+            }
         }
         WordAuxiliaryParts(context) { name, node, message -> source.current = node; source.failure(message, name) }.normalize(parsed, parts.keys)
         WordThumbnailMetadata(context).normalize(parsed, parts)
