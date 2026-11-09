@@ -406,7 +406,8 @@ internal object PageLayouter {
         text.codePoints().forEach { point ->
             val script = Character.UnicodeScript.of(point)
             val category = Character.getType(point)
-            if ((script !in simpleScripts && !(bidi && script == Character.UnicodeScript.HEBREW && point !in 0xFB1D..0xFB4F)) ||
+            val privateGlyph = category == Character.PRIVATE_USE.toInt() && point in 0xE000..0xF8FF
+            if ((script !in simpleScripts && !privateGlyph && !(bidi && script == Character.UnicodeScript.HEBREW && point !in 0xFB1D..0xFB4F)) ||
                 Character.isISOControl(point) || category in unshapedForbiddenTypes ||
                 point != 32 && Character.isWhitespace(point)) {
                 throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Text requires unsupported shaping or control handling")

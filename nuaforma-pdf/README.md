@@ -1,5 +1,7 @@
 # Shared PDF engine: alpha foundation
 
+Source #258 admits font-defined BMP private-use glyphs while retaining coverage, embedding and shaping bounds. Per-document character aliases preserve source text under full/subset embedding. See [the independent glyph reference and limits](../docs/private-font-glyphs.md).
+
 Source #259 adds `PdfTableWidthPolicy.AUTO_FIT`, `PdfPreferredWidth.points(...)` / `.percent(...)`, and optional table/cell `preferredWidth`. See [the shared width model and qualification](../docs/preferred-table-widths.md).
 
 Source #234 adds immutable `PdfTextStyle.syntheticBold` / `withSyntheticBold(enabled)` for explicit Word-compatible fill-and-stroke text. Existing constructors/copies remain compatible. See [qualification and font-selection limits](../docs/word-synthetic-bold.md). This is unreleased source behavior.

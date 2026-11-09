@@ -34,6 +34,7 @@ internal object PdfBoxWriter {
             val navigation = PdfNavigationWriter(pdf)
             val lineMetrics = mutableMapOf<String, FloatArray>()
             val fullBmpFonts = mutableSetOf<String>()
+            val privateGlyphFonts = mutableSetOf<String>()
             val fonts = suppliedFonts.associate { resource ->
                 control.checkActive()
                 val bytes = resource.bytes()
@@ -55,7 +56,7 @@ internal object PdfBoxWriter {
                 resource.id to font
             }
             val shaper = FontShaper(suppliedFonts, fonts, control)
-            val encoding = GlyphEncoding(fonts, { shaper.enabled(it) || it in fullBmpFonts }, control,
+            val encoding = GlyphEncoding(fonts, { shaper.enabled(it) || it in fullBmpFonts || it in privateGlyphFonts }, control,
                 options.profile == PdfOutputProfile.PDFA_1B)
             val measurer = object : TextMeasurer {
 
@@ -86,6 +87,11 @@ internal object PdfBoxWriter {
                 else DocumentLayouter.plain(document, measurer, control)
             DocumentLayouter.validatePlacedLinks(composed)
             val layouts = composed.pages
+            for (layout in layouts) for (text in DocumentLayouter.texts(layout.elements)) {
+                control.checkActive()
+                if (text.text.codePoints().anyMatch { it in 0xE000..0xF8FF }) privateGlyphFonts += text.style.fontId
+            }
+            watermark?.let { if (it.text.codePoints().anyMatch { point -> point in 0xE000..0xF8FF }) privateGlyphFonts += it.fontId }
 
             fun decorationSize(elements: List<PositionedElement>): Long = elements.sumOf { element -> when (element) {
                 is PositionedText -> if (element.decoration) element.text.length.toLong() else 0L

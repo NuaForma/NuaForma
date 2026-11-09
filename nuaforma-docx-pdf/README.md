@@ -1,5 +1,7 @@
 # NuaForma DOCX/PDF provider
 
+Source #258 passes qualified private-use symbols to the shared engine with the supplied physical font. See [glyph bounds and Word-control provenance](../docs/private-font-glyphs.md).
+
 Source #260 resolves declared default table styles and inherited margin edges, with bounded ordinary border metadata. See [the table-style profile](../docs/word-table-style-defaults.md).
 
 Source #259 translates qualified automatic and implicit table layout with physical/percentage preferences into the [shared preferred-width model](../docs/preferred-table-widths.md). This is unreleased source behavior.
