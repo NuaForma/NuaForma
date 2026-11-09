@@ -111,10 +111,11 @@ internal class NativeWordFeatureSupport(temporary: Path) {
 
     fun verify(folder: String, profiles: List<String>, pattern: Regex, markerCount: Int,
                tails: Boolean = false, colors: Boolean = false, golden: String = folder + "page-1.png", pageCount: Int = 1,
-               normalizeTabLeaders: Boolean = false) {
+               normalizeTabLeaders: Boolean = false, goldenDirectory: String? = null) {
         val source = bytes(folder + "source.docx")
         val reference = bytes(folder + "word-reference.pdf")
-        val images = (1..pageCount).map { if (it == 1) bytes(golden) else bytes(folder + "page-$it.png") }
+        val images = (1..pageCount).map { bytes(goldenDirectory?.let { directory -> directory + "page-$it.png" }
+            ?: if (it == 1) golden else folder + "page-$it.png") }
         val proof = bytes(folder + "golden-provenance.json").decodeToString()
         for (value in listOf(source, reference) + images) assertTrue(proof.contains(hash(value)), folder)
         assertTrue(bytes(folder + "word-reference.pdf.provenance.json").decodeToString().contains(hash(source)))
