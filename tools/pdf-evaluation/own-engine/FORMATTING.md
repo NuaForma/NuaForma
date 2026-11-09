@@ -138,3 +138,9 @@ Unreleased #245 resolves bounded embedded palettes for run-content colors, inclu
 Unreleased #246 admits an initial `continuous` start marker and validated nonprinting form-protection flags. Later transitions retain their existing bounded policy. [The Word qualification](../../../docs/word-initial-section-metadata.md) covers A4/Letter, enforced protection, mixed-paper sections, four reused golden pages and two new reviewed pages.
 
 For archive-only #247 regression fixtures, tests deterministically add opaque `[trash]/hhhh.dat` items to the existing A4/Letter theme-color sources. Logical XML, Word references and golden images are unchanged. All four profiles must remain pixel-exact against those existing goldens; no new Word-export provenance is implied for the altered ZIP container.
+
+## Mixed Latin font roles and editing preferences
+
+Source #248 adds two A4/Letter mixed-font fixtures, four independently exported Word pages and four initially reviewed immutable engine images. All sixteen profile pages match those new goldens; 84 markers retain physical face, color and size within the existing position tolerances. The two declared regular fixture families are Liberation Sans and Noto Serif. Original font-property errors are tested before intermediate serialization, including real HTTP cases previously accepted after malformed metadata was discarded.
+
+Source #249 adds two Word exports with passive save/recording preferences. Word pixels are exact against the earlier package controls, and all eight profile pages reuse existing typography goldens. No prior reference image is replaced. Builders and source/provenance hashes bind both sets; run the provider tests documented in their owning guides and the normal full build.
