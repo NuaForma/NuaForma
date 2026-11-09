@@ -1374,6 +1374,8 @@ internal class NativeDocxReader(
             }
     }
 
+    private val trashItem = Regex("\\[trash]/[0-9A-Fa-f]{4}\\.dat")
+
     private fun unpack(bytes: ByteArray): Map<String, ByteArray> {
         budget(bytes.size <= minOf(8_388_608L, context.limits.maxTemplateBytes))
         val parts = linkedMapOf<String, ByteArray>()
@@ -1386,7 +1388,7 @@ internal class NativeDocxReader(
                     budget(parts.size < minOf(64, context.limits.maxArchiveEntries))
                     check(entry.name !in parts && !entry.isDirectory, "Invalid or duplicate ZIP entries")
                     activePart = entry.name.take(256)
-                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docMetadata/LabelInfo\\.xml|docProps/thumbnail\\.(?:jpeg|jpg|png)|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|stylesWithEffects|numbering|settings|footnotes|endnotes|fontTable|webSettings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|theme/_rels/theme1\\.xml\\.rels|_rels/(?:document|settings|footnotes|endnotes|fontTable|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|fonts/[A-Za-z0-9_.-]+\\.(?i:odttf|ttf)|media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g))|customXml/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
+                    check(trashItem.matches(entry.name) || entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docMetadata/LabelInfo\\.xml|docProps/thumbnail\\.(?:jpeg|jpg|png)|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|stylesWithEffects|numbering|settings|footnotes|endnotes|fontTable|webSettings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|theme/_rels/theme1\\.xml\\.rels|_rels/(?:document|settings|footnotes|endnotes|fontTable|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|fonts/[A-Za-z0-9_.-]+\\.(?i:odttf|ttf)|media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g))|customXml/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(8192)
                     while (true) {
@@ -1402,6 +1404,18 @@ internal class NativeDocxReader(
                 }
             }
         } catch (_: IOException) { reject("Malformed DOCX ZIP") }
+        val trashNames = parts.keys.filter { trashItem.matches(it) }
+        if (trashNames.isNotEmpty()) {
+            val types = parse(parts["[Content_Types].xml"] ?: reject("Missing content types"), "[Content_Types].xml")
+            for (node in types.elements()) {
+                source.current = node
+                val associated = node.name.namespaceURI == "http://schemas.openxmlformats.org/package/2006/content-types" &&
+                    (node.name.localPart == "Default" && node.attribute("", "Extension")?.equals("dat", true) == true ||
+                        node.name.localPart == "Override" && node.attribute("", "PartName")?.removePrefix("/") in trashNames)
+                check(!associated, "Physical OOXML trash items must not have a content type")
+            }
+            trashNames.forEach(parts::remove)
+        }
         return parts
     }
 
