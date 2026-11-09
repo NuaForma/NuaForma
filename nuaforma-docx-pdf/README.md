@@ -137,3 +137,7 @@ Qualified `mc:AlternateContent` is selected before PDF template evaluation and n
 Unreleased #241 supports qualified mixed font sizes in automatically spaced paragraphs using each physical line's actual font metrics. Minimum line heights, fragmentation and supported container layouts share those measurements; [mixed natural line spacing](../docs/mixed-natural-line-spacing.md) documents Word references, preserved goldens and remaining bidi/floating-image boundaries.
 
 Unreleased #245 resolves [qualified Word run theme colors](../docs/word-theme-colors.md), including embedded palettes, bounded HSL tint/shade and inherited/direct color overrides. Original themed-color structure is checked before serialization; unsupported effects remain explicit. Standard PDF and all three B-level archival profiles share this mapping.
+
+Unreleased #246 admits a [qualified initial continuous section and passive form-editing protection](../docs/word-initial-section-metadata.md). Explicit page geometry and genuine later transition restrictions remain enforced; qualified cleanup retains original bytes and protection settings. No shared model or public API is added.
+
+Unreleased #247 also admits standard, untyped [OOXML trash items](../docs/word-package-trash.md) as bounded physical ZIP data. Their bytes do not participate in PDF layout or template processing; all ordinary package and relationship checks remain active.

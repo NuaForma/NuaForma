@@ -132,3 +132,9 @@ assuming that a source guide alone proves a passing build.
 ## Qualified run theme colors
 
 Unreleased #245 resolves bounded embedded palettes for run-content colors, including Word HSL tint/shade precedence and the ordinary style cascade. [The qualification guide](../../../docs/word-theme-colors.md) describes exact base colors, the one-channel bound for intermediate transforms, four new reviewed golden pages and the PDF color-operator regression. This does not enable theme-based borders, shading or DrawingML effects.
+
+## Initial section metadata
+
+Unreleased #246 admits an initial `continuous` start marker and validated nonprinting form-protection flags. Later transitions retain their existing bounded policy. [The Word qualification](../../../docs/word-initial-section-metadata.md) covers A4/Letter, enforced protection, mixed-paper sections, four reused golden pages and two new reviewed pages.
+
+For archive-only #247 regression fixtures, tests deterministically add opaque `[trash]/hhhh.dat` items to the existing A4/Letter theme-color sources. Logical XML, Word references and golden images are unchanged. All four profiles must remain pixel-exact against those existing goldens; no new Word-export provenance is implied for the altered ZIP container.

@@ -113,3 +113,5 @@ Unreleased #223 qualifies solid/null extended-pen metadata and separates actual 
 
 - [Word compatibility modes](word-compatibility-modes.md): qualified mode-14 layout, strict settings validation and independent Word references.
 - [Word run theme colors](word-theme-colors.md): bounded palette resolution, HSL tint/shade, style inheritance and original-source validation.
+- [Initial sections and form protection](word-initial-section-metadata.md): bounded initial-continuous admission, preserved editing metadata and mixed-paper Word proofs.
+- [Physical OOXML trash items](word-package-trash.md): bounded admission of standard discarded ZIP data without template or layout participation.
