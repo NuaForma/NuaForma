@@ -74,30 +74,31 @@ internal class NativeWordFeatureSupport(temporary: Path) {
         assertTrue(diagnostic.sourceContext?.path.orEmpty().contains(element), diagnostic.toString())
     }
 
-    data class Position(val x: Float, val y: Float)
+    data class Position(val x: Float, val y: Float, val page: Int)
 
     fun positions(document: PDDocument, pattern: Regex, tails: Boolean = false): Map<String, Position> {
-        val lines = sortedMapOf<Int, MutableList<TextPosition>>()
+        val lines = sortedMapOf<Pair<Int, Int>, MutableList<TextPosition>>(compareBy({ it.first }, { it.second }))
         val stripper = object : PDFTextStripper() {
 
             override fun processTextPosition(position: TextPosition) {
-                repeat(position.unicode.length) { lines.getOrPut(kotlin.math.round(position.yDirAdj * 100).toInt()) { mutableListOf() } += position }
+                repeat(position.unicode.length) { lines.getOrPut(currentPageNo to kotlin.math.round(position.yDirAdj * 100).toInt()) { mutableListOf() } += position }
                 super.processTextPosition(position)
             }
 
         }
         stripper.getText(document)
         val result = linkedMapOf<String, Position>()
-        for (line in lines.values) {
+        for ((lineKey, line) in lines) {
             line.sortBy { it.xDirAdj }
             val raw = line.joinToString("") { it.unicode }
             for (match in pattern.findAll(raw)) {
                 val position = line[match.range.first]
-                assertNull(result.put(match.value, Position(position.xDirAdj, position.yDirAdj)))
+                val key = (if (document.numberOfPages > 1) "${lineKey.first}:" else "") + match.value
+                assertNull(result.put(key, Position(position.xDirAdj, position.yDirAdj, lineKey.first)))
                 if (tails && match.value.startsWith("P")) {
                     val index = raw.indexOf("TAIL", match.range.last + 1)
                     assertTrue(index >= 0, match.value)
-                    result[match.value + ":TAIL"] = Position(line[index].xDirAdj, line[index].yDirAdj)
+                    result[key + ":TAIL"] = Position(line[index].xDirAdj, line[index].yDirAdj, lineKey.first)
                 }
             }
         }
@@ -105,27 +106,29 @@ internal class NativeWordFeatureSupport(temporary: Path) {
     }
 
     fun verify(folder: String, profiles: List<String>, pattern: Regex, markerCount: Int,
-               tails: Boolean = false, colors: Boolean = false, golden: String = folder + "page-1.png") {
+               tails: Boolean = false, colors: Boolean = false, golden: String = folder + "page-1.png", pageCount: Int = 1) {
         val source = bytes(folder + "source.docx")
         val reference = bytes(folder + "word-reference.pdf")
-        val image = bytes(golden)
+        val images = (1..pageCount).map { if (it == 1) bytes(golden) else bytes(folder + "page-$it.png") }
         val proof = bytes(folder + "golden-provenance.json").decodeToString()
-        for (value in listOf(source, reference, image)) assertTrue(proof.contains(hash(value)), folder)
+        for (value in listOf(source, reference) + images) assertTrue(proof.contains(hash(value)), folder)
         assertTrue(bytes(folder + "word-reference.pdf.provenance.json").decodeToString().contains(hash(source)))
         Loader.loadPDF(reference).use { word ->
-            assertEquals(1, word.numberOfPages)
+            assertEquals(pageCount, word.numberOfPages)
             val expected = positions(word, pattern, tails)
             assertEquals(markerCount, expected.size)
-            val wordImage = PDFRenderer(word).renderImageWithDPI(0, 96f)
+            val wordImages = (0 until pageCount).map { PDFRenderer(word).renderImageWithDPI(it, 96f) }
             for (profile in profiles) Loader.loadPDF(generate(source, profile)).use { actual ->
-                assertEquals(1, actual.numberOfPages)
+                assertEquals(pageCount, actual.numberOfPages)
                 assertEquals(text(word), text(actual))
-                assertEquals(word.getPage(0).mediaBox.width, actual.getPage(0).mediaBox.width, .1f)
-                assertEquals(word.getPage(0).mediaBox.height, actual.getPage(0).mediaBox.height, .1f)
-                assertTrue(actual.getPage(0).resources.fontNames.all { actual.getPage(0).resources.getFont(it).isEmbedded })
+                for (page in 0 until pageCount) {
+                    assertEquals(word.getPage(page).mediaBox.width, actual.getPage(page).mediaBox.width, .1f)
+                    assertEquals(word.getPage(page).mediaBox.height, actual.getPage(page).mediaBox.height, .1f)
+                    assertTrue(actual.getPage(page).resources.fontNames.all { actual.getPage(page).resources.getFont(it).isEmbedded })
+                }
                 val found = positions(actual, pattern, tails)
                 assertEquals(expected.keys, found.keys)
-                val actualImage = PDFRenderer(actual).renderImageWithDPI(0, 96f)
+                val actualImages = (0 until pageCount).map { PDFRenderer(actual).renderImageWithDPI(it, 96f) }
                 for ((marker, before) in expected) {
                     val after = found.getValue(marker)
                     assertEquals(before.x, after.x, .21f, marker)
@@ -135,10 +138,10 @@ internal class NativeWordFeatureSupport(temporary: Path) {
                         fun colorAt(image: java.awt.image.BufferedImage, position: Position) = image.getRGB(
                             kotlin.math.round((position.x + 40) * 96 / 72).toInt(), kotlin.math.round((position.y - 1) * 96 / 72).toInt())
 
-                        assertEquals(colorAt(wordImage, before), colorAt(actualImage, after), marker)
+                        assertEquals(colorAt(wordImages[before.page - 1], before), colorAt(actualImages[after.page - 1], after), marker)
                     }
                 }
-                assertImagesMatch(ImageIO.read(image.inputStream()), actualImage) {
+                for (page in 0 until pageCount) assertImagesMatch(ImageIO.read(images[page].inputStream()), actualImages[page]) {
                     pixelTolerance = 0.0; allowedDifferentPixelsPercent = 0.0; threshold = 1
                 }
             }

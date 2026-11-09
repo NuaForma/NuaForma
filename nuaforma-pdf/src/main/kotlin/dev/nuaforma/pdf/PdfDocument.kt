@@ -130,17 +130,30 @@ data class PdfCellBorders @JvmOverloads constructor(
     val bottom: PdfEdgeStroke? = null, val left: PdfEdgeStroke? = null,
 )
 
-class PdfTableCell @JvmOverloads constructor(
-    blocks: List<PdfBlock>, val background: PdfColor? = null, val columnSpan: Int = 1, val rowSpan: Int = 1,
-    val verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP,
-    val borders: PdfCellBorders? = null,
-    val preferredWidth: PdfPreferredWidth? = null,
+class PdfTableCell private constructor(
+    blocks: List<PdfBlock>, val background: PdfColor?, val columnSpan: Int, val rowSpan: Int,
+    val verticalAlignment: PdfVerticalAlignment, val borders: PdfCellBorders?,
+    val preferredWidth: PdfPreferredWidth?, spacing: CellSpacing,
 ) {
+    private class CellSpacing(val margins: PdfMargins?)
+
+    @JvmOverloads constructor(blocks: List<PdfBlock>, background: PdfColor? = null, columnSpan: Int = 1, rowSpan: Int = 1,
+        verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP, borders: PdfCellBorders? = null,
+        preferredWidth: PdfPreferredWidth? = null,
+    ) : this(blocks, background, columnSpan, rowSpan, verticalAlignment, borders, preferredWidth, CellSpacing(null))
+
+    constructor(blocks: List<PdfBlock>, background: PdfColor? = null, columnSpan: Int = 1, rowSpan: Int = 1,
+        verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP, borders: PdfCellBorders? = null,
+        preferredWidth: PdfPreferredWidth? = null, margins: PdfMargins?,
+    ) : this(blocks, background, columnSpan, rowSpan, verticalAlignment, borders, preferredWidth, CellSpacing(margins))
+
+    val margins: PdfMargins? = spacing.margins
     val blocks: List<PdfBlock> = Collections.unmodifiableList(ArrayList(blocks))
     val paragraphs: List<PdfParagraph> get() = blocks.filterIsInstance<PdfParagraph>()
     init {
         require(this.blocks.size in 1..128 && this.blocks.all { it is PdfParagraph || it is PdfTable }) { "Invalid cell blocks" }
         require(columnSpan in 1..16 && rowSpan in 1..500) { "Invalid cell span" }
+        require(margins == null || listOf(margins.top, margins.right, margins.bottom, margins.left).all { it <= 14_400f }) { "Cell margins exceed the layout limit" }
     }
 }
 
@@ -169,8 +182,13 @@ class PdfTable @JvmOverloads constructor(
     val columnWidths: List<Float> = Collections.unmodifiableList(ArrayList(columnWidths))
     val rows: List<PdfTableRow> = Collections.unmodifiableList(ArrayList(rows))
     init {
+        val variedMargins = this.rows.any { row -> row.cells.any { it.margins != null && it.margins != cellMargins } }
         require(this.columnWidths.size in 1..16 && this.columnWidths.all {
-            it.isFinite() && if (widthPolicy == PdfTableWidthPolicy.AUTO_FIT) it in 0f..14_400f else it > cellMargins.left + cellMargins.right
+            it.isFinite() && when {
+                widthPolicy == PdfTableWidthPolicy.AUTO_FIT -> it in 0f..14_400f
+                variedMargins -> it > 0f
+                else -> it > cellMargins.left + cellMargins.right
+            }
         }) { "Invalid table widths" }
         require(this.rows.size in 1..500) { "Invalid table rows" }
         require(repeatedHeaderRows in 0..minOf(4, this.rows.size - 1)) { "Invalid repeated table headers" }

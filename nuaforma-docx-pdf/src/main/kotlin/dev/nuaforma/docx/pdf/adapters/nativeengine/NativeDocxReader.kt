@@ -63,6 +63,10 @@ internal class NativeDocxReader(
                 source.current = node
                 throw source.failure(message, part)
             }
+            WordCellMargins.validateSource(root) { node, message ->
+                source.current = node
+                throw source.failure(message, part)
+            }
             WordTableWidths.normalizeSource(root) { node, message ->
                 source.current = node
                 throw source.failure(message, part)
@@ -782,7 +786,8 @@ internal class NativeDocxReader(
 
             val headerFlags = mutableListOf<Boolean>()
             val rowMinimums = mutableListOf<Float?>()
-            data class CellSpec(val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment, val borders: PdfCellBorders?, val preferredWidth: PdfPreferredWidth?, var rows: Int = 1)
+            val rowPaddingFrames = mutableListOf<Float>()
+            data class CellSpec(val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment, val borders: PdfCellBorders?, val preferredWidth: PdfPreferredWidth?, val declaredMargins: PdfMargins?, var margins: PdfMargins? = declaredMargins, var rows: Int = 1)
             val specs = mutableListOf<Pair<List<CellSpec>, Boolean>>()
             var previous = mapOf<Int, CellSpec>()
             val events = table.elements().iterator()
@@ -809,16 +814,30 @@ internal class NativeDocxReader(
                 val allowSplit = rowProperties?.one("cantSplit")?.let { !enabled(it) } ?: true
                 headerFlags += rowProperties?.one("tblHeader")?.let(::enabled) == true
                 val cells = mutableListOf<CellSpec>()
+                val marginInputs = mutableListOf<PdfMargins>()
                 val active = mutableMapOf<Int, CellSpec>()
                 var column = 0
                 for (cell in row.elements().filter { it.name.localPart == "tc" }) {
                     children(cell, setOf("tcPr", "p", "tbl"))
                     val cp = cell.one("tcPr") ?: reject("Explicit cell properties required")
-                    children(cp, setOf("tcW", "shd", "gridSpan", "vMerge", "vAlign", "tcBorders"))
+                    children(cp, setOf("tcW", "shd", "gridSpan", "vMerge", "vAlign", "tcBorders", "tcMar"))
                     val cellStyles = regions.layers(rowIndex, column)
                     val cellProperties = cellStyles.mapNotNull { it.one("tcPr") } + cp
+                    val marginDeclarations = cellProperties.mapNotNull { it.one("tcMar") }
+                    val effectiveMargins = WordCellMargins.resolve(marginDeclarations, padding) { origin, message ->
+                        source.current = origin
+                        reject(message)
+                    }
+                    marginInputs += effectiveMargins
                     val edgePolicies = cellProperties.mapNotNull { it.one("tcBorders") }
                     val cellBorders = if (edgePolicies.isEmpty()) null else edgePolicies.fold(fallbackBorders) { inherited, node -> readCellBorders(node, inherited) }
+                    // Explicit horizontal padding cannot place text inside a visible border's inner half.
+                    val leftInset = (cellBorders?.left?.border?.width ?: if (cellBorders == null) border?.width ?: 0f else 0f) / 2
+                    val rightInset = (cellBorders?.right?.border?.width ?: if (cellBorders == null) border?.width ?: 0f else 0f) / 2
+                    val physicalMargins = effectiveMargins.copy(
+                        left = if (marginDeclarations.any { it.one("left") != null }) maxOf(effectiveMargins.left, leftInset) else effectiveMargins.left,
+                        right = if (marginDeclarations.any { it.one("right") != null }) maxOf(effectiveMargins.right, rightInset) else effectiveMargins.right)
+                    val ownMargins = physicalMargins.takeUnless { it == padding }
                     val alignment = cellProperties.mapNotNull { it.one("vAlign") }.lastOrNull()?.let { node ->
                         attributes(node, setOf("val")); children(node, emptySet())
                         when (node.value("val")) { "top" -> PdfVerticalAlignment.TOP; "center" -> PdfVerticalAlignment.CENTER; "bottom" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported cell vertical alignment") }
@@ -847,12 +866,13 @@ internal class NativeDocxReader(
                             check(origin.span == span && origin.background == background, "Inconsistent vertical continuation")
                             check(cp.one("vAlign") == null || origin.alignment == alignment, "Inconsistent vertical continuation alignment")
                             check(cellBorders == null || origin.borders == cellBorders, "Inconsistent vertical continuation borders")
+                            check(origin.declaredMargins == ownMargins, "Inconsistent vertical continuation margins")
                             check(blocks.all { it is PdfParagraph && it.runs.all { run -> run is PdfTextRun && run.text.isBlank() } }, "Continuation cells must not contain additional content")
                             origin.rows++
                             active[column] = origin
                         }
                         null, "restart" -> {
-                            val spec = CellSpec(blocks, background, span, alignment, cellBorders, preferredCellWidth)
+                            val spec = CellSpec(blocks, background, span, alignment, cellBorders, preferredCellWidth, ownMargins)
                             cells += spec
                             if (merge == "restart") active[column] = spec
                         }
@@ -861,6 +881,16 @@ internal class NativeDocxReader(
                     column += span
                 }
                 check(column == widths.size, "Incomplete table row")
+                // Word shares the greatest vertical padding across the row; the neutral model stays physical.
+                val topPadding = marginInputs.maxOf { it.top }
+                val bottomPadding = marginInputs.maxOf { it.bottom }
+                rowPaddingFrames += topPadding + bottomPadding
+                for (cell in cells) {
+                    cell.margins = (cell.declaredMargins ?: padding).copy(top = topPadding, bottom = bottomPadding).takeUnless { it == padding }
+                }
+                for (cell in active.values.distinct().filter { it !in cells }) {
+                    cell.margins = (cell.margins ?: padding).copy(bottom = bottomPadding).takeUnless { it == padding }
+                }
                 specs += cells to allowSplit
                 previous = active
             }
@@ -868,10 +898,10 @@ internal class NativeDocxReader(
             val customBorders = specs.any { (cells, _) -> cells.any { it.borders != null } }
             val rows = specs.mapIndexed { rowIndex, (cells, allow) ->
                 val resolved = cells.map { PdfTableCell(it.blocks, it.background, it.span, it.rows, it.alignment,
-                    if (customBorders) it.borders ?: fallbackBorders else null, it.preferredWidth) }
+                    if (customBorders) it.borders ?: fallbackBorders else null, it.preferredWidth, it.margins) }
                 val minimum = rowMinimums[rowIndex]?.let { contentFloor ->
                     val topBorder = maxOf(border?.width ?: 0f, resolved.maxOfOrNull { it.borders?.top?.border?.width ?: 0f } ?: 0f)
-                    val physical = contentFloor + padding.top + padding.bottom + topBorder
+                    val physical = contentFloor + rowPaddingFrames[rowIndex] + topBorder
                     source.current = rowNodes[rowIndex].one("trPr")?.one("trHeight") ?: rowNodes[rowIndex]
                     check(physical <= 14_400f, "Minimum row height exceeds the physical layout limit")
                     physical

@@ -349,4 +349,36 @@ class JavaPdfEngineTest {
             assertEquals(0, pdf.getDocumentCatalog().getNames().getDests().getNames().get("java-note").retrievePageNumber());
         }
     }
+
+    @Test
+    void javaCallerCanRenderPhysicalCellMarginsWithExistingAndExtendedConstructors() throws IOException {
+        byte[] font;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            font = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        var style = new PdfTextStyle("regular", 10);
+        var paragraph = new PdfParagraph(List.of(new PdfTextRun("MARGINS", style)), 0, 0,
+            new PdfParagraphFormat(PdfAlignment.LEFT, 0, 0, 0, 14f));
+        var margins = new PdfMargins(4, 9, 6, 18);
+        var cell = new PdfTableCell(List.of(paragraph), null, 1, 1, PdfVerticalAlignment.TOP, null, null, margins);
+        assertEquals(margins, cell.getMargins());
+        org.junit.jupiter.api.Assertions.assertNull(new PdfTableCell(List.of(paragraph)).getMargins());
+        var table = new PdfTable(List.of(160f), List.of(new PdfTableRow(List.of(cell))), new PdfMargins(0, 0, 0, 0), null);
+        var document = new PdfDocument(new PdfPage(300, 180, new PdfMargins(24, 24, 24, 24)), List.of(table), new PdfFlow());
+        try (var pdf = Loader.loadPDF(new PdfEngine().render(document, List.of(new PdfFont("regular", font))))) {
+            var positions = new java.util.ArrayList<org.apache.pdfbox.text.TextPosition>();
+            var reader = new PDFTextStripper() {
+
+                @Override
+                protected void processTextPosition(org.apache.pdfbox.text.TextPosition value) {
+                    positions.add(value);
+                    super.processTextPosition(value);
+                }
+
+            };
+            org.junit.jupiter.api.Assertions.assertTrue(reader.getText(pdf).contains("MARGINS"));
+            assertEquals(42f, positions.stream().filter(value -> value.getUnicode().equals("M")).findFirst().orElseThrow().getXDirAdj(), .01f);
+        }
+    }
+
 }

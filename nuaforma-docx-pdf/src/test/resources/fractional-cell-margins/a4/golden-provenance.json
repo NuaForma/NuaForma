@@ -1,0 +1,11 @@
+{
+  "issue": 268,
+  "golden": "cell-margins/a4/page-1.png",
+  "note": "Actual Word fractional and truncated references have exact pixels. Existing golden retained.",
+  "sha256": {
+    "source.docx": "7819bbdc734e1acbd8dd1dc91cfd900c033b601b90b16d6b17c9df28780ce748",
+    "word-reference.pdf": "2e40ca7835c7ea7f3be17f53d38ec8c7d8f15bc2aeb22c58b093538d62d199d2",
+    "word-reference.pdf.provenance.json": "09bea099279375ddc0a6e8544ddf0f5ead848250fc12fb42c711c3c77e62e9c1",
+    "existing-page-1.png": "248406e98a030542109ee2cb128740a2a85878af04402d72ecfc6ff8315723c8"
+  }
+}

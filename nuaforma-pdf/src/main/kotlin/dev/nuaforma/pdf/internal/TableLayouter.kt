@@ -4,13 +4,16 @@ import dev.nuaforma.pdf.*
 
 internal object TableLayouter {
     data class Piece(val top: Float, val height: Float, val elements: List<PositionedElement>)
-    data class Cell(val placement: TablePlacement, val pieces: List<Piece>, val contentHeight: Float)
+    data class Cell(val placement: TablePlacement, val pieces: List<Piece>, val contentHeight: Float, val margins: PdfMargins)
     data class Measured(val table: PdfTable, val cells: List<Cell>, val heights: List<Float>, val offsets: List<Float>, val topInsets: List<Float>, val customBorders: Boolean, val consistentBorders: Boolean, val closing: Float, val borderGroup: Any = Any()) {
         val contentEnd: Float get() = offsets.last()
         val height: Float get() = contentEnd + closing
-        val frame: Float get() = table.cellMargins.top + table.cellMargins.bottom + if (customBorders) topInsets.max() else closing
+        val frame: Float get() = table.rows.indices.maxOf(::frameAt)
 
-        fun frameAt(row: Int) = if (customBorders) table.cellMargins.top + table.cellMargins.bottom + topInsets[row] else frame
+        fun frameFor(cell: Cell) = cell.margins.top + cell.margins.bottom + if (customBorders) topInsets[cell.placement.row] else closing
+
+        fun frameAt(row: Int) = rowCells(row).maxOfOrNull(::frameFor)
+            ?: (table.cellMargins.top + table.cellMargins.bottom + if (customBorders) topInsets[row] else closing)
 
         fun rowCells(index: Int) = cells.filter { it.placement.row == index }
 
@@ -34,7 +37,9 @@ internal object TableLayouter {
         val frame = table.cellMargins.top + table.cellMargins.bottom + (table.border?.width ?: 0f)
         val cells = table.placements().map { placement ->
             PageLayouter.checkCancellation()
-            val width = table.columnWidths.subList(placement.column, placement.column + placement.cell.columnSpan).sum() - table.cellMargins.left - table.cellMargins.right
+            val margins = placement.cell.margins ?: table.cellMargins
+            val width = table.columnWidths.subList(placement.column, placement.column + placement.cell.columnSpan).sum() - margins.left - margins.right
+            if (!width.isFinite() || width <= 0f) overflow("Cell margins leave no content width")
             val pieces = mutableListOf<Piece>()
             var top = 0f
             var after = 0f
@@ -58,7 +63,7 @@ internal object TableLayouter {
                         // A nested table's explicit indentation can consume the parent's right
                         // padding, but its border must remain inside the parent cell.
                         val child = measure(block, measurer, width, depth + 1)
-                        checkWidth(child.table, width + table.cellMargins.right, 0f)
+                        checkWidth(child.table, width + margins.right, 0f)
                         val elements = mutableListOf<PositionedElement>()
                         slice(child, 0f, child.contentEnd, block.leftIndent, 0f, elements)
                         pieces += Piece(top, child.height, elements)
@@ -69,14 +74,14 @@ internal object TableLayouter {
                     is PdfTextBox -> error("Frames cannot be table cell blocks")
                 }
             }
-            val cellFrame = if (customBorders) table.cellMargins.top + table.cellMargins.bottom + topInsets[placement.row] else frame
+            val cellFrame = margins.top + margins.bottom + if (customBorders) topInsets[placement.row] else (table.border?.width ?: 0f)
             if (placement.cell.rowSpan == 1) heights[placement.row] = maxOf(heights[placement.row], top + cellFrame)
-            Cell(placement, pieces, top)
+            Cell(placement, pieces, top, margins)
         }
         heights.indices.forEach { if (heights[it] == 0f) heights[it] = if (customBorders) table.cellMargins.top + table.cellMargins.bottom + topInsets[it] else frame }
         for (cell in cells.filter { it.placement.cell.rowSpan > 1 }) {
             val end = cell.placement.row + cell.placement.cell.rowSpan
-            val cellFrame = if (customBorders) table.cellMargins.top + table.cellMargins.bottom + topInsets[cell.placement.row] else frame
+            val cellFrame = cell.margins.top + cell.margins.bottom + if (customBorders) topInsets[cell.placement.row] else (table.border?.width ?: 0f)
             val deficit = cell.contentHeight + cellFrame - heights.subList(cell.placement.row, end).sum()
             if (deficit > 0f) heights[end - 1] += deficit
         }
@@ -100,7 +105,7 @@ internal object TableLayouter {
             if (alignment != PdfVerticalAlignment.TOP && (start < from - 0.001f || end > until + 0.001f)) {
                 throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Vertical alignment across page fragments is not qualified")
             }
-            val spare = maxOf(0f, end - start - layout.frameAt(cell.placement.row) - cell.contentHeight)
+            val spare = maxOf(0f, end - start - layout.frameFor(cell) - cell.contentHeight)
             val shift = when (alignment) { PdfVerticalAlignment.TOP -> 0f; PdfVerticalAlignment.CENTER -> spare / 2; PdfVerticalAlignment.BOTTOM -> spare }
             val left = x + table.columnWidths.take(cell.placement.column).sum()
             val width = table.columnWidths.subList(cell.placement.column, cell.placement.column + cell.placement.cell.columnSpan).sum()
@@ -112,10 +117,10 @@ internal object TableLayouter {
             } else target += PositionedRectangle(left, top + a - from + layout.closing / 2, width, b - a, cell.placement.cell.background, table.border)
             for (piece in cell.pieces) {
                 val inset = if (layout.customBorders) layout.topInsets[cell.placement.row] else layout.closing
-                val y = start + inset + table.cellMargins.top + shift + piece.top
+                val y = start + inset + cell.margins.top + shift + piece.top
                 if (y + piece.height <= from + 0.001f || y >= until - 0.001f) continue
                 if (y < from - 0.001f || y + piece.height > until + 0.001f) overflow("Merged cell content crosses an unsupported row boundary")
-                target += piece.elements.map { translate(it, left + table.cellMargins.left, top + y - from) }
+                target += piece.elements.map { translate(it, left + cell.margins.left, top + y - from) }
             }
         }
     }
@@ -150,7 +155,7 @@ internal object TableLayouter {
             for (piece in cell.pieces) {
                 if (piece.top < from - 0.001f || piece.top + piece.height > until + 0.001f) continue
                 val inset = if (layout.customBorders) layout.topInsets[row] else layout.closing
-                target += piece.elements.map { translate(it, left + table.cellMargins.left, top + inset + table.cellMargins.top + piece.top - from) }
+                target += piece.elements.map { translate(it, left + cell.margins.left, top + inset + cell.margins.top + piece.top - from) }
             }
         }
         return height

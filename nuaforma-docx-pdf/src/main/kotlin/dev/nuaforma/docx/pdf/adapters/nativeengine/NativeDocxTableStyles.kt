@@ -76,7 +76,7 @@ internal class NativeDocxTableStyles(
         value(node, "val")?.toIntOrNull()?.takeIf { it in 0..3 } ?: reject(node, "Unsupported table band size")
     } ?: 0
 
-    private fun validateCell(node: XmlElement) = validate(node, emptySet(), setOf("shd", "vAlign", "tcBorders"))
+    private fun validateCell(node: XmlElement) = validate(node, emptySet(), setOf("shd", "vAlign", "tcBorders", "tcMar"))
 
     private fun bandRegion(index: Int, size: Int, offset: Int, disabled: Boolean, first: String, second: String): String? =
         if (disabled || size == 0) null else if ((index - offset) / size % 2 == 0) first else second

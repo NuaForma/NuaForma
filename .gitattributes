@@ -13,3 +13,15 @@ gradlew.bat text eol=crlf
 /nuaforma-docx-pdf/src/test/resources/conditional-tables/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 /nuaforma-docx-pdf/src/test/resources/font-features/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 /nuaforma-docx-pdf/src/test/resources/classic-kerning/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve original Word receipts for the cell-margin and final-tab qualification.
+/nuaforma-docx-pdf/src/test/resources/cell-margins/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/minimum-cell-margins/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/fractional-cell-margins/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/nil-cell-margins/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/nil-cell-margins-control/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/final-line-tabs/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/final-line-tabs-left-control/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/split-cell-margins/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/inactive-run-properties/*/*/*.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/cell-margins/*/word-padding-observation.jsonl -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

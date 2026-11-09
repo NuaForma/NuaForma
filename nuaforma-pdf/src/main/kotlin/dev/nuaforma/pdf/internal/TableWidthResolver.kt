@@ -8,10 +8,13 @@ internal object TableWidthResolver {
         if (table.widthPolicy == PdfTableWidthPolicy.FIXED) return table
         if (table.widthPolicy == PdfTableWidthPolicy.AUTO_FIT) return AutoTableWidths.resolve(table, measurer, availableWidth)
         val widths = MutableList(table.columnWidths.size) { 0f }
+        val framed = MutableList(table.columnWidths.size) { 0f }
         for (row in table.rows) {
             PageLayouter.checkCancellation()
             for ((column, cell) in row.cells.withIndex()) {
                 if (cell.columnSpan != 1 || cell.rowSpan != 1) unsupported()
+                val margins = cell.margins ?: table.cellMargins
+                var content = 0f
                 for (block in cell.blocks) {
                     val paragraph = block as? PdfParagraph ?: unsupported()
                     val format = paragraph.format
@@ -23,20 +26,23 @@ internal object TableWidthResolver {
                     val width = PageLayouter.unwrappedTextWidth(text, measurer)
                     if (!width.isFinite() || width < 0f) throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, "Invalid natural table width")
                     widths[column] = maxOf(widths[column], width)
+                    content = maxOf(content, width)
                 }
+                framed[column] = maxOf(framed[column], framedWidth(content, margins))
             }
         }
         if (widths.any { it <= 0f }) unsupported()
-        val framed = widths.map { content ->
-            var width = content + table.cellMargins.left + table.cellMargins.right
-            // Outward rounding prevents padding subtraction from narrowing the measured line.
-            repeat(4) { if (width - table.cellMargins.left - table.cellMargins.right < content) width = Math.nextUp(width) }
-            if (!width.isFinite() || width > 14_400f || width - table.cellMargins.left - table.cellMargins.right < content) overflow()
-            width
-        }
         if (framed.sum() > 14_400f) overflow()
         return PdfTable(framed, table.rows,
             table.cellMargins, table.border, table.repeatedHeaderRows, table.leftIndent, semantics = table.semantics)
+    }
+
+    private fun framedWidth(content: Float, margins: PdfMargins): Float {
+        var width = content + margins.left + margins.right
+        // Outward rounding prevents padding subtraction from narrowing the measured line.
+        repeat(4) { if (width - margins.left - margins.right < content) width = Math.nextUp(width) }
+        if (!width.isFinite() || width > 14_400f || width - margins.left - margins.right < content) overflow()
+        return width
     }
 
     private fun unsupported(): Nothing = throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Natural table widths require unmerged text cells without indentation, controls or direction changes")

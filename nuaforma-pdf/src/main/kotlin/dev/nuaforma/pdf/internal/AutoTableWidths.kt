@@ -11,7 +11,8 @@ internal object AutoTableWidths {
         if (!available.isFinite() || available <= 0f) overflow()
         val constraints = constraints(table, measurer, 0)
         val padding = table.cellMargins.left + table.cellMargins.right
-        val minimum = MutableList(table.columnWidths.size) { padding + .01f }
+        val variedMargins = table.rows.any { row -> row.cells.any { it.margins != null && it.margins != table.cellMargins } }
+        val minimum = MutableList(table.columnWidths.size) { if (variedMargins) .01f else padding + .01f }
         val maximum = minimum.toMutableList()
         for (constraint in constraints.sortedBy { it.placement.cell.columnSpan }) {
             satisfy(minimum, constraint.placement, constraint.minimum, table.columnWidths)
@@ -43,9 +44,10 @@ internal object AutoTableWidths {
 
     private fun constraints(table: PdfTable, measurer: TextMeasurer, depth: Int): List<Constraint> {
         if (depth > 1) unsupported("Only one nested table level is supported")
-        val padding = table.cellMargins.left + table.cellMargins.right
         return table.placements().map { placement ->
             PageLayouter.checkCancellation()
+            val margins = placement.cell.margins ?: table.cellMargins
+            val padding = margins.left + margins.right
             var minimum = 0f
             var maximum = 0f
             for (block in placement.cell.blocks) {
@@ -55,7 +57,8 @@ internal object AutoTableWidths {
                         if (block.widthPolicy == PdfTableWidthPolicy.FIXED) block.columnWidths.sum().let { it to it }
                         else {
                             val nested = constraints(block, measurer, depth + 1)
-                            val low = MutableList(block.columnWidths.size) { block.cellMargins.left + block.cellMargins.right + .01f }
+                            val variedMargins = block.rows.any { row -> row.cells.any { it.margins != null && it.margins != block.cellMargins } }
+                            val low = MutableList(block.columnWidths.size) { if (variedMargins) .01f else block.cellMargins.left + block.cellMargins.right + .01f }
                             val high = low.toMutableList()
                             for (item in nested.sortedBy { it.placement.cell.columnSpan }) {
                                 satisfy(low, item.placement, item.minimum, block.columnWidths)

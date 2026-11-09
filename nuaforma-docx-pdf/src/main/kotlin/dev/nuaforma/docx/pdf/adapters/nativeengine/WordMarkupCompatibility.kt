@@ -151,6 +151,13 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     throw source.failure(message, part)
                 }
+                if (WordCellMargins.normalizeSource(root) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }) {
+                    archive.touch(part)
+                    changed = true
+                }
                 if (WordTableWidths.normalizeSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)
