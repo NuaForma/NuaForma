@@ -1,5 +1,7 @@
 # NuaForma — Architecture
 
+Approved source #259 adds format-neutral `PdfTableWidthPolicy.AUTO_FIT`, immutable `PdfPreferredWidth.points(...)` / `.percent(...)`, and optional `preferredWidth` on tables and cells in the existing `nuaforma-pdf` artifact. The source adapter resolves DOCX units; shared layout uses the actual containing width and request-local metrics. See [scope and qualification](docs/preferred-table-widths.md).
+
 The approved #149 extension uses bounded opaque polyline content in contract 0.10,
 DOCX DrawingML insertion in the owning adapter, strict structural reading in
 `nuaforma-docx-pdf` and atomic inline vectors in the independent `nuaforma-pdf`

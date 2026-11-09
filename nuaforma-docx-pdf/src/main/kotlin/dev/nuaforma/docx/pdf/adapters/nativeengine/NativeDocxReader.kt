@@ -681,8 +681,13 @@ internal class NativeDocxReader(
             val regions = NativeDocxTableStyles(tableStyles, properties, rowNodes.size,
                 table.one("tblGrid")?.elements()?.size ?: 0, headerCount, context) { node, message -> source.current = node; reject(message) }
             val layout = regions.property("tblLayout")?.value("type")
-            check(layout in setOf("fixed", "autofit"), "Explicit qualified table layout required")
-            val naturalWidths = layout == "autofit"
+            check(layout in setOf(null, "fixed", "autofit"), "Unsupported table layout")
+            val automaticLayout = layout != "fixed"
+            val naturalWidths = layout == "autofit" && regions.property("tblW")?.let {
+                it.value("type") == "auto" && it.value("w") == "0"
+            } == true && rowNodes.flatMap { it.elements().filter { cell -> cell.name.localPart == "tc" } }.all { cell ->
+                cell.one("tcPr")?.one("tcW")?.let { it.value("type") == "auto" && it.value("w") == "0" } == true
+            }
             check(!naturalWidths || depth == 0, "Natural widths in nested tables are not qualified")
             val grid = table.one("tblGrid") ?: reject("Missing table grid")
             check(grid.elements().all { it.name.namespaceURI == word && it.name.localPart == "gridCol" }, "Unsupported table grid")
@@ -700,18 +705,32 @@ internal class NativeDocxReader(
                 check(node.value("type") == "auto" && node.value("w") == "0", "Natural widths require automatic table and cell dimensions")
             }
 
-            val tableWidth = regions.property("tblW") ?: reject("Missing table width")
-            if (naturalWidths) automaticDimension(tableWidth)
-            else check(kotlin.math.abs(widths.sum() - dimension(tableWidth)) < 0.01f, "Table width differs from grid")
+            fun preferredWidth(node: XmlElement?): PdfPreferredWidth? = node?.let {
+                WordTableWidths.preferred(it) { origin, message -> source.current = origin; reject(message) }
+            }
+
+            val tableWidth = regions.property("tblW")
+            val preferredTableWidth = if (automaticLayout) preferredWidth(tableWidth) else null
+            if (naturalWidths) automaticDimension(requireNotNull(tableWidth))
+            else if (!automaticLayout) check(kotlin.math.abs(widths.sum() - dimension(tableWidth ?: reject("Missing table width"))) < 0.01f, "Table width differs from grid")
             val cellMargins = regions.property("tblCellMar") ?: reject("Explicit cell margins required")
             children(cellMargins, setOf("top", "right", "bottom", "left"))
 
-            fun edge(name: String) = dimension(cellMargins.one(name) ?: reject("Missing cell margin"))
+            fun edge(name: String): Float = dimension(cellMargins.one(name) ?: reject("Missing cell margin"))
 
             val padding = PdfMargins(edge("top"), edge("right"), edge("bottom"), edge("left"))
-            val borderNodes = regions.property("tblBorders") ?: reject("Explicit table borders required")
-            children(borderNodes, setOf("top", "left", "bottom", "right", "insideH", "insideV"))
-            val borders = borderNodes.elements().map {
+            val resolvedTableWidth = preferredTableWidth?.let { preference ->
+                val percent = preference.percent
+                if (percent != null && depth == 0 && !modernTableAlignment) {
+                    val reference = page.width - page.margins.left - page.margins.right + padding.left + padding.right
+                    val preferred = reference * percent / 100f
+                    check(preferred in 0f..14_400f, "Preferred table width exceeds the physical layout limit")
+                    PdfPreferredWidth.points(preferred)
+                } else preference
+            }
+            val borderNodes = regions.property("tblBorders")
+            borderNodes?.let { children(it, setOf("top", "left", "bottom", "right", "insideH", "insideV")) }
+            val borders = borderNodes?.elements().orEmpty().map {
                 attributes(it, setOf("val", "sz", "color"))
                 check(it.value("val") == "single", "Only solid table borders are supported")
                 PdfBorder(number(it.value("sz")) / 8, color(it.value("color")))
@@ -754,7 +773,7 @@ internal class NativeDocxReader(
             }
 
             val headerFlags = mutableListOf<Boolean>()
-            data class CellSpec(val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment, val borders: PdfCellBorders?, var rows: Int = 1)
+            data class CellSpec(val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment, val borders: PdfCellBorders?, val preferredWidth: PdfPreferredWidth?, var rows: Int = 1)
             val specs = mutableListOf<Pair<List<CellSpec>, Boolean>>()
             var previous = mapOf<Int, CellSpec>()
             val events = table.elements().iterator()
@@ -795,9 +814,10 @@ internal class NativeDocxReader(
                     val span = cp.one("gridSpan")?.let { attributes(it, setOf("val")); number(it.value("val")).toInt() } ?: 1
                     check(!regions.active || cp.one("vMerge") == null && span == 1, "Merged conditional table regions are not qualified")
                     check(span in 1..16 && column + span <= widths.size, "Invalid grid span")
-                    val cellWidth = cp.one("tcW") ?: reject("Missing cell width")
-                    if (naturalWidths) automaticDimension(cellWidth)
-                    else check(kotlin.math.abs(dimension(cellWidth) - widths.subList(column, column + span).sum()) < 0.01f, "Inconsistent cell width")
+                    val cellWidth = cp.one("tcW")
+                    val preferredCellWidth = if (automaticLayout) preferredWidth(cellWidth) else null
+                    if (naturalWidths) automaticDimension(cellWidth ?: reject("Missing cell width"))
+                    else if (!automaticLayout) check(kotlin.math.abs(dimension(cellWidth ?: reject("Missing cell width")) - widths.subList(column, column + span).sum()) < 0.01f, "Inconsistent cell width")
                     val background = cellProperties.mapNotNull { it.one("shd") }.lastOrNull()?.let {
                         attributes(it, setOf("val", "color", "fill"))
                         check(it.value("val") == "clear" && it.value("color") == "auto", "Unsupported cell shading")
@@ -824,7 +844,7 @@ internal class NativeDocxReader(
                             active[column] = origin
                         }
                         null, "restart" -> {
-                            val spec = CellSpec(blocks, background, span, alignment, cellBorders)
+                            val spec = CellSpec(blocks, background, span, alignment, cellBorders, preferredCellWidth)
                             cells += spec
                             if (merge == "restart") active[column] = spec
                         }
@@ -838,16 +858,16 @@ internal class NativeDocxReader(
             }
             bookmarksBefore()
             val customBorders = specs.any { (cells, _) -> cells.any { it.borders != null } }
-            val rows = specs.map { (cells, allow) -> PdfTableRow(cells.map { PdfTableCell(it.blocks, it.background, it.span, it.rows, it.alignment, if (customBorders) it.borders ?: fallbackBorders else null) }, allow, splitOversized = true) }
+            val rows = specs.map { (cells, allow) -> PdfTableRow(cells.map { PdfTableCell(it.blocks, it.background, it.span, it.rows, it.alignment, if (customBorders) it.borders ?: fallbackBorders else null, it.preferredWidth) }, allow, splitOversized = true) }
             if (customBorders) {
                 val styles = rows.flatMap { it.cells }.flatMap { cell -> cell.borders!!.let { listOfNotNull(it.top, it.right, it.bottom, it.left) } }.map { it.border }.distinct()
                 check(styles.size <= 1, "Conflicting cell-border colors and widths are not qualified")
             }
             val count = headerFlags.takeWhile { it }.size
             check(headerFlags.drop(count).none { it }, "Table headers must be leading rows")
-            val indent = regions.property("tblInd")?.let(::dimension) ?: reject("Explicit table indent required")
+            val indent = regions.property("tblInd")?.let(::dimension) ?: 0f
             val physicalIndent = if (depth == 0 && !modernTableAlignment) indent - padding.left else indent + (border?.width ?: 0f) / 2
-            return PdfTable(widths, rows, padding, border, count, physicalIndent, if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else PdfTableWidthPolicy.FIXED)
+            return PdfTable(widths, rows, padding, border, count, physicalIndent, if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else if (automaticLayout) PdfTableWidthPolicy.AUTO_FIT else PdfTableWidthPolicy.FIXED, preferredWidth = resolvedTableWidth)
         }
 
         fun readBox(pict: XmlElement, partRelations: Map<String, String>, fields: Boolean = false): PdfTextBox {

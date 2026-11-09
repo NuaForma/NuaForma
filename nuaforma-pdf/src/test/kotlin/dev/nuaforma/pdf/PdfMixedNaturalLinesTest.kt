@@ -79,7 +79,7 @@ class PdfMixedNaturalLinesTest {
     fun `table fragmentation pieces retain each physical line height and offset`() {
         val table = PdfTable(listOf(40f), listOf(PdfTableRow(listOf(PdfTableCell(listOf(mixed()))))),
             cellMargins = PdfMargins(0f, 0f, 0f, 0f), border = null)
-        val cell = TableLayouter.measure(table, measurer).cells.single()
+        val cell = TableLayouter.measure(table, measurer, table.columnWidths.sum()).cells.single()
         assertEquals(40f, cell.contentHeight)
         assertEquals(listOf(10f, 20f, 10f), cell.pieces.map { it.height })
         assertEquals(listOf(0f, 10f, 30f), cell.pieces.map { it.top })

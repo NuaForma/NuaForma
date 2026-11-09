@@ -311,6 +311,17 @@ internal object PageLayouter {
         return width
     }
 
+    internal fun intrinsicWidths(paragraph: PdfParagraph, measurer: TextMeasurer): Pair<Float, Float> {
+        if (paragraph.format.tabs != null || paragraph.runs.any { it is PdfTab } || paragraph.anchoredImages.isNotEmpty())
+            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Automatic table widths with tabs or floating images are not qualified")
+        val groups = words(paragraph.runs, measurer, paragraph.format.textDirection != null)
+        val widths = groups.map { group -> group.sumOf { it.metrics.width.toDouble() }.toFloat() }
+        val minimum = groups.indices.filter { index -> groups[index].any { fragment -> fragment.text.any { it != ' ' } } }.maxOfOrNull { widths[it] } ?: 0f
+        val indent = paragraph.format.leftIndent + paragraph.format.rightIndent + maxOf(0f, paragraph.format.firstLineIndent)
+        val label = paragraph.listLabel?.let { measurer.measure(it.value.text, it.style).width } ?: 0f
+        return maxOf(0f, minimum + indent + label) to maxOf(0f, widths.sum() + indent + label)
+    }
+
     private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null, val tab: PdfTab? = null, val paintOffset: Float = 0f, val decoration: Boolean = false, val sourceStart: Int = 0, val navigation: PdfTextNavigation? = null, val semantics: PdfSpanSemantics? = null, val vector: PdfVectorRun? = null)
 
     private fun words(runs: List<PdfInline>, measurer: TextMeasurer, bidi: Boolean): List<List<Fragment>> {

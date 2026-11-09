@@ -1,5 +1,7 @@
 # NuaForma DOCX/PDF provider
 
+Source #259 translates qualified automatic and implicit table layout with physical/percentage preferences into the [shared preferred-width model](../docs/preferred-table-widths.md). This is unreleased source behavior.
+
 Source #234 qualifies [Word-compatible synthetic bold](../docs/word-synthetic-bold.md) using the same supplied regular/italic face when the actual bold face is absent. Real bold faces take priority; missing families/italic faces and embedding restrictions still reject. No ambient font lookup or cross-family substitution is added. This is unreleased source behavior.
 
 Source #233 qualifies [passive Office package resources](../docs/word-passive-office-package.md): bounded property-panel metadata, equivalent auxiliary styles and owned unused font/theme resources. Caller fonts remain mandatory; active bindings and divergent effects reject. The Playground shares this admission and focused cleanup. This is unreleased source behavior.

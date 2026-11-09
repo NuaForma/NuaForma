@@ -45,9 +45,9 @@ internal object DocumentTransforms {
                 is PdfTable -> listOf(PdfTable(block.columnWidths, block.rows.mapIndexed { rowIndex, row ->
                     PdfTableRow(row.cells.mapIndexed { cellIndex, cell -> PdfTableCell(
                         blocks(cell.blocks, semanticChildId(key, "r$rowIndex-c$cellIndex"), Scope.CELL), cell.background,
-                        cell.columnSpan, cell.rowSpan, cell.verticalAlignment, cell.borders)
+                        cell.columnSpan, cell.rowSpan, cell.verticalAlignment, cell.borders, cell.preferredWidth)
                     }, row.allowSplit, row.splitOversized)
-                }, block.cellMargins, block.border, block.repeatedHeaderRows, block.leftIndent, block.widthPolicy, metadata(block, key, PdfSemanticRole.TABLE)))
+                }, block.cellMargins, block.border, block.repeatedHeaderRows, block.leftIndent, block.widthPolicy, metadata(block, key, PdfSemanticRole.TABLE), block.preferredWidth))
             }
         }
 

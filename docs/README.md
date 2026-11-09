@@ -1,5 +1,7 @@
 # NuaForma documentation
 
+- [Preferred table widths](preferred-table-widths.md): shared automatic layout with physical/percentage preferences (source #259).
+
 Choose a guide for the task you want to complete. Module guides are the technical reference; this index links to them rather than maintaining duplicate API descriptions.
 
 ## Use NuaForma

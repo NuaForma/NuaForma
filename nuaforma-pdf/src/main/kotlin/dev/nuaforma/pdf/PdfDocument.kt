@@ -134,6 +134,7 @@ class PdfTableCell @JvmOverloads constructor(
     blocks: List<PdfBlock>, val background: PdfColor? = null, val columnSpan: Int = 1, val rowSpan: Int = 1,
     val verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP,
     val borders: PdfCellBorders? = null,
+    val preferredWidth: PdfPreferredWidth? = null,
 ) {
     val blocks: List<PdfBlock> = Collections.unmodifiableList(ArrayList(blocks))
     val paragraphs: List<PdfParagraph> get() = blocks.filterIsInstance<PdfParagraph>()
@@ -148,8 +149,8 @@ class PdfTableRow @JvmOverloads constructor(cells: List<PdfTableCell>, val allow
     init { require(this.cells.size in 0..16) { "Invalid column count" } }
 }
 
-/** FIT_CONTENTS replaces preferred grid widths with natural, unwrapped text widths. */
-enum class PdfTableWidthPolicy { FIXED, FIT_CONTENTS }
+/** FIXED retains the grid; FIT_CONTENTS is unwrapped; AUTO_FIT negotiates preferences and wrapping. */
+enum class PdfTableWidthPolicy { FIXED, FIT_CONTENTS, AUTO_FIT }
 
 class PdfTable @JvmOverloads constructor(
     columnWidths: List<Float>, rows: List<PdfTableRow>,
@@ -158,11 +159,14 @@ class PdfTable @JvmOverloads constructor(
     val repeatedHeaderRows: Int = 0, val leftIndent: Float = 0f,
     val widthPolicy: PdfTableWidthPolicy = PdfTableWidthPolicy.FIXED,
     override val semantics: PdfBlockSemantics? = null,
+    val preferredWidth: PdfPreferredWidth? = null,
 ) : PdfBlock {
     val columnWidths: List<Float> = Collections.unmodifiableList(ArrayList(columnWidths))
     val rows: List<PdfTableRow> = Collections.unmodifiableList(ArrayList(rows))
     init {
-        require(this.columnWidths.size in 1..16 && this.columnWidths.all { it.isFinite() && it > cellMargins.left + cellMargins.right }) { "Invalid table widths" }
+        require(this.columnWidths.size in 1..16 && this.columnWidths.all {
+            it.isFinite() && if (widthPolicy == PdfTableWidthPolicy.AUTO_FIT) it in 0f..14_400f else it > cellMargins.left + cellMargins.right
+        }) { "Invalid table widths" }
         require(this.rows.size in 1..500) { "Invalid table rows" }
         require(repeatedHeaderRows in 0..minOf(4, this.rows.size - 1)) { "Invalid repeated table headers" }
         require(leftIndent.isFinite() && leftIndent in -14_400f..14_400f) { "Invalid table indentation" }

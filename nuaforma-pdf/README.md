@@ -1,5 +1,7 @@
 # Shared PDF engine: alpha foundation
 
+Source #259 adds `PdfTableWidthPolicy.AUTO_FIT`, `PdfPreferredWidth.points(...)` / `.percent(...)`, and optional table/cell `preferredWidth`. See [the shared width model and qualification](../docs/preferred-table-widths.md).
+
 Source #234 adds immutable `PdfTextStyle.syntheticBold` / `withSyntheticBold(enabled)` for explicit Word-compatible fill-and-stroke text. Existing constructors/copies remain compatible. See [qualification and font-selection limits](../docs/word-synthetic-bold.md). This is unreleased source behavior.
 
 Source #232 adds nullable immutable `PdfParagraph.underlineTrailingSpaces` and `withUnderlineTrailingSpaces(enabled)`. Explicit trailing-space decoration preserves visible glyph positions and clips at the paragraph edge; null keeps existing behavior. Existing constructors and copy methods remain compatible. See the [Word typography and neutral policy qualification](../docs/word-typography-preferences.md). This is unreleased source behavior.

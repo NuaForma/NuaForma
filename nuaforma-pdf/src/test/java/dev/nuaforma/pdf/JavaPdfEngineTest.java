@@ -11,6 +11,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class JavaPdfEngineTest {
 
     @Test
+    void javaCallerCanDeclareAutomaticTablePreferences() {
+        var paragraph = new PdfParagraph(List.of(new PdfTextRun("Java table", new PdfTextStyle("regular", 11))));
+        var cell = new PdfTableCell(List.of(paragraph), null, 1, 1, PdfVerticalAlignment.TOP, null,
+            PdfPreferredWidth.percent(50));
+        var table = new PdfTable(List.of(0f), List.of(new PdfTableRow(List.of(cell))),
+            new PdfMargins(0, 5, 0, 5), null, 0, 0, PdfTableWidthPolicy.AUTO_FIT, null,
+            PdfPreferredWidth.points(200));
+        assertEquals(50f, cell.getPreferredWidth().getPercent());
+        assertEquals(200f, table.getPreferredWidth().getPoints());
+        assertEquals(PdfTableWidthPolicy.AUTO_FIT, table.getWidthPolicy());
+        assertEquals(null, new PdfTableCell(List.of(paragraph)).getPreferredWidth());
+    }
+
+    @Test
     void javaCallerCanChooseImmutableTrailingUnderlinePolicy() {
         var original = new PdfParagraph(List.of(new PdfTextRun("Java spaces   ", new PdfTextStyle("regular", 11))));
         var paragraph = original.withUnderlineTrailingSpaces(true).withMinimumLineHeight(28f);

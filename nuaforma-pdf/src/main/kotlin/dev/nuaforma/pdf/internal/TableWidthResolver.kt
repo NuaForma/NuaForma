@@ -3,8 +3,10 @@ package dev.nuaforma.pdf.internal
 import dev.nuaforma.pdf.*
 
 internal object TableWidthResolver {
-    fun resolve(table: PdfTable, measurer: TextMeasurer): PdfTable {
+
+    fun resolve(table: PdfTable, measurer: TextMeasurer, availableWidth: Float): PdfTable {
         if (table.widthPolicy == PdfTableWidthPolicy.FIXED) return table
+        if (table.widthPolicy == PdfTableWidthPolicy.AUTO_FIT) return AutoTableWidths.resolve(table, measurer, availableWidth)
         val widths = MutableList(table.columnWidths.size) { 0f }
         for (row in table.rows) {
             PageLayouter.checkCancellation()
@@ -38,5 +40,7 @@ internal object TableWidthResolver {
     }
 
     private fun unsupported(): Nothing = throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Natural table widths require unmerged text cells without indentation, controls or direction changes")
+
     private fun overflow(): Nothing = throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, "Natural table width exceeds the physical layout limit")
+
 }

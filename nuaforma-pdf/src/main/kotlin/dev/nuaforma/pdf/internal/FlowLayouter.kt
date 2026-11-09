@@ -82,7 +82,7 @@ internal object FlowLayouter {
                     val measured = measuredAt(blockIndex)
                     var before = ParagraphSpacing.before(block, after, top <= page.margins.top + .001f, format.pageBreakBefore)
                     if (format.keepWithNext && blockIndex >= protectedThrough) {
-                        val group = ParagraphKeeps.measure(document.blocks, blockIndex, ::measuredAt, measurer)
+                        val group = ParagraphKeeps.measure(document.blocks, blockIndex, ::measuredAt, measurer, width)
                         if (group != null) {
                             if (group.minimum > freshHeight() + .001f) overflow()
                             if (!fits(before + group.minimum)) {
@@ -140,7 +140,7 @@ internal object FlowLayouter {
                     if (floating[pages.lastIndex].orEmpty().any { top < it.bottom }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Tables beside floating images are not qualified")
                     if (exclusions.isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Combining wrapped frames with body tables is not qualified")
                     if (block.widthPolicy == PdfTableWidthPolicy.FIXED) TableLayouter.checkWidth(block, width, page.margins.left)
-                    val measured = TableLayouter.measure(block, measurer)
+                    val measured = TableLayouter.measure(block, measurer, width)
                     if (block.widthPolicy != PdfTableWidthPolicy.FIXED) TableLayouter.checkWidth(measured.table, width, page.margins.left)
                     val headerHeight = measured.offsets[block.repeatedHeaderRows]
                     val freshData = freshHeight() - headerHeight
@@ -264,8 +264,8 @@ internal object FlowLayouter {
         } })
 
         fun resolveTable(t: PdfTable): PdfTable = PdfTable(t.columnWidths, t.rows.map { row -> PdfTableRow(row.cells.map { cell ->
-            PdfTableCell(cell.blocks.map { when (it) { is PdfParagraph -> resolve(it); is PdfTable -> resolveTable(it); is PdfImage -> it; is PdfTextBox -> error("Frame in table") } }, cell.background, cell.columnSpan, cell.rowSpan, cell.verticalAlignment, cell.borders)
-        }, row.allowSplit, row.splitOversized) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent, t.widthPolicy, t.semantics)
+            PdfTableCell(cell.blocks.map { when (it) { is PdfParagraph -> resolve(it); is PdfTable -> resolveTable(it); is PdfImage -> it; is PdfTextBox -> error("Frame in table") } }, cell.background, cell.columnSpan, cell.rowSpan, cell.verticalAlignment, cell.borders, cell.preferredWidth)
+        }, row.allowSplit, row.splitOversized) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent, t.widthPolicy, t.semantics, t.preferredWidth)
 
         val floatingImages = mutableListOf<Pair<PdfAnchoredImage, Float>>()
         val floatingBoxes = mutableListOf<Pair<PdfTextBox, Float>>()
@@ -289,7 +289,7 @@ internal object FlowLayouter {
                 }
                 is PdfTable -> {
                     if (block.widthPolicy == PdfTableWidthPolicy.FIXED) TableLayouter.checkWidth(block, width, page.margins.left)
-                    val measured = TableLayouter.measure(resolveTable(block), measurer)
+                    val measured = TableLayouter.measure(resolveTable(block), measurer, width)
                     if (block.widthPolicy != PdfTableWidthPolicy.FIXED) TableLayouter.checkWidth(measured.table, width, page.margins.left)
                     TableLayouter.slice(measured, 0f, measured.contentEnd, page.margins.left + block.leftIndent, top, elements)
                     top += measured.height

@@ -16,10 +16,10 @@ internal object TableLayouter {
 
     }
 
-    fun measure(source: PdfTable, measurer: TextMeasurer, depth: Int = 0): Measured {
+    fun measure(source: PdfTable, measurer: TextMeasurer, availableWidth: Float, depth: Int = 0): Measured {
         require(depth <= 1) { "Only one nested table level is supported" }
-        if (depth > 0 && source.widthPolicy != PdfTableWidthPolicy.FIXED) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Natural widths in nested tables are not qualified")
-        val table = TableWidthResolver.resolve(source, measurer)
+        if (depth > 0 && source.widthPolicy == PdfTableWidthPolicy.FIT_CONTENTS) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Natural widths in nested tables are not qualified")
+        val table = TableWidthResolver.resolve(source, measurer, availableWidth)
         val customBorders = table.rows.any { row -> row.cells.any { it.borders != null } }
         val styles = table.rows.flatMap { it.cells }.flatMap { cell ->
             cell.borders?.let { listOfNotNull(it.top, it.right, it.bottom, it.left).map { it.border } } ?: listOfNotNull(table.border)
@@ -54,11 +54,11 @@ internal object TableLayouter {
                         top += after
                     }
                     is PdfTable -> {
-                        if (block.widthPolicy != PdfTableWidthPolicy.FIXED) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Natural widths in nested tables are not qualified")
+                        if (block.widthPolicy == PdfTableWidthPolicy.FIT_CONTENTS) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Natural widths in nested tables are not qualified")
                         // A nested table's explicit indentation can consume the parent's right
                         // padding, but its border must remain inside the parent cell.
-                        checkWidth(block, width + table.cellMargins.right, 0f)
-                        val child = measure(block, measurer, depth + 1)
+                        val child = measure(block, measurer, width, depth + 1)
+                        checkWidth(child.table, width + table.cellMargins.right, 0f)
                         val elements = mutableListOf<PositionedElement>()
                         slice(child, 0f, child.contentEnd, block.leftIndent, 0f, elements)
                         pieces += Piece(top, child.height, elements)

@@ -80,7 +80,7 @@ internal object NoteFlowLayouter {
                     var before = ParagraphSpacing.before(block, after, bodyItems == 0, block.format.pageBreakBefore)
                     if (block.format.keepWithNext && blockIndex >= protectedThrough) {
                         val groupBlocks = if (blockIndex < document.blocks.size) document.blocks else bodyBlocks
-                        val group = ParagraphKeeps.measure(groupBlocks, blockIndex, { paragraph(groupBlocks[it] as PdfParagraph) }, measurer)
+                        val group = ParagraphKeeps.measure(groupBlocks, blockIndex, { paragraph(groupBlocks[it] as PdfParagraph) }, measurer, width)
                         if (group != null) {
                             val calls = linkedSetOf<String>()
                             for (index in blockIndex..group.lastIndex) when (val member = bodyBlocks[index]) {
@@ -89,7 +89,7 @@ internal object NoteFlowLayouter {
                                     val lines = if (index == group.lastIndex) protectedStart(part) else part.lines.size
                                     part.lines.take(lines).forEach { calls += NoteResolver.callIds(it) }
                                 }
-                                is PdfTable -> calls += NoteResolver.callIds(tablePrefix(member, measurer))
+                                is PdfTable -> calls += NoteResolver.callIds(tablePrefix(member, measurer, width))
                                 else -> Unit
                             }
                             if (group.minimum > physicalBottom - page.margins.top + .001f) overflow()
@@ -143,7 +143,7 @@ internal object NoteFlowLayouter {
                     pages.last() += placed
                 }
                 is PdfTable -> {
-                    val table = TableLayouter.measure(block, measurer)
+                    val table = TableLayouter.measure(block, measurer, width)
                     TableLayouter.checkWidth(table.table, width, page.margins.left)
                     val left = page.margins.left + block.leftIndent
                     if (block.rows.any { it.allowSplit }) unsupported("Splitting table rows with notes is not qualified")
@@ -195,8 +195,8 @@ internal object NoteFlowLayouter {
         else -> minOf(2, p.lines.size)
     }
 
-    private fun tablePrefix(table: PdfTable, measurer: TextMeasurer): List<PositionedElement> {
-        val measured = TableLayouter.measure(table, measurer)
+    private fun tablePrefix(table: PdfTable, measurer: TextMeasurer, width: Float): List<PositionedElement> {
+        val measured = TableLayouter.measure(table, measurer, width)
         val target = mutableListOf<PositionedElement>()
         TableLayouter.slice(measured, 0f, measured.offsets[table.repeatedHeaderRows + 1], 0f, 0f, target)
         return target
