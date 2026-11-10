@@ -140,6 +140,9 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     source.failure(message, part)
                 }
+                NativeWordTextInput.validateSource(root, { source.current = it }) { message ->
+                    throw source.failure(message, part)
+                }
                 WordThemeColors.validateSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)

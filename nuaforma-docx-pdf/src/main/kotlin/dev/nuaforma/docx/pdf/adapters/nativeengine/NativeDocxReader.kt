@@ -525,6 +525,17 @@ internal class NativeDocxReader(
                             "Decorated or forced complex-script checkbox fields are outside this profile")
                         return listOf(NativeWordCheckbox.read(form, face.size ?: reject("Missing checkbox font size"), face.bold, face.color, { source.current = it }, ::reject))
                     }
+                    if (instruction.kind == "FORMTEXT") {
+                        val form = formFields[run] ?: reject("Text input field requires its own form metadata")
+                        NativeWordTextInput.validate(form.data, { source.current = it }, ::reject)
+                        run.elements().forEach { children(it, setOf("rPr", "t")) }
+                        source.current = run
+                        activePart = provenance[run] ?: activePart
+                        check(run.elements().any { child -> child.elements().any { it.name.localPart == "t" &&
+                            it.children.filterIsInstance<XmlText>().any { text -> text.text.isNotEmpty() } } },
+                            "Text input field requires a stored current display value")
+                        return run.elements().flatMap { readRun(it, link, logicalLink) }
+                    }
                     if (instruction.kind == "SET") {
                         run.elements().forEach { children(it, setOf("rPr", "t")) }
                         check(link == null && pendingDestinations.isEmpty(), "Navigation on SET assignments is outside this profile")

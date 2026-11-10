@@ -34,7 +34,7 @@ internal object NativeDocxFields {
         }
         if (tokens.isEmpty()) fail("Empty field instruction")
         val kind = tokens.first().uppercase(Locale.ROOT)
-        if (kind !in setOf("SEQ", "REF", "PAGEREF", "PAGE", "NUMPAGES", "SECTIONPAGES", "TOC", "DOCPROPERTY", "SET", "FORMCHECKBOX")) fail("Unsupported field instruction")
+        if (kind !in setOf("SEQ", "REF", "PAGEREF", "PAGE", "NUMPAGES", "SECTIONPAGES", "TOC", "DOCPROPERTY", "SET", "FORMCHECKBOX", "FORMTEXT")) fail("Unsupported field instruction")
         var cursor = 1
 
         fun next() = tokens.getOrNull(cursor++) ?: fail("Missing field argument")
@@ -56,7 +56,7 @@ internal object NativeDocxFields {
             if (switch == "\\*") {
                 val format = next().uppercase(Locale.ROOT)
                 if (format !in setOf("ARABIC", "MERGEFORMAT") || !seen.add("$switch:$format")) fail("Unsupported or duplicate field formatting")
-                if (kind in setOf("DOCPROPERTY", "SET", "FORMCHECKBOX") && format != "MERGEFORMAT") fail("Unsupported static field formatting")
+                if (kind in setOf("DOCPROPERTY", "SET", "FORMCHECKBOX", "FORMTEXT") && format != "MERGEFORMAT") fail("Unsupported static field formatting")
                 continue
             }
             if (!seen.add(switch)) fail("Duplicate field switch")
@@ -119,7 +119,9 @@ internal object NativeDocxFields {
         fun simple(code: String, cached: List<XmlElement>, form: Form?, origin: XmlElement): List<XmlElement> {
             val kind = instruction(code, fail).kind
             val contents = kind == "TOC"
-            if ((kind == "FORMCHECKBOX") != (form != null)) fail("Checkbox field requires its own form metadata")
+            if (kind == "FORMTEXT") {
+                if (form == null) fail("Text input field requires its own form metadata")
+            } else if ((kind == "FORMCHECKBOX") != (form != null)) fail("Checkbox field requires its own form metadata")
             val runs = cached.filter { local(it, "r") }
             val bookmarks = cached.filter { !local(it, "r") }
             if (!contents) for (marker in bookmarks) {
