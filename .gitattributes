@@ -60,3 +60,5 @@ nuaforma-docx-pdf/src/test/resources/regular-text-inputs/**/word-reference.pdf.p
 nuaforma-docx-pdf/src/test/resources/editing-selections/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 
 /nuaforma-docx-pdf/src/test/resources/note-separator-formatting/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+/nuaforma-docx-pdf/src/test/resources/sequence-code-formatting/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

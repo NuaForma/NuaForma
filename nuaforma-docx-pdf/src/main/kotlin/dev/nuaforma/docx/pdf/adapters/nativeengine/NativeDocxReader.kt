@@ -150,12 +150,13 @@ internal class NativeDocxReader(
             provenance[copy] = provenance[original] ?: activePart; source.alias(copy, original)
         }, ::reject)
         parsed.forEach { (name, root) -> activePart = name; propertyParagraphs.normalize(root) }
+        val fieldCodeStyles = java.util.IdentityHashMap<XmlElement, XmlElement?>()
         val formFields = java.util.IdentityHashMap<XmlElement, NativeDocxFields.Form>()
         parsed.forEach { (name, root) ->
             activePart = name; source.current = root
             NativeDocxFields.normalize(root, ::reject, formFields, { field, original ->
                 provenance[field] = name; source.alias(field, original)
-            }) { source.current = it }
+            }, formatting = { field, properties -> fieldCodeStyles[field] = properties }) { source.current = it }
         }
         val blockBoundaryTextRanges = mutableSetOf<String>()
         parsed.forEach { (name, root) -> activePart = name; blockBoundaryTextRanges += NativeDocxBookmarks(context).normalize(root, { source.current = it }, ::reject) }
@@ -509,7 +510,7 @@ internal class NativeDocxReader(
             }
 
             fun readRun(run: XmlElement, link: PdfLink? = null, logicalLink: String? = null): List<PdfInline> {
-            source.current = run
+                source.current = run
                 if (run.name.localPart == "fldSimple") {
                     attributes(run, setOf("instr", "dirty", "fldLock"))
                     check(run.value("fldLock") in setOf(null, "0", "false", "off"), "Locked field results are not qualified")
@@ -565,8 +566,12 @@ internal class NativeDocxReader(
                     val cached = run.elements()
                     check(cached.isNotEmpty(), "A field needs an explicit formatting sample")
                     cached.forEach { children(it, setOf("rPr", "t")) }
-                    val face = faceFor(cached.first().one("rPr"))
-                    check(cached.all { faceFor(it.one("rPr")) == face }, "Mixed field-result formatting is not qualified")
+                    val cachedFace = faceFor(cached.first().one("rPr"))
+                    check(cached.all { faceFor(it.one("rPr")) == cachedFace }, "Mixed field-result formatting is not qualified")
+                    source.current = run
+                    activePart = provenance[run] ?: activePart
+                    if (instruction.charFormat) check(fieldCodeStyles.containsKey(run), "CHARFORMAT requires a qualified complex sequence code")
+                    val face = if (instruction.kind == "SEQ" && !instruction.mergeFormat) faceFor(fieldCodeStyles[run]) else cachedFace
                     check(face.rtl != true, "Forced complex-script page fields are not qualified")
                     check(link == null, "Nested field hyperlinks are not qualified")
                     source.current = run
