@@ -61,3 +61,38 @@ The adapter retains the range when any story contains a REF/PAGEREF/HYPERLINK in
 The `editing-bookmark/{a4,letter}` probes place the empty pair after paragraph text or directly before final section properties. Their actual Word-export pixels remain equal to the existing controls; all four PDF profiles reuse the existing immutable goldens. Regressions cover retained references across stories, split instructions, ordinary/nonempty ranges and invalid originals. The Playground shares the same handling without an additional option.
 
 Rebuild using `python tools/pdf-evaluation/own-engine/build_editing_bookmark_fixture.py --base nuaforma-docx-pdf/src/test/resources --output build/editing-bookmark-sources`, then export independently with Word and the exact fixture fonts. Run `./gradlew :nuaforma-docx-pdf:test --tests 'dev.nuaforma.docx.pdf.NativeEditingBookmarkTest'` and the normal build. Microsoft's [OOXML guidance](https://learn.microsoft.com/en-us/office/dev/add-ins/word/create-better-add-ins-for-word-with-office-open-xml) identifies the hidden default `_GoBack` tags as removable editing markup.
+
+
+## Regular legacy text inputs
+
+Unreleased #290 prints the stored current display runs of validated regular `FORMTEXT` fields, preserving their individual text formatting. Editing defaults, enabled/calculate-on-exit flags and maximum input length do not replace or truncate that displayed value. Qualified sources include differing defaults, disabled editing, short maximum length, `MERGEFORMAT`, empty or case-insensitive ASCII Uppercase editing format and empty editing names and repeated header/footer/body fields on A4/Letter. Non-Latin text and an unclosed template brace only in an editing default remain nonprinting metadata.
+
+The source guard validates original `ffData`/`textInput` before typed binding. Only regular input and text-only current result runs are qualified. Active field types, macros, unknown/duplicate or foreign properties, unsupported formats and absent current display runs remain explicit failures. An uncached empty field has a distinct Word placeholder width, so the adapter does not silently omit it or invent its value. The shared text/font profile still applies: explicit en-space placeholder runs are currently rejected by rendering rather than replaced with ordinary spaces. The output is printed text; interactive PDF form creation remains outside this feature.
+
+Reproduce the synthetic sources with `python tools/pdf-evaluation/own-engine/build_regular_text_input_fixtures.py --base nuaforma-docx-pdf/src/test/resources --output build/regular-text-input-sources`, then export exact-source Word references separately. The combined source candidate passed provider tests, real HTTP and Playground checks and the normal full build (1,759 tests); the maintained inputs include deliberate negative cases as well as successful controls. No public API, model type, font substitution or dependency is added.
+
+## Unused editing selections
+
+Unreleased #291 extends the private `_GoBack` print normalization to independently qualified nonempty selections. The adapter removes only a unique unused exact-name range's two validated markers in supported paragraph/document-body positions. Every visible node and ordinary bookmark remains intact. Original and cleanup template bytes are preserved. Part-local IDs, malformed-marker guards and referenced editing bookmarks keep their existing behavior.
+
+Editing markers are handled before both property-field and general field normalization, so an unused cursor selection cannot split an otherwise valid instruction. Exact-source Word selected/control probes cover paragraph, cross-paragraph, document-body and table selections plus complex field instructions/results on A4/Letter. Initial native controls are visually reviewed; no protected golden is replaced. Provider, real HTTP and Playground checks passed together with the normal full build (1,759 tests).
+
+Reproduce these sources with `python tools/pdf-evaluation/own-engine/build_editing_selection_fixtures.py --base nuaforma-docx-pdf/src/test/resources --output build/editing-selection-sources`. The earlier empty-bookmark and navigation restrictions continue to apply to the scenarios they cover; arbitrary column ranges and missing visible destination anchors are not introduced by this change.
+
+## Sequence field formatting
+
+Unreleased source #293 resolves Word SEQ formatting in the DOCX adapter. Without MERGEFORMAT, the first actual field-code character supplies the complex field's run properties; leading whitespace-only code runs do not select a style. A simple field has no physical code run and uses its paragraph context. MERGEFORMAT retains the uniform stored-result formatting. CHARFORMAT is qualified only for complex SEQ fields; conflicting switches, other field kinds and unsupported source combinations remain explicit failures. The stored result still supplies a required formatting sample, not the generated sequence value.
+
+Original malformed code-run properties, duplicate properties, foreign namespaces and invalid on/off flags cannot disappear through typed binding. Resolved styles use the existing shared PDF text model, including automatic line metrics. Source origins and request-local sequence state remain intact. No public model, package or dependency is added.
+
+Eighteen exact-source A4/Letter Word field pairs agree pixel-for-pixel with ten independently authored literal-format Word controls at 144 dpi. Those controls cover font size/color, retained cache formatting, simple/complex fields, split code runs and automatic line spacing. Ten initial native PNGs were visually reviewed; protected goldens were not replaced. The initial 24 field HTTP requests, including all four output profiles on representative cases, retain exact native pixels, complete Word text and embedded fonts, with maximum measured text differences of 0.14 points. Combined provider/full qualification passed with 1,759 tests.
+
+Reproduce the source parts with `python tools/pdf-evaluation/own-engine/build_sequence_code_formatting_fixtures.py --base nuaforma-docx-pdf/src/test/resources --output build/sequence-code-sources`, then export exact-source Word references separately. Playground cleanup retains the original field instructions and stale cache bytes without evaluating the template.
+
+## Combined source qualification
+
+Unreleased source #288/#290/#291/#292/#293 passed the normal full build with 1,759 tests (832 in the production DOCX/PDF adapter), with no test failures, errors or skips. Independent fixtures include 162 exact-source Word pairs across A4 and Letter and 54 visually reviewed initial native golden pages; no existing protected golden was replaced.
+
+Real HTTP qualification covered 191 successful PDF requests with 226 exact native golden pages, all four supported output profiles on representative cases, 33 rejected inputs with no partial PDF, and 18 actual Playground cleanup/download/idempotence/reuse cases. Strict comparisons retained complete Word text, embedded fonts and paper dimensions, with measured anchor differences no greater than 0.18 points. Continued-note/endnote cases separately retain the explicitly documented baseline geometry limits, exact native pixels and independent Word variant/control equality; those limits are not masked or treated as solved.
+
+The private local corpus still produces 10 complete PDFs from 250 inputs; nine first blockers progressed and all 15 previously successful pages remain pixel-identical. This source qualification does not imply that the remaining corpus or arbitrary Word features are supported, or that this work has been released.

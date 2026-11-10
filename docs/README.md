@@ -141,3 +141,7 @@ Unreleased #254–#257 qualify original proofing preferences, printer-tray metad
 
 - [Character spacing](character-spacing.md): shared physical tracking and qualified DOCX translation (#266).
 - [Theme cell fills](theme-cell-fills.md): direct/inherited theme backgrounds and Word controls (#265).
+
+- [Word paragraph-style defaults](word-paragraph-style-defaults.md): qualified implicit defaults and source retention (unreleased source work).
+
+- [Word note separator metadata](word-note-separator-metadata.md): qualified nonprinting control formatting, original-source guards and retained pagination limits.

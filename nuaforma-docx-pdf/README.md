@@ -173,3 +173,9 @@ Source #253 qualifies [ordered bookmark endings in tables](../docs/word-fields-a
 ### Additional unreleased source qualifications (#254–#257)
 
 Validated [spelling/grammar display preferences](../docs/word-passive-editing-preferences.md#spelling-and-grammar-display-preferences-source-254), [printer tray codes](../docs/word-initial-section-metadata.md#printer-tray-selection-source-255) and [empty unused Word editing bookmarks](../docs/word-fields-and-bookmarks.md#empty-word-editing-bookmarks-source-256) are omitted only from the private print interpretation. Original template/qualified cleanup bytes remain intact. [Explicit default font hints](../docs/word-mixed-latin-fonts.md#explicit-default-font-hints-source-257) use the existing qualified font selector. Original malformed metadata, active references and unqualified font overrides retain their strict source checks. A4/Letter Word counterfactuals and all four PDF profiles reuse existing immutable goldens. The Playground shares the same provider behavior; these changes add no option, package, dependency or public model.
+
+Unreleased implicit paragraph-style handling and its qualified limits are documented in [Word paragraph-style defaults](../docs/word-paragraph-style-defaults.md).
+
+Unreleased regular legacy text inputs and unused Word editing selections are described in the [field and bookmark guide](../docs/word-fields-and-bookmarks.md), including remaining character and navigation limits.
+
+Unreleased source work additionally qualifies [note separator metadata](../docs/word-note-separator-metadata.md) and [Word sequence field formatting](../docs/word-fields-and-bookmarks.md#sequence-field-formatting), preserving the documented source and rendering limits.
