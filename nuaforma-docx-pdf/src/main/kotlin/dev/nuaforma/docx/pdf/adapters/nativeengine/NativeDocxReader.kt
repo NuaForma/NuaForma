@@ -348,14 +348,19 @@ internal class NativeDocxReader(
         val defaultParagraph = defaults?.one("pPrDefault")?.one("pPr")
         val styles = stylesRoot.elements().filter { it.name.localPart == "style" }.associateBy { it.value("styleId") ?: reject("Style without ID") }
         check(styles.size == stylesRoot.elements().count { it.name.localPart == "style" }, "Duplicate style ID")
-        val normal = styles.values.singleOrNull { it.value("type") == "paragraph" && it.value("default") in setOf("1", "true") }?.value("styleId")
-            ?: reject("Explicit default paragraph style is required")
+        val normalStyle = WordParagraphStyleDefaults(context).select(styles.values) { node, message ->
+            source.current = node
+            activePart = "word/styles.xml"
+            reject(message)
+        }
+        val normal = normalStyle?.value("styleId")
 
         val defaultTables = styles.values.filter { it.value("type") == "table" && it.value("default") in setOf("1", "true", "on") }
         check(defaultTables.size <= 1, "Multiple default table styles are not qualified")
         val defaultTable = defaultTables.singleOrNull()?.value("styleId")
 
-        fun chain(id: String, type: String, seen: Set<String> = emptySet()): List<XmlElement> {
+        fun chain(id: String?, type: String, seen: Set<String> = emptySet()): List<XmlElement> {
+            if (id == null) return emptyList()
             check(id !in seen && seen.size < 16, "Cyclic or excessive style inheritance")
             val style = styles[id] ?: reject("Unknown style")
             check(style.value("type") == type, "Wrong style type")
@@ -427,7 +432,7 @@ internal class NativeDocxReader(
             val tableJustification = tableStyles.any { it.one("pPr")?.one("jc") != null }
             var geometry = paragraphChain.fold(Geometry()) { result, property ->
                 val resolved = paragraphProperties(property, result)
-                if (legacyTableHierarchy && tableJustification && property === styles.getValue(normal).one("pPr") &&
+                if (legacyTableHierarchy && tableJustification && property === normalStyle?.one("pPr") &&
                     property.one("jc")?.value("val") == "left") resolved.copy(alignment = result.alignment) else resolved
             }
             val automaticBefore = geometry.autoBefore && !formatting.additiveParagraphSpacing
@@ -456,7 +461,7 @@ internal class NativeDocxReader(
             val tableSize = tableStyles.any { it.one("rPr")?.one("sz") != null }
             val base = (tableStyles + styleChain).fold(resolveRun(defaultRun, Face(openType = modernTableAlignment || formatting.openTypeFeatures))) { result, style ->
                 val resolved = resolveRun(style.one("rPr"), result)
-                if (legacyTableHierarchy && tableSize && style === styles.getValue(normal) && style.one("rPr")?.one("sz") != null &&
+                if (legacyTableHierarchy && tableSize && style === normalStyle && style.one("rPr")?.one("sz") != null &&
                     resolved.size in setOf(11f, 12f)) resolved.copy(size = result.size) else resolved
             }
 

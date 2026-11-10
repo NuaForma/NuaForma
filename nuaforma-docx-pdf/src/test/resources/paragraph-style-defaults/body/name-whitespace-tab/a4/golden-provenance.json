@@ -1,0 +1,14 @@
+{
+  "issues": [
+    288
+  ],
+  "golden": "paragraph-style-defaults/body/explicit-normal/a4/page-1.png",
+  "note": "Exact-source Word boundary proof: NBSP/tab/ideographic-space trim; en-space/narrow-NBSP remain literal. Counterfactual Word pages are pixel-identical. No golden replaced.",
+  "sha256": {
+    "source.docx": "c83aa482b57145c965d45c33274b010d039d9c367e5672c31a0dc7f94cda2332",
+    "word-reference.pdf": "9d9e8c41e349262698a418505d7467a7490838ffd5cb6acffe3f1ba97d226406",
+    "word-reference.pdf.provenance.json": "1a54b0994448fae70823249535a4a36488796fd328bfadff14d7a3dffb17884b",
+    "page-1.png": "4c95f9835162cd14960d9d9998adef6d32817fb9356acd71967af4b6db262145"
+  },
+  "qualification": "Combined normal full build PASS (1759 tests,832 native); real HTTP and Playground source-retention/reuse checks PASS. Existing note baseline geometry limits remain explicitly documented; no protected golden replacement."
+}

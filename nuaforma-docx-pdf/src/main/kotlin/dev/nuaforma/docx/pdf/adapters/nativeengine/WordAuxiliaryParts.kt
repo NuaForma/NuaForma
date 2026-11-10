@@ -7,6 +7,7 @@ import javax.xml.namespace.QName
 /** Validate unused OPC resources; rendering still uses explicit source styling and caller font bytes. */
 internal class WordAuxiliaryParts(private val context: GenerationContext,
     private val failure: (String, XmlElement, String) -> NativeDocxReadException) {
+    private val paragraphDefaults = WordParagraphStyleDefaults(context)
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private val office = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
     private val packageRel = "http://schemas.openxmlformats.org/package/2006/relationships"
@@ -92,6 +93,9 @@ internal class WordAuxiliaryParts(private val context: GenerationContext,
 
     private fun attributes(node: XmlElement): Map<QName, String> {
         val result = node.attributes.filterKeys { it != QName(mc, "Ignorable") }.toMutableMap()
+        if (node.name == QName(word, "name")) result[QName(word, "val")]?.let { value ->
+            result[QName(word, "val")] = paragraphDefaults.comparableName(value)
+        }
         val toggle = node.name.namespaceURI == word && node.name.localPart in toggleElements
         if (toggle && QName(word, "val") !in result) result[QName(word, "val")] = "true"
         for ((key, value) in result.toMap()) {

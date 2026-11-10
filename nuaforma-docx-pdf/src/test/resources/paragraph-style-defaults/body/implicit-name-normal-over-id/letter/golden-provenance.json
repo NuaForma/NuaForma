@@ -1,0 +1,14 @@
+{
+  "issues": [
+    288
+  ],
+  "golden": "paragraph-style-defaults/body/explicit-name-normal-over-id/letter/page-1.png",
+  "note": "Exact-source genuine Word export; implicit cases match independent explicit Word counterfactuals in pixels and text. Initial native control images; no existing golden replaced.",
+  "sha256": {
+    "source.docx": "8585d1d62bddb9c78533117e54a993a51b752b630e492cc0467b25612fb863e4",
+    "word-reference.pdf": "8149ab27ab88176667b2f5bd3fa653ea4ff4440c0750d184275ed95e6b6b1808",
+    "word-reference.pdf.provenance.json": "02a258148810be226ec49833c09c2b21292a558b64f12c4bcddc6c1453460958",
+    "page-1.png": "16a3ab1903b0c8f1025fdb07833208622bcebc766e95a472999ed00e3fee75e3"
+  },
+  "qualification": "Combined normal full build PASS (1759 tests,832 native); real HTTP and Playground source-retention/reuse checks PASS. Existing note baseline geometry limits remain explicitly documented; no protected golden replacement."
+}

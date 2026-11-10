@@ -136,6 +136,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     source.failure("Unsupported original Word numbering-style definition", part)
                 }
+                if (part in setOf("word/styles.xml", "word/stylesWithEffects.xml")) WordParagraphStyleDefaults(context).validateSource(root) { node, message ->
+                    source.current = node
+                    source.failure(message, part)
+                }
                 WordThemeColors.validateSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)
