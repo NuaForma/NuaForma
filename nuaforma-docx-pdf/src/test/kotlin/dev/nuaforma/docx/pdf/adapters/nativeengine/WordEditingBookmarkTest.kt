@@ -38,8 +38,9 @@ class WordEditingBookmarkTest {
             "<w:p><w:r><w:fldChar w:fldCharType=\"begin\"/></w:r><w:r><w:instrText> REF _go</w:instrText></w:r>" +
                 "<w:r><w:instrText>back </w:instrText></w:r><w:r><w:fldChar w:fldCharType=\"separate\"/></w:r>" +
                 "<w:r><w:t>Cached</w:t></w:r><w:r><w:fldChar w:fldCharType=\"end\"/></w:r></w:p>")
-        for (field in fields) {
-            val root = document("<w:p>$pair</w:p>" + field)
+        val selection = pair.replace("/><w:bookmarkEnd", "/><w:r><w:t>Selected reference text</w:t></w:r><w:bookmarkEnd")
+        for (field in fields) for (range in listOf(pair, selection)) {
+            val root = document("<w:p>$range</w:p>" + field)
             val before = xml.write(root)
             normalize(listOf(root))
             assertArrayEquals(before, xml.write(root))
@@ -52,13 +53,15 @@ class WordEditingBookmarkTest {
     }
 
     @Test
-    fun `nonempty editing ranges and ordinary bookmark destinations remain unchanged`() {
-        for (content in listOf(pair.replace("/><w:bookmarkEnd", "/><w:r><w:t>Selected text</w:t></w:r><w:bookmarkEnd"),
-            pair.replace("_GoBack", "VisibleDestination"), "<w:hyperlink>$pair</w:hyperlink>")) {
+    fun `unused selections retain styled text while ordinary and unsupported parent ranges remain intact`() {
+        val selected = "<w:r><w:rPr><w:b/></w:rPr><w:t>Selected text</w:t></w:r>"
+        val editing = pair.replace("/><w:bookmarkEnd", "/>$selected<w:bookmarkEnd")
+        val ordinary = editing.replace("_GoBack", "VisibleDestination")
+        val unsupported = "<w:hyperlink>$pair</w:hyperlink>"
+        for ((content, expected) in listOf(editing to selected, ordinary to ordinary, unsupported to unsupported)) {
             val root = document("<w:p>$content</w:p>")
-            val before = xml.write(root)
             normalize(listOf(root))
-            assertArrayEquals(before, xml.write(root))
+            assertArrayEquals(xml.write(document("<w:p>$expected</w:p>")), xml.write(root))
         }
     }
 

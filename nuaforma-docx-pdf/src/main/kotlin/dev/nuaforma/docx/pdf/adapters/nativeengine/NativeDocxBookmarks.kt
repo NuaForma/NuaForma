@@ -20,7 +20,7 @@ internal class NativeDocxBookmarks(private val context: GenerationContext) {
         }
     }
 
-    /** Omit only unused empty Word editing-position ranges; keep every paragraph and visible bookmark. */
+    /** Omit only unused Word editing selections; keep every visible node and referenced bookmark. */
     fun normalizeEditing(roots: Collection<XmlElement>, focus: (XmlElement) -> Unit, reject: (String) -> Nothing) {
         val starts = roots.flatMap { root -> root.descendants().filter { isWord(it, "bookmarkStart") && it.attribute(word, "name") == "_GoBack" }.toList() }
         if (starts.isEmpty()) return
@@ -31,20 +31,19 @@ internal class NativeDocxBookmarks(private val context: GenerationContext) {
         }
         if (roots.any(::referencesEditingBookmark)) return
         val start = starts.single()
-        for (root in roots) for (parent in root.descendants().toList()) {
+        val owner = roots.single { root -> root.descendants().any { it === start } }
+        val end = owner.descendants().single { isWord(it, "bookmarkEnd") && it.attribute(word, "id") == start.attribute(word, "id") }
+        var startParent: XmlElement? = null
+        var endParent: XmlElement? = null
+        for (parent in owner.descendants()) {
             context.checkActive()
-            val elements = parent.elements()
-            val index = elements.indexOfFirst { it === start }
-            if (index < 0) continue
-            if (!isWord(parent, "p") && !isWord(parent, "body")) return
-            val end = elements.getOrNull(index + 1) ?: return
-            if (!isWord(end, "bookmarkEnd") || end.attribute(word, "id") != start.attribute(word, "id")) return
-            val between = parent.children.subList(parent.children.indexOf(start) + 1, parent.children.indexOf(end))
-            if (between.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) return
-            parent.children.remove(start)
-            parent.children.remove(end)
-            return
+            if (parent.children.any { it === start }) startParent = parent
+            if (parent.children.any { it === end }) endParent = parent
         }
+        val parents = listOfNotNull(startParent, endParent)
+        if (parents.size != 2 || parents.any { !isWord(it, "p") && !isWord(it, "body") }) return
+        requireNotNull(startParent).children.remove(start)
+        requireNotNull(endParent).children.remove(end)
     }
 
     private fun referencesEditingBookmark(root: XmlElement): Boolean {

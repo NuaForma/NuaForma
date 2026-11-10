@@ -56,3 +56,5 @@ gradlew.bat text eol=crlf
 nuaforma-docx-pdf/src/test/resources/paragraph-style-defaults/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 
 nuaforma-docx-pdf/src/test/resources/regular-text-inputs/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+nuaforma-docx-pdf/src/test/resources/editing-selections/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

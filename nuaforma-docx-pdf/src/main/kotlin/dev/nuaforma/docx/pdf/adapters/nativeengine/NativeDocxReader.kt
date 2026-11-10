@@ -140,6 +140,9 @@ internal class NativeDocxReader(
             source.current = node
             source.failure("Unsupported Word web settings", "word/webSettings.xml")
         } }
+        NativeDocxBookmarks(context).normalizeEditing(parsed.values, { node ->
+            source.current = node; activePart = provenance[node] ?: activePart
+        }, ::reject)
         val staticFields = NativeWordValues(context, propertyValues, parsed["docProps/core.xml"], { node ->
             source.current = node; activePart = provenance[node] ?: activePart
         }, ::reject)
@@ -154,9 +157,6 @@ internal class NativeDocxReader(
                 provenance[field] = name; source.alias(field, original)
             }) { source.current = it }
         }
-        NativeDocxBookmarks(context).normalizeEditing(parsed.values, { node ->
-            source.current = node; activePart = provenance[node] ?: activePart
-        }, ::reject)
         val blockBoundaryTextRanges = mutableSetOf<String>()
         parsed.forEach { (name, root) -> activePart = name; blockBoundaryTextRanges += NativeDocxBookmarks(context).normalize(root, { source.current = it }, ::reject) }
         staticFields.index(parsed.values)
