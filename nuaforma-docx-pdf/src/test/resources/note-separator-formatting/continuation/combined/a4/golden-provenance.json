@@ -1,0 +1,14 @@
+{
+  "qualification": "Combined normal full build PASS (1759 tests,832 native); real HTTP and Playground source-retention/reuse checks PASS. Existing note baseline geometry limits remain explicitly documented; no protected golden replacement.",
+  "pages": 2,
+  "sha256": {
+    "source.docx": "ca3473f1232340803e3f17c11ac20bd75d99f620ba24aba2a46a873f150f4bb2",
+    "word-reference.pdf": "bb7a54aece4f4691d50e7577f11cf13fde560fa4a49992ee22f46cccc6917213",
+    "word-reference.pdf.provenance.json": "7387776f21d6c234f1cc067916650e5fed101c4cbf8f3444360fc6a6e5869800",
+    "page-1.png": "16d02f4ddb003655a88e02e02cf37341f221d806932c83ba03549e68cea50f26",
+    "page-2.png": "6d9420c2f37deb044c334431f37f5bbbb75ac8e75836b0d7b0a72c8b2b7dd160"
+  },
+  "golden": "note-separator-formatting/continuation/control/a4/",
+  "knownBaselineLimit": "Existing A4 long-note reflow keeps END on page2, Word keeps it on page1. All 38 note markers remain once,2pages retained. This feature does not change or claim to fix that baseline.",
+  "protectedGoldensReplaced": 0
+}
