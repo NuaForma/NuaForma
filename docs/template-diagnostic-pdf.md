@@ -12,6 +12,12 @@ Contract 0.6 adds optional `TemplateDiagnosticProvider.diagnoseTemplate(request,
 
 Package checks, native profile restrictions, font policy, admission, byte/work limits, cancellation and mandatory structural validation remain enabled. There is no Office fallback, external retrieval, second evaluator, server-side artifact cache or partial success output. Unsupported source layouts/fonts can prevent PDF creation. The Playground retains the original error and reports why the PDF is unavailable; it does not substitute a text-only PDF. Valid templates and errors without a reliable source mapping produce no diagnostic artifact.
 
+## Missing font families and variants (selected for 0.5.0-alpha.2)
+
+Development diagnostics for `USED_FONT_FACE_UNAVAILABLE` name the requested family and variant in the existing `sourceExplanation` field, for example `Missing font family: Calibri Light; variant: italic`. Variants are `regular`, `bold`, `italic` and `boldItalic`. The Playground already displays this field as the error's cause. Reader failures also retain the actual package part, paragraph and XML path where available; failures outside a mapped source node do not invent coordinates. Family details are bounded and control/format characters cannot inject diagnostic formatting. Production diagnostics do not capture these font details.
+
+This identifies the first currently missing face, not every missing font or a guarantee that the remaining document layout is supported. Supply the required deployment/caller font and retry. Existing synthetic-bold fallback and exact-face requirements for EMF text remain unchanged, and a missing font still fails generation without publishing PDF bytes. No public contract or frontend change is required.
+
 Source fix #154 excludes Word hidden text from syntax activation and omits it from the private PDF intermediary. Only a visible parser error can create the diagnostic; a template with only hidden errors is valid for syntax inspection and does not produce a diagnostic PDF. See the DOCX visibility rules for inherited styles, overrides and unsupported conditional table visibility. This does not establish the cause or resolution of an unrelated DOCX serialization failure.
 
 

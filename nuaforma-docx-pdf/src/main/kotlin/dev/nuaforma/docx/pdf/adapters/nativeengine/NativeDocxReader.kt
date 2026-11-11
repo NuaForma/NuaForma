@@ -1,6 +1,10 @@
 package dev.nuaforma.docx.pdf.adapters.nativeengine
 
 import dev.nuaforma.contracts.GenerationContext
+import dev.nuaforma.contracts.Diagnostic
+import dev.nuaforma.contracts.GenerationException
+import dev.nuaforma.contracts.LoggingMode
+import dev.nuaforma.contracts.RejectionReason
 import dev.nuaforma.docx.pdf.adapters.ooxml.ConversionXml
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
@@ -60,8 +64,25 @@ internal class NativeDocxReader(
         normalizations: MutableList<WordSourceNormalization>? = null): PdfDocument {
         metafiles = dev.nuaforma.docx.pdf.adapters.nativeengine.emf.NativeEmfImages(context, imageFonts, inspectImages)
         return try { readDocument(bytes, normalizations) }
+        catch (error: GenerationException) { throw locatedFontFailure(error) }
         catch (error: NativeDocxReadException) { throw error }
         catch (_: IllegalArgumentException) { throw source.failure("Unsupported combination of native document formatting", activePart) }
+    }
+
+    private fun locatedFontFailure(error: GenerationException): GenerationException {
+        if (context.logging.mode != LoggingMode.DEVELOPMENT || error.diagnostics.none {
+                it.rejectionReason == RejectionReason.USED_FONT_FACE_UNAVAILABLE && it.sourceContext != null }) return error
+        val diagnostics = error.diagnostics.map { diagnostic ->
+            val detail = diagnostic.sourceContext
+            if (diagnostic.rejectionReason != RejectionReason.USED_FONT_FACE_UNAVAILABLE || detail == null) diagnostic
+            else {
+                val location = source.failure(detail.explanation, activePart)
+                Diagnostic(diagnostic.code, RejectionReason.USED_FONT_FACE_UNAVAILABLE, diagnostic.severity,
+                    location.location, location.part.takeIf { it != "package" })
+                    .withDocumentLocation(location.documentLocation).withSourceContext(location.sourceContext)
+            }
+        }
+        return GenerationException(diagnostics, error)
     }
 
     private fun readDocument(bytes: ByteArray, normalizations: MutableList<WordSourceNormalization>?): PdfDocument {

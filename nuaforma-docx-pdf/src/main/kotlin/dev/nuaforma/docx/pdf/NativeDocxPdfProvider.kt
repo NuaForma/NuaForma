@@ -196,8 +196,8 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
                 val face = when { bold && italic -> "boldItalic"; bold -> "bold"; italic -> "italic"; else -> "regular" }
                 return availableFonts[name to face]
                     ?: if (bold) availableFonts[name to if (italic) "italic" else "regular"]
-                        ?: fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE)
-                    else fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE)
+                        ?: missingFont(context, family, face)
+                    else missingFont(context, family, face)
             }
 
             val usedFonts = linkedMapOf<Pair<String, String>, NativePdfFont>()
@@ -236,10 +236,10 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
                     val face = when { bold && italic -> "boldItalic"; bold -> "bold"; italic -> "italic"; else -> "regular" }
                     // EMF has its own raster text qualification; do not silently synthesize image fonts.
                     val font = availableFonts[family.lowercase(Locale.ROOT) to face]
-                        ?: fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE)
+                        ?: missingFont(context, family, face)
                     fontReference(family, bold, italic)
                     try { font.source().openStream().use { java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, it) } }
-                    catch (_: java.awt.FontFormatException) { fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE) }
+                    catch (_: java.awt.FontFormatException) { missingFont(context, family, face) }
                 }
             })
             val watermark = prepared?.watermark?.let { resolved ->
@@ -344,6 +344,16 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
     }
 
     private fun unsupported(code: DiagnosticCode, reason: RejectionReason) = CapabilityAssessment(AssessmentStatus.UNSUPPORTED, listOf(Diagnostic(code, reason)))
+}
+
+private fun missingFont(context: GenerationContext, family: String, face: String): Nothing {
+    val diagnostic = Diagnostic(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE)
+    val detailed = if (context.logging.mode == LoggingMode.DEVELOPMENT) {
+        val name = family.take(128).map { if (it.isISOControl() || Character.getType(it) == Character.FORMAT.toInt()) '\uFFFD' else it }.joinToString("") +
+            if (family.length > 128) "\u2026" else ""
+        diagnostic.withSourceContext(DocumentSourceContext("Missing font family: $name; variant: $face", null, null, ""))
+    } else diagnostic
+    throw GenerationException(listOf(detailed))
 }
 
 private fun fail(code: DiagnosticCode, reason: RejectionReason): Nothing = throw GenerationException(listOf(Diagnostic(code, reason)))
