@@ -1,0 +1,15 @@
+# Word cell paragraph pagination
+
+Unreleased source #296 omits Word's nonprinting `keepLines` and `widowControl` settings from ordinary, unmerged body-table cells. This qualification covers nonnested body tables and preserves every displayed run, line-spacing policy, cell dimension and original source flag. Other paragraph keeps retain their existing interpretation. The shared PDF model continues to retain those flags for consumers with different document semantics, including future ODT input.
+
+Original flags are validated before typed binding and during direct source reading. Unsupported namespaces or attributes, invalid on/off values, duplicates and nonempty flag elements remain precise source failures. Paragraph keeps in body text are retained. Effective cell `keepNext` and `pageBreakBefore`, and unqualified merged/nested/page-band combinations, keep their existing explicit restrictions.
+
+Unreleased source #298 also lets a naturally sized, splittable first table row use a legal fragment on the available page. Its existing neutral `allowSplit` policy already governs later rows. Repeated headers, insufficient first-fragment space, active minimum-height floors, non-splitting rows and the existing border/span/alignment restrictions remain authoritative.
+
+## Independent fixtures
+
+Sixteen maintained exact-source Word exports cover A4 and Letter, natural wrapping, one or five available line slots, ordinary flags, and effective keep-next rejection cases. Eight wrapped Word variant/control comparisons covering sixteen pages have identical pixels at 144 dpi. Four initial native controls covering eight pages match complete Word text, page assignments, paper dimensions and embedded fonts; the largest measured anchor difference is 0.21 points. Initial native pages were visually reviewed. No existing protected golden file was replaced.
+
+Source generation is reproducible with `python tools/pdf-evaluation/own-engine/build_cell_pagination_fixtures.py --base nuaforma-docx-pdf/src/test/resources --output build/cell-pagination-sources`. Word exports are authored separately from those exact source bytes. Native reference images remain immutable under the normal golden-file policy. Manual line-break support is outside this bounded source qualification.
+
+Combined qualification passed the normal full build with 1,781 tests (852 in the DOCX/PDF adapter), 34 real-HTTP PDFs / 52 exact native golden pages, six actual Playground cleanup/reuse requests / eight exact native golden pages, and sixteen negative HTTP cases without PDF output. The unchanged private corpus now produces eleven PDFs from 250 inputs; all fifteen previously successful pages remain pixel-identical. The newly converted document has a trailing blank fourth page and has not been compared with an actual Word export, so successful generation is not a fidelity claim for that document. The Playground uses the same source interpretation and retains supported original template bytes rather than evaluating instructions during cleanup.

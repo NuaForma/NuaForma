@@ -145,3 +145,5 @@ Unreleased #254–#257 qualify original proofing preferences, printer-tray metad
 - [Word paragraph-style defaults](word-paragraph-style-defaults.md): qualified implicit defaults and source retention (unreleased source work).
 
 - [Word note separator metadata](word-note-separator-metadata.md): qualified nonprinting control formatting, original-source guards and retained pagination limits.
+
+- [Word cell paragraph pagination](word-cell-pagination-defaults.md): ordinary body-cell keeps, first-row fragments, independent Word controls and retained limits (unreleased #296/#298).
