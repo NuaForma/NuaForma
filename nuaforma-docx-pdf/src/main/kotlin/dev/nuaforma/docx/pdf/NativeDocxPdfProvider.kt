@@ -270,14 +270,7 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
         } catch (error: GenerationException) { throw error }
         catch (error: PdfRenderException) {
             context.checkActive()
-            val code = when (error.code) {
-                PdfFailureCode.CANCELLED -> DiagnosticCodes.CANCELLED
-                PdfFailureCode.RESOURCE_LIMIT -> DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED
-                PdfFailureCode.VALIDATION_UNAVAILABLE -> DiagnosticCodes.PROVIDER_UNAVAILABLE
-                PdfFailureCode.VALIDATION_FAILED -> DiagnosticCodes.GENERATION_FAILED
-                else -> DiagnosticCodes.UNSUPPORTED_INPUT
-            }
-            throw GenerationException(listOf(Diagnostic(code, RejectionReason.NATIVE_PDF_RENDER_REJECTED)), error)
+            throw GenerationException(listOf(NativePdfFailureDiagnostics.diagnostic(error, context.logging.mode)), error)
         } catch (error: NativeDocxReadException) {
             throw GenerationException(listOf(Diagnostic(DiagnosticCodes.UNSUPPORTED_INPUT,
                 RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED, location = error.location, part = error.part.takeIf { it != "package" })

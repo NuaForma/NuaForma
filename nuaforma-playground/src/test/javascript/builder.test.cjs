@@ -205,6 +205,19 @@ test('native source diagnostics show the concrete construct path and excerpt as 
   assert.match(text,/Nearby text: Nearby <private> text/);
 });
 
+test('PDF render failures display their concrete cause without inventing source coordinates',()=>{
+  const {api}=fixture();
+  for (const cause of ['CONTENT_OVERFLOW: Paragraph indentation exceeds the physical page',
+    'MISSING_GLYPH: The supplied font cannot encode requested text']) {
+    const text=api.formatDiagnostics([{code:'UNSUPPORTED_INPUT',reason:'NATIVE_PDF_RENDER_REJECTED',
+      message:'The native PDF engine rejected content, fonts or the requested output',sourceExplanation:cause}]);
+    assert.ok(text.includes(`Cause: ${cause}`));
+    assert.ok(!text.includes('Document location:'));
+    assert.ok(!text.includes('Unsupported element:'));
+    assert.ok(!text.includes('Part:'));
+  }
+});
+
 test('DOCX diagnostic buttons keep the failed request and separate preview from normal generation',async()=>{
   for(const preview of [false,true]) {
     const nodes=new Map();
