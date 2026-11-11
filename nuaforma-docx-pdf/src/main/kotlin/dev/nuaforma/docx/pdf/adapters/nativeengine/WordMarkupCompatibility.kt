@@ -143,6 +143,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                 NativeWordTextInput.validateSource(root, { source.current = it }) { message ->
                     throw source.failure(message, part)
                 }
+                NativeCellPagination.validateSource(root) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }
                 NativeDocxFields.validateCodeSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)

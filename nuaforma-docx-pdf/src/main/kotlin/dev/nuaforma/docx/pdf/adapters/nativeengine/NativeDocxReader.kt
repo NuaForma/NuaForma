@@ -904,7 +904,15 @@ internal class NativeDocxReader(
                     else if (!automaticLayout) check(kotlin.math.abs(dimension(cellWidth ?: reject("Missing cell width")) - widths.subList(column, column + span).sum()) < 0.01f, "Inconsistent cell width")
                     val background = cellProperties.mapNotNull { it.one("shd") }.lastOrNull()?.let(themeColors::cellFill)
                     val blocks = cell.elements().filter { it.name.localPart != "tcPr" }.map { child ->
-                        when (child.name.localPart) { "p" -> readParagraph(child, partRelations, fields, cellStyles); "tbl" -> readTable(child, partRelations, fields, depth + 1); else -> reject("Unsupported cell block") }
+                        when (child.name.localPart) {
+                            "p" -> readParagraph(child, partRelations, fields, cellStyles).let { paragraph ->
+                                if (depth == 0 && !fields && span == 1 && cp.one("vMerge") == null)
+                                    paragraph.copy(format = paragraph.format.copy(keepLines = false, widowControl = false))
+                                else paragraph
+                            }
+                            "tbl" -> readTable(child, partRelations, fields, depth + 1)
+                            else -> reject("Unsupported cell block")
+                        }
                     }.let { content ->
                         // Word's required empty cell-end paragraph after a nested table is a terminator,
                         // rather than another visible exact-height text line in this trial profile.
@@ -1394,6 +1402,11 @@ internal class NativeDocxReader(
         val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false, val direction: PdfTextDirection? = null, val borders: PdfParagraphBorders? = null)
 
     private fun paragraphProperties(property: XmlElement, initial: Geometry): Geometry {
+        NativeCellPagination.validateProperties(property) { node, message ->
+            source.current = node
+            activePart = provenance[node] ?: activePart
+            reject(message)
+        }
         children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "rPr", "mirrorIndents", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr", "overflowPunct", "suppressAutoHyphens"))
         var result = initial
         property.one("pBdr")?.let { result = result.copy(borders = lineReader.borders(it, result.borders)) }
