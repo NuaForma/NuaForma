@@ -75,13 +75,15 @@ def qualify(base, catalog, output, runtime):
     assert status == 200
     with zipfile.ZipFile(io.BytesIO(preserved)) as archive:
         assert not any(name.endswith(".odttf") for name in archive.namelist())
-    # Source-font packages are not yet qualified by the native DOCX reader.
-    # Keep DOCX embedding preservation above; PDF must reject that package explicitly.
-    assert generate(base, "pdf", document, {})[0] == 422
+    # Owned source fonts are passive package resources; PDF still uses deployment fonts.
+    status, _, embedded_pdf = generate(base, "pdf", document, {})
+    assert status == 200 and embedded_pdf.startswith(b"%PDF-"), (status, embedded_pdf[:1024])
+    (output / "automatic-embedded-source.pdf").write_bytes(embedded_pdf)
     status, _, pdf = generate(base, "pdf", source.getvalue(), {})
     assert status == 200 and pdf.startswith(b"%PDF-"), (status, pdf[:1024])
     (output / "automatic-fonts.pdf").write_bytes(pdf)
     from qualify_service import verify_pdf_profile
+    verify_pdf_profile(runtime, output / "automatic-embedded-source.pdf", 'pdfa-3b')
     verify_pdf_profile(runtime, output / "automatic-fonts.pdf", 'pdfa-3b')
     (output / "automatic-fonts.json").write_text(json.dumps({"families": families, "faces": sorted(wanted),
-        "checks": ["exact-deobfuscated-SHA256-and-relationships", "used-faces-only", "IMAGE-and-MOUNT", "embedded-preservation", "default-preserve", "embedded-source-PDF-explicitly-unqualified", "actual-validated-PDF-render-from-deployment-fonts"]}, indent=2))
+        "checks": ["exact-deobfuscated-SHA256-and-relationships", "used-faces-only", "IMAGE-and-MOUNT", "embedded-preservation", "default-preserve", "passive-embedded-source-with-deployment-fonts", "actual-validated-PDF-render-from-deployment-fonts"]}, indent=2))
