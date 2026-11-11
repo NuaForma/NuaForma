@@ -1,6 +1,6 @@
 # Static checkbox content (source work for #149)
 
-This source implementation is qualified for the bounded profile below. It is not part of the published alpha.7.
+This source implementation is qualified for the bounded profile below. It is selected for 0.5.0-alpha.1; source qualification does not itself publish artifacts.
 
 The generator evaluates a normal expression before inserting a static inline drawing:
 
