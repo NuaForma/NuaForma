@@ -2,6 +2,10 @@
 
 [Issue #94](https://github.com/NuaForma/NuaForma/issues/94) integrates the public [NuaForma SonarQube Cloud project](https://sonarcloud.io/dashboard?id=NuaForma_NuaForma&branch=develop) with organization `nuaforma`, project key `NuaForma_NuaForma` and the OSS plan. Repository configuration alone does not prove a successful authenticated upload; verify the first CI analysis before closing the issue.
 
+## CI build caching
+
+CI retains Gradle dependency and wrapper caches through the existing pinned `actions/setup-java` step, once per Java or native-container job. Cache keys include the runner platform/architecture and the Gradle scripts, version catalog, wrapper configuration, lockfiles and verification metadata. JDK download caching is disabled because the runner tool cache already supplies the tested JDKs. Cache misses still run the ordinary build; restored files remain subject to strict dependency verification, tests, native qualification and Sonar checks. A cache is not qualification evidence. The first successful run populates it, so this does not promise a particular speedup for a cold build. This does not enable configuration caching or change test parallelism.
+
 ## Local coverage without a token
 
 ```sh

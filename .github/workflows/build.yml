@@ -62,6 +62,16 @@ jobs:
         with:
           distribution: temurin
           java-version: ${{ matrix.java }}
+          cache: gradle
+          cache-jdk: false
+          cache-dependency-path: |
+            *.gradle.kts
+            gradle.properties
+            gradle/**/*.toml
+            gradle/**/*.properties
+            gradle/verification-metadata.xml
+            nuaforma-*/build.gradle.kts
+            nuaforma-*/gradle.lockfile
 
       - name: Validate Gradle Wrapper
         if: steps.reuse.outputs.reuse != 'true'
