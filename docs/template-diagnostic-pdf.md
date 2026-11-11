@@ -12,7 +12,7 @@ Contract 0.6 adds optional `TemplateDiagnosticProvider.diagnoseTemplate(request,
 
 Package checks, native profile restrictions, font policy, admission, byte/work limits, cancellation and mandatory structural validation remain enabled. There is no Office fallback, external retrieval, second evaluator, server-side artifact cache or partial success output. Unsupported source layouts/fonts can prevent PDF creation. The Playground retains the original error and reports why the PDF is unavailable; it does not substitute a text-only PDF. Valid templates and errors without a reliable source mapping produce no diagnostic artifact.
 
-## Missing font families and variants (unreleased)
+## Missing font families and variants (selected for 0.5.0-alpha.2)
 
 Development diagnostics for `USED_FONT_FACE_UNAVAILABLE` name the requested family and variant in the existing `sourceExplanation` field, for example `Missing font family: Calibri Light; variant: italic`. Variants are `regular`, `bold`, `italic` and `boldItalic`. The Playground already displays this field as the error's cause. Reader failures also retain the actual package part, paragraph and XML path where available; failures outside a mapped source node do not invent coordinates. Family details are bounded and control/format characters cannot inject diagnostic formatting. Production diagnostics do not capture these font details.
 
