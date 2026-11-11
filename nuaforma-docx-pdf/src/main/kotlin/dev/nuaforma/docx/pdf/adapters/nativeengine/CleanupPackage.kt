@@ -54,7 +54,7 @@ internal class CleanupPackage(private val original: ByteArray, private val conte
     }
 
     private fun readEntry(input: InputStream, entry: ZipEntry, seen: MutableSet<String>) {
-        budget(++entryCount <= minOf(64, context.limits.maxArchiveEntries))
+        budget(++entryCount <= minOf(256, context.limits.maxArchiveEntries))
         val name = entry.name.removeSuffix("/")
         require(validName(name)) { "Unsafe package entry name" }
         require(seen.add(name)) { "Duplicate package entry" }

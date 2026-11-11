@@ -1582,7 +1582,7 @@ internal class NativeDocxReader(
                 while (true) {
                     context.checkActive()
                     val entry = zip.nextEntry ?: break
-                    budget(parts.size < minOf(64, context.limits.maxArchiveEntries))
+                    budget(parts.size < minOf(256, context.limits.maxArchiveEntries))
                     check(entry.name !in parts && !entry.isDirectory, "Invalid or duplicate ZIP entries")
                     activePart = entry.name.take(256)
                     check(trashItem.matches(entry.name) || entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docMetadata/LabelInfo\\.xml|docProps/thumbnail\\.(?:jpeg|jpg|png|emf)|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|stylesWithEffects|numbering|settings|footnotes|endnotes|fontTable|webSettings|comments(?:Extended|Ids|Extensible)?|people|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|theme/_rels/theme1\\.xml\\.rels|_rels/(?:document|settings|footnotes|endnotes|fontTable|comments(?:Extended|Ids|Extensible)?|people|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|fonts/[A-Za-z0-9_.-]+\\.(?i:odttf|ttf)|media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g))|(?i:customXml)/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
