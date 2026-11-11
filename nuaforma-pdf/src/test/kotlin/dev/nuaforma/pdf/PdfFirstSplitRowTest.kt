@@ -40,6 +40,35 @@ class PdfFirstSplitRowTest {
     }
 
     @Test
+    fun `an ordinary first row uses available space although it fits entirely on a fresh page`() {
+        val row = PdfTableRow(listOf(PdfTableCell((0 until 4).map { paragraph("N$it") })), allowSplit = true)
+        for (withHeader in listOf(false, true)) {
+            val table = if (withHeader) table(row) else PdfTable(listOf(100f), listOf(row), zero)
+            val pages = FlowLayouter.layout(PdfDocument(page, listOf(paragraph("Before", 80f), table), PdfFlow()), measure)
+            assertEquals(2, pages.size)
+            assertTrue(pages.first().elements.filterIsInstance<PositionedText>().any { it.text == "N0" })
+            val all = pages.flatMap { it.elements }.filterIsInstance<PositionedText>().map { it.text }
+            for (index in 0 until 4) assertEquals(1, all.count { it == "N$index" })
+            if (withHeader) assertEquals(2, all.count { it == "Header" })
+        }
+    }
+
+    @Test
+    fun `ordinary first rows keep atomic floors alignment and non-splitting admission`() {
+        val blocks = (0 until 4).map { paragraph("N$it") }
+        val variants = listOf(
+            PdfTableRow(listOf(PdfTableCell(blocks)), allowSplit = false),
+            PdfTableRow(listOf(PdfTableCell(blocks)), allowSplit = true, minimumHeight = 80f),
+            PdfTableRow(listOf(PdfTableCell(blocks, verticalAlignment = PdfVerticalAlignment.CENTER)), allowSplit = true)
+        )
+        for (row in variants) {
+            val pages = FlowLayouter.layout(PdfDocument(page, listOf(paragraph("Before", 80f), table(row)), PdfFlow()), measure)
+            assertEquals(listOf("Before"), pages.first().elements.filterIsInstance<PositionedText>().map { it.text })
+            assertTrue(pages.last().elements.filterIsInstance<PositionedText>().any { it.text == "N0" })
+        }
+    }
+
+    @Test
     fun `non-splitting rows and active minimum floors retain their original page admission`() {
         val unsplit = FlowLayouter.layout(PdfDocument(page, listOf(paragraph("Before"), table(large(false))), PdfFlow()), measure)
         assertEquals(listOf("Before"), unsplit.first().elements.filterIsInstance<PositionedText>().map { it.text })

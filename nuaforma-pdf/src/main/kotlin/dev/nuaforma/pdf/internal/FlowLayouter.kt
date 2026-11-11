@@ -156,8 +156,12 @@ internal object FlowLayouter {
                     var index = block.repeatedHeaderRows
                     val first = measured.heights[index]
                     val firstRow = block.rows[index]
-                    val oversizedSplittable = firstRow.allowSplit && first + measured.closing > freshData
-                    val firstFits = if (oversizedSplittable) {
+                    val minimumOwnsFirstHeight = firstRow.minimumHeight?.let { it >= first - .001f } == true
+                    val firstSplittable = firstRow.allowSplit && !minimumOwnsFirstHeight &&
+                        measured.cells.none { it.placement.cell.rowSpan > 1 } &&
+                        measured.rowCells(index).all { it.placement.cell.verticalAlignment == PdfVerticalAlignment.TOP } &&
+                        (!measured.customBorders || measured.consistentBorders)
+                    val firstFits = if (firstSplittable) {
                         val capacity = bottom - top - headerHeight - measured.frameAt(index) - measured.closing
                         TableLayouter.cut(measured, index, 0f, maxOf(0f, capacity)) > .001f
                     } else fits(headerHeight + minOf(first, freshData - measured.closing) + measured.closing)
