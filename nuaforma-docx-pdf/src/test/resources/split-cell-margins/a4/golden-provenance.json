@@ -1,0 +1,15 @@
+{
+  "issue": 271,
+  "initialGolden": true,
+  "reviewedOn": "2026-11-09",
+  "renderer": "Native PDF engine; PDFBox 96 dpi",
+  "wordReference": "Actual Microsoft Word ExportAsFixedFormat",
+  "visualReview": "All four initial full pages visually reviewed: first row starts after heading, repeated headers, both columns and all70lines retained.144Word markers per paper; max dx .081 and dy .201 pt. No prior golden replaced.",
+  "sha256": {
+    "page-1.png": "e33a0fbbd7c36d59b8042b266cb03846be3433c6617ebcf965aa1be87100b577",
+    "page-2.png": "adc7d590882b106d2214c8ddfeda85aa3143698fcd23b6beffa01de539b21558",
+    "source.docx": "94fdcbdc9ef66fe83c5144d001f1d53e37273b1ca3b599582c24506a1e893a32",
+    "word-reference.pdf": "70797b33202100e0fb487d091c34f63ff8dc3c4b811b1a28928467720bfdeea8",
+    "word-reference.pdf.provenance.json": "be34905ff580b63ef118872f8c7d8133ef252d4a36962d953a4acb3450706983"
+  }
+}

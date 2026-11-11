@@ -1,0 +1,15 @@
+{
+  "sourceSha256": "887607a0858bf59858fd4bab0c74a890fdf4e5df50aff746d3aa3fcd8739386b",
+  "wordPdfSha256": "a06aed380c4acb474096a94b9d3ddb8d6830f4dbf1bbe6440bc059e9951c7e97",
+  "dpi": 96,
+  "pages": [
+    {
+      "page": 1,
+      "resource": "/compatibility-mode-14/table-letter/page-1.png",
+      "sha256": "fce04ab74c55cc498134447ec9be6a25ccc16463bfa48e43fa025fd1e6f3e247"
+    }
+  ],
+  "reviewedAgainstWord": true,
+  "reusedFromQualifiedMode12": false,
+  "policy": "Immutable reviewed engine references; changing existing golden files requires a specific reason and approval."
+}

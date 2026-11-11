@@ -1,0 +1,13 @@
+{
+  "issue": 293,
+  "qualification": "Combined normal full build PASS (1759 tests,832 native); real HTTP and Playground source-retention/reuse checks PASS. Existing note baseline geometry limits remain explicitly documented; no protected golden replacement.",
+  "sha256": {
+    "source.docx": "a5449d1e13d962685d8d12ecbdf1f63144ed6fd69edfdd7fb23bf384a6c20773",
+    "word-reference.pdf": "06fac6832261b10ae7a2507b507e2410aded6cb3a5c60c8a04815ef2b93d5d19",
+    "word-reference.pdf.provenance.json": "fae7ab33d2428444603c78fc4c2e94f81896e5761ff30ec4ca5241e639679cdc",
+    "page-1.png": "ee0e5c7de93d5c9dc3854dc6a6f5d1651eae37da6035b4f2dbf119d9baa16fbe"
+  },
+  "pages": 1,
+  "golden": "sequence-code-formatting/controls/simple/letter/page-1.png",
+  "protectedGoldensReplaced": 0
+}

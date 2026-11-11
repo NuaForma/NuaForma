@@ -12,8 +12,11 @@ internal object WordAuthoringMetadata {
 
     fun normalize(root: XmlElement, part: String, complexText: Boolean, failure: ((XmlElement) -> NativeDocxReadException)? = null) {
         var current = root
+
         fun reject(): Nothing = throw (failure?.invoke(current) ?: NativeDocxReadException("Unsupported Word authoring or compatibility settings", part))
+
         fun XmlElement.value(name: String) = attribute(W, name)
+
         val nodes = root.descendants().toList()
         for (node in nodes) {
             current = node
@@ -26,6 +29,7 @@ internal object WordAuthoringMetadata {
             if (node.name.namespaceURI != W) continue
             when (node.name.localPart) {
                 "settings" -> {
+                    compatibilityContainers(node) { entry -> current = entry; reject() }
                     val ignored = setOf("zoom", "rsids", "proofState", "listSeparator", "mathPr", "themeFontLang", "shapeDefaults", "hyphenationZone")
                     for (child in node.elements()) {
                         current = child
@@ -42,16 +46,7 @@ internal object WordAuthoringMetadata {
                             if (child.value("val") != "doNotCompress") reject()
                             node.children.remove(child)
                         } else if (name == "compat") {
-                            for (setting in child.elements()) {
-                                current = setting
-                                if (setting.name.namespaceURI != W || setting.name.localPart != "compatSetting" || setting.value("uri") != "http://schemas.microsoft.com/office/word") reject()
-                                val accepted = when (setting.value("name")) {
-                                    "compatibilityMode" -> setting.value("val") in setOf("12", "15")
-                                    "useWord2013TrackBottomHyphenation" -> setting.value("val") in setOf("0", "1")
-                                    else -> false
-                                }
-                                if (!accepted) reject()
-                            }
+                            compatibility(child) { entry -> current = entry; reject() }
                             node.children.remove(child)
                         } else if (name == "clrSchemeMapping") {
                             val expected = mapOf("bg1" to "light1", "t1" to "dark1", "bg2" to "light2", "t2" to "dark2") +
@@ -63,16 +58,27 @@ internal object WordAuthoringMetadata {
                 }
                 "styles" -> node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart == "latentStyles" }
                 "style" -> {
+                    styleAliases(node) { child -> current = child; reject() }
+                    val updates = node.elements().filter { it.name.namespaceURI == W && it.name.localPart == "autoRedefine" }
+                    for (update in updates) {
+                        current = update
+                        if (updates.size != 1 || update.attributes.keys.any { it.namespaceURI != W || it.localPart != "val" } ||
+                            update.value("val") !in setOf(null, "0", "1", "true", "false", "on", "off") ||
+                            update.elements().isNotEmpty() || update.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject()
+                        node.children.remove(update)
+                    }
                     styleRevision(node) { child -> current = child; reject() }
-                    val links = node.elements().filter { it.name.namespaceURI == W && it.name.localPart == "link" }
-                    if (links.size > 1) { current = links[1]; reject() }
-                    for (link in links) {
-                        current = link
-                        if (link.attributes.keys.any { it.namespaceURI != W || it.localPart != "val" } ||
-                            link.value("val")?.let { it.isNotBlank() && it.length <= 253 } != true ||
-                            link.elements().isNotEmpty() || link.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject()
-                        // Pairing is an editor affordance; pStyle/rStyle still select independent definitions.
-                        node.children.remove(link)
+                    for (name in listOf("link", "next")) {
+                        val metadata = node.elements().filter { it.name.namespaceURI == W && it.name.localPart == name }
+                        if (metadata.size > 1) { current = metadata[1]; reject() }
+                        for (entry in metadata) {
+                            current = entry
+                            if (entry.attributes.keys.any { it.namespaceURI != W || it.localPart != "val" } ||
+                                entry.value("val")?.let { it.isNotBlank() && it.length <= 253 && it.none(Char::isISOControl) } != true ||
+                                entry.elements().isNotEmpty() || entry.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject()
+                            // Editor pairing and ENTER behavior do not select styles for existing paragraphs.
+                            node.children.remove(entry)
+                        }
                     }
                     node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart in setOf("uiPriority", "qFormat", "semiHidden", "unhideWhenUsed", "locked") }
                 }
@@ -95,6 +101,17 @@ internal object WordAuthoringMetadata {
         }
     }
 
+    private fun styleAliases(style: XmlElement, reject: (XmlElement) -> Nothing) {
+        val aliases = style.elements().filter { it.name.namespaceURI == W && it.name.localPart == "aliases" }
+        for (alias in aliases) {
+            val value = alias.attribute(W, "val") ?: reject(alias)
+            if (aliases.size != 1 || alias.attributes.keys.any { it.namespaceURI != W || it.localPart != "val" } ||
+                value.codePointCount(0, value.length) > 253 || alias.elements().isNotEmpty() ||
+                alias.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject(alias)
+            style.children.remove(alias)
+        }
+    }
+
     private fun styleRevision(style: XmlElement, reject: (XmlElement) -> Nothing) {
         val revisions = style.elements().filter { it.name.namespaceURI == W && it.name.localPart == "rsid" }
         for (revision in revisions) {
@@ -103,6 +120,48 @@ internal object WordAuthoringMetadata {
                 revision.elements().isNotEmpty() || revision.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject(revision)
             // Editing-session identity has no print behavior; retain the original package bytes.
             style.children.remove(revision)
+        }
+    }
+
+    /** Check original named metadata before the DOCX serializer can discard invalid structure. */
+    fun validateCompatibilitySource(root: XmlElement, failure: (XmlElement) -> NativeDocxReadException) {
+        if (root.name.namespaceURI != W || root.name.localPart != "settings") return
+        for (container in compatibilityContainers(root) { throw failure(it) }) {
+            val names = mutableSetOf<String>()
+            for (setting in container.elements().filter { it.name.localPart == "compatSetting" }) {
+                namedCompatibilityShape(setting) { throw failure(it) }
+                if (!names.add(requireNotNull(setting.attribute(W, "name")))) throw failure(setting)
+            }
+        }
+    }
+
+    private fun compatibilityContainers(settings: XmlElement, reject: (XmlElement) -> Nothing): List<XmlElement> {
+        val containers = settings.elements().filter { it.name.namespaceURI == W && it.name.localPart == "compat" }
+        if (containers.size > 1) reject(containers[1])
+        for (container in containers)
+            if (container.attributes.isNotEmpty() || container.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject(container)
+        return containers
+    }
+
+    private fun namedCompatibilityShape(setting: XmlElement, reject: (XmlElement) -> Nothing) {
+        if (setting.name.namespaceURI != W || setting.name.localPart != "compatSetting" || setting.attributes.size != 3 ||
+            setting.attributes.keys.any { it.namespaceURI != W || it.localPart !in setOf("name", "uri", "val") } ||
+            setting.elements().isNotEmpty() || setting.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject(setting)
+    }
+
+    private fun compatibility(root: XmlElement, reject: (XmlElement) -> Nothing) {
+        val names = mutableSetOf<String>()
+        for (setting in root.elements()) {
+            namedCompatibilityShape(setting, reject)
+            if (setting.attribute(W, "uri") != "http://schemas.microsoft.com/office/word") reject(setting)
+            val name = setting.attribute(W, "name") ?: reject(setting)
+            if (!names.add(name)) reject(setting)
+            val accepted = when (name) {
+                "compatibilityMode" -> setting.attribute(W, "val") in setOf("12", "14", "15")
+                "useWord2013TrackBottomHyphenation" -> setting.attribute(W, "val") in setOf("0", "1")
+                else -> false
+            }
+            if (!accepted) reject(setting)
         }
     }
 

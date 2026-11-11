@@ -52,4 +52,36 @@ class WordPictureMetadataTest {
         assertTrue(duplicate.descendants().any { it.name.localPart == "extLst" })
     }
 
+
+    private fun storyBlip(name: String, attributes: String) = ConversionXml(GenerationContext()).read(
+        """<w:$name xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><a:blip r:embed="image" $attributes/></w:$name>""".toByteArray())
+
+    @Test
+    fun `qualified compression states remain unchanged in each supported story root`() {
+        for (name in listOf("document", "hdr", "ftr", "footnotes", "endnotes")) for (state in listOf("none", "email", "screen", "print", "hqprint")) {
+            val root = storyBlip(name, "cstate=\"$state\"")
+            val blip = root.elements().single()
+            val original = blip.attributes.toMap()
+            WordPictureMetadata.validateSource(root) { _, message -> fail(message) }
+            assertEquals(original, blip.attributes)
+        }
+    }
+
+    @Test
+    fun `original invalid compression states unknown attributes and linked pictures are rejected before binding`() {
+        for (attributes in listOf("cstate=\"unknown\"", "cstate=\"Print\"", "cstate=\"\"", "a:cstate=\"print\"",
+            "extra=\"1\"", "r:link=\"external\"")) {
+            val root = storyBlip("document", attributes)
+            assertThrows(NativeDocxReadException::class.java) {
+                WordPictureMetadata.validateSource(root) { node, message ->
+                    assertEquals("blip", node.name.localPart)
+                    throw NativeDocxReadException(message, "word/document.xml")
+                }
+            }
+        }
+        val theme = ConversionXml(GenerationContext()).read(
+            """<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:blip cstate="print"/></a:theme>""".toByteArray())
+        WordPictureMetadata.validateSource(theme) { _, message -> fail(message) }
+    }
+
 }

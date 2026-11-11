@@ -36,11 +36,9 @@ class PdfAutomaticLineSpacingTest {
             }
         }
     }
-    @Test fun `invalid conflicting and mixed natural boxes reject explicitly`() {
+    @Test fun `invalid and conflicting natural spacing policies reject explicitly`() {
         for(value in listOf(0f,.5f,11f,Float.NaN,Float.POSITIVE_INFINITY))assertThrows(IllegalArgumentException::class.java) {PdfAutomaticLineSpacing(value)}
         assertThrows(IllegalArgumentException::class.java) {PdfParagraphFormat(exactLineHeight=14f,automaticLineSpacing=PdfAutomaticLineSpacing())}
-        val p=PdfParagraph(listOf(PdfTextRun("Large",style),PdfTextRun("Small",PdfTextStyle("regular",9f))),0f,0f,format())
-        assertEquals(PdfFailureCode.UNSUPPORTED_TEXT,assertThrows(PdfRenderException::class.java) {PdfEngine().render(PdfDocument(PdfPage(300f,200f,PdfMargins(20f,20f,20f,20f)),listOf(p),PdfFlow()),fonts)}.code)
     }
     @Test fun `missing natural metrics fail without substituting a font`() {
         val bytes=fonts.first().bytes();val buffer=java.nio.ByteBuffer.wrap(bytes).order(java.nio.ByteOrder.BIG_ENDIAN)

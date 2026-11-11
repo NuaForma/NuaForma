@@ -17,6 +17,8 @@ internal object ImageFlow {
         val bottom = page.height - page.margins.bottom
         val base = FlowLayouter.paragraph(clean, width, measurer)
         val height = base.lineHeight
+        if (base.heights.any { it != height })
+            fail(PdfFailureCode.UNSUPPORTED_TEXT, "Variable natural line boxes beside floating images are not qualified")
         val before = ParagraphSpacing.before(p, previousAfter, initialTop <= page.margins.top + .001f, p.format.pageBreakBefore)
         var start = initialTop + before
         var anchorPage = pages.lastIndex
@@ -90,6 +92,8 @@ internal object ImageFlow {
         for (attempt in 0 until 64) {
             slots = mutableListOf()
             val candidate = FlowLayouter.paragraph(clean, width, measurer) { index -> slot(index).let { it.left to it.width } }
+            if (candidate.heights.any { it != height })
+                fail(PdfFailureCode.UNSUPPORTED_TEXT, "Variable natural line boxes beside floating images are not qualified")
             val used = slots.take(candidate.lines.size)
             val groups = used.withIndex().groupBy { it.value.page }.values.toList()
             val single = if (p.format.widowControl && groups.size > 1) groups.indexOfFirst { group -> group.map { it.value.top }.distinct().size == 1 } else -1

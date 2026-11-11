@@ -1,5 +1,9 @@
 # Third-party dependency notices
 
+Source #258 adds the unmodified Font Awesome Free 6.7.2 standalone TrueType font as test-only glyph data under SIL OFL 1.1. Its complete upstream license, source identity, hashes and supported-format rationale are retained in [the fixture guide](nuaforma-pdf/src/test/resources/fonts/README.md). It is not included in production/library font packages and adds no Java dependency.
+
+Source #234 adds unmodified Noto Serif Light and LightItalic 2.015 test-only faces from the same reviewed release as Noto Serif Regular. Their complete existing SIL OFL 1.1 notice and new asset hashes are retained in [the fixture guide](nuaforma-pdf/src/test/resources/fonts/README.md). No Microsoft font files or production font package are added.
+
 NuaForma is Apache-2.0 licensed. Dependencies keep their own licenses; NuaForma does not relicense them. Standard library JARs refer to dependencies through Maven metadata and do not shade, copy or modify their classes. Consumers distributing a combined application must retain the licenses, copyright notices and applicable NOTICE files of the actual dependency artifacts, including their bundled subcomponents.
 
 ## DOCX integration

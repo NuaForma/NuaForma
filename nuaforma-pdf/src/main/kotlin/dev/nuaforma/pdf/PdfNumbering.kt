@@ -61,7 +61,10 @@ object PdfNumbering {
             require(step.level in definition.levels.indices) { "Unknown list level" }
             val rule = definition.levels[step.level]
             val state = counters.getOrPut(definition.sequenceId) { IntArray(definition.levels.size) { -1 } }
-            if (rule.format != PdfNumberFormat.BULLET) require((0 until step.level).all { state[it] >= 0 }) { "Skipped numbering ancestors are not qualified" }
+            // Word initializes implied ancestors even when the first visible child is a bullet.
+            for (ancestor in 0 until step.level) {
+                if (state[ancestor] < 0) state[ancestor] = definition.levels[ancestor].start
+            }
             state[step.level] = if (step.restart || state[step.level] < 0) rule.start else state[step.level] + 1
             require(state[step.level] <= 1_000_000) { "List counter exceeded" }
             for (index in step.level + 1 until state.size) {

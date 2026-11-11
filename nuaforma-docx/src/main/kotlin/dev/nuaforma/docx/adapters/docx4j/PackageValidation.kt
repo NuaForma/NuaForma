@@ -2,6 +2,7 @@ package dev.nuaforma.docx.adapters.docx4j
 
 import dev.nuaforma.contracts.RejectionReason
 import dev.nuaforma.contracts.Diagnostic
+import dev.nuaforma.contracts.DocumentSourceContext
 import dev.nuaforma.contracts.GenerationException
 import dev.nuaforma.contracts.DiagnosticCodes
 import dev.nuaforma.contracts.GenerationContext
@@ -26,6 +27,8 @@ internal object PackageValidation {
     private const val WORD = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private const val MAIN_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
 
+    private val trashItem = Regex("\\[trash]/[0-9A-Fa-f]{4}\\.dat")
+
     fun validate(path: Path, context: GenerationContext): Boolean {
         context.checkActive()
         val templates = PassiveTemplateReferences()
@@ -37,6 +40,8 @@ internal object PackageValidation {
                     entry
                 }.toList()
                 val names = entries.map { it.name }.toSet()
+                val trashNames = names.filterTo(mutableSetOf()) { trashItem.matches(it) }
+                val logicalNames = names - trashNames
                 if (names.size != entries.size) invalid(RejectionReason.DOCX_CONTAINS_DUPLICATE_ARCHIVE_ENTRIES)
                 entries.forEach { entry ->
                     val name = entry.name.removeSuffix("/")
@@ -57,11 +62,13 @@ internal object PackageValidation {
                         if (event.local == "Override" && event.namespace == CONTENT_TYPES) {
                             val name = event.attributes["PartName"] ?: invalid(RejectionReason.MISSING_CONTENT_TYPE_PART_NAME)
                             val type = event.attributes["ContentType"] ?: invalid(RejectionReason.MISSING_CONTENT_TYPE)
+                            if (name.removePrefix("/") in trashNames) typedTrash("Override")
                             if (!name.startsWith('/') || overrides.put(name.removePrefix("/"), type) != null) invalid(RejectionReason.INVALID_OR_DUPLICATE_CONTENT_TYPE_OVERRIDE)
                         }
                         if (event.local == "Default" && event.namespace == CONTENT_TYPES) {
                             val extension = event.attributes["Extension"] ?: invalid(RejectionReason.MISSING_CONTENT_TYPE_EXTENSION)
                             val type = event.attributes["ContentType"] ?: invalid(RejectionReason.MISSING_CONTENT_TYPE)
+                            if (trashNames.isNotEmpty() && extension.equals("dat", true)) typedTrash("Default")
                             if (defaults.put(extension, type) != null) invalid(RejectionReason.DUPLICATE_DEFAULT_CONTENT_TYPE)
                         }
                     }
@@ -73,7 +80,7 @@ internal object PackageValidation {
                 entries.filterNot { it.isDirectory }.forEach { entry ->
                     context.checkActive()
                     val type = overrides[entry.name] ?: defaults[entry.name.substringAfterLast('.', "")]
-                    if (entry.name != "[Content_Types].xml" && type == null) invalid(RejectionReason.A_DOCX_PART_HAS_NO_CONTENT_TYPE)
+                    if (entry.name != "[Content_Types].xml" && entry.name !in trashNames && type == null) invalid(RejectionReason.A_DOCX_PART_HAS_NO_CONTENT_TYPE)
                     if (type != null && (type.contains("macro", true) || type.contains("vba", true) || type.contains("oleObject", true) ||
                             type.contains("activeX", true) || type.contains("html", true))) unsupported(RejectionReason.ACTIVE_CONTENT_AND_EMBEDDED_DOCUMENTS_ARE_NOT_SUPPORTED)
                     zip.getInputStream(entry).use { source ->
@@ -100,7 +107,7 @@ internal object PackageValidation {
                                             "External" -> if (relationship != OFFICE + "hyperlink" && !passiveTemplate) unsupported(RejectionReason.EXTERNAL_RELATIONSHIPS_OTHER_THAN_PASSIVE_HYPERLINKS_ARE_NOT_SUPPORTED)
                                             null, "Internal" -> {
                                                 val resolved = resolve(entry.name, target)
-                                                if (resolved !in names) invalid(RejectionReason.A_DOCX_RELATIONSHIP_POINTS_TO_A_MISSING_PACKAGE_PART)
+                                                if (resolved !in logicalNames) invalid(RejectionReason.A_DOCX_RELATIONSHIP_POINTS_TO_A_MISSING_PACKAGE_PART)
                                                 if (entry.name == "word/_rels/document.xml.rels" && relationship == OFFICE + "settings" && resolved == PassiveTemplateReferences.SETTINGS) templates.settingsRelationship(event.depth)
                                                 if (entry.name == "_rels/.rels" && relationship == OFFICE + "officeDocument") {
                                                     officeDocuments++
@@ -178,8 +185,11 @@ internal object PackageValidation {
             malformed(part, error)
         } catch (error: GenerationException) {
             throw GenerationException(error.diagnostics.map { diagnostic ->
-                diagnostic.rejectionReason?.let { Diagnostic(diagnostic.code, it, diagnostic.severity,
-                    "xml:${reader.location.lineNumber.coerceAtLeast(0)}:${reader.location.columnNumber.coerceAtLeast(0)}", part) } ?: diagnostic
+                diagnostic.rejectionReason?.let { reason ->
+                    val mapped = Diagnostic(diagnostic.code, reason, diagnostic.severity,
+                        "xml:${reader.location.lineNumber.coerceAtLeast(0)}:${reader.location.columnNumber.coerceAtLeast(0)}", part)
+                    diagnostic.sourceContext?.let { mapped.withSourceContext(it) } ?: mapped
+                } ?: diagnostic
             })
         } finally { reader.close() }
     }
@@ -214,6 +224,11 @@ internal object PackageValidation {
             return size
         }
     }
+
+    private fun typedTrash(construct: String): Nothing = throw GenerationException(listOf(
+        Diagnostic(DiagnosticCodes.INVALID_TEMPLATE, RejectionReason.DOCX_CONTAINS_AN_INVALID_STRUCTURED_VALUE_REPAIR_THE_DOCUMENT,
+            part = "[Content_Types].xml").withSourceContext(DocumentSourceContext(
+            "Physical OOXML trash items must not have a content type", null, construct, ""))))
 
     private fun invalid(reason: RejectionReason): Nothing = DocxFailure.fail(DiagnosticCodes.INVALID_TEMPLATE, reason)
     private fun unsupported(reason: RejectionReason): Nothing = DocxFailure.fail(DiagnosticCodes.UNSUPPORTED_INPUT, reason)

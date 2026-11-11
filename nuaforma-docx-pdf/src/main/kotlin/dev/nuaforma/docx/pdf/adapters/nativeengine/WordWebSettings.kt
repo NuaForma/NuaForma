@@ -8,7 +8,7 @@ import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
 internal class WordWebSettings(private val context: GenerationContext) {
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private val children = mapOf(
-        "webSettings" to setOf("divs", "optimizeForBrowser", "allowPNG"),
+        "webSettings" to setOf("divs", "optimizeForBrowser", "allowPNG", "relyOnVML", "targetScreenSz"),
         "divs" to setOf("div"), "divsChild" to setOf("div"),
         "div" to setOf("bodyDiv", "blockQuote", "marTop", "marBottom", "marLeft", "marRight", "divBdr", "divsChild"),
         "divBdr" to setOf("top", "bottom", "left", "right"),
@@ -17,6 +17,11 @@ internal class WordWebSettings(private val context: GenerationContext) {
 
     fun normalize(root: XmlElement, failure: (XmlElement) -> NativeDocxReadException) {
         if (root.name.namespaceURI != word || root.name.localPart != "webSettings") throw failure(root)
+        for (name in listOf("relyOnVML", "targetScreenSz")) {
+            val entries = root.elements().filter { it.name.namespaceURI == word && it.name.localPart == name }
+            if (entries.size > 1) throw failure(entries[1])
+        }
+
         fun visit(node: XmlElement) {
             context.checkActive()
             val name = node.name.localPart
@@ -38,8 +43,9 @@ internal class WordWebSettings(private val context: GenerationContext) {
     }
 
     private fun scalar(node: XmlElement): Boolean = when (node.name.localPart) {
+        "targetScreenSz" -> node.attribute(word, "val") in setOf("544x376", "640x480", "720x512", "800x600", "1024x768", "1152x882", "1152x900", "1280x1024", "1600x1200", "1800x1440", "1920x1200")
         "div" -> node.attribute(word, "id")?.toIntOrNull() != null
-        "optimizeForBrowser", "allowPNG", "bodyDiv", "blockQuote" -> node.attribute(word, "val") in setOf(null, "true", "false", "1", "0", "on", "off")
+        "optimizeForBrowser", "allowPNG", "relyOnVML", "bodyDiv", "blockQuote" -> node.attribute(word, "val") in setOf(null, "true", "false", "1", "0", "on", "off")
         "marTop", "marBottom", "marLeft", "marRight" -> node.attribute(word, "val")?.toIntOrNull() != null
         else -> true
     }

@@ -1,0 +1,37 @@
+{
+  "sourceSha256": "4eb7b46523572d2e45a2c4204644f596f2af969b95399ac4d653f85f43c49455",
+  "wordPdfSha256": "be7f163cd30ad17563783948882beb4a4eda793e5d842640271049adc857c8e7",
+  "pages": [
+    {
+      "page": 1,
+      "sha256": "1282bea14aaa0593aed0949c078b517cbc09f66e79e86c1912201afd36fb4681",
+      "resource": "/mixed-latin-fonts/a4/page-1.png"
+    },
+    {
+      "page": 2,
+      "sha256": "59c4e43eda25895c92d6c5dd2b0d5b36748edcbf2ad265e8c028422793560414",
+      "resource": "/mixed-latin-fonts/a4/page-2.png"
+    }
+  ],
+  "dpi": 96,
+  "reviewedAgainstWord": true,
+  "wordMetrics": {
+    "case": "a4",
+    "markers": 42,
+    "maxDx": 0.15802002,
+    "maxDy": 0.390625,
+    "maxSize": 0.0,
+    "maxColorChannel": 0
+  },
+  "policy": "Immutable reviewed engine references; replacing existing goldens requires a documented reason and approval.",
+  "legacySourceSha256": "dd92931ba5a91b10bda669792b167cad59a5dd66be92b8527a76b0b1b1eea5ec",
+  "legacyWordPdfSha256": "da5b81e051165a357b67f25dcb2818d8c4c3440e893d290ce350b096d765c772",
+  "wordPixelsUnchangedByDefaultFontHints": true,
+  "masks": 0,
+  "approvedReferenceUpdate": {
+    "issue": 263,
+    "date": "2026-11-09",
+    "maintainerApproved": true,
+    "note": "Reuses the approved mixed-Latin first-page replacement; no additional image replaced. Default font hints preserve Word pixels and do not change layout. Source, Word reference and second page remain unchanged."
+  }
+}

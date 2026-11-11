@@ -53,12 +53,25 @@ class PdfNumberingTest {
     @Test fun `invalid references patterns impossible formats and budgets fail explicitly`() {
         val invalid = listOf(listOf(rule("%2")) to listOf(0),listOf(rule("%0")) to listOf(0),
             listOf(rule("%1",PdfNumberFormat.LOWER_ROMAN,4000)) to listOf(0),listOf(rule("%1",PdfNumberFormat.LOWER_LETTER,0)) to listOf(0),
-            listOf(rule("%1",start=1_000_000)) to listOf(0,0),listOf(rule("%1"),rule("%2")) to listOf(1))
+            listOf(rule("%1",start=1_000_000)) to listOf(0,0))
         for ((levels,steps) in invalid) assertThrows(IllegalArgumentException::class.java) { resolve(levels,steps) }
         assertThrows(IllegalArgumentException::class.java) { PdfNumbering.resolve(emptyList(),listOf(PdfListStep("missing",0))) }
         assertThrows(IllegalArgumentException::class.java) { resolve(listOf(rule("%1")),List(2001){0}) }
         val bullets=PdfNumbering.resolve(listOf(PdfListDefinition("b",listOf(rule("•",PdfNumberFormat.BULLET)))),listOf(PdfListStep("b",0)))
         assertNull(bullets.single().ordinal)
+    }
+
+    @Test
+    fun `first visible child bullets initialize parent counters as in Word`() {
+        val levels = listOf(rule("%1."), rule("-", PdfNumberFormat.BULLET))
+        assertEquals(listOf("-", "-", "2.", "-", "3.", "4."), resolve(levels, listOf(1, 1, 0, 1, 0, 0)))
+    }
+
+    @Test
+    fun `skipped numeric ancestors begin at declared starts and later visible parents advance as in Word`() {
+        val levels = listOf(rule("%1.", start = 3), rule("%1.%2.", start = 5))
+        assertEquals(listOf("3.5.", "3.6.", "4.", "4.5.", "5."), resolve(levels, listOf(1, 1, 0, 1, 0)))
+        assertEquals(listOf("1.1.1.", "2.", "2.1.1."), resolve(listOf(rule("%1."), rule("%1.%2."), rule("%1.%2.%3.")), listOf(2, 0, 2)))
     }
 
     @Test fun `labels are separate from body with aligned first and continuation lines and no repeated page label`() {

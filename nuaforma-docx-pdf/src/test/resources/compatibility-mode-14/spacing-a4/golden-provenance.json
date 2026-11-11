@@ -1,0 +1,22 @@
+{
+  "sourceSha256": "f5121f5cd7c9dd1d58fbd384a1d9eab96f8e11d02d0c6b1925b13c276b781716",
+  "wordPdfSha256": "fa38ab667c36fa5a2eb063ea973b96af93521e8d13fa0ab2e3de4a8505a760f4",
+  "dpi": 96,
+  "pages": [
+    {
+      "page": 1,
+      "resource": "/paragraph-spacing/legacy-fixed-edges/page-1.png",
+      "sha256": "e89bab39d6df70d5bbe285ea60f527a8f3bd4a43c5f8856dbc59dce3f4040cb8"
+    },
+    {
+      "page": 2,
+      "resource": "/paragraph-spacing/legacy-fixed-edges/page-2.png",
+      "sha256": "859cd6dbbbd5ad1852898caaeca390b4e454e419ae56a6f81ff6844c3cf3a753"
+    }
+  ],
+  "reviewedAgainstWord": true,
+  "reusedFromQualifiedMode12": true,
+  "policy": "Immutable reviewed engine references; changing existing golden files requires a specific reason and approval.",
+  "legacySourceSha256": "506b3694e15070a35a656ab7c6e3c8cd935af06c43f1121c825b42f27782835a",
+  "wordReferenceRastersPixelExactToLegacy": true
+}

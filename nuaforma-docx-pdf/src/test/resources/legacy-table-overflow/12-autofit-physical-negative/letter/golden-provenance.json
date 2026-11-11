@@ -1,0 +1,24 @@
+{
+  "issues": [
+    287
+  ],
+  "golden": "signed-table-indent/12-truncate/letter/page-1.png",
+  "note": "Exact-source Word export, independent text/paper/embedded-font and marker geometry qualification. Initial native reference reviewed visually; automatic physical controls reuse exact existing signed-indent goldens. No protected golden replaced.",
+  "sha256": {
+    "source.docx": "c0deede26d377045c61a4dbc53f0fbca5c6a80c3ad9fd2d190cf368c5ed4b3fe",
+    "word-reference.pdf": "edeba7c08b8186f0e4c5c053e67d68bc7d095ab20398bfaa32790932d3bfae29",
+    "word-reference.pdf.provenance.json": "14ced5ad78cbd910654562778efd3571d2a30a9169c4eacbee11f7e1fb978a8f",
+    "page-1.png": "0f61171fa027c04fe16f05d8dd67ceb474e4d17b0f7f5db9e93921934f69f180"
+  },
+  "wordComparison": {
+    "case": "12-autofit-physical-negative-letter",
+    "pass": true,
+    "pagesEqual": true,
+    "textEqual": true,
+    "markersEqual": true,
+    "fontsEmbedded": true,
+    "paperEqual": true,
+    "maxDx": 0.01599884033203125,
+    "maxDy": 0.08001708984375
+  }
+}

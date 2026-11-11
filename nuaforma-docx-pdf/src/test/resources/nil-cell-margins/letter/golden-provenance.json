@@ -1,0 +1,14 @@
+{
+  "issue": 268,
+  "wordReference": "Actual Microsoft Word ExportAsFixedFormat",
+  "review": "Nil edges restore table defaults past cell-style overrides. Native and Word controls each have exact pixels. Fourteen actual Word markers within .081/.121 pt on A4 and Letter.",
+  "sha256": {
+    "source.docx": "9f215908e1f93bdba3a1bfa8f48021bb72d1143c753c4b0b7fb4794a1cdb3bb1",
+    "word-reference.pdf": "3b57e22ae6dd41ec643f04731ea7de28acde5be07ebc963f88cca307dfb43b3a",
+    "word-reference.pdf.provenance.json": "e52acb073f9d20d3e408a44f8bf07e0e01554a126da55b7958793160a04e5b2f",
+    "page-1.png": "dec131b861663dda87b3c0f4e8b5189ecb9e2faa1d403f05cd4497e72786d8de"
+  },
+  "initialGolden": true,
+  "reviewedOn": "2026-11-09",
+  "visualReview": "Both full initial pages viewed: borders, physical padding, wraps and merged cells retained."
+}

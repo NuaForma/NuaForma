@@ -6,6 +6,7 @@ import dev.nuaforma.docx.DeploymentFonts
 import dev.nuaforma.template.TemplatePipes
 import dev.nuaforma.docx.pdf.adapters.nativeengine.NativeDocxReader
 import dev.nuaforma.docx.pdf.adapters.nativeengine.NativeDocxReadException
+import dev.nuaforma.docx.pdf.adapters.nativeengine.WordMarkupCompatibility
 import dev.nuaforma.docx.pdf.internal.PdfOptions
 import dev.nuaforma.docx.pdf.internal.PdfFontMetadata
 import dev.nuaforma.pdf.*
@@ -31,7 +32,7 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
     private val docx = DocxProvider(deploymentFonts, this.pipes, valuePipes)
 
     override fun templatePipes(): List<TemplatePipeDefinition> = docx.templatePipes()
-    override fun contentPipes(): List<ContentPipeDefinition> = docx.contentPipes().filter { it.name in setOf("image", "richText") }.map { definition ->
+    override fun contentPipes(): List<ContentPipeDefinition> = docx.contentPipes().filter { it.name in setOf("image", "richText", "checkbox") }.map { definition ->
         ContentPipeDefinition(definition.name, definition.description, definition.arguments,
             definition.support + ContentPipeSupport(DocumentFormat.DOCX, DocumentFormat.PDF, PdfOutputProfile.entries.map { it.id }.toSet()),
             definition.nullBehavior, definition.contentTypes, definition.missingAsNull)
@@ -155,18 +156,20 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
         }
         val original = source.toByteArray()
         var prepared: ByteArray? = null
+        var printSource: ByteArray? = null
         var problem: Diagnostic? = null
         if (!preview) {
             try {
                 render(GenerationRequest(original.inputStream(), request.requirements, request.data, request.resources),
-                    BoundedBuffer(context.limits.maxOutputBytes, context), context, false) { prepared = it }
+                    BoundedBuffer(context.limits.maxOutputBytes, context), context, false, { prepared = it }, { printSource = it })
             } catch (error: GenerationException) {
                 if (error.diagnostics.any { it.code in setOf(DiagnosticCodes.CANCELLED, DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED) }) throw error
                 problem = error.diagnostics.first()
             }
             if (problem == null) fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.DOCUMENT_DIAGNOSTIC_REQUIRES_FAILURE)
         }
-        val input = prepared ?: original
+        val input = prepared ?: printSource ?: try { WordMarkupCompatibility.prepare(original, context) }
+            catch (_: NativeDocxReadException) { original }
         val requirements = GenerationRequirements(request.requirements.input, FormatRequest(DocumentFormat.DOCX),
             GenerationOptions(locale = request.requirements.options.locale, timeZone = request.requirements.options.timeZone))
         val inspection = GenerationRequest(input.inputStream(), requirements, request.data, request.resources)
@@ -177,7 +180,7 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
     }
 
     private fun render(request: GenerationRequest, output: OutputStream, context: GenerationContext, diagnostic: Boolean,
-        onPrepared: ((ByteArray) -> Unit)? = null): GenerationResult {
+        onPrepared: ((ByteArray) -> Unit)? = null, onSourcePrepared: ((ByteArray) -> Unit)? = null): GenerationResult {
         context.checkActive()
         val assessment = assess(request.requirements, context)
         if (assessment.status != AssessmentStatus.SUPPORTED) throw GenerationException(assessment.diagnostics)
@@ -187,9 +190,21 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
             val options = PdfOptions.read(request.requirements.output.options)
             val fonts = suppliedFonts(request, context)
             val availableFonts = fonts.associateBy { it.family.lowercase(Locale.ROOT) to it.face }
+
+            fun resolvedFont(family: String, bold: Boolean, italic: Boolean): NativePdfFont {
+                val name = family.lowercase(Locale.ROOT)
+                val face = when { bold && italic -> "boldItalic"; bold -> "bold"; italic -> "italic"; else -> "regular" }
+                return availableFonts[name to face]
+                    ?: if (bold) availableFonts[name to if (italic) "italic" else "regular"]
+                        ?: fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE)
+                    else fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE)
+            }
+
             val usedFonts = linkedMapOf<Pair<String, String>, NativePdfFont>()
             val filled = BoundedBuffer(minOf(8_388_608L, context.limits.maxExpandedBytes), context)
-            val intermediate = GenerationRequest(request.template, GenerationRequirements(request.requirements.input,
+            val source = printSource(request, context)
+            onSourcePrepared?.invoke(source)
+            val intermediate = GenerationRequest(source.inputStream(), GenerationRequirements(request.requirements.input,
                 FormatRequest(DocumentFormat.DOCX), request.requirements.options), request.data)
             val applicable = pipes.filter { pipe -> pipe.definition.support.any { support -> support.input == DocumentFormat.DOCX && support.output == DocumentFormat.PDF &&
                 (support.profiles.isEmpty() || options.profile.id in support.profiles) } }
@@ -201,23 +216,28 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
             } else processor.generateForConversion(intermediate, filled, context)
             onPrepared?.invoke(filled.toByteArray())
             val intermediateSize = filled.size()
+
             fun fontReference(family: String, bold: Boolean, italic: Boolean): String {
-                val face = when { bold && italic -> "boldItalic"; bold -> "bold"; italic -> "italic"; else -> "regular" }
-                val identity = family.lowercase(Locale.ROOT) to face
-                val font = availableFonts[identity] ?: fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE)
+                val font = resolvedFont(family, bold, italic)
+                val identity = font.family.lowercase(Locale.ROOT) to font.face
                 usedFonts.putIfAbsent(identity, font)
                 if (usedFonts.size > 16 || usedFonts.values.sumOf { it.byteSize.toLong() } > minOf(33_554_432L, context.limits.maxExpandedBytes - intermediateSize)) {
                     fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.PDF_CONVERSION_BYTE_BUDGET_WAS_EXCEEDED)
                 }
                 return "font${usedFonts.keys.indexOf(identity)}"
             }
-            val reader = NativeDocxReader(context, ::fontReference)
+
+            val reader = NativeDocxReader(context, ::fontReference) { family, bold, italic ->
+                bold && resolvedFont(family, bold, italic).face == if (italic) "italic" else "regular"
+            }
             val imageFonts = mutableMapOf<Triple<String, Boolean, Boolean>, java.awt.Font>()
             val document = reader.read(filled.toByteArray(), { family, bold, italic ->
                 imageFonts.getOrPut(Triple(family.lowercase(Locale.ROOT), bold, italic)) {
-                    fontReference(family, bold, italic)
                     val face = when { bold && italic -> "boldItalic"; bold -> "bold"; italic -> "italic"; else -> "regular" }
-                    val font = requireNotNull(availableFonts[family.lowercase(Locale.ROOT) to face])
+                    // EMF has its own raster text qualification; do not silently synthesize image fonts.
+                    val font = availableFonts[family.lowercase(Locale.ROOT) to face]
+                        ?: fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE)
+                    fontReference(family, bold, italic)
                     try { font.source().openStream().use { java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, it) } }
                     catch (_: java.awt.FontFormatException) { fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.USED_FONT_FACE_UNAVAILABLE) }
                 }
@@ -265,6 +285,18 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
         } catch (_: IllegalArgumentException) {
             fail(DiagnosticCodes.UNSUPPORTED_INPUT, RejectionReason.NATIVE_DOCX_PROFILE_UNSUPPORTED)
         } finally { configuration.admission.release() }
+    }
+
+    private fun printSource(request: GenerationRequest, context: GenerationContext): ByteArray {
+        val source = BoundedBuffer(minOf(8_388_608L, context.limits.maxTemplateBytes), context)
+        val buffer = ByteArray(8192)
+        while (true) {
+            context.checkActive()
+            val length = request.template.read(buffer)
+            if (length < 0) break
+            source.write(buffer, 0, length)
+        }
+        return WordMarkupCompatibility.prepare(source.toByteArray(), context)
     }
 
     private fun suppliedFonts(request: GenerationRequest, context: GenerationContext): List<NativePdfFont> {

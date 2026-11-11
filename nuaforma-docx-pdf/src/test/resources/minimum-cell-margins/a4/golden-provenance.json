@@ -1,0 +1,14 @@
+{
+  "issue": 268,
+  "initialGolden": true,
+  "reviewedOn": "2026-11-09",
+  "renderer": "Native PDF engine; PDFBox 96 dpi",
+  "wordReference": "Actual Microsoft Word ExportAsFixedFormat",
+  "visualReview": "Both full pages visually reviewed: minimum first row, direct/inherited margins, row-wide vertical maxima, wrapping and merged cells.14Word markers, maxdx .081/maxdy .131pt.",
+  "sha256": {
+    "page-1.png": "0429085d7881590bd42fea26cbc31de5bbfafa0ad1ee2dfeb80a295df1469563",
+    "source.docx": "103c6b3764a6e01e4bd6905b64990fc9f9c310eff9c9d8d592630c3c75d9bcfe",
+    "word-reference.pdf": "4ff359d90beae7c3fd5a4ed18250e560511af39211186846eaf011bcfe3b07e8",
+    "word-reference.pdf.provenance.json": "f88cbf6ae72549547179cb89efabdd4e6ba09c97a9efb86fbe4b4d7648a4663f"
+  }
+}

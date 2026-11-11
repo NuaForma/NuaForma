@@ -1,0 +1,45 @@
+{
+  "sourceSha256": "dd92931ba5a91b10bda669792b167cad59a5dd66be92b8527a76b0b1b1eea5ec",
+  "wordPdfSha256": "da5b81e051165a357b67f25dcb2818d8c4c3440e893d290ce350b096d765c772",
+  "pages": [
+    {
+      "page": 1,
+      "file": "page-1.png",
+      "sha256": "1282bea14aaa0593aed0949c078b517cbc09f66e79e86c1912201afd36fb4681"
+    },
+    {
+      "page": 2,
+      "file": "page-2.png",
+      "sha256": "59c4e43eda25895c92d6c5dd2b0d5b36748edcbf2ad265e8c028422793560414"
+    }
+  ],
+  "dpi": 96,
+  "reviewedAgainstWord": true,
+  "wordMetrics": {
+    "case": "a4",
+    "markers": 42,
+    "maxDx": 0.15802002,
+    "maxDy": 0.10998535,
+    "maxSize": 0.0,
+    "maxColorChannel": 0
+  },
+  "policy": "Immutable reviewed engine references; replacing existing goldens requires a documented reason and approval.",
+  "approvedReplacement": {
+    "issue": 263,
+    "date": "2026-11-09",
+    "maintainerApproved": true,
+    "previousPage1Sha256": "bf932e999f5ee5d8952c524ab41039edeb7569818484fdda37d7bba11a32d8c6",
+    "newPage1Sha256": "1282bea14aaa0593aed0949c078b517cbc09f66e79e86c1912201afd36fb4681",
+    "reason": "Keep each font ascent with its own line gap instead of adding another font gap to the dominant ascent. Actual Word character positions improve; source DOCX, Word references and page 2 stay unchanged.",
+    "characterComparison": {
+      "paper": "a4",
+      "characters": 839,
+      "oldMaxY": 1.5203247,
+      "newMaxY": 0.17993164,
+      "oldMeanY": 0.31057066,
+      "newMeanY": 0.055252094,
+      "improved": 250,
+      "worsened": 0
+    }
+  }
+}

@@ -32,7 +32,21 @@ internal class XmlElement(
 internal class ConversionXml(private val context: GenerationContext) {
     private var nodes = 0L
 
-    fun read(bytes: ByteArray): XmlElement {
+    fun read(bytes: ByteArray): XmlElement = read(bytes, false)
+
+    /** The empty Office marker is inert only within a subsequently validated custom-XML part. */
+    fun readPart(bytes: ByteArray, part: String): XmlElement = try {
+        read(bytes, part.matches(Regex("customXml/item[1-9][0-9]?\\.xml")))
+    } catch (error: GenerationException) {
+        if (error.diagnostics.none { it.rejectionReason == RejectionReason.CONVERSION_COPY_CONTAINS_UNSUPPORTED_OR_MALFORMED_XML && it.part == null }) throw error
+        throw GenerationException(error.diagnostics.map { diagnostic ->
+            if (diagnostic.rejectionReason == RejectionReason.CONVERSION_COPY_CONTAINS_UNSUPPORTED_OR_MALFORMED_XML && diagnostic.part == null)
+                Diagnostic(diagnostic.code, requireNotNull(diagnostic.rejectionReason), diagnostic.severity, diagnostic.location, part)
+            else diagnostic
+        }, error)
+    }
+
+    private fun read(bytes: ByteArray, contentTypeMetadata: Boolean): XmlElement {
         if (bytes.size > minOf(32L * 1024 * 1024, context.limits.maxExpandedBytes)) {
             PdfFailure.fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.CONVERSION_XML_BYTE_BUDGET_WAS_EXCEEDED)
         }
@@ -43,6 +57,7 @@ internal class ConversionXml(private val context: GenerationContext) {
         }
         val stack = java.util.ArrayDeque<XmlElement>()
         var root: XmlElement? = null
+        var contentTypeInstruction = false
         try {
             val reader = factory.createXMLStreamReader(bytes.inputStream())
             try {
@@ -78,7 +93,12 @@ internal class ConversionXml(private val context: GenerationContext) {
                             else if (!reader.isWhiteSpace) invalid()
                         }
                         XMLStreamConstants.COMMENT -> if (stack.isNotEmpty()) stack.last.children.add(XmlComment(reader.text))
-                        XMLStreamConstants.DTD, XMLStreamConstants.ENTITY_REFERENCE, XMLStreamConstants.PROCESSING_INSTRUCTION -> invalid()
+                        XMLStreamConstants.PROCESSING_INSTRUCTION -> {
+                            if (!contentTypeMetadata || contentTypeInstruction || root != null || stack.isNotEmpty() ||
+                                reader.piTarget != "mso-contentType" || !reader.piData.orEmpty().isBlank()) invalid()
+                            contentTypeInstruction = true
+                        }
+                        XMLStreamConstants.DTD, XMLStreamConstants.ENTITY_REFERENCE -> invalid()
                     }
                 }
             } finally { reader.close() }

@@ -15,7 +15,7 @@ internal sealed interface PipeStep {
 internal sealed class Expression(val depth: Int) {
     abstract fun evaluate(state: Evaluation, scope: Map<String, Any?>): Any?
 
-    class Literal(private val value: Any?) : Expression(1) {
+    class Literal(val value: Any?) : Expression(1) {
         override fun evaluate(state: Evaluation, scope: Map<String, Any?>): Any? { state.step(); return value }
     }
 

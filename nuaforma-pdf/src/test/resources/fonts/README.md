@@ -26,3 +26,28 @@ Extract `NotoSerif/hinted/ttf/NotoSerif-Regular.ttf` and `OFL.txt` from `NotoSer
 | NotoSerif-OFL.txt | `cee9892f9f0cc8fe882c9e9537ee6a89621d86ee7ceaf70b02e2b2b1c25c061a` |
 
 This face supplies real standard ligatures and OpenType kerning. The Word oracle activates this exact font temporarily through `export_word_fonts.ps1`, records its hash and deactivates it in `finally`. Portable tests read only retained font bytes. Existing Liberation Sans assets and raster references remain unchanged.
+
+## Synthetic-bold qualification faces (#234)
+
+The unmodified hinted `NotoSerif-Light.ttf` and `NotoSerif-LightItalic.ttf` faces come from the same reviewed release ZIP and source/tag above, under the same adjacent `NotoSerif-OFL.txt`. Extract the matching files under `NotoSerif/hinted/ttf/`. Their actual families include `Noto Serif Light`; they supply only regular/italic faces, allowing Word to demonstrate synthetic bold without proprietary font fixtures. They remain test-only, outside published library JARs and production images.
+
+| File | SHA-256 |
+|---|---|
+| NotoSerif-Light.ttf | `0f3960036f3f9c3c88f813ac9c51681645c21df60aadaf4a34a4767a2e8aadbd` |
+| NotoSerif-LightItalic.ttf | `320bf4124bb3f702602265aa543ceada4e9de54b4dfd00e84382c1febae91e94` |
+
+
+## Private-glyph qualification font (#258)
+
+`FontAwesomeFree-Solid.ttf` is an unmodified Font Awesome Free 6.7.2 standalone TrueType fixture from official source commit `af620534bfc3c2d4cbefcfeec29603bbe7809e64`, path `webfonts/fa-solid-900.ttf`. Its exact source, Git blob, size and SHA-256 are retained in `FontAwesomeFree-provenance.json`. Retain the full adjacent `FontAwesomeFree-LICENSE.txt`; the font program is under SIL Open Font License 1.1. Its internal family/face, outlines, coverage and embedding flags are unchanged. The different local filename does not alter the font program.
+
+The reviewed immutable TTF supplies real private-use glyphs with assigned Unicode aliases pointing to the same physical glyphs. It is test data, not a production font installation or Java dependency. Production/source library JARs and container font packages do not acquire this fixture. Font permissions and missing-glyph checks remain active.
+
+The selected format is deliberately the retained 6.7.2 standalone TTF. The newer reviewed 7.3.1 source supplies webfont formats outside this input profile; no conversion, metadata forgery or new decoder is introduced. Track replacement under #258 when an unmodified supported-format asset can be independently qualified; golden references are not automatically upgraded.
+
+| Asset | SHA-256 |
+| --- | --- |
+| FontAwesomeFree-Solid.ttf | `af19d135d3a935b3ebfbd80320716ffe1202052c5f68dc2c5f1abc57005ac605` |
+| FontAwesomeFree-LICENSE.txt | `9b914eae88817d63b576eab5aafde7068c7a1abae125d7cdfb034f1da43a9afc` |
+
+Official source: [font](https://github.com/FortAwesome/Font-Awesome/blob/af620534bfc3c2d4cbefcfeec29603bbe7809e64/webfonts/fa-solid-900.ttf), [complete license](https://github.com/FortAwesome/Font-Awesome/blob/af620534bfc3c2d4cbefcfeec29603bbe7809e64/LICENSE.txt). Download those exact bytes and verify the hashes to reproduce the asset. Ordinary builds and tests use checked-in bytes and do not download fonts.

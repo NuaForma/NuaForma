@@ -1,0 +1,22 @@
+{
+  "sourceSha256": "bdaeec6eaefa6c250a4dcae80019c4930d0db0c0e95b5ef12ce5b2103aad70b0",
+  "wordPdfSha256": "2e6d8da6f00f553d5a9e78aa3610e710501e5631c39e8f0613222f290c238ec7",
+  "enginePdfSha256": "506834a9d6720bd48595a50e327ab265aef8096f70254de20cb28930ceb975f5",
+  "reviewedAgainstWord": true,
+  "initialGolden": true,
+  "dpi": 96,
+  "masks": 0,
+  "wordMetrics": {
+    "markers": 26,
+    "maxDx": 0.07901001,
+    "maxDy": 0.14996338
+  },
+  "pages": [
+    {
+      "page": 1,
+      "file": "page-1.png",
+      "sha256": "2cfbf683e07c9d5b80b4fbaa916aadd684f45cba986ba54dfffd228a35683b17"
+    }
+  ],
+  "policy": "Initially reviewed preferred-width fixture. Existing golden files were not changed; replacement requires explicit review and approval."
+}

@@ -1,5 +1,7 @@
 # Dependency baseline
 
+Source #234 uses two additional unmodified test faces (Noto Serif Light/LightItalic) from the already reviewed Noto Serif 2.015 archive, under the retained SIL OFL 1.1. [The fixture guide](nuaforma-pdf/src/test/resources/fonts/README.md) records archive provenance and exact hashes. There is no new Java dependency, lockfile change or production font installation.
+
 ## Stable release and exception policy
 
 The maintainer approved the [stable-component and upgrade-debt policy](ARCHITECTURE.md#stable-components-and-upgrade-debt) on 2026-10-22. Prefer the latest suitable stable component releases and current security patches, with official release-note/license review, exact pins and real compatibility/fidelity checks. This applies to tooling, transitives and bundled native/JVM inputs, not only direct Gradle libraries. Never use dynamic `latest` resolution in reproducible builds or infer that a newer release is safe without testing.

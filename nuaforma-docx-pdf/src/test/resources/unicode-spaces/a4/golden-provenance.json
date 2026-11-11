@@ -1,0 +1,28 @@
+{
+  "sourceSha256": "63bac1bb13abd7bc193650212c51b940bcdd40d8ef65100d44202cca5fca45d8",
+  "controlSourceSha256": "864ad3054dae642e28565ab7ea3cee4b01606e4d7d6c99d799bcd17b66a15ec2",
+  "wordPdfSha256": "bffd5a14851695ee05628c51675fbf408e8f7891a46bb8fc4397ef9468bae08c",
+  "controlWordPdfSha256": "a8131ceec9f7ec88a0be8af721d4e4fb939a24d7a91b9bad27cabe41fbe6adab",
+  "engineControlPdfSha256": "9343cfe360cbb616974f01e20c2929b61f6617ca053547521090db82a512a476",
+  "wordVariantsPixelEqual": true,
+  "reviewedAgainstWord": true,
+  "initialGolden": true,
+  "dpi": 96,
+  "masks": 0,
+  "wordMetrics": {
+    "case": "a4",
+    "markers": 20,
+    "maxDx": 0.1639862,
+    "maxDy": 0.12347412,
+    "maxSize": 0.0,
+    "maxColorChannel": 0
+  },
+  "pages": [
+    {
+      "page": 1,
+      "file": "page-1.png",
+      "sha256": "052ac3031606edafcf503fda97003582f430aa15f8d055b78704386c2c6cbe5c"
+    }
+  ],
+  "policy": "Initially reviewed golden from accepted explicit-preservation control; do not replace existing goldens without explicit review."
+}

@@ -1,0 +1,8 @@
+{
+  "sourceSha256": "d99bead49c2ee34682c5858116d12179f1348361bc5b2c945965a9bae08cf584",
+  "wordPdfSha256": "267633c3a680144e5671ae65737ee94b3acc80a913ffc384953552b283078c04",
+  "goldenSha256": "6aef28934d435576633f66793201da4eb65ac846b7272f37cf840260f839f2a6",
+  "dpi": 96,
+  "review": "Initial full-page A4/Letter Word and engine renders reviewed: matching wrapping, indents, Greek/Cyrillic text and mixed 8/12/20pt baselines on fixed36pt line. No clipping or overlap.",
+  "policy": "Immutable initial engine golden, zero masks/tolerance; replacement requires explicit approval and documented visual review."
+}

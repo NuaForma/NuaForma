@@ -1,0 +1,15 @@
+{
+  "issue": 266,
+  "initialGolden": true,
+  "renderer": "Native PDF engine; PDFBox 96 dpi",
+  "wordReference": "Actual Microsoft Word ExportAsFixedFormat",
+  "reviewedOn": "2026-11-09",
+  "visualReview": "Both full pages visually reviewed: tracking expansion/contraction, style inheritance/reset, bold/decorations and wrapped text. 64 Word markers per paper; max dx .151 and dy .181 pt.",
+  "sha256": {
+    "page-1.png": "00ff786dc447cae94dc41a89f56c8094021c828ac12aebcbf6611d2dafa8348c",
+    "source.docx": "2bb26c8cc368ac8462a5f6d0cf547b46d4ad2f6df18a7d92bd289cfc82b5847a",
+    "word-reference.pdf": "2d5059b3eec2c86a6dca3be0a45418b908f17a00eba65738f070c2a08d3607f8",
+    "word-reference.pdf.provenance.json": "1212cfb23c050b724da8a0d50f21c222669b29f14558500c28419bac2b3beff1"
+  },
+  "note": "New synthetic fixtures; no prior golden replaced. Source and Word references remain immutable."
+}

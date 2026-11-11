@@ -40,6 +40,14 @@ internal object EmfFixture {
         record(43, 10, 10, 190, 90), record(37, 0x80000000.toInt()), record(42, 25, 25, 75, 75)
     )
 
+    fun extendedPen(style: Int = 0, brush: Int = 0, color: Int = 0): ByteArray =
+        record(95, 2, 0, 0, 0, 0, style, 1, brush, color, 0, 0)
+
+    fun logoWithPen(pen: ByteArray): ByteArray = file(
+        record(39, 1, 0, 0x00b07010, 0), record(37, 1), pen, record(37, 2),
+        record(43, 10, 10, 190, 90), record(37, 0x80000000.toInt()), record(42, 25, 25, 75, 75)
+    )
+
     fun font(): ByteArray = buffer(332).apply {
         putInt(82); putInt(capacity()); putInt(1)
         putInt(-20); putInt(0); putInt(0); putInt(0); putInt(400)

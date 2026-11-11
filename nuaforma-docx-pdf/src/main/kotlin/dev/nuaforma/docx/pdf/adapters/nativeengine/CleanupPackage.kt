@@ -54,7 +54,7 @@ internal class CleanupPackage(private val original: ByteArray, private val conte
     }
 
     private fun readEntry(input: InputStream, entry: ZipEntry, seen: MutableSet<String>) {
-        budget(++entryCount <= minOf(64, context.limits.maxArchiveEntries))
+        budget(++entryCount <= minOf(256, context.limits.maxArchiveEntries))
         val name = entry.name.removeSuffix("/")
         require(validName(name)) { "Unsafe package entry name" }
         require(seen.add(name)) { "Duplicate package entry" }
@@ -116,7 +116,7 @@ internal class CleanupPackage(private val original: ByteArray, private val conte
         changed = true
     }
 
-    fun root(part: String): XmlElement? = parts[part]?.let { parsed.getOrPut(part) { xml.read(it) } }
+    fun root(part: String): XmlElement? = parts[part]?.let { parsed.getOrPut(part) { xml.readPart(it, part) } }
 
     fun touch(part: String) {
         edited += part

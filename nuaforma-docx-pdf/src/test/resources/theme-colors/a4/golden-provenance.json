@@ -1,0 +1,20 @@
+{
+  "sourceSha256": "431b4cdfe8925db8b0599696e3ce750c069d696d351d08c88a0f0076c6cec143",
+  "wordPdfSha256": "3a277d914bb18f37a4aeff38010927fbc238ac5d2eeaba83d7497a0830270473",
+  "dpi": 96,
+  "pages": [
+    {
+      "page": 1,
+      "file": "page-1.png",
+      "sha256": "8f4dc77a67c58ad1fd950de69e2eebd08ed1d55a9e8fb6563d4d0fca7d355e8f"
+    },
+    {
+      "page": 2,
+      "file": "page-2.png",
+      "sha256": "58b9e4e437dd95cca33b652e4a292ee3f329f997092b43af93364400baf4385a"
+    }
+  ],
+  "reviewedAgainstWord": true,
+  "themeTransformWordMaximumChannelDifference": 1,
+  "policy": "Initially reviewed immutable golden pages; replacement requires a documented reason and maintainer approval."
+}

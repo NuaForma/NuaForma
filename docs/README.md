@@ -1,5 +1,16 @@
 # NuaForma documentation
 
+- [Word print preferences and contained nested tables](word-print-preferences-and-contained-tables.md): numbering display names, image save-DPI, theme locks, zero-gutter positioning, bounded nested indentation and legacy percentage-table right margins (#283–#287, #279 follow-up; locally qualified, unreleased).
+- [Word table placement and numbering inheritance](word-table-and-numbering-inheritance.md): signed physical indentation, previous grids, definition links and inherited numbering levels (#279–#282).
+- [Word print-source metadata and numeric spellings](word-review-and-numeric-spellings.md): qualified review/view/preview metadata, horizontal defaults and integer binding (#273–#278).
+
+- [Cell margins and final-line tabs](word-cell-margins-and-final-tabs.md): physical cell frames, first-row fragmentation and inactive run formatting (source #268–#271).
+- [Minimum table row heights](minimum-table-row-heights.md): neutral physical row floors and three-page Word controls on A4/Letter (source #264).
+- [Image compression-state metadata](image-compression-states.md): qualified embedded picture hints and seven-image Word controls (source #262).
+- [Font-defined private glyphs](private-font-glyphs.md): bounded caller-font symbols and preserved logical aliases (source #258).
+- [Word table style defaults](word-table-style-defaults.md): default/derived table margins and ordinary border variants (source #260).
+- [Preferred table widths](preferred-table-widths.md): shared automatic layout with physical/percentage preferences (source #259).
+
 Choose a guide for the task you want to complete. Module guides are the technical reference; this index links to them rather than maintaining duplicate API descriptions.
 
 ## Use NuaForma
@@ -8,12 +19,20 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [Template language](../nuaforma-template/README.md): placeholders, null/missing values, conditions, nested repetitions, formatting and pipes.
 - [Word templates](../nuaforma-docx/README.md): paragraph/table rules, text boxes, images, fonts and watermarks.
 - [Rich text](rich-text.md): explicit bounded RTF insertion, independent boundary trims, inline placement and font policies (selected for alpha.5).
+- [Checkbox content](checkbox-content.md): boolean expressions and font-independent inline vector marks (selected for 0.5.0-alpha.1).
 - [PDF output](../nuaforma-docx-pdf/README.md): standard/PDF-A profiles, font requirements, isolation and fidelity limits.
+- [Native JPEG pictures and label metadata (source #226)](native-picture-compatibility.md): bounded image decoding, package validation and Playground impact.
+- [Word editor/web settings](word-editor-settings.md): qualified shape identifiers, HTML-export preferences and passive privacy/drawing-grid settings that preserve print layout (source #227 / #229 / #230).
+- [Word fields and bookmarks](word-fields-and-bookmarks.md): actual single/multi-paragraph string properties, literal assignments, legacy checkboxes and block-level bookmark boundaries (source #228 / #229).
 - [REST API](../nuaforma-server/README.md): multipart requests/resources, capabilities, assessment, errors and downloadable OpenAPI JSON/YAML.
 - [Embedded Java/Kotlin examples](../examples/embedded/README.md): consume library artifacts without running a server.
 - [Development Playground](../nuaforma-playground/README.md): prepare/export requests, select/upload fonts and generate documents through the same API; distributed as a separate development-only container.
 - [Playground template cleanup](template-cleanup.md): remove unsupported constructs from a copied template without evaluating markers; caller-owned visual review (source #191).
 - [Marked template diagnostic PDF](template-diagnostic-pdf.md): development-only parser error navigation, available since 0.3.0-alpha.4.
+
+- [Word notes](../tools/pdf-evaluation/own-engine/NOTES.md): qualified footnotes/endnotes, bounded Chicago symbols and automatic separator spacing (source #230).
+- [Lists and minimum line spacing](native-list-spacing-compatibility.md): source-ordered table lists, deeper starts, bounded overrides, `atLeast` and one-section note restart preferences (source #231).
+- [Word typography preferences](word-typography-preferences.md): trailing-space underlines, inherited punctuation/hyphenation guards, editor metadata and bounded standard-contextual ligatures (source #232).
 
 ## Deploy and operate
 
@@ -51,7 +70,11 @@ Choose a guide for the task you want to complete. Module guides are the technica
 
 ## Source versus published versions
 
-This checkout uses the native DOCX reader and shared `nuaforma-pdf` renderer. Libraries target Java 17; server/Playground use Java 25, with separate Java 17 PDF validators. This guide targets the native engine selected for `0.4.0-alpha.7`. Consult the actual signed release and matching Maven/container artifacts for published availability; older LibreOffice-based images do not gain this implementation automatically. Source builds and checks do not themselves publish artifacts. Local evaluation can use staged libraries and the source container; publication retains its candidate-specific qualification and approval gates.
+Unreleased #234 qualifies [Word-compatible synthetic bold](word-synthetic-bold.md) and its additive neutral style API, with unchanged DOCX embedding and EMF font policies.
+
+Unreleased #233 qualifies [passive Office package resources](word-passive-office-package.md), with strict graph checks and unchanged caller-font requirements.
+
+This checkout uses the native DOCX reader and shared `nuaforma-pdf` renderer. Libraries target Java 17; server/Playground use Java 25, with separate Java 17 PDF validators. This guide targets the native engine selected for `0.5.0-alpha.1`. Consult the actual signed release and matching Maven/container artifacts for published availability; older LibreOffice-based images do not gain this implementation automatically. Source builds and checks do not themselves publish artifacts. Local evaluation can use staged libraries and the source container; publication retains its candidate-specific qualification and approval gates.
 
 Published 0.4.0-alpha.1 retains runtime contract `0.8`, accepting compatible provider minima `0.1` through `0.8`. Its DOCX/PDF providers require 0.8 for optional document inspection and source diagnostics; rich-text metadata and the PDF diagnostic facet remain available. Keep all NuaForma libraries aligned and review the [rich-text compatibility notes](rich-text.md#contracts-and-compatibility) when upgrading extensions. PDF generation defaults to PDF/A-3b. Only exact `NUAFORMA_PDFA_VALIDATION=false` delegates conformance checking downstream; structural/font checks and the container validation boundary remain mandatory. See the [current PDF guide](../nuaforma-docx-pdf/README.md).
 
@@ -84,3 +107,45 @@ Version 0.4.0-alpha.6 (#208) preserves validated style revision metadata and foc
 Version 0.4.0-alpha.6 (#213) preserves qualified picture metadata and described EMF headers, with cleanup results beside the Playground control. See the [profile](word-picture-metadata.md), [release notes](../release-notes/0.4.0-alpha.6.md) and [candidate audit](release-0.4.0-alpha.6-audit.md).
 
 Version 0.4.0-alpha.7 (#218) treats bounded EMF header-description text as unused metadata, retaining otherwise supported logos without requiring a terminator. Invalid ranges and unsupported graphics remain errors. See the [compatibility policy](word-picture-metadata.md#bounded-description-compatibility-040-alpha7-218). See the [release notes](../release-notes/0.4.0-alpha.7.md) and [candidate audit](release-0.4.0-alpha.7-audit.md).
+
+Unreleased #223 qualifies solid/null extended-pen metadata and separates actual pattern/bitmap failures in diagnostics. See [the pen profile](word-picture-metadata.md#solid-and-null-pen-metadata-unreleased-223); this source change is not a new published alpha.
+
+- [Paragraph justification and passive Word metadata](word-justification-metadata.md): source qualification, Word reference and retained strict boundaries.
+
+- [Automatic East Asian text spacing](word-automatic-text-spacing.md): qualified inactive switches, field-aware guards and A4/Letter Word references.
+
+- [Automatic right-indent adjustment](word-right-indent-adjustment.md): validated inactive-grid paragraph switches and unchanged Word/golden geometry.
+
+- [Paragraph metadata](word-paragraph-metadata.md): qualified baselines, inherited run language and alternate style display names.
+
+- [Conditional Word objects](word-markup-compatibility.md): one selected representation for native PDF processing and diagnostics.
+
+- [Mixed natural line spacing](mixed-natural-line-spacing.md): physical wrapped-line metrics, variable-height pagination and bounded combinations.
+
+- [Word compatibility modes](word-compatibility-modes.md): qualified mode-14 layout, strict settings validation and independent Word references.
+- [Word run theme colors](word-theme-colors.md): bounded palette resolution, HSL tint/shade, style inheritance and original-source validation.
+- [Initial sections, form protection and printer trays](word-initial-section-metadata.md): bounded initial-continuous admission, preserved editing metadata and mixed-paper Word proofs.
+- [Physical OOXML trash items](word-package-trash.md): bounded admission of standard discarded ZIP data without template or layout participation.
+- [Mixed Latin font roles](word-mixed-latin-fonts.md): independent ASCII/high-ANSI inheritance, Word comparisons, script limits and unchanged shared PDF contracts.
+- [Passive picture, revision and proofing preferences](word-passive-editing-preferences.md): original-source validation, preserved templates and unchanged printed pages.
+
+Unreleased #250 extends [passive custom XML storage](word-passive-office-package.md#unbound-custom-xml-data-source-250) with bounded unbound data, exact owned graphs and preserved template bytes. Active bindings remain unsupported.
+
+Unreleased #251 qualifies [unused document-variable storage](word-passive-editing-preferences.md#unused-document-variable-storage-source-251), with original-source checks and unchanged template bytes. Displayed `DOCVARIABLE` fields remain unsupported.
+
+Unreleased #252 qualifies [Unicode spaces at run boundaries](word-unicode-spaces.md), preserving nonbreaking content without redundant XML space markers.
+
+Unreleased #253 extends [bookmark qualification](word-fields-and-bookmarks.md#ordered-table-bookmark-endings-source-253) with ordered table-level endings and the existing strict text-reference guard.
+
+Unreleased #254–#257 qualify original proofing preferences, printer-tray metadata, empty unused editing bookmarks and explicit default font hints through the linked Word guides above. Their A4/Letter counterfactuals retain existing Word/golden pixels and original template bytes.
+
+- [Character spacing](character-spacing.md): shared physical tracking and qualified DOCX translation (#266).
+- [Theme cell fills](theme-cell-fills.md): direct/inherited theme backgrounds and Word controls (#265).
+
+- [Word paragraph-style defaults](word-paragraph-style-defaults.md): qualified implicit defaults and source retention (unreleased source work).
+
+- [Word note separator metadata](word-note-separator-metadata.md): qualified nonprinting control formatting, original-source guards and retained pagination limits.
+
+- [Word cell paragraph pagination](word-cell-pagination-defaults.md): ordinary body-cell keeps, first-row fragments, independent Word controls and retained limits (unreleased #296/#298).
+
+Selected 0.5.0-alpha.1 adds Boolean checkbox content and consolidates the qualified Word metadata, fields, typography and table-layout improvements. Public contract 0.10 and additive neutral-model changes remain evaluation APIs. See the [release notes](../release-notes/0.5.0-alpha.1.md) and [candidate audit](release-0.5.0-alpha.1-audit.md); source qualification does not itself publish artifacts.

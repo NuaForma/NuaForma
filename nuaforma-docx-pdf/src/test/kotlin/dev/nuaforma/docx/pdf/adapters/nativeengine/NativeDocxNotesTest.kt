@@ -8,12 +8,17 @@ import org.junit.jupiter.api.Test
 
 class NativeDocxNotesTest {
     private val namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
     private fun fail(message: String): Nothing = throw IllegalArgumentException(message)
+
     private fun xml(text: String) = ConversionXml(GenerationContext()).read(text.toByteArray())
+
     private fun properties(text: String, kind: PdfNoteKind = PdfNoteKind.FOOTNOTE) =
         NativeDocxNotes.properties(xml("<w:pr xmlns:w=\"$namespace\">$text</w:pr>"), kind, NativeDocxNotes.defaults().getValue(kind), ::fail)
+
     private fun notes(content: String, policy: NativeDocxNotes.Numbering = NativeDocxNotes.defaults().getValue(PdfNoteKind.FOOTNOTE)) =
         NativeDocxNotes(mapOf(PdfNoteKind.FOOTNOTE to xml("<w:footnotes xmlns:w=\"$namespace\">$content</w:footnotes>")), mapOf(PdfNoteKind.FOOTNOTE to policy), ::fail)
+
     private val style = PdfTextStyle("regular", 9f)
 
     @Test fun `source order determines decimal roman and alphabetic note labels independently of source IDs`() {
@@ -31,9 +36,46 @@ class NativeDocxNotesTest {
         assertEquals(1, properties("<w:footnote w:id=\"-1\"/><w:footnote w:id=\"0\"/>").start)
     }
 
+    @Test
+    fun `Chicago symbols follow Word four symbol cycles and preserve independent note counters`() {
+        for (kind in PdfNoteKind.entries) {
+            val name = NativeDocxNotes.kindName(kind)
+            val policy = properties("<w:numFmt w:val=\"chicago\"/>", kind)
+            val content = (1..12).joinToString("") { "<w:$name w:id=\"$it\"><w:p/></w:$name>" }
+            val root = xml("<w:${name}s xmlns:w=\"$namespace\">$content</w:${name}s>")
+            val source = NativeDocxNotes(mapOf(kind to root), mapOf(kind to policy), ::fail)
+            for (id in 1..12) source.call(kind, id.toString(), style, null)
+            assertEquals(listOf("*", "\u2020", "\u2021", "\u00a7", "**", "\u2020\u2020", "\u2021\u2021", "\u00a7\u00a7", "***", "\u2020\u2020\u2020", "\u2021\u2021\u2021", "\u00a7\u00a7\u00a7"),
+                source.readDefinitions { _, _ -> listOf(PdfParagraph(listOf(PdfNoteLabel(style)))) }.map { it.number.text })
+            val override = NativeDocxNotes.properties(xml("<w:pr xmlns:w=\"$namespace\"><w:numFmt w:val=\"decimal\"/></w:pr>"), kind, policy, ::fail)
+            assertFalse(override.chicago)
+        }
+        for (start in listOf(128, 129)) {
+            val source = notes("<w:footnote w:id=\"1\"><w:p/></w:footnote>", properties("<w:numFmt w:val=\"chicago\"/><w:numStart w:val=\"$start\"/>"))
+            if (start == 129) assertThrows(IllegalArgumentException::class.java) { source.call(PdfNoteKind.FOOTNOTE, "1", style, null) }
+            else {
+                source.call(PdfNoteKind.FOOTNOTE, "1", style, null)
+                assertEquals("\u00a7".repeat(32), source.readDefinitions { _, _ -> listOf(PdfParagraph(listOf(PdfNoteLabel(style)))) }.single().number.text)
+            }
+        }
+    }
+
+    @Test
+    fun `automatic single line separators retain the qualified geometry and reject structural or effective changes`() {
+        val policy = properties("<w:footnote w:id=\"-1\"/>")
+        val base = "<w:footnote w:type=\"separator\" w:id=\"-1\"><w:p><w:pPr><w:spacing w:after=\"0\" w:line=\"240\" w:lineRule=\"auto\"/></w:pPr><w:r><w:separator/></w:r></w:p></w:footnote>"
+        assertNotNull(notes(base, policy))
+        assertNotNull(notes(base.replace(" w:after=\"0\"", ""), policy))
+        for (bad in listOf(base.replace("240", "360"), base.replace("w:after=\"0\"", "w:after=\"120\""),
+            base.replace("w:lineRule=\"auto\"", "w:lineRule=\"atLeast\""), base.replace("<w:separator/>", "<w:r><w:separator/></w:r>"),
+            base.replace("</w:pPr>", "<w:spacing/></w:pPr>"))) {
+            assertThrows(IllegalArgumentException::class.java, { notes(bad, policy) }, bad)
+        }
+    }
+
     @Test fun `invalid policies and changed separator geometry are rejected rather than silently normalized`() {
-        for (property in listOf("<w:numFmt w:val=\"chicago\"/>", "<w:numStart w:val=\"0\"/>",
-            "<w:numRestart w:val=\"eachSect\"/>", "<w:pos w:val=\"beneathText\"/>",
+        for (property in listOf("<w:numFmt w:val=\"unknown\"/>", "<w:numStart w:val=\"0\"/>",
+            "<w:numRestart w:val=\"eachPage\"/>", "<w:pos w:val=\"beneathText\"/>",
             "<w:numStart w:val=\"1\"/><w:numStart w:val=\"2\"/>", "<w:unknown w:val=\"1\"/>",
             "<w:numFmt/>", "<w:numFmt w:val=\"decimal\"><w:numStart/></w:numFmt>", "<w:footnote/>",
             "<w:footnote w:id=\"bad\"/>")) assertThrows(IllegalArgumentException::class.java, { properties(property) }, property)

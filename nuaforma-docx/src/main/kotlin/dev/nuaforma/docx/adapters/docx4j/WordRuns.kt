@@ -93,7 +93,8 @@ internal object WordRuns {
 
     fun apply(content: MutableList<Any>, session: ContentTemplateSession, validateOnly: Boolean, context: GenerationContext, valuePipes: TemplatePipes, visible: (R) -> Boolean,
               fault: WordTemplateFault? = null, preview: Boolean = false, richText: (RichTextContent, R, String, Int, Int) -> Any,
-              image: (ImageContent) -> org.docx4j.wml.Drawing) {
+              image: (ImageContent) -> org.docx4j.wml.Drawing,
+              vector: (ContentResult.Vector, R) -> org.docx4j.wml.Drawing) {
         if (validateOnly) {
             val instructions = content.joinToString("") { raw -> when (val node = XmlUtils.unwrap(raw)) {
                 is R -> if (!visible(node)) "" else node.content.filterIsInstance<JAXBElement<*>>().filter { it.name.localPart != "t" && it.value is Text }
@@ -136,6 +137,14 @@ internal object WordRuns {
                     val structured = fragment.content
                     if (structured is RichTextContent) {
                         replacements.add(richText(structured, anchor, source, fragment.sourceStart, fragment.sourceEnd))
+                        span.through(fragment.sourceEnd, replacements)
+                        continue
+                    }
+                    if (structured is ContentResult.Vector) {
+                        val run = XmlUtils.deepCopy(anchor)
+                        run.content.clear()
+                        run.content.add(vector(structured, anchor))
+                        replacements.add(run)
                         span.through(fragment.sourceEnd, replacements)
                         continue
                     }

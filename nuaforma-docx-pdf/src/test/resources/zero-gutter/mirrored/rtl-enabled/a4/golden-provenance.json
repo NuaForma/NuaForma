@@ -1,0 +1,24 @@
+{
+  "issues": [
+    286
+  ],
+  "golden": "mirror-indents/a4-flip/page-1.png",
+  "goldenDirectory": "mirror-indents/a4-flip/",
+  "note": "Exact-source Word export matches its independent counterfactual and the existing Word baseline pixel-for-pixel. Reuse corresponding protected native golden pages without replacing or copying them.",
+  "sha256": {
+    "source.docx": "31df5c744488efbb3af253127932b8b4cbf854a549e12d759e0d80443d3af88a",
+    "word-reference.pdf": "51e72b34514d4488cd5c46c086c71f59a1a02726d4008e29a7c4e3e4957e6c80",
+    "word-reference.pdf.provenance.json": "515fbc5a41c6ef166b77fc719716a119a8374dbca5db35bbe2419f2b744d5b45",
+    "existing-page-1.png": "a2bb21c6e9972cbbc6f73ebaad959ae25766c0d0bc06b9a0502c98b5eb4ff33d",
+    "existing-page-2.png": "d6d5462335cc0d1f868032a8030107cc08e0f19c9ccf4c0d9c04f60b3c26d6c1",
+    "existing-page-3.png": "10570309afaf409c2a013971d678ab04242444396b54b062dd5775624c3ff6c7",
+    "existing-page-4.png": "6c6a00f907879a64ab8dc8bfd12aa2f19332afed544c58b030bf4b41bb8bcdc8"
+  },
+  "wordComparison": {
+    "case": "mirrored/rtl-enabled/a4",
+    "wordControlPixelsExact": true,
+    "existingWordBaselinePixelsExact": true,
+    "textExact": true,
+    "pages": 4
+  }
+}

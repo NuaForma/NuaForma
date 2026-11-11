@@ -1,6 +1,6 @@
 # Page-band images and positioned text frames
 
-Date: 2026-10-24. This controlled trial extends the [letter](README.md), [report](REPORT.md) and [advanced tables](ADVANCED.md). It adds images in both page bands, text frames and rotated text/images to the single shared `nuaforma-pdf` artifact. DOCX interpretation remains test-only. Production providers, server/Playground behavior, public conversion profiles, dependency versions and release workflows are unchanged. No commit or remote publication is part of this experiment.
+Date: 2026-10-24. This controlled trial extends the [letter](README.md), [report](REPORT.md) and [advanced tables](ADVANCED.md). It adds images in both page bands, text frames and rotated text/images to the single shared `nuaforma-pdf` artifact. These early qualification trials now underpin the bounded production frame reader; they do not qualify every Word frame. Unreleased [conditional-object selection](../../../docs/word-markup-compatibility.md) also applies the existing qualified DrawingML/VML structures before PDF-route template evaluation and inspection. Public models, dependency versions and release workflows remain unchanged. No commit or remote publication is part of this experiment.
 
 ## Reference method
 

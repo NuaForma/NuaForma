@@ -10,7 +10,7 @@ internal class NativeDocxNotes(
     private val fail: (String) -> Nothing,
     focus: (XmlElement) -> Unit = {},
 ) {
-    data class Numbering(val start: Int, val format: PdfNumberFormat, val specialIds: Set<String> = emptySet())
+    data class Numbering(val start: Int, val format: PdfNumberFormat, val specialIds: Set<String> = emptySet(), val chicago: Boolean = false)
     private data class Definition(val node: XmlElement, val kind: PdfNoteKind, val id: String)
     private data class Used(val definition: Definition, val value: PdfListValue)
     private val definitions = linkedMapOf<String, Definition>()
@@ -64,7 +64,10 @@ internal class NativeDocxNotes(
         val ordinal = policy.start + (counts[kind] ?: 0)
         if (ordinal !in 1..9_999) fail("Note numbering exceeds the qualified range")
         val instance = kindName(kind)
-        val value = PdfNumbering.resolve(listOf(PdfListDefinition(instance, listOf(PdfListLevel(policy.format, "%1", ordinal)))), listOf(PdfListStep(instance, 0))).single()
+        val value = if (policy.chicago) {
+            if (ordinal > 128) fail("Chicago note labels exceed the qualified length")
+            PdfListValue(instance, 0, ordinal, listOf("*", "\u2020", "\u2021", "\u00a7")[(ordinal - 1) % 4].repeat((ordinal - 1) / 4 + 1))
+        } else PdfNumbering.resolve(listOf(PdfListDefinition(instance, listOf(PdfListLevel(policy.format, "%1", ordinal)))), listOf(PdfListStep(instance, 0))).single()
         counts[kind] = (counts[kind] ?: 0) + 1
         used[id] = Used(definition, value)
         return PdfNoteCall("$id-call", id, style, navigation)
@@ -76,12 +79,16 @@ internal class NativeDocxNotes(
 
     companion object {
         private const val W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
         fun kindName(kind: PdfNoteKind) = if (kind == PdfNoteKind.FOOTNOTE) "footnote" else "endnote"
+
         private fun id(kind: PdfNoteKind, raw: String) = "source-${kindName(kind)}$raw"
+
         private fun sourceId(raw: String?, fail: (String) -> Nothing): String {
             if (raw == null || !raw.matches(Regex("-?[0-9]{1,9}"))) fail("Invalid note ID")
             return raw.toInt().toString()
         }
+
         fun defaults(): Map<PdfNoteKind, Numbering> = mapOf(
             PdfNoteKind.FOOTNOTE to Numbering(1, PdfNumberFormat.DECIMAL), PdfNoteKind.ENDNOTE to Numbering(1, PdfNumberFormat.LOWER_ROMAN))
 
@@ -105,8 +112,11 @@ internal class NativeDocxNotes(
                 when (name) {
                     "pos" -> if (value != if (kind == PdfNoteKind.FOOTNOTE) "pageBottom" else "docEnd") fail("Unsupported note placement")
                     "numStart" -> result = result.copy(start = value?.toIntOrNull()?.takeIf { it in 1..9_999 } ?: fail("Invalid note numbering start"))
-                    "numRestart" -> if (value != "continuous") fail("Note numbering restarts are not yet qualified")
-                    "numFmt" -> result = result.copy(format = when (value) {
+                    // Active notes are bounded to one section by the reader. Physical pages
+                    // do not restart either policy; multi-section notes remain explicit failures.
+                    "numRestart" -> if (value !in setOf("continuous", "eachSect")) fail("Note numbering restarts are not yet qualified")
+                    "numFmt" -> result = result.copy(chicago = value == "chicago", format = when (value) {
+                        "chicago" -> PdfNumberFormat.DECIMAL
                         "decimal" -> PdfNumberFormat.DECIMAL; "lowerRoman" -> PdfNumberFormat.LOWER_ROMAN; "upperRoman" -> PdfNumberFormat.UPPER_ROMAN
                         "lowerLetter" -> PdfNumberFormat.LOWER_LETTER; "upperLetter" -> PdfNumberFormat.UPPER_LETTER
                         else -> fail("Unsupported note number format")
@@ -117,16 +127,69 @@ internal class NativeDocxNotes(
             return result
         }
 
+        /** Validate newly qualified nonprinting run properties before typed binding. */
+        fun validateSeparatorSource(root: XmlElement, focus: (XmlElement) -> Unit, fail: (String) -> Nothing) {
+            if (root.name.namespaceURI != W || root.name.localPart !in setOf("footnotes", "endnotes")) return
+            for (note in root.elements().filter { it.attribute(W, "type") in setOf("separator", "continuationSeparator") }) {
+                for (run in note.descendants().filter { it.name.localPart == "r" }) {
+                    if (run.elements().count { it.name.localPart == "rPr" } > 1) { focus(run); fail("Duplicate note separator run properties") }
+                }
+                for (node in note.descendants().filter { it.name.localPart == "rPr" }) {
+                    focus(node)
+                    val onReference = note.descendants().any { run -> run.name.localPart == "r" &&
+                        run.elements().any { it === node } && run.elements().any { it.name.localPart == note.name.localPart + "Ref" } }
+                    separatorRunProperties(node, fail, allowStyle = onReference)
+                }
+                for (node in note.descendants().filter { it.name.localPart in setOf("footnoteRef", "endnoteRef") }) {
+                    focus(node)
+                    if (node.name.namespaceURI != W || node.attributes.isNotEmpty() || node.children.isNotEmpty()) fail("Invalid note separator reference")
+                }
+            }
+        }
+
+        private fun separatorRunProperties(node: XmlElement, fail: (String) -> Nothing, allowStyle: Boolean = true) {
+            if (node.name.namespaceURI != W || node.attributes.isNotEmpty() ||
+                node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) fail("Invalid note separator run properties")
+            val properties = node.elements()
+            if (properties.map { it.name.localPart }.distinct().size != properties.size) fail("Duplicate note separator property")
+            for (property in properties) {
+                if (property.name.namespaceURI != W || property.elements().isNotEmpty() ||
+                    property.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
+                    property.attributes.size != 1 || property.attribute(W, "val") == null) fail("Invalid note separator property")
+                val value = requireNotNull(property.attribute(W, "val"))
+                when (property.name.localPart) {
+                    "sz" -> if (value !in setOf("24", "36")) fail("Unqualified note separator control size")
+                    "rStyle" -> if (!allowStyle || !value.matches(Regex("[A-Za-z_][A-Za-z0-9_]{0,127}"))) fail("Invalid note separator control style")
+                    else -> fail("Unsupported note separator control property")
+                }
+            }
+        }
+
         private fun validateSeparator(node: XmlElement, type: String, fail: (String) -> Nothing) {
-            val allowed = setOf(node.name.localPart, "p", "pPr", "spacing", "r", type)
+            val reference = node.name.localPart + "Ref"
+            val allowed = setOf(node.name.localPart, "p", "pPr", "spacing", "r", "rPr", "rStyle", "sz", type, reference)
             if (node.descendants().any { it.name.namespaceURI != W || it.name.localPart !in allowed || it.children.filterIsInstance<XmlText>().any { text -> text.text.isNotBlank() } })
                 fail("Unsupported note separator contents")
             if (node.descendants().count { it.name.localPart == type } != 1) fail("Missing or duplicate note separator control")
             if (node.elements().size != 1 || node.elements().single().name.localPart != "p") fail("Unsupported note separator paragraphs")
-            if (node.descendants().any { it !== node && it.name.localPart != "spacing" && it.attributes.isNotEmpty() }) fail("Unsupported note separator attributes")
+            val paragraph = node.elements().single()
+            val properties = paragraph.elements().filter { it.name.localPart == "pPr" }
+            val runs = paragraph.elements().filter { it.name.localPart == "r" }
+            if (properties.size > 1 || properties.any { it.elements().size > 1 || it.elements().any { child -> child.name.localPart != "spacing" || child.elements().isNotEmpty() } } ||
+                runs.size !in 1..2 || paragraph.elements().any { it.name.localPart !in setOf("pPr", "r") }) fail("Unsupported note separator structure")
+            for ((index, run) in runs.withIndex()) {
+                val children = run.elements()
+                val control = if (index == runs.lastIndex) type else reference
+                if (children.size !in 1..2 || children.last().name.localPart != control || children.last().elements().isNotEmpty() ||
+                    children.dropLast(1).any { it.name.localPart != "rPr" }) fail("Unsupported note separator run")
+                children.firstOrNull()?.takeIf { it.name.localPart == "rPr" }?.let { separatorRunProperties(it, fail, allowStyle = control == reference) }
+            }
+            if (node.descendants().any { it !== node && it.name.localPart !in setOf("spacing", "rStyle", "sz") && it.attributes.isNotEmpty() }) fail("Unsupported note separator attributes")
             node.descendants().filter { it.name.localPart == "spacing" }.forEach { spacing ->
                 val expected = mapOf("before" to "0", "after" to "0", "line" to "240", "lineRule" to "exact")
-                if (spacing.attributes.any { (key, value) -> key.namespaceURI != W || expected[key.localPart] != value }) fail("Unqualified note separator spacing")
+                if (spacing.attributes.any { (key, value) -> key.namespaceURI != W ||
+                        if (key.localPart == "lineRule") value !in setOf("exact", "auto") else expected[key.localPart] != value } ||
+                    spacing.attribute(W, "lineRule") == "auto" && spacing.attribute(W, "line") != "240") fail("Unqualified note separator spacing")
             }
         }
     }

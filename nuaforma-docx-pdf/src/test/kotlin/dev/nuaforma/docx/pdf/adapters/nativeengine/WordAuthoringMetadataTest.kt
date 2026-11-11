@@ -8,6 +8,26 @@ import org.junit.jupiter.api.Test
 class WordAuthoringMetadataTest {
 
     @Test
+    fun `next paragraph style is passive even for missing self and cyclic editor targets`() {
+        val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+
+        fun styles(next: String) = ConversionXml(GenerationContext()).read(
+            """<w:styles xmlns:w="$word"><w:style w:type="paragraph" w:styleId="Body">$next<w:basedOn w:val="Normal"/><w:rPr><w:b/></w:rPr></w:style></w:styles>""".toByteArray())
+
+        for (target in listOf("Body", "Missing", "Other Style", "x".repeat(253))) {
+            val root = styles("<w:next w:val=\"$target\"/>")
+            WordAuthoringMetadata.normalize(root, "word/styles.xml", false)
+            assertEquals(listOf("basedOn", "rPr"), root.elements().single().elements().map { it.name.localPart })
+        }
+        for (bad in listOf("<w:next/>", "<w:next w:val=\"\"/>", "<w:next val=\"Normal\"/>",
+            "<w:next w:val=\"${"x".repeat(254)}\"/>", "<w:next w:val=\"Normal\" extra=\"1\"/>",
+            "<w:next w:val=\"Normal\">text</w:next>", "<w:next w:val=\"Normal\"><w:p/></w:next>",
+            "<w:next w:val=\"Normal\"/><w:next w:val=\"Body\"/>")) {
+            assertThrows(NativeDocxReadException::class.java, { WordAuthoringMetadata.normalize(styles(bad), "word/styles.xml", false) }, bad)
+        }
+    }
+
+    @Test
     fun `style revision metadata has no print behavior and only accepts a four byte hexadecimal identifier`() {
         val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 

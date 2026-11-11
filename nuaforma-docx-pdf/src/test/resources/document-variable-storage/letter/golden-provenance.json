@@ -1,0 +1,17 @@
+{
+  "sourceSha256": "24c37acef17ade2e440f572fde300f28adf3134deeb740fdd1c911e34c4c4e05",
+  "wordPdfSha256": "1da34d166f33e7cb11c4bd50de62e0ec759cc3f60584efca478af8f90bf553eb",
+  "legacySourceSha256": "cbb34f19ed682df92819eb657ba4f69bb2465738bd365a2f466480afc81dbbbc",
+  "legacyWordPdfSha256": "61c3cd0ea4e28911ed4c3e849575fe511328990f0522e6400f6bfdb5b49c6c64",
+  "pages": [
+    {
+      "page": 1,
+      "resource": "/typography-preferences/bands-letter/page-1.png",
+      "sha256": "b4b501504a6333ab5b4b0d78bbaac8aa410d59cc53dfb468e4abd3cb6581ed0c"
+    }
+  ],
+  "dpi": 96,
+  "reviewedAgainstWord": true,
+  "wordPixelsUnchangedByStoredVariables": true,
+  "policy": "Reuse existing immutable qualified goldens; no replacement or regeneration."
+}

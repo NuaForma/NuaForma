@@ -1,0 +1,9 @@
+{
+  "controlResource": "preferred-table-widths/a4",
+  "note": "The label resolves to the original synthetic control title. Word export and native golden are the unchanged control references.",
+  "sha256": {
+    "source.docx": "bdaeec6eaefa6c250a4dcae80019c4930d0db0c0e95b5ef12ce5b2103aad70b0",
+    "word-reference.pdf": "2e6d8da6f00f553d5a9e78aa3610e710501e5631c39e8f0613222f290c238ec7",
+    "page-1.png": "2cfbf683e07c9d5b80b4fbaa916aadd684f45cba986ba54dfffd228a35683b17"
+  }
+}

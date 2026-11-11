@@ -1,0 +1,28 @@
+{
+  "sourceSha256": "cd5c61ce7b4ac935ff6a1dbf7e2189a04347700c98b97137ef650297b7e8075b",
+  "controlSourceSha256": "7f8dc17b821b838685ab398bbe4c835bdb2fa956242a42030e77969728d3a801",
+  "controlWordPdfSha256": "188093d27c4cff15772a9fbd4c30ee369f5462dadb482cb6c5eb1d23786ef5e2",
+  "engineControlPdfSha256": "8503ef4e9078c1a68bc4f3827d4fb5917482eca24fd7046e280aa43ea7bd869b",
+  "fontSha256": "af19d135d3a935b3ebfbd80320716ffe1202052c5f68dc2c5f1abc57005ac605",
+  "wordReferenceSource": "control-source.docx",
+  "directPrivateWordComparisonQualified": false,
+  "oraclePolicy": "Independent Word references use assigned aliases of identical physical glyphs. The initial reviewed golden is the generated assigned control after the metric-only and per-font line-gap corrections; all four private-glyph PDF profiles match it exactly. Direct private-use Word equality is not claimed.",
+  "reviewedAgainstWordAssignedControl": true,
+  "initialGolden": true,
+  "dpi": 96,
+  "masks": 0,
+  "wordGlyphMetrics": {
+    "glyphs": 4,
+    "maxDx": 0.17700195,
+    "maxDy": 0.057617188,
+    "maxWidthDifference": 0.039993286
+  },
+  "pages": [
+    {
+      "page": 1,
+      "file": "page-1.png",
+      "sha256": "688c08a81ccd37591a33a021c7d6a4354920a6b5cc09c604bc5739ab7c14759e"
+    }
+  ],
+  "policy": "Initially reviewed automatic-line assigned-control golden. No existing golden is replaced by this fixture. Future replacement requires explicit review and approval."
+}

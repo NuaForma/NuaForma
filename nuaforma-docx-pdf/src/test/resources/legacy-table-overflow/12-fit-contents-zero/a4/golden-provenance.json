@@ -1,0 +1,24 @@
+{
+  "issues": [
+    287
+  ],
+  "golden": "legacy-table-overflow/12-fit-contents-zero/a4/page-1.png",
+  "note": "Exact-source Word export, independent text/paper/embedded-font and marker geometry qualification. Initial native reference reviewed visually; automatic physical controls reuse exact existing signed-indent goldens. No protected golden replaced.",
+  "sha256": {
+    "source.docx": "14e6275611b9a120553d3c60c9fec3dcd3fab96e6ad6c58281995b63cca558e3",
+    "word-reference.pdf": "3e62c9b5bef12af2cc072947e241f2745131931409c5e75277ee8171e6e3d0ec",
+    "word-reference.pdf.provenance.json": "1c6437a5a6e8d0bb54f23c770e39a00c2ff999906970599d1596a040534410ef",
+    "page-1.png": "8319c6d8006794504dbd673f3a02a0a1ad2f40cd764954471b2d102d6c1daf9b"
+  },
+  "wordComparison": {
+    "case": "12-fit-contents-zero-a4",
+    "pass": true,
+    "pagesEqual": true,
+    "textEqual": true,
+    "markersEqual": true,
+    "fontsEmbedded": true,
+    "paperEqual": true,
+    "maxDx": 0.0500030517578125,
+    "maxDy": 0.0799560546875
+  }
+}

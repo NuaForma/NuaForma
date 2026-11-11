@@ -76,6 +76,14 @@ class TemplateSocketTest {
                     }
                     val missingRich = send("{optional | richText(\"rtf\")}")
                     assertEquals(200, missingRich.statusCode(), if (missingRich.statusCode() == 200) "" else missingRich.body().decodeToString())
+                    val checkbox = send("HTTP checkbox: {(name == 'Ada') | checkbox()} end")
+                    assertEquals(200, checkbox.statusCode(), if (checkbox.statusCode() == 200) "" else checkbox.body().decodeToString())
+                    Loader.loadPDF(checkbox.body()).use { pdf ->
+                        assertTrue(PDFTextStripper().getText(pdf).contains("HTTP checkbox:"))
+                        val operators = org.apache.pdfbox.pdfparser.PDFStreamParser(pdf.getPage(0)).parse()
+                            .filterIsInstance<org.apache.pdfbox.contentstream.operator.Operator>().map { it.name }
+                        assertTrue(operators.count { it == "S" } >= 2, "The HTTP route must draw an outline and check as vector strokes")
+                    }
                     val hiddenMarker = "{name}</w:t></w:r><w:r><w:rPr><w:vanish/></w:rPr><w:t>{HIDDEN_LITERAL"
                     val hidden = send(hiddenMarker)
                     assertEquals(200, hidden.statusCode(), if (hidden.statusCode() == 200) "" else hidden.body().decodeToString())

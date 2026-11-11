@@ -24,12 +24,20 @@ internal object WordLayoutOracle {
 
     fun render(source: ByteArray, family: String = "Liberation Sans"): ByteArray = PdfEngine().render(OwnEngineDocxReader(family).read(source), fonts(family))
 
-    private data class Position(val page: Int, val x: Float, val y: Float, val size: Float, val face: String, val rgb: Int)
+    data class Position(val page: Int, val x: Float, val y: Float, val size: Float, val face: String, val rgb: Int)
 
-    private fun positions(pdf: PDDocument, marker: Regex): Map<String, Position> {
+    fun positions(pdf: PDDocument, marker: Regex): Map<String, Position> {
         val result = linkedMapOf<String, Position>()
         val colors = java.util.IdentityHashMap<TextPosition, Int>()
         object : PDFTextStripper() {
+            init {
+                addOperator(org.apache.pdfbox.contentstream.operator.color.SetNonStrokingDeviceRGBColor(this))
+                addOperator(org.apache.pdfbox.contentstream.operator.color.SetNonStrokingDeviceGrayColor(this))
+                addOperator(org.apache.pdfbox.contentstream.operator.color.SetNonStrokingDeviceCMYKColor(this))
+                addOperator(org.apache.pdfbox.contentstream.operator.color.SetNonStrokingColorSpace(this))
+                addOperator(org.apache.pdfbox.contentstream.operator.color.SetNonStrokingColor(this))
+                addOperator(org.apache.pdfbox.contentstream.operator.color.SetNonStrokingColorN(this))
+            }
 
             override fun processTextPosition(position: TextPosition) {
                 colors[position] = graphicsState.nonStrokingColor.toRGB()
@@ -99,15 +107,15 @@ internal object WordLayoutOracle {
         } }
     }
 
-    private fun verifyTableFills(source: ByteArray, word: PDDocument, actual: PDDocument) {
+    fun verifyTableFills(source: ByteArray, word: PDDocument, actual: PDDocument, page: Int = 0, topOffset: Float = 0f) {
         val model = OwnEngineDocxReader().read(source)
         val table = model.blocks.filterIsInstance<PdfTable>().single()
-        val expected = PDFRenderer(word).renderImageWithDPI(0, 96f)
-        val candidate = PDFRenderer(actual).renderImageWithDPI(0, 96f)
+        val expected = PDFRenderer(word).renderImageWithDPI(page, 96f)
+        val candidate = PDFRenderer(actual).renderImageWithDPI(page, 96f)
         // These fixtures have six 20pt lines, 6pt cell padding and a 0.5pt grid.
         for (row in 0 until 6) for (column in 0 until 4) {
             val x = ((model.page.margins.left + table.leftIndent + column * 120f + 60f) * 96 / 72).toInt()
-            val y = ((model.page.margins.top + row * 32.5f + 29f) * 96 / 72).toInt()
+            val y = ((model.page.margins.top + topOffset + row * 32.5f + 29f) * 96 / 72).toInt()
             assertEquals(expected.getRGB(x, y), candidate.getRGB(x, y), "Word background cell $row/$column")
         }
     }

@@ -2,6 +2,9 @@ package dev.nuaforma.contracts
 
 /** Application-owned explanations only; never create reasons from exception or extension text. */
 enum class RejectionReason(val message: String, private val advice: RejectionAdvice, val construct: String? = null) {
+    INVALID_CHECKBOX("Checkbox requires a boolean value, an optional boolean outline and check/cross/empty marks", RejectionAdvice.DATA, "checkbox"),
+    INLINE_VECTOR_GEOMETRY_EXCEEDS_LIMITS("Inline vector geometry exceeds the generation resource limits", RejectionAdvice.LIMITS),
+    UNSUPPORTED_INLINE_VECTOR_STYLE("Inline vectors require a supported text size and explicit RGB or automatic color", RejectionAdvice.STRUCTURE, "drawing"),
     NATIVE_PDF_VALIDATOR_REQUIRED("Configure the qualified independent native PDF validator runtime; DOCX output remains available", RejectionAdvice.RUNTIME),
     NATIVE_PDF_UNQUALIFIED_OPTION("Requested paragraph fallbacks are not qualified for native PDF output; requested watermarks require standard PDF, PDF/A-2b or PDF/A-3b", RejectionAdvice.OPTIONS),
     NATIVE_PDF_CAPACITY_EXHAUSTED("Native PDF conversion capacity is exhausted; retry after active conversions finish", RejectionAdvice.LIMITS),

@@ -130,42 +130,86 @@ data class PdfCellBorders @JvmOverloads constructor(
     val bottom: PdfEdgeStroke? = null, val left: PdfEdgeStroke? = null,
 )
 
-class PdfTableCell @JvmOverloads constructor(
-    blocks: List<PdfBlock>, val background: PdfColor? = null, val columnSpan: Int = 1, val rowSpan: Int = 1,
-    val verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP,
-    val borders: PdfCellBorders? = null,
+class PdfTableCell private constructor(
+    blocks: List<PdfBlock>, val background: PdfColor?, val columnSpan: Int, val rowSpan: Int,
+    val verticalAlignment: PdfVerticalAlignment, val borders: PdfCellBorders?,
+    val preferredWidth: PdfPreferredWidth?, spacing: CellSpacing,
 ) {
+    private class CellSpacing(val margins: PdfMargins?)
+
+    @JvmOverloads constructor(blocks: List<PdfBlock>, background: PdfColor? = null, columnSpan: Int = 1, rowSpan: Int = 1,
+        verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP, borders: PdfCellBorders? = null,
+        preferredWidth: PdfPreferredWidth? = null,
+    ) : this(blocks, background, columnSpan, rowSpan, verticalAlignment, borders, preferredWidth, CellSpacing(null))
+
+    constructor(blocks: List<PdfBlock>, background: PdfColor? = null, columnSpan: Int = 1, rowSpan: Int = 1,
+        verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP, borders: PdfCellBorders? = null,
+        preferredWidth: PdfPreferredWidth? = null, margins: PdfMargins?,
+    ) : this(blocks, background, columnSpan, rowSpan, verticalAlignment, borders, preferredWidth, CellSpacing(margins))
+
+    val margins: PdfMargins? = spacing.margins
     val blocks: List<PdfBlock> = Collections.unmodifiableList(ArrayList(blocks))
     val paragraphs: List<PdfParagraph> get() = blocks.filterIsInstance<PdfParagraph>()
     init {
         require(this.blocks.size in 1..128 && this.blocks.all { it is PdfParagraph || it is PdfTable }) { "Invalid cell blocks" }
         require(columnSpan in 1..16 && rowSpan in 1..500) { "Invalid cell span" }
+        require(margins == null || listOf(margins.top, margins.right, margins.bottom, margins.left).all { it <= 14_400f }) { "Cell margins exceed the layout limit" }
     }
 }
 
-class PdfTableRow @JvmOverloads constructor(cells: List<PdfTableCell>, val allowSplit: Boolean = false, val splitOversized: Boolean = false) {
+/** Optional physical row-advance floor in points, including the cell frame; null retains natural sizing. */
+class PdfTableRow @JvmOverloads constructor(cells: List<PdfTableCell>, val allowSplit: Boolean = false,
+    val splitOversized: Boolean = false, val minimumHeight: Float? = null) {
     val cells: List<PdfTableCell> = Collections.unmodifiableList(ArrayList(cells))
-    init { require(this.cells.size in 0..16) { "Invalid column count" } }
+    init {
+        require(this.cells.size in 0..16) { "Invalid column count" }
+        require(minimumHeight == null || minimumHeight.isFinite() && minimumHeight in 0f..14_400f) { "Invalid minimum row height" }
+    }
 }
 
-/** FIT_CONTENTS replaces preferred grid widths with natural, unwrapped text widths. */
-enum class PdfTableWidthPolicy { FIXED, FIT_CONTENTS }
+/** FIXED retains the grid; FIT_CONTENTS is unwrapped; AUTO_FIT negotiates preferences and wrapping. */
+enum class PdfTableWidthPolicy { FIXED, FIT_CONTENTS, AUTO_FIT }
 
-class PdfTable @JvmOverloads constructor(
+class PdfTable private constructor(
     columnWidths: List<Float>, rows: List<PdfTableRow>,
-    val cellMargins: PdfMargins = PdfMargins(4f, 6f, 4f, 6f),
-    val border: PdfBorder? = PdfBorder(0.5f, PdfColor(184, 197, 204)),
-    val repeatedHeaderRows: Int = 0, val leftIndent: Float = 0f,
-    val widthPolicy: PdfTableWidthPolicy = PdfTableWidthPolicy.FIXED,
-    override val semantics: PdfBlockSemantics? = null,
+    val cellMargins: PdfMargins, val border: PdfBorder?,
+    val repeatedHeaderRows: Int, val leftIndent: Float,
+    val widthPolicy: PdfTableWidthPolicy, override val semantics: PdfBlockSemantics?,
+    val preferredWidth: PdfPreferredWidth?, overflow: TableOverflow,
 ) : PdfBlock {
+    private class TableOverflow(val right: Float)
+
+    @JvmOverloads constructor(
+        columnWidths: List<Float>, rows: List<PdfTableRow>,
+        cellMargins: PdfMargins = PdfMargins(4f, 6f, 4f, 6f),
+        border: PdfBorder? = PdfBorder(0.5f, PdfColor(184, 197, 204)),
+        repeatedHeaderRows: Int = 0, leftIndent: Float = 0f,
+        widthPolicy: PdfTableWidthPolicy = PdfTableWidthPolicy.FIXED,
+        semantics: PdfBlockSemantics? = null, preferredWidth: PdfPreferredWidth? = null,
+    ) : this(columnWidths, rows, cellMargins, border, repeatedHeaderRows, leftIndent,
+        widthPolicy, semantics, preferredWidth, TableOverflow(0f))
+
+    /** Additional right-margin space in points; physical page and parent-cell bounds still apply. */
+    val rightOverflow: Float = overflow.right
+
+    fun withRightOverflow(points: Float): PdfTable = PdfTable(columnWidths, rows, cellMargins, border,
+        repeatedHeaderRows, leftIndent, widthPolicy, semantics, preferredWidth, TableOverflow(points))
+
     val columnWidths: List<Float> = Collections.unmodifiableList(ArrayList(columnWidths))
     val rows: List<PdfTableRow> = Collections.unmodifiableList(ArrayList(rows))
     init {
-        require(this.columnWidths.size in 1..16 && this.columnWidths.all { it.isFinite() && it > cellMargins.left + cellMargins.right }) { "Invalid table widths" }
+        val variedMargins = this.rows.any { row -> row.cells.any { it.margins != null && it.margins != cellMargins } }
+        require(this.columnWidths.size in 1..16 && this.columnWidths.all {
+            it.isFinite() && when {
+                widthPolicy == PdfTableWidthPolicy.AUTO_FIT -> it in 0f..14_400f
+                variedMargins -> it > 0f
+                else -> it > cellMargins.left + cellMargins.right
+            }
+        }) { "Invalid table widths" }
         require(this.rows.size in 1..500) { "Invalid table rows" }
         require(repeatedHeaderRows in 0..minOf(4, this.rows.size - 1)) { "Invalid repeated table headers" }
         require(leftIndent.isFinite() && leftIndent in -14_400f..14_400f) { "Invalid table indentation" }
+        require(rightOverflow.isFinite() && rightOverflow in 0f..14_400f) { "Invalid right table overflow" }
         placements()
     }
 
@@ -210,7 +254,7 @@ class PdfTextBox @JvmOverloads constructor(
     }
 }
 
-enum class PdfAlignment { LEFT, CENTER, RIGHT }
+enum class PdfAlignment { LEFT, CENTER, RIGHT, JUSTIFY }
 
 /** Physical geometry and body-flow keep rules; exact line boxes use an experimental 80% baseline.
  * Keep flags default off in the neutral model; readers resolve their source-format defaults.
@@ -262,7 +306,8 @@ class PdfParagraph private constructor(
 ) : PdfBlock {
     private class Decoration(val borders: PdfParagraphBorders?, val lines: List<PdfLineDrawing>,
         val spacing: PdfParagraphSpacing = PdfParagraphSpacing(), val pageOffset: PdfParagraphPageOffset? = null,
-        val minimumLineStyle: PdfTextStyle? = null)
+        val minimumLineStyle: PdfTextStyle? = null, val minimumLineHeight: Float? = null,
+        val underlineTrailingSpaces: Boolean? = null)
     /** Original constructors and Kotlin default-argument bridge remain binary compatible. */
     @JvmOverloads constructor(runs: List<PdfInline>, spaceBefore: Float = 0f, spaceAfter: Float = 8f,
         format: PdfParagraphFormat = PdfParagraphFormat(), listLabel: PdfListLabel? = null,
@@ -279,6 +324,18 @@ class PdfParagraph private constructor(
     val spacing: PdfParagraphSpacing = decoration.spacing
     val pageOffset: PdfParagraphPageOffset? = decoration.pageOffset
     val minimumLineStyle: PdfTextStyle? = decoration.minimumLineStyle
+    val minimumLineHeight: Float? = decoration.minimumLineHeight
+    val underlineTrailingSpaces: Boolean? = decoration.underlineTrailingSpaces
+
+    /** Explicit trailing-space decoration; null preserves the original paragraph behavior. */
+    fun withUnderlineTrailingSpaces(enabled: Boolean?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
+        format, listLabel, anchoredImages, semantics, contents,
+        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, enabled))
+
+    /** Minimum natural line height in points; null retains the original line-spacing policy. */
+    fun withMinimumLineHeight(points: Float?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
+        format, listLabel, anchoredImages, semantics, contents,
+        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, points, underlineTrailingSpaces))
 
     /** Additive immutable policy; existing public constructors retain their binary descriptors. */
     fun withSpacing(spacing: PdfParagraphSpacing): PdfParagraph = copy(spacing = spacing)
@@ -287,7 +344,7 @@ class PdfParagraph private constructor(
 
     /** Nonprinting font metrics can establish a minimum automatic line box without styling the text. */
     fun withMinimumLineStyle(style: PdfTextStyle?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
-        format, listLabel, anchoredImages, semantics, contents, Decoration(borders, lines, spacing, pageOffset, style))
+        format, listLabel, anchoredImages, semantics, contents, Decoration(borders, lines, spacing, pageOffset, style, minimumLineHeight, underlineTrailingSpaces))
 
     fun copy(runs: List<PdfInline> = this.runs, spaceBefore: Float = this.spaceBefore, spaceAfter: Float = this.spaceAfter,
         format: PdfParagraphFormat = this.format, listLabel: PdfListLabel? = this.listLabel,
@@ -295,12 +352,14 @@ class PdfParagraph private constructor(
         contents: PdfContents? = this.contents, borders: PdfParagraphBorders? = this.borders, lines: List<PdfLineDrawing> = this.lines,
         spacing: PdfParagraphSpacing = this.spacing, pageOffset: PdfParagraphPageOffset? = this.pageOffset,
     ): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter, format, listLabel, anchoredImages,
-        semantics, contents, Decoration(borders, lines, spacing, pageOffset, minimumLineStyle))
+        semantics, contents, Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces))
 
     val runs: List<PdfInline> = Collections.unmodifiableList(ArrayList(runs))
     val anchoredImages: List<PdfAnchoredImage> = Collections.unmodifiableList(ArrayList(anchoredImages))
     val lines: List<PdfLineDrawing> = Collections.unmodifiableList(ArrayList(decoration.lines))
     init {
+        require(minimumLineHeight == null || minimumLineHeight.isFinite() && minimumLineHeight in 0f..14_400f) { "Invalid minimum line height" }
+        require(minimumLineHeight == null || format.exactLineHeight == null && format.automaticLineSpacing == null) { "Conflicting minimum line policy" }
         require(pageOffset == null || format.leftIndent + pageOffset.x >= 0 && format.rightIndent - pageOffset.x >= 0 &&
             format.leftIndent + format.firstLineIndent + pageOffset.x >= 0) { "Alternating offset exceeds paragraph indentation" }
         require(this.lines.size <= 32) { "Paragraph line budget exceeded" }
@@ -330,9 +389,14 @@ class PdfTextStyle private constructor(
     val baselineShift: Float,
     private val decoration: Decoration,
 ) {
-    private class Decoration(val strike: Boolean = false, val features: PdfFontFeatures = PdfFontFeatures())
+    private class Decoration(val strike: Boolean = false, val features: PdfFontFeatures = PdfFontFeatures(), val syntheticBold: Boolean = false, val characterSpacing: Float = 0f)
     val strikethrough: Boolean get() = decoration.strike
     val fontFeatures: PdfFontFeatures get() = decoration.features
+
+    val syntheticBold: Boolean get() = decoration.syntheticBold
+
+    /** Additional advance after each text character, in points; zero retains natural spacing. */
+    val characterSpacing: Float get() = decoration.characterSpacing
 
     @JvmOverloads
     constructor(fontId: String, size: Float, color: PdfColor = PdfColor(0, 0, 0), languageTag: String? = null,
@@ -343,9 +407,15 @@ class PdfTextStyle private constructor(
                 baselineShift: Float, strikethrough: Boolean) :
         this(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough))
 
-    fun withStrikethrough(value: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(value, fontFeatures))
+    fun withStrikethrough(value: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(value, fontFeatures, syntheticBold, characterSpacing))
 
-    fun withFontFeatures(features: PdfFontFeatures): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough, features))
+    fun withFontFeatures(features: PdfFontFeatures): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough, features, syntheticBold, characterSpacing))
+
+    /** Explicit fill-and-stroke emboldening; advances and font bytes remain unchanged. */
+    fun withSyntheticBold(enabled: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough, fontFeatures, enabled, characterSpacing))
+
+    fun withCharacterSpacing(points: Float): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift,
+        Decoration(strikethrough, fontFeatures, syntheticBold, if (points == 0f) 0f else points))
 
     /** Keep Kotlin's original copy and copy$default descriptors, retaining additional decorations. */
     fun copy(fontId: String = this.fontId, size: Float = this.size, color: PdfColor = this.color,
@@ -371,7 +441,7 @@ class PdfTextStyle private constructor(
 
     override fun equals(other: Any?): Boolean = other is PdfTextStyle && fontId == other.fontId &&
         java.lang.Float.compare(size, other.size) == 0 && color == other.color && languageTag == other.languageTag &&
-        underline == other.underline && java.lang.Float.compare(baselineShift, other.baselineShift) == 0 && strikethrough == other.strikethrough && fontFeatures == other.fontFeatures
+        underline == other.underline && java.lang.Float.compare(baselineShift, other.baselineShift) == 0 && strikethrough == other.strikethrough && fontFeatures == other.fontFeatures && syntheticBold == other.syntheticBold && java.lang.Float.compare(characterSpacing, other.characterSpacing) == 0
 
     override fun hashCode(): Int {
         var result = fontId.hashCode()
@@ -379,17 +449,20 @@ class PdfTextStyle private constructor(
         result = 31 * result + (languageTag?.hashCode() ?: 0); result = 31 * result + underline.hashCode()
         result = 31 * result + baselineShift.hashCode()
         if (strikethrough) result = 31 * result + true.hashCode()
-        return if (fontFeatures.active) 31 * result + fontFeatures.hashCode() else result
+        if (fontFeatures.active) result = 31 * result + fontFeatures.hashCode()
+        if (characterSpacing != 0f) result = 31 * result + characterSpacing.hashCode()
+        return if (syntheticBold) 31 * result + true.hashCode() else result
     }
 
     override fun toString(): String = "PdfTextStyle(fontId=$fontId, size=$size, color=$color, languageTag=$languageTag, underline=$underline, baselineShift=$baselineShift" +
-        (if (strikethrough) ", strikethrough=true" else "") + (if (fontFeatures.active) ", fontFeatures=$fontFeatures)" else ")")
+        (if (strikethrough) ", strikethrough=true" else "") + (if (fontFeatures.active) ", fontFeatures=$fontFeatures" else "") + (if (syntheticBold) ", syntheticBold=true" else "") + (if (characterSpacing != 0f) ", characterSpacing=$characterSpacing" else "") + ")"
 
     init {
         require(languageTag == null || languageTag.length <= 64 && languageTag.matches(Regex("[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*"))) { "Invalid text language tag" }
         require(fontId.matches(Regex("[A-Za-z0-9_-]{1,64}"))) { "Invalid font ID" }
         require(size.isFinite() && size in 1f..200f) { "Invalid font size" }
         require(baselineShift.isFinite() && baselineShift in -200f..200f) { "Invalid baseline shift" }
+        require(characterSpacing.isFinite() && characterSpacing in -14_400f..14_400f) { "Invalid character spacing" }
     }
 }
 
