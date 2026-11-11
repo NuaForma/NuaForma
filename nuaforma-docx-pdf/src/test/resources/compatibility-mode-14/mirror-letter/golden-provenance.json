@@ -1,0 +1,30 @@
+{
+  "sourceSha256": "882d6484cedde8783f2313cd58d58ae7313b14e8ea0bd9baf1edcc336ae4ad4a",
+  "wordPdfSha256": "cfc0e4a7ef81e7869ee5c11ec24560e776d58badbb6b757b32f3e258e0b0509d",
+  "dpi": 96,
+  "pages": [
+    {
+      "page": 1,
+      "resource": "/compatibility-mode-14/mirror-letter/page-1.png",
+      "sha256": "4a7d5190a25541b34014794d7efa84f37ea8e014196a4dd3c751fe51dad70adc"
+    },
+    {
+      "page": 2,
+      "resource": "/compatibility-mode-14/mirror-letter/page-2.png",
+      "sha256": "b969fcd34d0e7c71841954a189c6e109b8b92e2da628a5526909c3931e8e7c9f"
+    },
+    {
+      "page": 3,
+      "resource": "/compatibility-mode-14/mirror-letter/page-3.png",
+      "sha256": "c4c473ead6375f743dda70df42a158fef39cdf862b90969919548ba04eded0de"
+    },
+    {
+      "page": 4,
+      "resource": "/compatibility-mode-14/mirror-letter/page-4.png",
+      "sha256": "8cabc22d7ca7042171ca5c777fa9f6198812053fe83d7d14c41d1515058b885e"
+    }
+  ],
+  "reviewedAgainstWord": true,
+  "reusedFromQualifiedMode12": false,
+  "policy": "Immutable reviewed engine references; changing existing golden files requires a specific reason and approval."
+}

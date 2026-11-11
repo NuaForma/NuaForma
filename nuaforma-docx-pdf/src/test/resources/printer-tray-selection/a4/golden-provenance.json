@@ -1,0 +1,18 @@
+{
+  "sourceSha256": "2cfcbc0f152c43bbb7e777a0a7d4c18f2289e22bbd64047b23c839544de8195e",
+  "wordPdfSha256": "a20399d48be9e2c5f934ecb0cb1838bba555b36cc59f8021e3b4afd2e1e77f59",
+  "legacySourceSha256": "38703e4d9aebf63f6a69843551d836a439162fce3e7ab770fd39e8095c21df02",
+  "legacyWordPdfSha256": "926f6297d60118fd952b26a29fc735245a6df635233041e59fc706be539086ac",
+  "reviewedAgainstWord": true,
+  "wordPixelsUnchangedByPrinterTrays": true,
+  "dpi": 96,
+  "masks": 0,
+  "pages": [
+    {
+      "page": 1,
+      "resource": "/typography-preferences/trailing-1/page-1.png",
+      "sha256": "4467eb6e165528a1dd4b9444e0e00535fb46b2b705280353099fcc83ef64bf9f"
+    }
+  ],
+  "policy": "Reuse the existing reviewed golden; do not replace existing golden images."
+}

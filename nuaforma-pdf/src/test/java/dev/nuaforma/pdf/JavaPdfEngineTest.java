@@ -9,6 +9,78 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class JavaPdfEngineTest {
+
+    @Test
+    void javaCallerRetainsExistingTableConstructorsAndOptsIntoRightOverflow() {
+        var cell = new PdfTableCell(List.of(new PdfParagraph(List.of(new PdfTextRun("Row", new PdfTextStyle("regular", 10))))));
+        var rows = List.of(new PdfTableRow(List.of(cell)));
+        var plain = new PdfTable(List.of(250f), rows);
+        var full = new PdfTable(List.of(250f), rows, new PdfMargins(4, 6, 4, 6), null,
+            0, 0, PdfTableWidthPolicy.AUTO_FIT, null, PdfPreferredWidth.points(250));
+        assertEquals(0f, plain.getRightOverflow());
+        assertEquals(0f, full.getRightOverflow());
+        assertEquals(10f, full.withRightOverflow(10).getRightOverflow());
+        assertEquals(full.getRows(), full.withRightOverflow(10).getRows());
+    }
+
+    @Test
+    void javaCallerCanSetAndRetainCharacterSpacing() {
+        var plain = new PdfTextStyle("regular", 12);
+        var tracked = plain.withCharacterSpacing(.75f);
+        assertEquals(0f, plain.getCharacterSpacing());
+        assertEquals(.75f, tracked.withStrikethrough(true).withSyntheticBold(true).getCharacterSpacing());
+        assertEquals(.75f, tracked.withFontFeatures(new PdfFontFeatures(PdfKerning.PAIRS, false)).getCharacterSpacing());
+        assertEquals(.75f, tracked.copy("regular", 14, new PdfColor(0, 0, 0), null, false, 0).getCharacterSpacing());
+        assertEquals(plain, tracked.withCharacterSpacing(0));
+    }
+
+    @Test
+    void javaCallerCanSetOptionalPhysicalRowMinimum() {
+        var cell = new PdfTableCell(List.of(new PdfParagraph(List.of(new PdfTextRun("Row", new PdfTextStyle("regular", 10))))));
+        assertEquals(40f, new PdfTableRow(List.of(cell), true, false, 40f).getMinimumHeight());
+        org.junit.jupiter.api.Assertions.assertNull(new PdfTableRow(List.of(cell)).getMinimumHeight());
+    }
+
+    @Test
+    void javaCallerCanDeclareAutomaticTablePreferences() {
+        var paragraph = new PdfParagraph(List.of(new PdfTextRun("Java table", new PdfTextStyle("regular", 11))));
+        var cell = new PdfTableCell(List.of(paragraph), null, 1, 1, PdfVerticalAlignment.TOP, null,
+            PdfPreferredWidth.percent(50));
+        var table = new PdfTable(List.of(0f), List.of(new PdfTableRow(List.of(cell))),
+            new PdfMargins(0, 5, 0, 5), null, 0, 0, PdfTableWidthPolicy.AUTO_FIT, null,
+            PdfPreferredWidth.points(200));
+        assertEquals(50f, cell.getPreferredWidth().getPercent());
+        assertEquals(200f, table.getPreferredWidth().getPoints());
+        assertEquals(PdfTableWidthPolicy.AUTO_FIT, table.getWidthPolicy());
+        assertEquals(null, new PdfTableCell(List.of(paragraph)).getPreferredWidth());
+    }
+
+    @Test
+    void javaCallerCanChooseImmutableTrailingUnderlinePolicy() {
+        var original = new PdfParagraph(List.of(new PdfTextRun("Java spaces   ", new PdfTextStyle("regular", 11))));
+        var paragraph = original.withUnderlineTrailingSpaces(true).withMinimumLineHeight(28f);
+        assertEquals(true, paragraph.getUnderlineTrailingSpaces());
+        assertEquals(null, original.getUnderlineTrailingSpaces());
+        assertEquals(null, paragraph.withUnderlineTrailingSpaces(null).getUnderlineTrailingSpaces());
+        assertEquals(28f, paragraph.getMinimumLineHeight());
+    }
+
+    @Test
+    void javaCallerCanSetMinimumLineHeightWithoutChangingExistingConstructors() throws IOException {
+        var original = new PdfParagraph(List.of(new PdfTextRun("Java minimum spacing", new PdfTextStyle("regular", 10))));
+        var paragraph = original.withMinimumLineHeight(28f);
+        assertEquals(28f, paragraph.getMinimumLineHeight());
+        assertEquals(null, original.getMinimumLineHeight());
+        byte[] bytes;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            bytes = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        try (var pdf = Loader.loadPDF(new PdfEngine().render(new PdfDocument(new PdfPage(300, 200,
+                new PdfMargins(20, 20, 20, 20)), List.of(paragraph), new PdfFlow()), List.of(new PdfFont("regular", bytes))))) {
+            assertEquals("Java minimum spacing", new PDFTextStripper().getText(pdf).trim());
+        }
+    }
+
     @Test
     void javaCallerCanAddParagraphBordersAndLineDrawings() throws IOException {
         var stroke = new PdfLineStroke(1.5f, new PdfColor(0, 139, 144), PdfLineStyle.DASHED);
@@ -290,4 +362,36 @@ class JavaPdfEngineTest {
             assertEquals(0, pdf.getDocumentCatalog().getNames().getDests().getNames().get("java-note").retrievePageNumber());
         }
     }
+
+    @Test
+    void javaCallerCanRenderPhysicalCellMarginsWithExistingAndExtendedConstructors() throws IOException {
+        byte[] font;
+        try (var input = getClass().getResourceAsStream("/fonts/LiberationSans-Regular.ttf")) {
+            font = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        var style = new PdfTextStyle("regular", 10);
+        var paragraph = new PdfParagraph(List.of(new PdfTextRun("MARGINS", style)), 0, 0,
+            new PdfParagraphFormat(PdfAlignment.LEFT, 0, 0, 0, 14f));
+        var margins = new PdfMargins(4, 9, 6, 18);
+        var cell = new PdfTableCell(List.of(paragraph), null, 1, 1, PdfVerticalAlignment.TOP, null, null, margins);
+        assertEquals(margins, cell.getMargins());
+        org.junit.jupiter.api.Assertions.assertNull(new PdfTableCell(List.of(paragraph)).getMargins());
+        var table = new PdfTable(List.of(160f), List.of(new PdfTableRow(List.of(cell))), new PdfMargins(0, 0, 0, 0), null);
+        var document = new PdfDocument(new PdfPage(300, 180, new PdfMargins(24, 24, 24, 24)), List.of(table), new PdfFlow());
+        try (var pdf = Loader.loadPDF(new PdfEngine().render(document, List.of(new PdfFont("regular", font))))) {
+            var positions = new java.util.ArrayList<org.apache.pdfbox.text.TextPosition>();
+            var reader = new PDFTextStripper() {
+
+                @Override
+                protected void processTextPosition(org.apache.pdfbox.text.TextPosition value) {
+                    positions.add(value);
+                    super.processTextPosition(value);
+                }
+
+            };
+            org.junit.jupiter.api.Assertions.assertTrue(reader.getText(pdf).contains("MARGINS"));
+            assertEquals(42f, positions.stream().filter(value -> value.getUnicode().equals("M")).findFirst().orElseThrow().getXDirAdj(), .01f);
+        }
+    }
+
 }

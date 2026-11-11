@@ -100,7 +100,11 @@ def main():
                 embedded[index] ^= mask[index % 16]
             assert embedded == original
         (args.output / "mounted-font.docx").write_bytes(docx)
-        assert generate(base, "pdf", docx, {})[0] == 422, "Source-embedded font packages remain explicitly unqualified"
+        status, _, embedded_pdf = generate(base, "pdf", docx, {})
+        assert status == 200 and embedded_pdf.startswith(b"%PDF-"), (status, embedded_pdf[:1024])
+        (args.output / "mounted-embedded-source.pdf").write_bytes(embedded_pdf)
+        verify_pdf_profile(runtime, args.output / "mounted-embedded-source.pdf", 'pdfa-3b')
+        inspect(runtime, args.output / "mounted-embedded-source.pdf", 'NF001', 'OTHER-TENANT')
         # Generate from the unembedded template too, so mounted fallback must actually run.
         status, _, pdf = generate(base, "pdf", document, {"name": "*NF001*"})
         assert status == 200, (status, pdf[:1024])
@@ -122,8 +126,9 @@ def main():
         providers = {provider["id"]: provider for provider in json.loads(body)["providers"]}
         assert status == 200 and not any(entry["source"] == "mounted" for entry in providers["nuaforma-docx"]["fonts"]["entries"])
         assert generate(base, "docx", document, {"name": "Preserve"})[0] == 200
-        status, _, failure = generate(base, "pdf", document, {"name": "*NF001*"})
-        assert status == 422 and b"INVALID_REQUEST" in failure, (status, failure[:1024])
+        for source in (document, docx):
+            status, _, failure = generate(base, "pdf", source, {"name": "*NF001*"})
+            assert status == 422 and b"INVALID_REQUEST" in failure, (status, failure[:1024])
         checks.append("immutable-snapshot/restart/all-invalid-provider-survival/missing-font-no-substitution")
     finally:
         restarted.close()

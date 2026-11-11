@@ -1,0 +1,11 @@
+{
+  "issue": 280,
+  "golden": "preferred-table-widths/letter/page-1.png",
+  "note": "The independently exported current-grid Word reference is pixel-exact to the declared existing Word control. This fixture borrows the corresponding protected native golden; no baseline replacement.",
+  "sha256": {
+    "source.docx": "da7dbb3fd88ef81b53ebf2482534ea309eb8327b5d51d7a1cb3c9914566e22bc",
+    "word-reference.pdf": "3106e1da8d3bba5e37235ad804f1ab8bed5b4e26d8d422214378924983ad7a6a",
+    "word-reference.pdf.provenance.json": "cf679f2de9d1ef95e595cd4896639cf7b38512eccf2dc18495f787047bc26c09",
+    "existing-page-1.png": "7cd9cac8da92d7db126f7e50b630051e90acbee1e32968acbae9d63a500733c4"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "issue": 268,
+  "initialGolden": true,
+  "reviewedOn": "2026-11-09",
+  "renderer": "Native PDF engine; PDFBox 96 dpi",
+  "wordReference": "Actual Microsoft Word ExportAsFixedFormat",
+  "visualReview": "Both initial full pages visually reviewed: direct/style/zero margins, wrapping and merged cells. Fourteen actual Word markers per paper; max dx .081 and dy .131 pt. Word vertical row maxima and border insets retained.",
+  "sha256": {
+    "page-1.png": "248406e98a030542109ee2cb128740a2a85878af04402d72ecfc6ff8315723c8",
+    "source.docx": "731bec06a8b6f751c90adc13a3a560820296723f4fcb9b4e68e2b1bb6c481ac8",
+    "word-reference.pdf": "ab8b0f7763e90d439084e947cf6c879f51529bb28d31cc0175b6a07f60b79163",
+    "word-reference.pdf.provenance.json": "aa2d2f9a36f689fdfbe0da0cc242a368ef66f016fe0f60f0695e09f159720d85",
+    "word-padding-observation.jsonl": "8509ae6573575c5360d54b8252ef6b2db513a5291d417ed086ec9ba5f0d580e9"
+  }
+}

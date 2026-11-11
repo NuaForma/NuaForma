@@ -1,0 +1,11 @@
+{
+  "issue": 259,
+  "sha256": {
+    "source.docx": "81b41cda13d4c76d3751e96619088f202736a45e92652eee549f2eee3b8c94ab",
+    "word-reference.pdf": "680c47dae26f2e5c21b5932524a54e551ce1099aeac7f8faf6e097b31db4bcba",
+    "word-reference.pdf.provenance.json": "3642f5e3a2226167f65029c5d58f1f445486d4b440c343a34890987195e9ce40",
+    "existing-page-1.png": "2cfbf683e07c9d5b80b4fbaa916aadd684f45cba986ba54dfffd228a35683b17"
+  },
+  "golden": "preferred-table-widths/a4/page-1.png",
+  "note": "All variants match original ordinary source Word pixels and retained native golden exactly; no golden replaced."
+}

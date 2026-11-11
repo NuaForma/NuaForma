@@ -44,7 +44,7 @@ class ParagraphSpacingTest {
 
     @Test fun `cell edge gaps are suppressed without changing interior gaps or row fragmentation pieces`() {
         val table = PdfTable(listOf(150f), listOf(PdfTableRow(listOf(PdfTableCell(listOf(paragraph("One"), paragraph("Two"), paragraph("Three")))))))
-        val cell = TableLayouter.measure(table, measure).cells.single()
+        val cell = TableLayouter.measure(table, measure, table.columnWidths.sum()).cells.single()
         assertEquals(76f, cell.contentHeight)
         assertEquals(listOf(0f, 30f, 60f), cell.pieces.map { it.top })
     }

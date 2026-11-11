@@ -1,0 +1,13 @@
+{
+  "issue": 294,
+  "qualification": "Independent exact-source Word comparisons and reviewed initial controls are retained. Combined qualification passed 1,781 normal-build tests, 34 real-HTTP PDF requests / 52 exact native golden pages, six actual Playground cleanup/reuse requests / eight exact native golden pages, and 16 negative HTTP cases without PDF output. Representative cases cover standard PDF and PDF/A-1b/2b/3b; measured Word anchors differ by at most 0.21 pt. Existing protected golden files were not replaced. These results describe unreleased source, not arbitrary DOCX support.",
+  "sha256": {
+    "source.docx": "ec92d2df370cc928abb45017fbcd50075e42994a7b90e2b17996eccbedc8aaf0",
+    "word-reference.pdf": "9ad71765930d9aad7ad0fa71cfa8ffedc8e8786c54f49674899756956a962cd6",
+    "word-reference.pdf.provenance.json": "5a33f2cdabd3a0875dba8a27e0d812f25a1a0f3ea5e710f66b71f4b03b706036",
+    "page-1.png": "8a21caf54b0736eb7ea3dac2a41af0018d11d1ab0ee9aba3814c51027c791a05"
+  },
+  "pages": 1,
+  "golden": "sequence-identity/canonical/letter/page-1.png",
+  "protectedGoldensReplaced": 0
+}

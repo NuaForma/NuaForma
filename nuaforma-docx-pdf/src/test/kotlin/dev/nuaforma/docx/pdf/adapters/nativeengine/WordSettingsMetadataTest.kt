@@ -10,6 +10,58 @@ class WordSettingsMetadataTest {
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private val word15 = "http://schemas.microsoft.com/office/word/2012/wordml"
 
+    @Test
+    fun `style pane sorting accepts defined names and Word legacy codes but rejects malformed preferences`() {
+        for (value in listOf("name", "priority", "font", "basedOn", "type", "default") + (0..5).map { "000$it" }) {
+            assertTrue(normalize("<w:stylePaneSortMethod w:val=\"$value\"/>").elements().isEmpty())
+        }
+        for (bad in listOf("<w:stylePaneSortMethod/>", "<w:stylePaneSortMethod w:val=\"0006\"/>",
+            "<w:stylePaneSortMethod val=\"0000\"/>", "<w:stylePaneSortMethod w:val=\"0\"/>",
+            "<w:stylePaneSortMethod w:val=\"type\">text</w:stylePaneSortMethod>",
+            "<w:stylePaneSortMethod w:val=\"type\"><w:p/></w:stylePaneSortMethod>",
+            "<w:stylePaneSortMethod w:val=\"0000\"/><w:stylePaneSortMethod w:val=\"0004\"/>")) {
+            assertThrows(NativeDocxReadException::class.java, { normalize(bad) }, bad)
+        }
+    }
+
+    @Test
+    fun `privacy and drawing-grid preferences are validated nonprinting editor metadata`() {
+        val values = """<w:removePersonalInformation/><w:removeDateAndTime/><w:doNotUseMarginsForDrawingGridOrigin w:val="true"/>
+            <w:drawingGridHorizontalSpacing w:val="100"/><w:drawingGridVerticalSpacing w:val="284"/>
+            <w:drawingGridHorizontalOrigin w:val="1134"/><w:drawingGridVerticalOrigin w:val="0"/>
+            <w:displayHorizontalDrawingGridEvery w:val="0"/><w:displayVerticalDrawingGridEvery w:val="2"/>"""
+        assertTrue(normalize(values).elements().isEmpty())
+        for (name in listOf("removePersonalInformation", "removeDateAndTime")) for (value in listOf("0", "1", "true", "false", "on", "off")) {
+            assertTrue(normalize("<w:$name w:val=\"$value\"/>").elements().isEmpty())
+        }
+        assertEquals(listOf("defaultTabStop"), normalize(values + "<w:defaultTabStop w:val=\"720\"/>").elements().map { it.name.localPart })
+    }
+
+    @Test
+    fun `editor preferences reject duplicates nested data wrong namespaces missing and invalid numbers`() {
+        for (bad in listOf("<w:removePersonalInformation/><w:removePersonalInformation/>",
+            "<w:removeDateAndTime/><w:removeDateAndTime/>", "<w:removeDateAndTime w:val=\"invalid\"/>",
+            "<w:removePersonalInformation w:val=\"invalid\"/>", "<w:removePersonalInformation><w:p/></w:removePersonalInformation>",
+            "<w:drawingGridHorizontalSpacing w:val=\"100\"/><w:drawingGridHorizontalSpacing w:val=\"100\"/>",
+            "<w:drawingGridHorizontalSpacing w:val=\"0\"/>", "<w:drawingGridHorizontalSpacing w:val=\"-1\"/>",
+            "<w:drawingGridVerticalSpacing/>", "<w:drawingGridVerticalOrigin w:val=\"2147483648\"/>",
+            "<w:displayVerticalDrawingGridEvery w:val=\"abc\"/>", "<w:displayHorizontalDrawingGridEvery val=\"2\"/>",
+            "<w:drawingGridHorizontalOrigin w:val=\"1\">text</w:drawingGridHorizontalOrigin>")) {
+            assertThrows(NativeDocxReadException::class.java, { normalize(bad) }, bad)
+        }
+    }
+
+    @Test
+    fun `font saving preferences do not override output font policy and reject malformed toggles`() {
+        for (name in listOf("embedTrueTypeFonts", "saveSubsetFonts")) {
+            for (value in listOf("", " w:val=\"1\"", " w:val=\"0\"", " w:val=\"true\"", " w:val=\"false\"", " w:val=\"on\"", " w:val=\"off\""))
+                assertTrue(normalize("<w:$name$value/>").elements().isEmpty())
+            for (bad in listOf("<w:$name w:val=\"invalid\"/>", "<w:$name val=\"1\"/>",
+                "<w:$name>text</w:$name>", "<w:$name><w:p/></w:$name>", "<w:$name/><w:$name/>"))
+                assertThrows(NativeDocxReadException::class.java, { normalize(bad) }, bad)
+        }
+    }
+
     private fun xml(content: String) = ConversionXml(context).read(content.toByteArray())
 
     private fun normalize(content: String, document: String = "") = xml("""<w:settings xmlns:w="$word" xmlns:w15="$word15">$content</w:settings>""").also { root ->
@@ -53,10 +105,13 @@ class WordSettingsMetadataTest {
         assertTrue(normalize("<w:compat><w15:unknown/></w:compat>").elements().single().elements().isNotEmpty())
     }
 
-    @Test fun `table precedence is preserved for the reader while active header shapes still reject`() {
+    @Test fun `table precedence and identifier-only header defaults survive while visible defaults still reject`() {
         assertTrue(normalize("<w:compat>${compat("overrideTableStyleFontSizeAndJustification", "0")}</w:compat>", "<w:tbl/>").elements().single().elements().isEmpty())
         assertTrue(normalize("<w:compat>${compat("overrideTableStyleFontSizeAndJustification")}</w:compat>", "<w:tbl/>").elements().single().elements().isEmpty())
-        assertThrows(NativeDocxReadException::class.java) { normalize("<w:hdrShapeDefaults/>", """<v:line xmlns:v="urn:schemas-microsoft-com:vml"/>""") }
+        assertTrue(normalize("<w:hdrShapeDefaults/>", """<v:line xmlns:v="urn:schemas-microsoft-com:vml"/>""").elements().isEmpty())
+        assertThrows(NativeDocxReadException::class.java) {
+            normalize("""<w:hdrShapeDefaults xmlns:o="urn:schemas-microsoft-com:office:office"><o:shapedefaults fillcolor="red"/></w:hdrShapeDefaults>""")
+        }
     }
 
     @Test fun `known setting names cannot disguise nested text attributes or invalid toggles`() {
@@ -80,6 +135,30 @@ class WordSettingsMetadataTest {
             valid.replace("http://schemas.microsoft.com/office/word", "https://invalid.example/"),
             valid.replace("/>", "><w:p/></w:compatSetting>"), "<w:doNotUseHTMLParagraphAutoSpacing w:val=\"invalid\"/>"))
             assertThrows(NativeDocxReadException::class.java) { normalize("<w:compat>$value</w:compat>") }
+    }
+
+    @Test
+    fun `identifier defaults accept allocated IDs with existing VML and reject malformed hierarchy or visible properties`() {
+        val prefix = """<w:hdrShapeDefaults xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:v="urn:schemas-microsoft-com:vml">"""
+        val defaults = """<o:shapedefaults v:ext="edit" spidmax="2050"/>"""
+        val layout = """<o:shapelayout v:ext="edit"><o:idmap v:ext="edit" data="1,2,3"/></o:shapelayout>"""
+        val vml = """<v:rect xmlns:v="urn:schemas-microsoft-com:vml"/>"""
+        for (id in listOf("0", "1026", "2050", "8193", "2147483647")) {
+            assertTrue(normalize(prefix + defaults.replace("2050", id) + layout + "</w:hdrShapeDefaults>", vml).elements().isEmpty())
+        }
+        for (bad in listOf(defaults + defaults, layout + layout, "<o:idmap data=\"1\"/>",
+            defaults.replace("2050", "-1"), defaults.replace("2050", "2147483648"), defaults.replace("2050", "invalid"),
+            defaults.replace("v:ext=\"edit\"", "ext=\"edit\""), defaults.replace("v:ext=\"edit\"", "v:ext=\"unknown\""),
+            defaults.replace("spidmax=", "v:spidmax="), defaults.replace("/>", " style=\"width:40pt\"/>"),
+            defaults.replace("/>", "><o:idmap/></o:shapedefaults>"), layout.replace("data=\"1,2,3\"", "data=\"1,1\""),
+            layout.replace("data=\"1,2,3\"", "data=\"1,\""), layout.replace("data=\"1,2,3\"", "data=\"1,-2\""),
+            layout.replace("data=\"1,2,3\"", "data=\"${"1,".repeat(400)}\""),
+            layout.replace("data=\"1,2,3\"", "data=\"${(1..65).joinToString(",")}\""),
+            layout.replace("<o:idmap", "<o:unknown"), "<o:shapelayout><o:shapedefaults/></o:shapelayout>",
+            "<o:shapelayout><o:idmap/><o:idmap/></o:shapelayout>", "<o:shapedefaults>text</o:shapedefaults>")) {
+            assertThrows(NativeDocxReadException::class.java, { normalize(prefix + bad + "</w:hdrShapeDefaults>", vml) }, bad)
+        }
+        assertThrows(NativeDocxReadException::class.java) { normalize("<w:hdrShapeDefaults/><w:hdrShapeDefaults/>") }
     }
 
     @Test fun `inactive section grids are removed without requiring a settings part while active grids reject`() {

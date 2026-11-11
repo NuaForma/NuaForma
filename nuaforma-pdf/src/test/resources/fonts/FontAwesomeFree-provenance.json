@@ -1,0 +1,23 @@
+{
+  "version": "6.7.2",
+  "commit": "af620534bfc3c2d4cbefcfeec29603bbe7809e64",
+  "assetOnly": true,
+  "productionBundling": false,
+  "files": [
+    {
+      "file": "FontAwesomeFree-Solid.ttf",
+      "source": "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/af620534bfc3c2d4cbefcfeec29603bbe7809e64/webfonts/fa-solid-900.ttf",
+      "bytes": 426112,
+      "sha256": "af19d135d3a935b3ebfbd80320716ffe1202052c5f68dc2c5f1abc57005ac605",
+      "gitBlob": "a0414182dca34041fdd585c0c4b4bd7a3a2753e2"
+    },
+    {
+      "file": "FontAwesomeFree-LICENSE.txt",
+      "source": "https://raw.githubusercontent.com/FortAwesome/Font-Awesome/af620534bfc3c2d4cbefcfeec29603bbe7809e64/LICENSE.txt",
+      "bytes": 7427,
+      "sha256": "9b914eae88817d63b576eab5aafde7068c7a1abae125d7cdfb034f1da43a9afc",
+      "gitBlob": "e69c5e39a30ce8d112e012cac36289e77691a9b7"
+    }
+  ],
+  "note": "Immutable 6.7.2 standalone TrueType qualification fixture. Reviewed newer 7.3.1 source has WOFF2/CFF rather than this standalone TTF profile. This is retained glyph data for reproducible tests, not a runtime dependency or bundled production font; reassess when an unmodified supported-format replacement can be independently qualified."
+}

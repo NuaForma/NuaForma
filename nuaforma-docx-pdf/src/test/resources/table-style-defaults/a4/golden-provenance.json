@@ -1,0 +1,25 @@
+{
+  "sourceSha256": "4ce31317586ae4313355313a64b4f05de20232ea9e6bd8baa1b4b45addfe77ed",
+  "controlSourceSha256": "fb99731aefe4b2b0f868dd95e7f318a894807c2f95132c36d965e4dd51b2797b",
+  "wordPdfSha256": "34b58ae7922367c3936f48c67fb8b940f73be06a2ebd2d11d5a1f92349d18676",
+  "controlWordPdfSha256": "1deb25698e765f369a9bb6d171f3a3ea2750336db89a5cacba30d57bd3859467",
+  "engineControlPdfSha256": "8b2497ccd3fdcd4f4eb76ad9717695c8054b5b2ce659099caa09eef71a497cfd",
+  "wordVariantsPixelEqual": true,
+  "reviewedAgainstWord": true,
+  "initialGolden": true,
+  "dpi": 96,
+  "masks": 0,
+  "wordMetrics": {
+    "markers": 26,
+    "maxDx": 0.07901001,
+    "maxDy": 0.14001465
+  },
+  "pages": [
+    {
+      "page": 1,
+      "file": "page-1.png",
+      "sha256": "b4fbca6f83e400ea0eef59fad036e2526912006b035c5f322a56b98ed356a830"
+    }
+  ],
+  "policy": "Initially reviewed golden from explicit-margin/RGB-border control rendered by the preceding engine. Existing golden files were not changed; replacement requires explicit review and approval."
+}

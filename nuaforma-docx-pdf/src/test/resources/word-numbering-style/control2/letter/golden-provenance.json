@@ -1,0 +1,25 @@
+{
+  "issues": [
+    281,
+    282
+  ],
+  "golden": "word-numbering-style/control2/letter/page-1.png",
+  "note": "Initial synthetic native reference, visually inspected with independent exact-source Word text, geometry, paper and embedded-font checks. Existing protected references are reused without replacement.",
+  "sha256": {
+    "source.docx": "c194633dfb854a1dd5f6c8589c5fd2f717af0d1fa36b49fbed7bc2d8e49ff1b7",
+    "word-reference.pdf": "6fb3b9b228d6eaabd9126ff62d284298c05f0ce5f0a4fa4c89692d29c9bb1913",
+    "word-reference.pdf.provenance.json": "31c766fd367e78af58aab901ab7dd3fa5cc05acc5376684ed61ab0fd81ca7647",
+    "page-1.png": "6984f26ed1a192a86abd5a62eb724eda4ef6ce54c7f104cf844fe5b014aff4fc"
+  },
+  "wordComparison": {
+    "case": "numbering-control2-letter",
+    "pass": true,
+    "pagesEqual": true,
+    "textEqual": true,
+    "markersEqual": true,
+    "fontsEmbedded": true,
+    "paperEqual": true,
+    "maxDx": 0.0200042724609375,
+    "maxDy": 0.0999755859375
+  }
+}

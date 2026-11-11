@@ -1,0 +1,24 @@
+{
+  "issues": [
+    279
+  ],
+  "golden": "signed-table-indent/15-truncate/a4/page-1.png",
+  "note": "Initial synthetic native reference, visually inspected with independent exact-source Word text, geometry, paper and embedded-font checks. Existing protected references are reused without replacement.",
+  "sha256": {
+    "source.docx": "6e0e029e64c7ee8f66027924b350a43135d2820c8e46ea035d4819842009387c",
+    "word-reference.pdf": "be40eb6340577c25c3c89e14d212adaab2c3c0263225a8fdbee86b1267717b9a",
+    "word-reference.pdf.provenance.json": "ac5a17a54c5ee335db2d09723918b75122059f92c7185ddd89c80f75a42b1b22",
+    "page-1.png": "70b212a20a6b4c2f20a495bbafe9b222505a0d333f14a8fef77f0e32ffa829af"
+  },
+  "wordComparison": {
+    "case": "signed-15-fraction-a4",
+    "pass": true,
+    "pagesEqual": true,
+    "textEqual": true,
+    "markersEqual": true,
+    "fontsEmbedded": true,
+    "paperEqual": true,
+    "maxDx": 0.0399932861328125,
+    "maxDy": 0.0799560546875
+  }
+}

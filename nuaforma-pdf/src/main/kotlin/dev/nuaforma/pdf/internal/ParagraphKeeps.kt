@@ -7,7 +7,7 @@ internal object ParagraphKeeps {
     data class Group(val minimum: Float, val lastIndex: Int)
 
     fun measure(blocks: List<PdfBlock>, start: Int, paragraph: (Int) -> FlowLayouter.MeasuredParagraph,
-                measurer: TextMeasurer): Group? {
+                measurer: TextMeasurer, width: Float): Group? {
         var full = 0f
         var minimum = 0f
         var previousAfter = 0f
@@ -35,7 +35,7 @@ internal object ParagraphKeeps {
                 }
                 is PdfImage -> return Group(full + block.height, index)
                 is PdfTable -> {
-                    val measured = TableLayouter.measure(block, measurer)
+                    val measured = TableLayouter.measure(block, measurer, width)
                     val first = block.repeatedHeaderRows
                     if (block.rows[first].allowSplit || block.rows[first].cells.any { it.rowSpan > 1 }) unsupported()
                     val height = measured.offsets[first + 1] + measured.closing

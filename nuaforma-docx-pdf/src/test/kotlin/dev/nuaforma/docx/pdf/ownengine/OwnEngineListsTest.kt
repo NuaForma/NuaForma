@@ -53,14 +53,14 @@ class OwnEngineListsTest {
         }
     }
 
-    @Test fun `unsupported numbering links formats overrides references and inconsistent styles fail explicitly`() {
+    @Test fun `unsupported numbering redirections formats overrides references and invalid styles fail explicitly`() {
         val cases=listOf(
-            "word/numbering.xml" to {s:String->s.replaceFirst("<w:multiLevelType", "<w:styleLink w:val=\"Normal\"/><w:multiLevelType")},
+            "word/numbering.xml" to {s:String->s.replaceFirst("<w:multiLevelType", "<w:numStyleLink w:val=\"Normal\"/><w:multiLevelType")},
             "word/numbering.xml" to {s:String->s.replace("w:val=\"decimalZero\"","w:val=\"chineseCounting\"")},
             "word/numbering.xml" to {s:String->s.replaceFirst("<w:startOverride w:val=\"7\"/>","<w:lvl w:ilvl=\"0\"/>")},
             "word/numbering.xml" to {s:String->s.replaceFirst("w:abstractNumId=\"1\"","w:abstractNumId=\"2\"")},
             "word/document.xml" to {s:String->s.replace("w:numId w:val=\"8\"","w:numId w:val=\"999\"")},
-            "word/styles.xml" to {s:String->s.replace("<w:ilvl w:val=\"1\"/>","<w:ilvl w:val=\"0\"/>")},
+            "word/styles.xml" to {s:String->s.replace("<w:ilvl w:val=\"1\"/>","<w:ilvl w:val=\"9\"/>")},
             "word/header1.xml" to {s:String->s.replaceFirst("<w:pPr>","<w:pPr><w:numPr><w:numId w:val=\"1\"/></w:numPr>")},
             "word/settings.xml" to {s:String->s.replace("w:val=\"720\"","w:val=\"0\"")},
         )

@@ -1,0 +1,22 @@
+{
+  "sourceSha256": "af3b3ffca28663e265a48a5390277d0a9363ff398bc5b68322b6d5f23fbb1630",
+  "wordPdfSha256": "0b9c89edc80d8f4ef0d200dcd312849bf0905a86a5023bd2fcbeafc5cb70cd16",
+  "pages": [
+    {
+      "page": 1,
+      "file": "page-1.png",
+      "sha256": "60a4d50b0c92ca7af221ce02897d18e4973936038c87df85f40926a365011f05"
+    },
+    {
+      "page": 2,
+      "file": "page-2.png",
+      "sha256": "1e30ea48e4255ff0c511382380b49ac2e2beefc6f11c8845431b098de5ee8d89"
+    }
+  ],
+  "dpi": 96,
+  "reviewedAgainstWord": true,
+  "policy": "Immutable initially reviewed engine goldens; changes require a specific reason and approval.",
+  "fontSha256": [
+    "4659bc0c58c5028dd488ec928d41d9265db43d9b669fc14ca8b0832daca7b144"
+  ]
+}

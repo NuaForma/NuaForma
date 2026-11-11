@@ -1,0 +1,8 @@
+{
+  "sourceSha256": "29a7bb617e9446fe418d86225ead3bc2ea3572de5aefda4a23f51d522bacd276",
+  "wordPdfSha256": "6f08d947bc998aa19fb3cd41bfe428e33891d8b2bb646803076edce1922f63f7",
+  "goldenSha256": "979c01cfc6724e1db57ddb5ece1caabc16bf6c7807827ff58aac76794705894f",
+  "dpi": 96,
+  "review": "Initial full-page Word/engine A4/Letter renders reviewed: body wrapping, mixed-size baselines and one selected text frame match; no clipping/overlap or duplicated frame.",
+  "policy": "Immutable initial engine golden, zero masks/tolerance; replacement requires explicit approval and documented visual review."
+}

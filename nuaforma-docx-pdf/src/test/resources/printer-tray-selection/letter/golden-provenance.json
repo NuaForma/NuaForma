@@ -1,0 +1,18 @@
+{
+  "sourceSha256": "aa04210e750df6fc7add2b1e083f746814adc3254a6c9395828e276c6f96ac2c",
+  "wordPdfSha256": "880ecbc6be8d7a6b3a99a05144fe16fbdc598bbd28a399d771e62d78573a1b07",
+  "legacySourceSha256": "cbb34f19ed682df92819eb657ba4f69bb2465738bd365a2f466480afc81dbbbc",
+  "legacyWordPdfSha256": "61c3cd0ea4e28911ed4c3e849575fe511328990f0522e6400f6bfdb5b49c6c64",
+  "reviewedAgainstWord": true,
+  "wordPixelsUnchangedByPrinterTrays": true,
+  "dpi": 96,
+  "masks": 0,
+  "pages": [
+    {
+      "page": 1,
+      "resource": "/typography-preferences/bands-letter/page-1.png",
+      "sha256": "b4b501504a6333ab5b4b0d78bbaac8aa410d59cc53dfb468e4abd3cb6581ed0c"
+    }
+  ],
+  "policy": "Reuse the existing reviewed golden; do not replace existing golden images."
+}

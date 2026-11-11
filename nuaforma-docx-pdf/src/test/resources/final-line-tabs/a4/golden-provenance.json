@@ -1,0 +1,14 @@
+{
+  "issue": 269,
+  "initialGolden": true,
+  "reviewedOn": "2026-11-09",
+  "wordReference": "Actual Microsoft Word ExportAsFixedFormat; explicit comma separator matches reference host",
+  "visualReview": "Both full initial pages reviewed. All 48 content anchors within .091/.131 pt. Word and native each retain exact left-control pixels.",
+  "limits": "Tab leader glyph counts may differ from Word; repeated decorative leaders are normalized for text inventory only. All native golden pixels remain exact. Decimal numeric suffix anchor discrepancy stays in #272.",
+  "sha256": {
+    "page-1.png": "c18a05671ec15f0b7f418d2fb43e7d5f00be84b85521f6e6df9ef4a763fb6c60",
+    "source.docx": "7fdc230228df5132ca4c822ba823bbac83b70b256f22e30c3215c9edb6155bb7",
+    "word-reference.pdf": "dce350aeb3198b6b892d42d6019b8efae69c7c3f3b054575fd374231d4ebf6d2",
+    "word-reference.pdf.provenance.json": "ab558fd1da5ab05124faa3034294b2cbca9abbd777aec1e3e51ee334b44534ba"
+  }
+}

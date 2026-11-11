@@ -13,17 +13,19 @@ internal class WordPackageMetadata(private val context: GenerationContext) {
     private val propertiesPart = "docProps/custom.xml"
     private val settingsPart = "word/_rels/settings.xml.rels"
 
-    fun removeFromPrintModel(parts: MutableMap<String, XmlElement>) {
+    data class Property(val type: String, val text: String)
+
+    fun removeFromPrintModel(parts: MutableMap<String, XmlElement>): Map<String, Property> {
         parts[settingsPart]?.let { root ->
             valid(root.name.namespaceURI == relations && root.name.localPart == "Relationships" && root.attributes.isEmpty() &&
                 root.elements().isEmpty() && whitespace(root), settingsPart)
             valid("word/settings.xml" in parts, settingsPart)
             parts.remove(settingsPart)
         }
-        val rootRelations = parts["_rels/.rels"] ?: return
+        val rootRelations = parts["_rels/.rels"] ?: return emptyMap()
         val links = rootRelations.elements().filter { it.attribute("", "Type") == "$office/custom-properties" }
         val properties = parts[propertiesPart]
-        if (links.isEmpty() && properties == null) return
+        if (links.isEmpty() && properties == null) return emptyMap()
         valid(rootRelations.name.namespaceURI == relations && rootRelations.name.localPart == "Relationships", "_rels/.rels")
         val ids = rootRelations.elements().map { it.attribute("", "Id") }
         valid(ids.all { !it.isNullOrBlank() } && ids.distinct().size == ids.size && links.size == 1, "_rels/.rels")
@@ -39,6 +41,11 @@ internal class WordPackageMetadata(private val context: GenerationContext) {
             "application/vnd.openxmlformats-officedocument.custom-properties+xml", "[Content_Types].xml")
         rootRelations.children.removeAll(links.toSet())
         parts.remove(propertiesPart)
+        return requireNotNull(properties).elements().associate { property ->
+            val value = property.elements().single()
+            requireNotNull(property.attribute("", "name")) to Property(value.name.localPart,
+                value.children.filterIsInstance<XmlText>().joinToString("") { it.text })
+        }
     }
 
     private fun validateProperties(root: XmlElement) {
@@ -70,6 +77,9 @@ internal class WordPackageMetadata(private val context: GenerationContext) {
     }
 
     private fun whitespace(node: XmlElement) = node.children.filterIsInstance<XmlText>().all { it.text.isBlank() }
+
     private fun valid(condition: Boolean, part: String) { if (!condition) fail(part) }
+
     private fun fail(part: String): Nothing = throw NativeDocxReadException("Unsupported or invalid passive package metadata", part)
+
 }

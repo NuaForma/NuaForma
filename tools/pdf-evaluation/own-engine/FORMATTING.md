@@ -11,7 +11,8 @@ source changes.
   gaps. HTML-compatible automatic gaps are 14 points. Contextual spacing and cell
   edges suppress the applicable automatic gap. `doNotUseHTMLParagraphAutoSpacing`
   instead retains physical gaps and adds adjacent before/after gaps. Modern forced
-  page starts suppress before-spacing; compatibility mode 12 retains it. Ordinary
+  page starts suppress before-spacing; compatibility mode 12 retains it. Unreleased
+  [source #244](../../../docs/word-compatibility-modes.md) also qualifies legacy mode 14. Ordinary
   document starts preserve physical before-spacing.
 - Mirrored physical left/right indents resolve after pagination, using physical
   page parity even when section display numbers restart. Modern compatibility
@@ -23,13 +24,16 @@ source changes.
   formatting. Parent/child layers are resolved within each region. Repeated header
   rows receive first-row formatting. Missing band sizes disable that band; explicit
   sizes 0–3 are qualified. Legacy Normal-style size 11/12 and left-justification
-  exceptions apply only in compatibility mode 12 with the override switch disabled.
+  exceptions apply in the qualified legacy modes with the override switch disabled;
+  the original matrix covers mode 12 and source #244 extends qualification to mode 14.
   Positional conditional formatting on merged cells and explicit `cnfStyle` remain
   unsupported rather than receiving guessed geometry.
 - `w:kern` uses the final effective font size and its half-point threshold; zero
   disables kerning. Modern/OpenType-enabled text uses the supplied font's OpenType
   positioning. Legacy disabled OpenType uses classic `kern` pairs. Only explicit
-  `w14:ligatures` values `none` and `standard` are qualified. Equal adjacent runs
+  `w14:ligatures` values `none` and `standard` are qualified in this increment.
+  Source [#232](../../../docs/word-typography-preferences.md) also qualifies the bounded
+  `standardContextual` preference. Equal adjacent runs
   shape together, including ligatures split by passive Word run boundaries.
   Broader contextual scripts, alternate glyph sets and discretionary/historical
   ligatures remain outside this increment.
@@ -124,3 +128,38 @@ It cannot update checked-in references. Review candidate pages against the genui
 Word exports before initially adding a new golden; ordinary tests never regenerate
 goldens. Test results and CI qualification belong in the delivery PR, rather than
 assuming that a source guide alone proves a passing build.
+
+## Qualified run theme colors
+
+Unreleased #245 resolves bounded embedded palettes for run-content colors, including Word HSL tint/shade precedence and the ordinary style cascade. [The qualification guide](../../../docs/word-theme-colors.md) describes exact base colors, the one-channel bound for intermediate transforms, four new reviewed golden pages and the PDF color-operator regression. This does not enable theme-based borders, shading or DrawingML effects.
+
+## Initial section metadata
+
+Unreleased #246 admits an initial `continuous` start marker and validated nonprinting form-protection flags. Later transitions retain their existing bounded policy. [The Word qualification](../../../docs/word-initial-section-metadata.md) covers A4/Letter, enforced protection, mixed-paper sections, four reused golden pages and two new reviewed pages.
+
+For archive-only #247 regression fixtures, tests deterministically add opaque `[trash]/hhhh.dat` items to the existing A4/Letter theme-color sources. Logical XML, Word references and golden images are unchanged. All four profiles must remain pixel-exact against those existing goldens; no new Word-export provenance is implied for the altered ZIP container.
+
+## Mixed Latin font roles and editing preferences
+
+Source #248 adds two A4/Letter mixed-font fixtures, four independently exported Word pages and four initially reviewed immutable engine images. All sixteen profile pages match those new goldens; 84 markers retain physical face, color and size within the existing position tolerances. The two declared regular fixture families are Liberation Sans and Noto Serif. Original font-property errors are tested before intermediate serialization, including real HTTP cases previously accepted after malformed metadata was discarded.
+
+Source #249 adds two Word exports with passive save/recording preferences. Word pixels are exact against the earlier package controls, and all eight profile pages reuse existing typography goldens. No prior reference image is replaced. Builders and source/provenance hashes bind both sets; run the provider tests documented in their owning guides and the normal full build.
+
+Source #250 qualifies bounded unbound custom XML using `unbound-custom-xml/{a4,letter}`: two independent Word references, unchanged base goldens and all four PDF profiles. Stored data never becomes printed or templated text. See [the qualification and rebuild procedure](../../../docs/word-passive-office-package.md#unbound-custom-xml-data-source-250).
+
+Source #251 adds `document-variable-storage/{a4,letter}`: unused braces and non-Latin values must not change Word pages, existing goldens, caller fonts or any PDF profile. [Qualification and rebuild](../../../docs/word-passive-editing-preferences.md#unused-document-variable-storage-source-251) include explicit displayed-field rejection.
+
+Source #252 adds `unicode-spaces/{a4,letter}` with independent explicit/implicit Word controls, 40 measured markers and two initially reviewed goldens. [Qualification and rebuild](../../../docs/word-unicode-spaces.md) retain ordinary XML-space restrictions.
+
+Source #253 adds `table-bookmark-ends/{a4,letter}` with independently exported paragraph/interleaved controls, 12 measured markers and two initially reviewed goldens. [Qualification and rebuild](../../../docs/word-fields-and-bookmarks.md#ordered-table-bookmark-endings-source-253) preserve strict range balance and text-reference boundaries.
+
+## Proofing, tray selection, editing bookmarks and font hints (#254–#257)
+
+`proofing-display-preferences`, `printer-tray-selection` and `editing-bookmark` derive from the passive-package A4/Letter controls and reuse the existing `typography-preferences` images. `default-font-hints` derives from `mixed-latin-fonts`, retaining its two-page A4/Letter images and 42 markers per paper. Source parts, actual Word exports, receipts and golden provenance are retained in each new folder; existing PNGs are referenced rather than copied or replaced.
+
+Build sources with `build_proofing_display_fixture.py`, `build_paper_source_fixture.py`, `build_editing_bookmark_fixture.py` and `build_default_font_hint_fixture.py`, each with `--base nuaforma-docx-pdf/src/test/resources --output <fresh-build-directory>`. Independently export with the exact existing fixture fonts. Ten Word-reference pages must retain control pixels; tests cover all four PDF profiles, original/cleanup bytes and focused malformed-source rejection. Caller/private corpus fonts stay outside resources. No reference generation or golden replacement occurs during tests.
+
+
+## Default table margins and ordinary borders (source #260)
+
+The [source guide](../../../docs/word-table-style-defaults.md) describes default-table-style selection, per-edge inheritance and bounded absent/solid border metadata. Reproduce the A4/Letter explicit/inherited variants with `build_table_style_defaults_fixture.py`; retain both real Word exports and their font/source hashes. The Word variants are pixel-identical at 96 dpi. The parameterized real-provider checks retain the initially reviewed explicit-control goldens, without replacing earlier reference files. Final combined source qualification is recorded after the complete build.

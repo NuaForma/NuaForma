@@ -13,7 +13,11 @@ import java.util.zip.ZipInputStream
 internal class NativeDocxReader(
     private val context: GenerationContext,
     private val fontId: (String, Boolean, Boolean) -> String,
+    private val syntheticBold: (String, Boolean, Boolean) -> Boolean,
 ) {
+
+    constructor(context: GenerationContext, fontId: (String, Boolean, Boolean) -> String) : this(context, fontId, { _, _, _ -> false })
+
     private val xml = ConversionXml(context)
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private val rel = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -26,32 +30,93 @@ internal class NativeDocxReader(
     private var activePart = "package"
     private val source = NativeDocxSource(context)
     private val parsed = linkedMapOf<String, XmlElement>()
+    private val jpegs = NativeJpegImages(context)
     private var metafiles = dev.nuaforma.docx.pdf.adapters.nativeengine.emf.NativeEmfImages(context, null, false)
     private val lineReader = NativeDocxLines({ node -> source.current = node; activePart = provenance[node] ?: activePart }, ::reject)
     private val vectorReader = NativeDocxVectors({ node -> source.current = node; activePart = provenance[node] ?: activePart }, ::reject)
 
+    private fun normalizeReviewAnnotations() {
+        if (WordReviewMetadata.definitions.none { it.path in parsed }) return
+        for ((part, root) in parsed) WordMarkupCompatibility(context).normalize(root) { node, detail ->
+            source.current = node
+            source.failure(detail, part)
+        }
+        WordReviewAnnotations(context) { part, node, detail ->
+            source.current = node
+            source.failure(detail, part)
+        }.normalize(parsed)
+    }
+
     private fun parse(bytes: ByteArray, part: String): XmlElement {
         activePart = part
-        return parsed.getOrPut(part) { xml.read(bytes).also { root ->
+        return parsed.getOrPut(part) { xml.readPart(bytes, part).also { root ->
             source.index(root, part)
             source.current = root
             root.descendants().forEach { provenance[it] = part }
         } }.also { source.current = it }
     }
 
-    fun read(bytes: ByteArray, imageFonts: ((String, Boolean, Boolean) -> java.awt.Font)? = null, inspectImages: Boolean = false): PdfDocument {
+    fun read(bytes: ByteArray, imageFonts: ((String, Boolean, Boolean) -> java.awt.Font)? = null, inspectImages: Boolean = false,
+        normalizations: MutableList<WordSourceNormalization>? = null): PdfDocument {
         metafiles = dev.nuaforma.docx.pdf.adapters.nativeengine.emf.NativeEmfImages(context, imageFonts, inspectImages)
-        return try { readDocument(bytes) }
+        return try { readDocument(bytes, normalizations) }
         catch (error: NativeDocxReadException) { throw error }
         catch (_: IllegalArgumentException) { throw source.failure("Unsupported combination of native document formatting", activePart) }
     }
 
-    private fun readDocument(bytes: ByteArray): PdfDocument {
+    private fun readDocument(bytes: ByteArray, normalizations: MutableList<WordSourceNormalization>?): PdfDocument {
         val parts = unpack(bytes)
         parts.filterKeys { it.endsWith(".xml") || it.endsWith(".rels") }.forEach { (name, content) -> parse(content, name) }
-        WordPackageMetadata(context).removeFromPrintModel(parsed)
+        normalizeReviewAnnotations()
+        for ((part, root) in parsed) {
+            WordMarkupCompatibility(context).normalize(root) { node, message ->
+                source.current = node
+                source.failure(message, part)
+            }
+            val observe = normalizations?.let { WordSourceNormalization.observe(root, part, source) }
+            WordGridHistoryMetadata.normalizeSource(root, context) { node, message ->
+                source.current = node
+                throw source.failure(message, part)
+            }
+            WordRunSpacing.validateSource(root) { node, message ->
+                source.current = node
+                throw source.failure(message, part)
+            }
+            WordNumberingMetadata(context).validateParagraphNumberingSource(root) { node ->
+                source.current = node
+                source.failure("Unsupported original Word paragraph numbering", part)
+            }
+            WordCellMargins.normalizeSource(root) { node, message ->
+                source.current = node
+                throw source.failure(message, part)
+            }
+            WordInactiveRunProperties.normalizeSource(root) { node, message ->
+                source.current = node
+                throw source.failure(message, part)
+            }
+            WordNumericSpellings.normalizeSource(root) { node, message ->
+                source.current = node
+                throw source.failure(message, part)
+            }
+            WordTableWidths.normalizeSource(root) { node, message ->
+                source.current = node
+                throw source.failure(message, part)
+            }
+            if (observe != null) normalizations.addAll(observe())
+        }
+        WordAuxiliaryParts(context) { name, node, message -> source.current = node; source.failure(message, name) }.normalize(parsed, parts.keys)
+        WordThumbnailMetadata(context).normalize(parsed, parts)
+        WordSensitivityMetadata(context).removeFromPrintModel(parsed)
+        val propertyValues = WordPackageMetadata(context).removeFromPrintModel(parsed)
+        WordCustomXmlMetadata(context).removeFromPrintModel(parsed) { name, node, message ->
+            source.current = node
+            source.failure(message, name)
+        }
         val bibliography = WordBibliographyMetadata(context).removeFromPrintModel(parsed)
         bibliography.forEach { parsed.remove(it) }
+        val automaticHyphenationSource = parsed["word/settings.xml"]?.elements()?.firstOrNull {
+            it.name.namespaceURI == word && it.name.localPart == "autoHyphenation"
+        }
         val formatting = WordSettingsMetadata(context).normalize(parsed) { name, node ->
             source.current = node
             source.failure("Unsupported Word document settings", name)
@@ -75,7 +140,40 @@ internal class NativeDocxReader(
             source.current = node
             source.failure("Unsupported Word web settings", "word/webSettings.xml")
         } }
-        parsed.forEach { (name, root) -> activePart = name; source.current = root; NativeDocxFields.normalize(root, ::reject) { source.current = it } }
+        NativeDocxBookmarks(context).normalizeEditing(parsed.values, { node ->
+            source.current = node; activePart = provenance[node] ?: activePart
+        }, ::reject)
+        val staticFields = NativeWordValues(context, propertyValues, parsed["docProps/core.xml"], { node ->
+            source.current = node; activePart = provenance[node] ?: activePart
+        }, ::reject)
+        val propertyParagraphs = NativePropertyParagraphs(context, staticFields, { source.current = it }, { copy, original ->
+            provenance[copy] = provenance[original] ?: activePart; source.alias(copy, original)
+        }, ::reject)
+        parsed.forEach { (name, root) -> activePart = name; propertyParagraphs.normalize(root) }
+        val fieldCodeStyles = java.util.IdentityHashMap<XmlElement, XmlElement?>()
+        val formFields = java.util.IdentityHashMap<XmlElement, NativeDocxFields.Form>()
+        parsed.forEach { (name, root) ->
+            activePart = name; source.current = root
+            NativeDocxFields.normalize(root, ::reject, formFields, { field, original ->
+                provenance[field] = name; source.alias(field, original)
+            }, formatting = { field, properties -> fieldCodeStyles[field] = properties }) { source.current = it }
+        }
+        val blockBoundaryTextRanges = mutableSetOf<String>()
+        parsed.forEach { (name, root) -> activePart = name; blockBoundaryTextRanges += NativeDocxBookmarks(context).normalize(root, { source.current = it }, ::reject) }
+        staticFields.index(parsed.values)
+        WordAutomaticTextSpacing(context).normalize(parsed, { field ->
+            source.current = field
+            activePart = provenance[field] ?: activePart
+            val instruction = NativeDocxFields.instruction(field.value("instr") ?: reject("Missing field instruction"), ::reject)
+            when (instruction.kind) {
+                "DOCPROPERTY" -> staticFields.propertyText(instruction)
+                "SET" -> instruction.literal
+                else -> null
+            }
+        }) { part, node, message ->
+            source.current = node
+            source.failure(message, part)
+        }
         for (name in listOf("word/fontTable.xml", "word/webSettings.xml")) parsed[name]?.let { root ->
             activePart = name
             source.current = root
@@ -131,7 +229,8 @@ internal class NativeDocxReader(
             }
             section.one("type")?.let { type ->
                 attributes(type, setOf("val")); children(type, emptySet())
-                check(type.value("val") == "nextPage", "Only next-page section transitions are qualified")
+                val initialContinuous = section === ranges.first().first && type.value("val") == "continuous"
+                check(type.value("val") == "nextPage" || initialContinuous, "Only next-page transitions or an initial continuous section are qualified")
             }
             val size = section.one("pgSz") ?: reject("Missing page size")
             attributes(size, setOf("w", "h", "orient", "code"))
@@ -166,7 +265,7 @@ internal class NativeDocxReader(
                 PdfLink.External(target)
                 return@associate id to target
             }
-            check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.(?i:png|emf)|styles\\.xml|numbering\\.xml|settings\\.xml|footnotes\\.xml|endnotes\\.xml|fontTable\\.xml|webSettings\\.xml|theme/theme1\\.xml|(?:header|footer)[1-9][0-9]?\\.xml)")), "Unsupported relationship target")
+            check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g)|styles\\.xml|numbering\\.xml|settings\\.xml|footnotes\\.xml|endnotes\\.xml|fontTable\\.xml|webSettings\\.xml|theme/theme1\\.xml|(?:header|footer)[1-9][0-9]?\\.xml)")), "Unsupported relationship target")
             val type = element.attribute("", "Type")
             check(type == "$rel/image" && target.startsWith("media/") || type == "$rel/styles" && target == "styles.xml" || type == "$rel/numbering" && target == "numbering.xml" || type == "$rel/settings" && target == "settings.xml" ||
                 type == "$rel/footnotes" && target == "footnotes.xml" || type == "$rel/endnotes" && target == "endnotes.xml" ||
@@ -180,8 +279,8 @@ internal class NativeDocxReader(
         val relations = readRelations(relationRoot)
         check(("word/settings.xml" in parts) == relations.values.contains("settings.xml"), "Settings relationship/part mismatch")
         check(("word/theme/theme1.xml" in parts) == relations.values.contains("theme/theme1.xml"), "Theme relationship/part mismatch")
-        val themeFonts = parts["word/theme/theme1.xml"]?.let { bytes ->
-            val theme = parse(bytes, "word/theme/theme1.xml")
+        val theme = parts["word/theme/theme1.xml"]?.let { parse(it, "word/theme/theme1.xml") }
+        val themeFonts = theme?.let { theme ->
             check(theme.name.namespaceURI == drawing && theme.name.localPart == "theme", "Invalid theme root")
             val scheme = theme.elements().singleOrNull { it.name.localPart == "themeElements" }?.elements()?.singleOrNull { it.name.localPart == "fontScheme" }
                 ?: reject("Missing theme font scheme")
@@ -194,7 +293,12 @@ internal class NativeDocxReader(
             }
         } ?: emptyMap()
 
-        fun resolveRun(property: XmlElement?, initial: Face) = runProperties(property, initial, themeFonts)
+        val themeColors = WordThemeColors(theme) { node, message ->
+            source.current = node
+            throw source.failure(message, provenance[node] ?: activePart)
+        }
+
+        fun resolveRun(property: XmlElement?, initial: Face) = runProperties(property, initial, themeFonts, themeColors)
 
         val neighbors = java.util.IdentityHashMap<XmlElement, Pair<XmlElement?, XmlElement?>>()
 
@@ -245,10 +349,19 @@ internal class NativeDocxReader(
         val defaultParagraph = defaults?.one("pPrDefault")?.one("pPr")
         val styles = stylesRoot.elements().filter { it.name.localPart == "style" }.associateBy { it.value("styleId") ?: reject("Style without ID") }
         check(styles.size == stylesRoot.elements().count { it.name.localPart == "style" }, "Duplicate style ID")
-        val normal = styles.values.singleOrNull { it.value("type") == "paragraph" && it.value("default") in setOf("1", "true") }?.value("styleId")
-            ?: reject("Explicit default paragraph style is required")
+        val normalStyle = WordParagraphStyleDefaults(context).select(styles.values) { node, message ->
+            source.current = node
+            activePart = "word/styles.xml"
+            reject(message)
+        }
+        val normal = normalStyle?.value("styleId")
 
-        fun chain(id: String, type: String, seen: Set<String> = emptySet()): List<XmlElement> {
+        val defaultTables = styles.values.filter { it.value("type") == "table" && it.value("default") in setOf("1", "true", "on") }
+        check(defaultTables.size <= 1, "Multiple default table styles are not qualified")
+        val defaultTable = defaultTables.singleOrNull()?.value("styleId")
+
+        fun chain(id: String?, type: String, seen: Set<String> = emptySet()): List<XmlElement> {
+            if (id == null) return emptyList()
             check(id !in seen && seen.size < 16, "Cyclic or excessive style inheritance")
             val style = styles[id] ?: reject("Unknown style")
             check(style.value("type") == type, "Wrong style type")
@@ -260,8 +373,14 @@ internal class NativeDocxReader(
 
         check(defaultParagraph?.one("numPr") == null, "Numbering in document defaults is outside the proof")
         check(("word/numbering.xml" in parts) == relations.values.contains("numbering.xml"), "Numbering relationship/part mismatch")
-        val numbering = NativeDocxNumbering(parts["word/numbering.xml"]?.let { parse(it, "word/numbering.xml") }, body) { paragraph ->
-            chain(paragraph.one("pPr")?.one("pStyle")?.value("val") ?: normal, "paragraph")
+        val numbering = try {
+            NativeDocxNumbering(parts["word/numbering.xml"]?.let { parse(it, "word/numbering.xml") }, body, focus = { node ->
+                context.checkActive(); source.current = node; activePart = provenance[node] ?: activePart
+            }) { paragraph -> chain(paragraph.one("pPr")?.one("pStyle")?.value("val") ?: normal, "paragraph") }
+        } catch (error: NativeDocxReadException) {
+            throw error
+        } catch (error: IllegalArgumentException) {
+            reject("Unsupported Word numbering: ${error.message ?: "invalid numbering definition"}")
         }
         noteProperties(ranges.first().first)
         val noteRoots = PdfNoteKind.entries.mapNotNull { kind ->
@@ -280,12 +399,22 @@ internal class NativeDocxReader(
         val bookmarkRuns = mutableMapOf<String, MutableList<PdfInline>>()
         val crossParagraphBookmarks = mutableSetOf<String>()
         val textReferences = mutableSetOf<String>()
+        val textReferenceSources = mutableMapOf<String, XmlElement>()
         var paragraphCounter = 0
         var fieldCounter = 0
         var linkCounter = 0
         var sequenceIndex = 0
 
-        fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false, tableStyles: List<XmlElement> = emptyList()): PdfParagraph {
+        fun finishBookmark(node: XmlElement, tableEnding: Boolean = false) {
+            source.current = node
+            attributes(node, setOf("id")); children(node, emptySet())
+            val key = activePart to (node.value("id") ?: reject("Missing bookmark ID"))
+            check(key in openBookmarks, "Unmatched bookmark end")
+            if (tableEnding) blockBoundaryTextRanges += bookmarkNames.getValue(key)
+            openBookmarks.remove(key)
+        }
+
+        fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false, tableStyles: List<XmlElement> = emptyList(), uniformFonts: Boolean = false): PdfParagraph {
             source.current = paragraph
             context.checkActive()
             crossParagraphBookmarks += openBookmarks.mapNotNull { bookmarkNames[it] }
@@ -304,7 +433,7 @@ internal class NativeDocxReader(
             val tableJustification = tableStyles.any { it.one("pPr")?.one("jc") != null }
             var geometry = paragraphChain.fold(Geometry()) { result, property ->
                 val resolved = paragraphProperties(property, result)
-                if (legacyTableHierarchy && tableJustification && property === styles.getValue(normal).one("pPr") &&
+                if (legacyTableHierarchy && tableJustification && property === normalStyle?.one("pPr") &&
                     property.one("jc")?.value("val") == "left") resolved.copy(alignment = result.alignment) else resolved
             }
             val automaticBefore = geometry.autoBefore && !formatting.additiveParagraphSpacing
@@ -319,12 +448,25 @@ internal class NativeDocxReader(
                 geometry = geometry.copy(before = if (same(previous)) 0f else geometry.before, after = if (same(next)) 0f else geometry.after)
             }
             check(listEntry != null || geometry.listTab == null, "List tab without numbering")
+            if (geometry.overflowPunctuation == true) {
+                val property = paragraphChain.mapNotNull { it.one("overflowPunct") }.last()
+                source.current = property
+                activePart = provenance[property] ?: activePart
+                reject("Active punctuation overflow is not yet qualified")
+            }
+            if (formatting.automaticHyphenation && !geometry.suppressAutoHyphens) {
+                source.current = requireNotNull(automaticHyphenationSource)
+                activePart = "word/settings.xml"
+                reject("Active automatic hyphenation is not yet qualified")
+            }
             val tableSize = tableStyles.any { it.one("rPr")?.one("sz") != null }
             val base = (tableStyles + styleChain).fold(resolveRun(defaultRun, Face(openType = modernTableAlignment || formatting.openTypeFeatures))) { result, style ->
                 val resolved = resolveRun(style.one("rPr"), result)
-                if (legacyTableHierarchy && tableSize && style === styles.getValue(normal) && style.one("rPr")?.one("sz") != null &&
+                if (legacyTableHierarchy && tableSize && style === normalStyle && style.one("rPr")?.one("sz") != null &&
                     resolved.size in setOf(11f, 12f)) resolved.copy(size = result.size) else resolved
             }
+
+            check(!uniformFonts || !mixedFonts(base), "Mixed font selection in generated contents styles is not qualified")
 
             fun faceFor(properties: XmlElement?, initial: Face = base): Face {
                 val characterStyle = properties?.one("rStyle")?.value("val")
@@ -347,14 +489,59 @@ internal class NativeDocxReader(
             val pendingDestinations = mutableListOf<PdfDestination>()
             var contents: PdfContents? = null
 
+            var emittedTextRuns = 0
+
+            fun textRuns(run: PdfTextRun, face: Face): List<PdfTextRun> {
+                val segments = if (!mixedFonts(face)) listOf(WordLatinFontSelection.Segment(run.text, false)) else {
+                    check(face.rtl != true, "Mixed complex-script font selection is not qualified")
+                    WordLatinFontSelection.segments(run.text, context, ::reject, ::fontRunsBound)
+                }
+                fontRunsBound(emittedTextRuns + segments.size <= 1_000)
+                emittedTextRuns += segments.size
+                check(segments.size <= 1 || run.semantics == null, "Native text spans cannot duplicate preassigned semantic identifiers")
+                return segments.mapIndexed { index, segment ->
+                    val navigation = if (index == 0) run.navigation else run.navigation?.takeIf { it.link != null }?.let {
+                        PdfTextNavigation(it.link, emptyList(), it.logicalId)
+                    }
+                    run.copy(text = segment.text,
+                        style = if (segment.highAnsi) textStyle(face.copy(family = face.highAnsiFamily)) else run.style,
+                        navigation = navigation)
+                }
+            }
+
             fun readRun(run: XmlElement, link: PdfLink? = null, logicalLink: String? = null): List<PdfInline> {
-            source.current = run
+                source.current = run
                 if (run.name.localPart == "fldSimple") {
                     attributes(run, setOf("instr", "dirty", "fldLock"))
                     check(run.value("fldLock") in setOf(null, "0", "false", "off"), "Locked field results are not qualified")
                     run.value("dirty")?.let { check(it in setOf("0", "1", "true", "false", "on", "off"), "Invalid field state") }
                     val instruction = NativeDocxFields.instruction(run.value("instr") ?: reject("Missing field instruction"), ::reject)
                     children(run, setOf("r"))
+                    if (instruction.kind == "FORMCHECKBOX") {
+                        val form = formFields[run] ?: reject("Checkbox field requires its own form metadata")
+                        run.elements().forEach { children(it, setOf("rPr", "t", "sym")) }
+                        check(link == null && pendingDestinations.isEmpty(), "Navigation on legacy checkboxes is outside this profile")
+                        val face = faceFor(form.properties)
+                        check(!face.underline && !face.strikethrough && !face.superscript && face.rtl != true,
+                            "Decorated or forced complex-script checkbox fields are outside this profile")
+                        return listOf(NativeWordCheckbox.read(form, face.size ?: reject("Missing checkbox font size"), face.bold, face.color, { source.current = it }, ::reject))
+                    }
+                    if (instruction.kind == "FORMTEXT") {
+                        val form = formFields[run] ?: reject("Text input field requires its own form metadata")
+                        NativeWordTextInput.validate(form.data, { source.current = it }, ::reject)
+                        run.elements().forEach { children(it, setOf("rPr", "t")) }
+                        source.current = run
+                        activePart = provenance[run] ?: activePart
+                        check(run.elements().any { child -> child.elements().any { it.name.localPart == "t" &&
+                            it.children.filterIsInstance<XmlText>().any { text -> text.text.isNotEmpty() } } },
+                            "Text input field requires a stored current display value")
+                        return run.elements().flatMap { readRun(it, link, logicalLink) }
+                    }
+                    if (instruction.kind == "SET") {
+                        run.elements().forEach { children(it, setOf("rPr", "t")) }
+                        check(link == null && pendingDestinations.isEmpty(), "Navigation on SET assignments is outside this profile")
+                        return emptyList()
+                    }
                     if (instruction.kind == "TOC") {
                         check(!fields && currentNoteKind == null && link == null && pendingDestinations.isEmpty() && contents == null, "Invalid contents location")
                         check(instruction.directOutlineLevels || body.descendants().none { it.name.namespaceURI == word && it.name.localPart == "p" && it.one("pPr")?.one("outlineLvl") != null },
@@ -370,7 +557,7 @@ internal class NativeDocxReader(
                             val textRun = XmlElement(javax.xml.namespace.QName(word, "r", "w"))
                             textRun.children += XmlElement(javax.xml.namespace.QName(word, "t", "w"), children = mutableListOf(XmlText("Contents")))
                             sample.children += textRun
-                            val resolved = readParagraph(sample, partRelations)
+                            val resolved = readParagraph(sample, partRelations, uniformFonts = true)
                             PdfContentsLevel(level, (resolved.runs.single() as PdfTextRun).style, resolved.format, resolved.spaceBefore, resolved.spaceAfter)
                         }
                         contents = PdfContents(levels, instruction.linked)
@@ -379,11 +566,25 @@ internal class NativeDocxReader(
                     val cached = run.elements()
                     check(cached.isNotEmpty(), "A field needs an explicit formatting sample")
                     cached.forEach { children(it, setOf("rPr", "t")) }
-                    val face = faceFor(cached.first().one("rPr"))
-                    check(cached.all { faceFor(it.one("rPr")) == face }, "Mixed field-result formatting is not qualified")
+                    val cachedFace = faceFor(cached.first().one("rPr"))
+                    check(cached.all { faceFor(it.one("rPr")) == cachedFace }, "Mixed field-result formatting is not qualified")
+                    source.current = run
+                    activePart = provenance[run] ?: activePart
+                    if (instruction.charFormat) check(fieldCodeStyles.containsKey(run), "CHARFORMAT requires a qualified complex sequence code")
+                    val face = if (instruction.kind == "SEQ" && !instruction.mergeFormat) faceFor(fieldCodeStyles[run]) else cachedFace
                     check(face.rtl != true, "Forced complex-script page fields are not qualified")
-                    val style = textStyle(face)
                     check(link == null, "Nested field hyperlinks are not qualified")
+                    source.current = run
+                    activePart = provenance[run] ?: activePart
+                    val staticValue = staticFields.resolve(instruction)
+                    if (staticValue == "") return emptyList()
+                    val style = textStyle(face)
+                    staticValue?.let { value ->
+                        check(value.codePoints().noneMatch { Character.UnicodeScript.of(it) == Character.UnicodeScript.HEBREW },
+                            "Hebrew static fields are outside the qualified field direction profile")
+                        val navigation = pendingDestinations.takeIf { it.isNotEmpty() }?.let { PdfTextNavigation(destinations = it.toList()) }.also { pendingDestinations.clear() }
+                        return textRuns(PdfTextRun(value, style, navigation), face)
+                    }
                     if (fields) {
                         check(instruction.kind in setOf("PAGE", "NUMPAGES", "SECTIONPAGES"), "Only page counts in page bands are qualified")
                         check(face.copy(languageTag = base.languageTag, rtl = base.rtl) == base, "Page-field cache formatting must match its paragraph style")
@@ -392,20 +593,30 @@ internal class NativeDocxReader(
                     }
                     val navigation = pendingDestinations.takeIf { it.isNotEmpty() }?.let { PdfTextNavigation(destinations = it.toList()) }.also { pendingDestinations.clear() }
                     val id = "source-field${fieldCounter++}"
-                    if (instruction.kind == "SEQ") return listOf(PdfSequenceField(id, requireNotNull(instruction.argument), style,
+                    if (instruction.kind == "SEQ") return listOf(PdfSequenceField(id, requireNotNull(instruction.argument).lowercase(java.util.Locale.ROOT), style,
                         instruction.restart, instruction.repeat, instruction.headingReset, navigation))
                     val kind = when (instruction.kind) {
                         "REF" -> PdfReferenceKind.TEXT; "PAGEREF" -> PdfReferenceKind.PAGE; "PAGE" -> PdfReferenceKind.CURRENT_PAGE
                         "NUMPAGES" -> PdfReferenceKind.TOTAL_PAGES; else -> PdfReferenceKind.SEQUENCE_PAGES
                     }
                     val target = if (kind == PdfReferenceKind.SEQUENCE_PAGES) "sequence$sequenceIndex" else instruction.argument
-                    if (kind == PdfReferenceKind.TEXT) textReferences += requireNotNull(target)
+                    if (kind == PdfReferenceKind.TEXT) {
+                        check(!mixedFonts(face), "Mixed font selection in dynamic text references is not qualified")
+                        textReferences += requireNotNull(target)
+                        textReferenceSources.putIfAbsent(target, run)
+                    }
                     return listOf(PdfReferenceField(id, kind, style, target, instruction.linked, navigation))
                 }
                 children(run, setOf("rPr", "t", "tab", "drawing", "pict", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
                 val contents = run.elements().filter { it.name.localPart != "rPr" }
                 if (contents.isEmpty()) return emptyList()
                 val face = faceFor(run.one("rPr"))
+                propertyParagraphs.formats[run]?.let { format ->
+                    check(face.rtl != true && format.samples.all { faceFor(it.run.one("rPr")).copy(languageTag = face.languageTag) == face },
+                        "Mixed property-result formatting is not qualified")
+                }
+                source.current = run
+                activePart = provenance[run] ?: activePart
                 return contents.mapNotNull { item -> when (item.name.localPart) {
                     "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef" -> {
                         val kind = if (item.name.localPart.startsWith("foot")) PdfNoteKind.FOOTNOTE else PdfNoteKind.ENDNOTE
@@ -434,7 +645,7 @@ internal class NativeDocxReader(
                             check(explicit.one("rFonts")?.value("cs") == face.family && explicit.one("szCs")?.value("val")?.let { number(it) / 2 } == face.size &&
                                 explicit.one("bCs") != null && explicit.one("iCs") != null, "Hebrew proof runs must pin all matching complex-script face properties")
                         }
-                        check(text == text.trim() || item.attribute("http://www.w3.org/XML/1998/namespace", "space") == "preserve", "Significant edge whitespace requires explicit preservation")
+                        check(text == text.trim(' ', '\t', '\r', '\n') || item.attribute("http://www.w3.org/XML/1998/namespace", "space") == "preserve", "Significant edge whitespace requires explicit preservation")
                         val destinations = if (text.isNotBlank()) pendingDestinations.toList().also { pendingDestinations.clear() } else emptyList()
                         val navigation = if (link != null || destinations.isNotEmpty()) PdfTextNavigation(link, destinations, logicalLink) else null
                         PdfTextRun(text.ifEmpty { " " }, textStyle(face), navigation)
@@ -450,7 +661,7 @@ internal class NativeDocxReader(
                         lineDrawings += lineReader.drawing(item, page); null
                     } else { check(link == null && pendingDestinations.isEmpty() && !face.underline && !face.strikethrough, "Navigation or text decorations on pictures are not qualified"); PdfImageRun(image(item, partRelations, parts)) } }
                     else -> reject("Unsupported run content")
-                } }
+                } }.flatMap { inline -> if (inline is PdfTextRun) textRuns(inline, face) else listOf(inline) }
             }
 
             val runs = paragraph.elements().flatMap { node -> when (node.name.localPart) {
@@ -470,8 +681,7 @@ internal class NativeDocxReader(
                     emptyList()
                 }
                 "bookmarkEnd" -> {
-                    attributes(node, setOf("id")); children(node, emptySet())
-                    check(openBookmarks.remove(activePart to (node.value("id") ?: reject("Missing bookmark ID"))), "Unmatched bookmark end")
+                    finishBookmark(node)
                     emptyList()
                 }
                 "hyperlink" -> {
@@ -491,16 +701,19 @@ internal class NativeDocxReader(
                 for (key in openBookmarks) bookmarkNames[key]?.let { bookmarkRuns.getValue(it).addAll(converted) }
             } }
             check(pendingDestinations.isEmpty(), "Bookmark requires following visible paragraph text")
-            val markStyle = markFace?.takeIf { geometry.automatic != null || runs.isEmpty() }?.let(::textStyle)
+            val markStyle = markFace?.takeIf { geometry.automatic != null || geometry.minimum != null || runs.isEmpty() }?.let(::textStyle)
             val content = runs.ifEmpty { listOf(PdfTextRun(" ", markStyle ?: textStyle(base))) }
             check(content.none { it is PdfImageRun } || content.size == 1, "Mixed image/text paragraphs are outside the proof profile")
             val label = listEntry?.let { entry ->
                 check(content.all { it is PdfTextRun || it is PdfReferenceField || it is PdfSequenceField }, "List images and inline tabs are outside the proof")
                 val markerFace = resolveRun(entry.level.one("rPr"), base)
-                PdfListLabel(entry.value, textStyle(markerFace), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval)
+                val markerSegments = if (mixedFonts(markerFace)) WordLatinFontSelection.segments(entry.value.text, context, ::reject, ::fontRunsBound) else emptyList()
+                check(markerSegments.size <= 1, "Mixed font selection within one list label is not qualified")
+                val selected = if (markerSegments.singleOrNull()?.highAnsi == true) markerFace.copy(family = markerFace.highAnsiFamily) else markerFace
+                PdfListLabel(entry.value, textStyle(selected), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval)
             }
             val alignment = if (geometry.direction == PdfTextDirection.RIGHT_TO_LEFT) when (geometry.alignment) {
-                PdfAlignment.LEFT -> PdfAlignment.RIGHT; PdfAlignment.RIGHT -> PdfAlignment.LEFT; PdfAlignment.CENTER -> PdfAlignment.CENTER
+                PdfAlignment.LEFT -> PdfAlignment.RIGHT; PdfAlignment.RIGHT -> PdfAlignment.LEFT; PdfAlignment.CENTER -> PdfAlignment.CENTER; PdfAlignment.JUSTIFY -> PdfAlignment.JUSTIFY
             } else geometry.alignment
             check(geometry.direction != PdfTextDirection.RIGHT_TO_LEFT || geometry.left == 0f && geometry.right == 0f, "RTL source indentation is not qualified")
             val pageOffset = if (geometry.mirror) {
@@ -509,6 +722,11 @@ internal class NativeDocxReader(
                 PdfParagraphPageOffset(geometry.right - geometry.left + maxOf(0f, -geometry.first),
                     if (!modernTableAlignment && formatting.flipLegacyMirrorIndents) PdfPageSide.ODD else PdfPageSide.EVEN)
             } else null
+            if (geometry.direction == PdfTextDirection.RIGHT_TO_LEFT && (content.any { it is PdfTextRun && it.style.characterSpacing != 0f } ||
+                    label?.style?.characterSpacing?.let { it != 0f } == true)) {
+                source.current = paragraph
+                reject("Character spacing in RTL paragraphs is not qualified")
+            }
             return PdfParagraph(content, geometry.before, geometry.after, PdfParagraphFormat(alignment, geometry.left, geometry.right,
                 geometry.first, geometry.line, !formatting.additiveParagraphSpacing,
                 geometry.keepWithNext, geometry.keepLines, geometry.widowControl, geometry.pageBreakBefore, geometry.outline,
@@ -521,6 +739,8 @@ internal class NativeDocxReader(
                 }, geometry.outline), contents = contents, borders = geometry.borders, lines = lineDrawings)
                 .withSpacing(PdfParagraphSpacing(automaticBefore, modernTableAlignment, automaticAfter))
                 .withPageOffset(pageOffset)
+                .withMinimumLineHeight(geometry.minimum)
+                .withUnderlineTrailingSpaces(formatting.underlineTrailingSpaces)
                 .withMinimumLineStyle(markStyle ?: if (geometry.automatic != null &&
                     (content.singleOrNull() is PdfImageRun || content.singleOrNull() is PdfVectorRun)) textStyle(base) else null)
         }
@@ -528,17 +748,23 @@ internal class NativeDocxReader(
         fun readTable(table: XmlElement, partRelations: Map<String, String>, fields: Boolean, depth: Int = 0): PdfTable {
             source.current = table
             check(depth <= 1, "Only one nested table level is supported")
-            children(table, setOf("tblPr", "tblGrid", "tr"))
+            children(table, setOf("tblPr", "tblGrid", "tr", "bookmarkEnd"))
             val properties = table.one("tblPr") ?: reject("Explicit table properties required")
             children(properties, setOf("tblStyle", "tblW", "tblInd", "tblLayout", "tblBorders", "tblCellMar", "tblLook", "tblStyleRowBandSize", "tblStyleColBandSize"))
-            val tableStyles = properties.one("tblStyle")?.let { chain(it.value("val") ?: reject("Missing table style"), "table") } ?: emptyList()
+            val tableStyleId = properties.one("tblStyle")?.let { it.value("val") ?: reject("Missing table style") } ?: defaultTable
+            val tableStyles = tableStyleId?.let { chain(it, "table") } ?: emptyList()
             val rowNodes = table.elements().filter { it.name.localPart == "tr" }
             val headerCount = rowNodes.takeWhile { row -> row.one("trPr")?.one("tblHeader")?.let { it.value("val") in setOf(null, "1", "true", "on") } == true }.size
             val regions = NativeDocxTableStyles(tableStyles, properties, rowNodes.size,
                 table.one("tblGrid")?.elements()?.size ?: 0, headerCount, context) { node, message -> source.current = node; reject(message) }
             val layout = regions.property("tblLayout")?.value("type")
-            check(layout in setOf("fixed", "autofit"), "Explicit qualified table layout required")
-            val naturalWidths = layout == "autofit"
+            check(layout in setOf(null, "fixed", "autofit"), "Unsupported table layout")
+            val automaticLayout = layout != "fixed"
+            val naturalWidths = layout == "autofit" && regions.property("tblW")?.let {
+                it.value("type") == "auto" && it.value("w") == "0"
+            } == true && rowNodes.flatMap { it.elements().filter { cell -> cell.name.localPart == "tc" } }.all { cell ->
+                cell.one("tcPr")?.one("tcW")?.let { it.value("type") == "auto" && it.value("w") == "0" } == true
+            }
             check(!naturalWidths || depth == 0, "Natural widths in nested tables are not qualified")
             val grid = table.one("tblGrid") ?: reject("Missing table grid")
             check(grid.elements().all { it.name.namespaceURI == word && it.name.localPart == "gridCol" }, "Unsupported table grid")
@@ -556,21 +782,33 @@ internal class NativeDocxReader(
                 check(node.value("type") == "auto" && node.value("w") == "0", "Natural widths require automatic table and cell dimensions")
             }
 
-            val tableWidth = regions.property("tblW") ?: reject("Missing table width")
-            if (naturalWidths) automaticDimension(tableWidth)
-            else check(kotlin.math.abs(widths.sum() - dimension(tableWidth)) < 0.01f, "Table width differs from grid")
+            fun preferredWidth(node: XmlElement?): PdfPreferredWidth? = node?.let {
+                WordTableWidths.preferred(it) { origin, message -> source.current = origin; reject(message) }
+            }
+
+            val tableWidth = regions.property("tblW")
+            val preferredTableWidth = if (automaticLayout) preferredWidth(tableWidth) else null
+            if (naturalWidths) automaticDimension(requireNotNull(tableWidth))
+            else if (!automaticLayout) check(kotlin.math.abs(widths.sum() - dimension(tableWidth ?: reject("Missing table width"))) < 0.01f, "Table width differs from grid")
             val cellMargins = regions.property("tblCellMar") ?: reject("Explicit cell margins required")
             children(cellMargins, setOf("top", "right", "bottom", "left"))
 
-            fun edge(name: String) = dimension(cellMargins.one(name) ?: reject("Missing cell margin"))
+            fun edge(name: String): Float = dimension(regions.margin(name) ?: reject("Missing cell margin"))
 
             val padding = PdfMargins(edge("top"), edge("right"), edge("bottom"), edge("left"))
-            val borderNodes = regions.property("tblBorders") ?: reject("Explicit table borders required")
-            children(borderNodes, setOf("top", "left", "bottom", "right", "insideH", "insideV"))
-            val borders = borderNodes.elements().map {
-                attributes(it, setOf("val", "sz", "color"))
-                check(it.value("val") == "single", "Only solid table borders are supported")
-                PdfBorder(number(it.value("sz")) / 8, color(it.value("color")))
+            val resolvedTableWidth = preferredTableWidth?.let { preference ->
+                val percent = preference.percent
+                if (percent != null && depth == 0 && !modernTableAlignment) {
+                    val reference = page.width - page.margins.left - page.margins.right + padding.left + padding.right
+                    val preferred = reference * percent / 100f
+                    check(preferred in 0f..14_400f, "Preferred table width exceeds the physical layout limit")
+                    PdfPreferredWidth.points(preferred)
+                } else preference
+            }
+            val borderNodes = regions.property("tblBorders")
+            borderNodes?.let { children(it, setOf("top", "left", "bottom", "right", "insideH", "insideV")) }
+            val borders = borderNodes?.elements().orEmpty().map { node ->
+                WordTableBorders.read(node) { origin, message -> source.current = origin; reject(message) }
             }
             check(borders.isEmpty() || borders.size == 6 && borders.distinct().size == 1, "Only uniform table borders are supported")
             val border = borders.firstOrNull()
@@ -592,47 +830,67 @@ internal class NativeDocxReader(
 
                 fun stroke(name: String): PdfEdgeStroke? {
                     val edge = node.one(name) ?: return when (name) { "top" -> inherited.top; "right" -> inherited.right; "bottom" -> inherited.bottom; else -> inherited.left }
-                    attributes(edge, setOf("val", "sz", "color")); children(edge, emptySet())
-                    edge.value("sz")?.let { value -> val size = value.toIntOrNull(); check(size != null && size in 1..32, "Invalid cell border width") }
-                    edge.value("color")?.let(::color)
-                    return when (edge.value("val")) {
-                        "none" -> fallbackStroke
-                        "nil" -> null
-                        "single" -> {
-                            val size = edge.value("sz")?.toIntOrNull()?.takeIf { it in 1..32 } ?: reject("Invalid cell border width")
-                            ranked(PdfBorder(size / 8f, color(edge.value("color"))))
-                        }
-                        else -> reject("Only solid cell borders are qualified")
-                    }
+                    val stroke = WordTableBorders.read(edge) { origin, message -> source.current = origin; reject(message) }
+                    return if (edge.value("val") == "none") fallbackStroke else stroke?.let(::ranked)
                 }
 
                 return PdfCellBorders(stroke("top"), stroke("right"), stroke("bottom"), stroke("left"))
             }
 
             val headerFlags = mutableListOf<Boolean>()
-            data class CellSpec(val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment, val borders: PdfCellBorders?, var rows: Int = 1)
+            val rowMinimums = mutableListOf<Float?>()
+            val rowPaddingFrames = mutableListOf<Float>()
+            data class CellSpec(val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment, val borders: PdfCellBorders?, val preferredWidth: PdfPreferredWidth?, val declaredMargins: PdfMargins?, var margins: PdfMargins? = declaredMargins, var rows: Int = 1)
             val specs = mutableListOf<Pair<List<CellSpec>, Boolean>>()
             var previous = mapOf<Int, CellSpec>()
+            val events = table.elements().iterator()
+
+            fun bookmarksBefore(row: XmlElement? = null) {
+                for (event in events) {
+                    if (event === row) return
+                    if (event.name.localPart == "bookmarkEnd") finishBookmark(event, tableEnding = true)
+                }
+            }
+
             for ((rowIndex, row) in rowNodes.withIndex()) {
+                bookmarksBefore(row)
+                source.current = row
                 children(row, setOf("trPr", "tc"))
                 val rowProperties = row.one("trPr")
-                rowProperties?.let { children(it, setOf("cantSplit", "tblHeader")) }
+                rowProperties?.let { children(it, setOf("cantSplit", "tblHeader", "trHeight")) }
+                rowMinimums += rowProperties?.one("trHeight")?.let { node ->
+                    WordRowHeights.read(node) { origin, message -> source.current = origin; reject(message) }
+                }
 
                 fun enabled(node: XmlElement): Boolean = when (node.value("val")) { null, "1", "true" -> true; "0", "false" -> false; else -> reject("Invalid row toggle") }
 
                 val allowSplit = rowProperties?.one("cantSplit")?.let { !enabled(it) } ?: true
                 headerFlags += rowProperties?.one("tblHeader")?.let(::enabled) == true
                 val cells = mutableListOf<CellSpec>()
+                val marginInputs = mutableListOf<PdfMargins>()
                 val active = mutableMapOf<Int, CellSpec>()
                 var column = 0
                 for (cell in row.elements().filter { it.name.localPart == "tc" }) {
                     children(cell, setOf("tcPr", "p", "tbl"))
                     val cp = cell.one("tcPr") ?: reject("Explicit cell properties required")
-                    children(cp, setOf("tcW", "shd", "gridSpan", "vMerge", "vAlign", "tcBorders"))
+                    children(cp, setOf("tcW", "shd", "gridSpan", "vMerge", "vAlign", "tcBorders", "tcMar"))
                     val cellStyles = regions.layers(rowIndex, column)
                     val cellProperties = cellStyles.mapNotNull { it.one("tcPr") } + cp
+                    val marginDeclarations = cellProperties.mapNotNull { it.one("tcMar") }
+                    val effectiveMargins = WordCellMargins.resolve(marginDeclarations, padding) { origin, message ->
+                        source.current = origin
+                        reject(message)
+                    }
+                    marginInputs += effectiveMargins
                     val edgePolicies = cellProperties.mapNotNull { it.one("tcBorders") }
                     val cellBorders = if (edgePolicies.isEmpty()) null else edgePolicies.fold(fallbackBorders) { inherited, node -> readCellBorders(node, inherited) }
+                    // Explicit horizontal padding cannot place text inside a visible border's inner half.
+                    val leftInset = (cellBorders?.left?.border?.width ?: if (cellBorders == null) border?.width ?: 0f else 0f) / 2
+                    val rightInset = (cellBorders?.right?.border?.width ?: if (cellBorders == null) border?.width ?: 0f else 0f) / 2
+                    val physicalMargins = effectiveMargins.copy(
+                        left = if (marginDeclarations.any { it.one("left") != null }) maxOf(effectiveMargins.left, leftInset) else effectiveMargins.left,
+                        right = if (marginDeclarations.any { it.one("right") != null }) maxOf(effectiveMargins.right, rightInset) else effectiveMargins.right)
+                    val ownMargins = physicalMargins.takeUnless { it == padding }
                     val alignment = cellProperties.mapNotNull { it.one("vAlign") }.lastOrNull()?.let { node ->
                         attributes(node, setOf("val")); children(node, emptySet())
                         when (node.value("val")) { "top" -> PdfVerticalAlignment.TOP; "center" -> PdfVerticalAlignment.CENTER; "bottom" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported cell vertical alignment") }
@@ -640,16 +898,21 @@ internal class NativeDocxReader(
                     val span = cp.one("gridSpan")?.let { attributes(it, setOf("val")); number(it.value("val")).toInt() } ?: 1
                     check(!regions.active || cp.one("vMerge") == null && span == 1, "Merged conditional table regions are not qualified")
                     check(span in 1..16 && column + span <= widths.size, "Invalid grid span")
-                    val cellWidth = cp.one("tcW") ?: reject("Missing cell width")
-                    if (naturalWidths) automaticDimension(cellWidth)
-                    else check(kotlin.math.abs(dimension(cellWidth) - widths.subList(column, column + span).sum()) < 0.01f, "Inconsistent cell width")
-                    val background = cellProperties.mapNotNull { it.one("shd") }.lastOrNull()?.let {
-                        attributes(it, setOf("val", "color", "fill"))
-                        check(it.value("val") == "clear" && it.value("color") == "auto", "Unsupported cell shading")
-                        it.value("fill")?.takeUnless { fill -> fill == "auto" }?.let(::color)
-                    }
+                    val cellWidth = cp.one("tcW")
+                    val preferredCellWidth = if (automaticLayout) preferredWidth(cellWidth) else null
+                    if (naturalWidths) automaticDimension(cellWidth ?: reject("Missing cell width"))
+                    else if (!automaticLayout) check(kotlin.math.abs(dimension(cellWidth ?: reject("Missing cell width")) - widths.subList(column, column + span).sum()) < 0.01f, "Inconsistent cell width")
+                    val background = cellProperties.mapNotNull { it.one("shd") }.lastOrNull()?.let(themeColors::cellFill)
                     val blocks = cell.elements().filter { it.name.localPart != "tcPr" }.map { child ->
-                        when (child.name.localPart) { "p" -> readParagraph(child, partRelations, fields, cellStyles); "tbl" -> readTable(child, partRelations, fields, depth + 1); else -> reject("Unsupported cell block") }
+                        when (child.name.localPart) {
+                            "p" -> readParagraph(child, partRelations, fields, cellStyles).let { paragraph ->
+                                if (depth == 0 && !fields && span == 1 && cp.one("vMerge") == null)
+                                    paragraph.copy(format = paragraph.format.copy(keepLines = false, widowControl = false))
+                                else paragraph
+                            }
+                            "tbl" -> readTable(child, partRelations, fields, depth + 1)
+                            else -> reject("Unsupported cell block")
+                        }
                     }.let { content ->
                         // Word's required empty cell-end paragraph after a nested table is a terminator,
                         // rather than another visible exact-height text line in this trial profile.
@@ -664,12 +927,13 @@ internal class NativeDocxReader(
                             check(origin.span == span && origin.background == background, "Inconsistent vertical continuation")
                             check(cp.one("vAlign") == null || origin.alignment == alignment, "Inconsistent vertical continuation alignment")
                             check(cellBorders == null || origin.borders == cellBorders, "Inconsistent vertical continuation borders")
+                            check(origin.declaredMargins == ownMargins, "Inconsistent vertical continuation margins")
                             check(blocks.all { it is PdfParagraph && it.runs.all { run -> run is PdfTextRun && run.text.isBlank() } }, "Continuation cells must not contain additional content")
                             origin.rows++
                             active[column] = origin
                         }
                         null, "restart" -> {
-                            val spec = CellSpec(blocks, background, span, alignment, cellBorders)
+                            val spec = CellSpec(blocks, background, span, alignment, cellBorders, preferredCellWidth, ownMargins)
                             cells += spec
                             if (merge == "restart") active[column] = spec
                         }
@@ -678,20 +942,51 @@ internal class NativeDocxReader(
                     column += span
                 }
                 check(column == widths.size, "Incomplete table row")
+                // Word shares the greatest vertical padding across the row; the neutral model stays physical.
+                val topPadding = marginInputs.maxOf { it.top }
+                val bottomPadding = marginInputs.maxOf { it.bottom }
+                rowPaddingFrames += topPadding + bottomPadding
+                for (cell in cells) {
+                    cell.margins = (cell.declaredMargins ?: padding).copy(top = topPadding, bottom = bottomPadding).takeUnless { it == padding }
+                }
+                for (cell in active.values.distinct().filter { it !in cells }) {
+                    cell.margins = (cell.margins ?: padding).copy(bottom = bottomPadding).takeUnless { it == padding }
+                }
                 specs += cells to allowSplit
                 previous = active
             }
+            bookmarksBefore()
             val customBorders = specs.any { (cells, _) -> cells.any { it.borders != null } }
-            val rows = specs.map { (cells, allow) -> PdfTableRow(cells.map { PdfTableCell(it.blocks, it.background, it.span, it.rows, it.alignment, if (customBorders) it.borders ?: fallbackBorders else null) }, allow, splitOversized = true) }
+            val rows = specs.mapIndexed { rowIndex, (cells, allow) ->
+                val resolved = cells.map { PdfTableCell(it.blocks, it.background, it.span, it.rows, it.alignment,
+                    if (customBorders) it.borders ?: fallbackBorders else null, it.preferredWidth, it.margins) }
+                val minimum = rowMinimums[rowIndex]?.let { contentFloor ->
+                    val topBorder = maxOf(border?.width ?: 0f, resolved.maxOfOrNull { it.borders?.top?.border?.width ?: 0f } ?: 0f)
+                    val physical = contentFloor + rowPaddingFrames[rowIndex] + topBorder
+                    source.current = rowNodes[rowIndex].one("trPr")?.one("trHeight") ?: rowNodes[rowIndex]
+                    check(physical <= 14_400f, "Minimum row height exceeds the physical layout limit")
+                    physical
+                }
+                PdfTableRow(resolved, allow, splitOversized = true, minimumHeight = minimum)
+            }
             if (customBorders) {
                 val styles = rows.flatMap { it.cells }.flatMap { cell -> cell.borders!!.let { listOfNotNull(it.top, it.right, it.bottom, it.left) } }.map { it.border }.distinct()
                 check(styles.size <= 1, "Conflicting cell-border colors and widths are not qualified")
             }
             val count = headerFlags.takeWhile { it }.size
             check(headerFlags.drop(count).none { it }, "Table headers must be leading rows")
-            val indent = regions.property("tblInd")?.let(::dimension) ?: reject("Explicit table indent required")
-            val physicalIndent = if (depth == 0 && !modernTableAlignment) indent - padding.left else indent + (border?.width ?: 0f) / 2
-            return PdfTable(widths, rows, padding, border, count, physicalIndent, if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else PdfTableWidthPolicy.FIXED)
+            val declaredIndent = regions.property("tblInd")
+            val indent = declaredIndent?.let { node ->
+                WordNumericSpellings.tableIndentPoints(node) { origin, message -> source.current = origin; reject(message) }
+            } ?: 0f
+            // Word clamps negative indentation in nested tables without changing the source property.
+            val effectiveIndent = if (depth > 0) indent.coerceAtLeast(0f) else indent
+            val physicalIndent = if (depth == 0 && !modernTableAlignment) {
+                // Legacy Word distinguishes an omitted indent from an explicitly declared zero.
+                if (declaredIndent == null) 0f else indent - padding.left
+            } else effectiveIndent + (border?.width ?: 0f) / 2
+            return PdfTable(widths, rows, padding, border, count, physicalIndent, if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else if (automaticLayout) PdfTableWidthPolicy.AUTO_FIT else PdfTableWidthPolicy.FIXED, preferredWidth = resolvedTableWidth)
+                .withRightOverflow(if (depth == 0 && !modernTableAlignment && declaredIndent != null && preferredTableWidth?.percent != null) padding.right else 0f)
         }
 
         fun readBox(pict: XmlElement, partRelations: Map<String, String>, fields: Boolean = false): PdfTextBox {
@@ -746,7 +1041,11 @@ internal class NativeDocxReader(
             val anchor = node.elements().singleOrNull() ?: reject("Invalid floating drawing")
             check(anchor.name.namespaceURI == wp && anchor.name.localPart == "anchor", "Floating anchor required")
             val expected = mapOf("distT" to "0", "distB" to "0", "distL" to "0", "distR" to "0", "simplePos" to "0", "relativeHeight" to "0", "behindDoc" to "0", "locked" to "0", "layoutInCell" to "1", "allowOverlap" to "1")
-            check(anchor.attributes.size == expected.size && anchor.attributes.all { it.key.namespaceURI.isEmpty() && expected[it.key.localPart] == it.value }, "Unsupported floating anchor policy")
+            val booleans = setOf("simplePos", "behindDoc", "locked", "layoutInCell", "allowOverlap")
+            check(anchor.attributes.size == expected.size && anchor.attributes.all {
+                val value = if (it.key.localPart in booleans) when (it.value) { "true" -> "1"; "false" -> "0"; else -> it.value } else it.value
+                it.key.namespaceURI.isEmpty() && expected[it.key.localPart] == value
+            }, "Unsupported floating anchor policy")
 
             fun one(parent: XmlElement, ns: String, name: String) = parent.elements().singleOrNull { it.name.namespaceURI == ns && it.name.localPart == name } ?: reject("Missing or duplicate drawing property")
 
@@ -769,7 +1068,7 @@ internal class NativeDocxReader(
             check(graphic.attribute("", "uri") == wps && graphic.elements().size == 1, "Unsupported floating graphic")
             val shape = one(graphic, wps, "wsp")
             check(shape.elements().size == 4 && shape.elements().all { it.name.namespaceURI == wps && it.name.localPart in setOf("cNvSpPr", "spPr", "txbx", "bodyPr") }, "Unsupported shape content")
-            check(one(shape, wps, "cNvSpPr").attribute("", "txBox") == "1", "Text frame required")
+            check(one(shape, wps, "cNvSpPr").attribute("", "txBox") in setOf("1", "true"), "Text frame required")
             val props = one(shape, wps, "spPr")
             check(props.elements().all { it.name.namespaceURI == drawing && it.name.localPart in setOf("xfrm", "prstGeom", "solidFill", "noFill", "ln") }, "Unsupported shape effects")
             val transform = one(props, drawing, "xfrm")
@@ -966,8 +1265,16 @@ internal class NativeDocxReader(
             try { node.elements().map { readParagraph(it, ownRelations) } }
             finally { currentNoteKind = null }
         }
+        if (notes.isNotEmpty() && sequences.size != 1) {
+            source.current = body
+            activePart = "word/document.xml"
+            reject("Notes require one paginated section; section-boundary note layout is not yet qualified")
+        }
         check(openBookmarks.isEmpty(), "Unclosed bookmarks")
         val targets = textReferences.map { name ->
+            source.current = textReferenceSources.getValue(name)
+            activePart = provenance[source.current] ?: activePart
+            check(name !in blockBoundaryTextRanges, "Text references to block-level bookmark ends are not qualified")
             check(name !in crossParagraphBookmarks, "Text references across paragraphs are not qualified")
             PdfReferenceTarget(name, bookmarkRuns[name] ?: reject("Unknown text reference range"))
         }
@@ -976,12 +1283,18 @@ internal class NativeDocxReader(
 
     private data class Face(val family: String? = null, val size: Float? = null, val bold: Boolean = false,
         val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null, val underline: Boolean = false, val superscript: Boolean = false, val strikethrough: Boolean = false,
-        val kerningThreshold: Float = 0f, val standardLigatures: Boolean = false, val openType: Boolean = false) {
+        val kerningThreshold: Float = 0f, val standardLigatures: Boolean = false, val openType: Boolean = false, val highAnsiFamily: String? = null, val characterSpacing: Float = 0f) {
 
         fun id(resolve: (String, Boolean, Boolean) -> String): String = resolve(
             requireNotNull(family) { "An explicit font family is required" }, bold, italic)
 
     }
+
+    private fun fontRunsBound(condition: Boolean) {
+        check(condition, "Mixed font selection exceeds the paragraph run limit")
+    }
+
+    private fun mixedFonts(face: Face) = face.highAnsiFamily != null && !face.family.equals(face.highAnsiFamily, true)
 
     private fun textStyle(face: Face): PdfTextStyle {
         val nominal = face.size ?: reject("Missing font size")
@@ -990,13 +1303,21 @@ internal class NativeDocxReader(
             if (face.openType) PdfKerning.OPENTYPE else PdfKerning.PAIRS else PdfKerning.NONE
         return PdfTextStyle(face.id(fontId), size, face.color, face.languageTag, face.underline, if (face.superscript) nominal - size else 0f, face.strikethrough)
             .withFontFeatures(PdfFontFeatures(kern, face.standardLigatures && face.openType))
+            .withSyntheticBold(syntheticBold(requireNotNull(face.family), face.bold, face.italic))
+            .withCharacterSpacing(face.characterSpacing)
     }
 
-    private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>): Face {
+    private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>, themeColors: WordThemeColors): Face {
         if (property == null) return initial
         val word14 = "http://schemas.microsoft.com/office/word/2010/wordml"
-        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern"), setOf(word14 to "ligatures"))
+        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern", "spacing", "dstrike", "w"), setOf(word14 to "ligatures"))
         var result = initial
+        for (node in listOf("dstrike", "w").mapNotNull { property.one(it) }) {
+            WordInactiveRunProperties.requireInactive(node) { origin, message -> source.current = origin; reject(message) }
+        }
+        property.one("spacing")?.let { node ->
+            result = result.copy(characterSpacing = WordRunSpacing.read(node) { origin, message -> source.current = origin; reject(message) })
+        }
         property.one("kern")?.let {
             attributes(it, setOf("val")); children(it, emptySet())
             check(it.children.filterIsInstance<XmlText>().all { text -> text.text.isBlank() }, "Invalid kerning setting")
@@ -1009,8 +1330,8 @@ internal class NativeDocxReader(
             check(feature.elements().isEmpty() && feature.children.filterIsInstance<XmlText>().all { it.text.isBlank() } &&
                 feature.attributes.keys.all { it.namespaceURI == word14 && it.localPart == "val" }, "Invalid OpenType ligature setting")
             val value = feature.attribute(word14, "val")
-            check(value in setOf("none", "standard"), "Only standard OpenType ligatures are qualified")
-            result = result.copy(standardLigatures = value == "standard")
+            check(value in setOf("none", "standard", "standardContextual"), "Only standard and standard-contextual OpenType ligatures are qualified")
+            result = result.copy(standardLigatures = value != "none")
         }
         property.one("vertAlign")?.let {
             attributes(it, setOf("val")); children(it, emptySet())
@@ -1022,25 +1343,29 @@ internal class NativeDocxReader(
             node.elements().forEach { leaf -> attributes(leaf, setOf("val")); check(leaf.elements().isEmpty(), "Invalid numbering reference"); check(number(leaf.value("val")) <= if (leaf.name.localPart == "ilvl") 8 else 1_000_000, "Numbering reference exceeds bounds") }
         }
         property.one("rFonts")?.let {
-            attributes(it, setOf("ascii", "hAnsi", "asciiTheme", "hAnsiTheme", "cs", "eastAsia"))
+            attributes(it, setOf("ascii", "hAnsi", "asciiTheme", "hAnsiTheme", "cs", "eastAsia", "hint"))
+            check(it.value("hint") in setOf(null, "default"), "Only default font hints are qualified")
 
             fun family(name: String): String? = it.value(name + "Theme")?.let { key ->
                 val kind = when (key) { "majorAscii", "majorHAnsi" -> "major"; "minorAscii", "minorHAnsi" -> "minor"; else -> reject("Unsupported theme font role") }
                 themeFonts[kind] ?: reject("Unresolved theme font")
-            } ?: it.value(name) ?: initial.family
+            } ?: it.value(name) ?: if (name == "hAnsi") initial.highAnsiFamily ?: initial.family else initial.family
 
             val family = family("ascii") ?: reject("Explicit Latin font required")
-            check(family("hAnsi") == family, "Mixed font families are unsupported")
+            val highAnsi = family("hAnsi") ?: reject("Explicit high-ANSI font required")
+            check(family.isNotBlank() && highAnsi.isNotBlank(), "Empty Latin font family")
             check(it.value("cs") == null || it.value("cs") == family, "Separate complex-script font faces are outside this proof")
             check(it.value("eastAsia") == null || it.value("eastAsia") == family, "Separate East Asian font faces are outside this profile")
-            result = result.copy(family = family)
+            result = result.copy(family = family, highAnsiFamily = highAnsi)
         }
         property.one("lang")?.let {
-            attributes(it, setOf("val")); check(it.elements().isEmpty(), "Invalid run language")
-            val language = it.value("val") ?: reject("Missing run language")
-            // Validate using the shared language contract; source mapping remains format-specific.
-            PdfTextStyle("regular", 11f, languageTag = language)
-            result = result.copy(languageTag = language)
+            attributes(it, setOf("val"))
+            check(it.elements().isEmpty() && it.children.filterIsInstance<XmlText>().all { text -> text.text.isBlank() }, "Invalid run language")
+            it.value("val")?.let { language ->
+                // An omitted Latin language inherits; explicit values retain shared validation.
+                PdfTextStyle("regular", 11f, languageTag = language)
+                result = result.copy(languageTag = language)
+            }
         }
         property.one("sz")?.let { result = result.copy(size = number(it.value("val")) / 2) }
 
@@ -1064,23 +1389,25 @@ internal class NativeDocxReader(
         property.one("szCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && number(it.value("val")) / 2 == result.size, "Separate complex-script sizes are not qualified") }
         property.one("bCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && enabled(it) == result.bold, "Separate complex-script weight is not qualified") }
         property.one("iCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && enabled(it) == result.italic, "Separate complex-script slant is not qualified") }
-        property.one("color")?.let {
-            attributes(it, setOf("val"))
-            val value = it.value("val") ?: reject("Missing color")
-            check(value.matches(Regex("[0-9A-Fa-f]{6}")), "Only explicit RGB colors are supported")
-            result = result.copy(color = PdfColor(value.substring(0, 2).toInt(16), value.substring(2, 4).toInt(16), value.substring(4, 6).toInt(16)))
-        }
+        property.one("color")?.let { result = result.copy(color = themeColors.resolve(it)) }
         return result
     }
 
     private data class Geometry(val before: Float = 0f, val after: Float = 0f, val line: Float? = null,
+        val minimum: Float? = null,
+        val overflowPunctuation: Boolean? = null, val suppressAutoHyphens: Boolean = false,
         val autoBefore: Boolean = false, val autoAfter: Boolean = false,
         val mirror: Boolean = false,
         val alignment: PdfAlignment = PdfAlignment.LEFT, val left: Float = 0f, val right: Float = 0f, val first: Float = 0f,
         val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false, val direction: PdfTextDirection? = null, val borders: PdfParagraphBorders? = null)
 
     private fun paragraphProperties(property: XmlElement, initial: Geometry): Geometry {
-        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "rPr", "mirrorIndents", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr"))
+        NativeCellPagination.validateProperties(property) { node, message ->
+            source.current = node
+            activePart = provenance[node] ?: activePart
+            reject(message)
+        }
+        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "rPr", "mirrorIndents", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr", "overflowPunct", "suppressAutoHyphens"))
         var result = initial
         property.one("pBdr")?.let { result = result.copy(borders = lineReader.borders(it, result.borders)) }
 
@@ -1090,6 +1417,12 @@ internal class NativeDocxReader(
         }
 
         property.one("bidi")?.let { check(it.elements().isEmpty(), "Invalid paragraph direction"); result = result.copy(direction = if (flag(it)) PdfTextDirection.RIGHT_TO_LEFT else PdfTextDirection.LEFT_TO_RIGHT) }
+        for (name in listOf("overflowPunct", "suppressAutoHyphens")) property.one(name)?.let {
+            children(it, emptySet())
+            check(it.children.filterIsInstance<XmlText>().all { text -> text.text.isBlank() }, "Invalid paragraph line-breaking preference")
+            val enabled = flag(it)
+            result = if (name == "overflowPunct") result.copy(overflowPunctuation = enabled) else result.copy(suppressAutoHyphens = enabled)
+        }
         property.one("outlineLvl")?.let { attributes(it, setOf("val")); val level = number(it.value("val")).toInt(); check(level in 0..8, "Unsupported outline level"); result = result.copy(outline = level) }
         property.one("tabs")?.let { tabs ->
             children(tabs, setOf("tab"))
@@ -1133,8 +1466,9 @@ internal class NativeDocxReader(
             if (it.value("line") != null || it.value("lineRule") != null) {
                 val line = it.value("line") ?: reject("Missing line spacing")
                 result = when (it.value("lineRule") ?: "auto") {
-                    "exact" -> result.copy(line = twips(line), automatic = null)
-                    "auto" -> result.copy(line = null, automatic = PdfAutomaticLineSpacing(number(line) / 240f))
+                    "exact" -> result.copy(line = twips(line), automatic = null, minimum = null)
+                    "auto" -> result.copy(line = null, automatic = PdfAutomaticLineSpacing(number(line) / 240f), minimum = null)
+                    "atLeast" -> result.copy(line = null, automatic = null, minimum = twips(line))
                     else -> reject("Unsupported line spacing policy")
                 }
             }
@@ -1142,7 +1476,7 @@ internal class NativeDocxReader(
                 after = it.value("after")?.let(::twips) ?: result.after)
         }
         property.one("jc")?.let { result = result.copy(alignment = when (it.value("val")) {
-            "left" -> PdfAlignment.LEFT; "center" -> PdfAlignment.CENTER; "right" -> PdfAlignment.RIGHT; else -> reject("Unsupported alignment")
+            "left" -> PdfAlignment.LEFT; "center" -> PdfAlignment.CENTER; "right" -> PdfAlignment.RIGHT; "both" -> PdfAlignment.JUSTIFY; else -> reject("Unsupported alignment")
         }) }
         property.one("ind")?.let {
             attributes(it, setOf("left", "right", "firstLine", "hanging"))
@@ -1200,7 +1534,9 @@ internal class NativeDocxReader(
         }
         val extent = inline.elements().singleOrNull { it.name.namespaceURI == wp && it.name.localPart == "extent" } ?: reject("Missing image extent")
         val blip = inline.descendants().singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "blip" } ?: reject("Missing image relationship")
-        imageAttributes(blip) { name, _ -> name.namespaceURI == rel && name.localPart == "embed" }
+        imageAttributes(blip) { name, value ->
+            name.namespaceURI == rel && name.localPart == "embed" || WordPictureMetadata.compressionState(name, value)
+        }
         source.current = blip
         val target = relations[blip.attribute(rel, "embed")] ?: reject("Missing embedded image")
         at(blip, target.startsWith("media/"), "Invalid image relationship")
@@ -1236,7 +1572,7 @@ internal class NativeDocxReader(
         catch (error: dev.nuaforma.docx.pdf.adapters.nativeengine.emf.EmfFailure) {
             throw NativeDocxReadException(error.message ?: "Unsupported EMF image", "word/$target",
                 dev.nuaforma.contracts.DocumentSourceContext((error.message ?: "Unsupported EMF image").take(256), null, "emf", ""))
-        } else original
+        } else if (target.endsWith(".jpg", true) || target.endsWith(".jpeg", true)) jpegs.decode(original, "word/$target") else original
         return PdfImage(pixels, width, height, PdfImageCrop(fraction("t"), fraction("r"), fraction("b"), fraction("l")))
     }
 
@@ -1248,6 +1584,8 @@ internal class NativeDocxReader(
             }
     }
 
+    private val trashItem = Regex("\\[trash]/[0-9A-Fa-f]{4}\\.dat")
+
     private fun unpack(bytes: ByteArray): Map<String, ByteArray> {
         budget(bytes.size <= minOf(8_388_608L, context.limits.maxTemplateBytes))
         val parts = linkedMapOf<String, ByteArray>()
@@ -1257,10 +1595,10 @@ internal class NativeDocxReader(
                 while (true) {
                     context.checkActive()
                     val entry = zip.nextEntry ?: break
-                    budget(parts.size < minOf(64, context.limits.maxArchiveEntries))
+                    budget(parts.size < minOf(256, context.limits.maxArchiveEntries))
                     check(entry.name !in parts && !entry.isDirectory, "Invalid or duplicate ZIP entries")
                     activePart = entry.name.take(256)
-                    check(entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|numbering|settings|footnotes|endnotes|fontTable|webSettings|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|_rels/(?:document|settings|footnotes|endnotes|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|media/[A-Za-z0-9_.-]+\\.(?i:png|emf))|customXml/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
+                    check(trashItem.matches(entry.name) || entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docMetadata/LabelInfo\\.xml|docProps/thumbnail\\.(?:jpeg|jpg|png|emf)|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|stylesWithEffects|numbering|settings|footnotes|endnotes|fontTable|webSettings|comments(?:Extended|Ids|Extensible)?|people|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|theme/_rels/theme1\\.xml\\.rels|_rels/(?:document|settings|footnotes|endnotes|fontTable|comments(?:Extended|Ids|Extensible)?|people|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|fonts/[A-Za-z0-9_.-]+\\.(?i:odttf|ttf)|media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g))|(?i:customXml)/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(8192)
                     while (true) {
@@ -1276,6 +1614,18 @@ internal class NativeDocxReader(
                 }
             }
         } catch (_: IOException) { reject("Malformed DOCX ZIP") }
+        val trashNames = parts.keys.filter { trashItem.matches(it) }
+        if (trashNames.isNotEmpty()) {
+            val types = parse(parts["[Content_Types].xml"] ?: reject("Missing content types"), "[Content_Types].xml")
+            for (node in types.elements()) {
+                source.current = node
+                val associated = node.name.namespaceURI == "http://schemas.openxmlformats.org/package/2006/content-types" &&
+                    (node.name.localPart == "Default" && node.attribute("", "Extension")?.equals("dat", true) == true ||
+                        node.name.localPart == "Override" && node.attribute("", "PartName")?.removePrefix("/") in trashNames)
+                check(!associated, "Physical OOXML trash items must not have a content type")
+            }
+            trashNames.forEach(parts::remove)
+        }
         return parts
     }
 

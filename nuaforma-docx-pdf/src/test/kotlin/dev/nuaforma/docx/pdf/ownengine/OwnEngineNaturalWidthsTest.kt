@@ -33,7 +33,7 @@ class OwnEngineNaturalWidthsTest {
         }
     }
 
-    @Test fun `preferred percentage and inconsistent automatic source dimensions reject`() {
+    @Test fun `automatic preferences are preserved while inconsistent automatic and fixed dimensions reject`() {
         val source=resource("/own-engine-natural-widths/a4/source.docx")
         val cases=listOf("<w:tblW w:w=\"0\" w:type=\"auto\"/>" to "<w:tblW w:w=\"5000\" w:type=\"pct\"/>",
             "<w:tcW w:w=\"0\" w:type=\"auto\"/>" to "<w:tcW w:w=\"100\" w:type=\"dxa\"/>",
@@ -53,7 +53,13 @@ class OwnEngineNaturalWidthsTest {
                 }
             }}
             assertTrue(changed)
-            assertThrows(IllegalArgumentException::class.java) {OwnEngineDocxReader().read(output.toByteArray())}
+            if (after.contains("pct") || after.contains("100")) {
+                val table = OwnEngineDocxReader().read(output.toByteArray()).blocks.filterIsInstance<PdfTable>().single()
+                assertEquals(PdfTableWidthPolicy.AUTO_FIT, table.widthPolicy)
+                assertEquals(41, table.rows.size)
+                if (after.contains("pct")) assertNotNull(table.preferredWidth?.points)
+                else assertEquals(5f, table.rows.first().cells.first().preferredWidth?.points)
+            } else assertThrows(IllegalArgumentException::class.java) { OwnEngineDocxReader().read(output.toByteArray()) }
         }
     }
 }

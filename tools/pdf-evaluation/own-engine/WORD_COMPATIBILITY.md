@@ -1,5 +1,7 @@
 # Word paragraph metadata and page-band logos
 
+Unreleased source #273–#278 adds qualified print-source metadata, default horizontal flow and fractional layout spellings. See [scope and verification](../../../docs/word-review-and-numeric-spellings.md).
+
 Issue #196 uses generated public documents rather than a private input document. The original input was unavailable for conversion; no claim about its exact rendering is made.
 
 `build_word_compatibility_fixture.py` creates A4 and Letter documents with a large header EMF logo, a smaller footer EMF logo, real footnotes/endnotes, flowing text, signed indents and paragraph-mark run properties. Both logos are synthetic colored geometry. No private document, branding or text is embedded.

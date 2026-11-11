@@ -1,0 +1,33 @@
+{
+  "issue": 264,
+  "initialGolden": true,
+  "reviewedOn": "2026-11-09",
+  "renderer": "Native PDF engine; PDFBox 96 dpi",
+  "wordReference": "Actual Microsoft Word PDF export",
+  "visualReview": "All three pages reviewed: row spacing, vertical alignment, borders, repeated headers and page breaks retained.",
+  "sha256": {
+    "implicit-source.docx": "1c4024cd3f86efd5905943f68f5a76a24fd13b413dde2518c836f0841ea02988",
+    "implicit-word-reference.pdf": "d1cc63dd6b0bdc233eb46710416ef16d8b9d79bbd569aa51171a8e6807edac69",
+    "implicit-word-reference.pdf.provenance.json": "8c85bce941d05085f925271161f02d817e359c353591339f578b174aa4dd8d75",
+    "page-1.png": "ebc6fed25442357ad3716ac4e2d9092583e53921b505a55be51d128961d8e3fa",
+    "page-2.png": "7824e1ae0b1e2eccca4ab47ed7d0e85b4fff48edd9fd768cf792d64583e4fb0f",
+    "page-3.png": "ee92a45962d6b3d12f3574b45d58a5a03f3231acf6adf89d57b7457d5ac7ae1e",
+    "source.docx": "de213b0ba0bba4c7faf68453492362eab13fe955535d3d1a2a9c64be47e0e6e0",
+    "word-reference.pdf": "c258fd7191fc1da243e888d822804f31583191537ba8a38fdc0288d6e7485d99",
+    "word-reference.pdf.provenance.json": "001e0cc1cb766c98c42d02345906949467f435988e4d45e3fb92761b0217d5d0"
+  },
+  "wordMetrics": {
+    "paper": "letter",
+    "pages": 3,
+    "markers": 36,
+    "maxDx": 0.0500030517578125,
+    "maxDy": 0.20001220703125,
+    "profilesExact": true,
+    "implicitExact": true
+  },
+  "positionTolerancePoints": {
+    "x": 0.1,
+    "y": 0.21
+  },
+  "note": "Letter max Y is 0.2000122 points; 0.21 retains float precision headroom. Explicit atLeast and omitted-rule Word exports and native output have identical pixels. All four validated native PDF profiles have identical pixels."
+}

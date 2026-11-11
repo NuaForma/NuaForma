@@ -1,0 +1,11 @@
+{
+  "issue": 269,
+  "golden": "final-line-tabs/letter/page-1.png",
+  "note": "Independent left-aligned control. Both native and actual Word final-line justified controls retain exact left-control pixels.",
+  "sha256": {
+    "source.docx": "b729c7e6f1e46edeaae8e306d822843e926358ccf50b1820fdde580813f71e02",
+    "word-reference.pdf": "0b705a2971414e8ca236ea9cc7d31b3c62eeb9cfc23d128c0337aa7b83189fb0",
+    "word-reference.pdf.provenance.json": "8ef18aa3d98dd8069db3a24b35a4cf949959c5528ae19741138c3a5df7de3569",
+    "existing-page-1.png": "dd03707e7c1d465bacbf3bc16bd157eabc2f9eecc2100fe86ee0d2804de54ea5"
+  }
+}

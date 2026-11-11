@@ -20,7 +20,7 @@ class OwnEngineTableCompatibilityTest {
         PdfFont(id, resource("/own-engine-fonts/LiberationSans-$file.ttf"))
     }
 
-    @ParameterizedTest @ValueSource(strings = ["absent", "12", "15"])
+    @ParameterizedTest @ValueSource(strings = ["absent", "12", "14", "15"])
     fun `compatibility mode preserves report content and selects the source table alignment`(mode: String) {
         val reader = OwnEngineDocxReader()
         val report = reportWithRoom()
@@ -64,7 +64,7 @@ class OwnEngineTableCompatibilityTest {
     }
 
     @Test fun `ambiguous and unqualified modes reject instead of guessing table geometry`() {
-        for (modes in listOf(listOf("12", "15"), listOf("15", "15"), listOf("14"), listOf("unknown"))) {
+        for (modes in listOf(listOf("12", "15"), listOf("15", "15"), listOf("13"), listOf("unknown"))) {
             assertThrows(IllegalArgumentException::class.java) { OwnEngineDocxReader().read(settings(source(), modes)) }
         }
     }

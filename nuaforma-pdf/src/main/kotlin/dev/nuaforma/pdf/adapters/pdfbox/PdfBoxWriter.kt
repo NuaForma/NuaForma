@@ -34,6 +34,7 @@ internal object PdfBoxWriter {
             val navigation = PdfNavigationWriter(pdf)
             val lineMetrics = mutableMapOf<String, FloatArray>()
             val fullBmpFonts = mutableSetOf<String>()
+            val privateGlyphFonts = mutableSetOf<String>()
             val fonts = suppliedFonts.associate { resource ->
                 control.checkActive()
                 val bytes = resource.bytes()
@@ -55,7 +56,7 @@ internal object PdfBoxWriter {
                 resource.id to font
             }
             val shaper = FontShaper(suppliedFonts, fonts, control)
-            val encoding = GlyphEncoding(fonts, { shaper.enabled(it) || it in fullBmpFonts }, control,
+            val encoding = GlyphEncoding(fonts, { shaper.enabled(it) || it in fullBmpFonts || it in privateGlyphFonts }, control,
                 options.profile == PdfOutputProfile.PDFA_1B)
             val measurer = object : TextMeasurer {
 
@@ -63,7 +64,14 @@ internal object PdfBoxWriter {
                 control.checkActive()
                 val font = fonts[style.fontId] ?: fail(PdfFailureCode.FONT_UNAVAILABLE, "Referenced font is not supplied")
                 val width = try {
-                    if (style.fontFeatures.active) shaper.shape(text, style).advance else font.getStringWidth(text) * style.size / 1000f
+                    if (style.fontFeatures.active) shaper.shape(text, style).advance else {
+                        if (style.characterSpacing < 0f) text.codePoints().forEach { point ->
+                            val glyphWidth = font.getStringWidth(String(Character.toChars(point))) * style.size / 1000f
+                            if (glyphWidth + style.characterSpacing < 0f)
+                                fail(PdfFailureCode.UNSUPPORTED_TEXT, "Character spacing reverses glyph advances")
+                        }
+                        font.getStringWidth(text) * style.size / 1000f + text.codePointCount(0, text.length) * style.characterSpacing
+                    }
                 } catch (_: IllegalArgumentException) {
                     fail(PdfFailureCode.MISSING_GLYPH, "The supplied font cannot encode requested text")
                 }
@@ -86,6 +94,11 @@ internal object PdfBoxWriter {
                 else DocumentLayouter.plain(document, measurer, control)
             DocumentLayouter.validatePlacedLinks(composed)
             val layouts = composed.pages
+            for (layout in layouts) for (text in DocumentLayouter.texts(layout.elements)) {
+                control.checkActive()
+                if (text.text.codePoints().anyMatch { it in 0xE000..0xF8FF }) privateGlyphFonts += text.style.fontId
+            }
+            watermark?.let { if (it.text.codePoints().anyMatch { point -> point in 0xE000..0xF8FF }) privateGlyphFonts += it.fontId }
 
             fun decorationSize(elements: List<PositionedElement>): Long = elements.sumOf { element -> when (element) {
                 is PositionedText -> if (element.decoration) element.text.length.toLong() else 0L
@@ -231,9 +244,16 @@ internal object PdfBoxWriter {
                                     val font = fonts.getValue(element.style.fontId)
                                     usedFonts += element.style.fontId
                                     if (font.willBeSubset()) element.text.codePoints().forEach { font.addToSubset(it) }
+                                    if (element.style.syntheticBold) command("q")
                                     command("BT")
                                     command("Tf", page.resources.add(font), number(element.style.size))
+                                    command("Tc", number(if (element.style.fontFeatures.active) 0f else element.style.characterSpacing))
                                     command("rg", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
+                                    if (element.style.syntheticBold) {
+                                        command("RG", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
+                                        command("w", number(element.style.size / 35f))
+                                        command("Tr", COSInteger.get(2))
+                                    }
                                     command("Tm", number(1f), number(0f), number(0f), number(1f), number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift)))
                                     if (element.style.fontFeatures.active) {
                                         val shape = shaper.shape(element.text, element.style)
@@ -246,6 +266,10 @@ internal object PdfBoxWriter {
                                         }
                                     } else command("Tj", COSString(encoding.normal(element.style.fontId, element.text)))
                                     command("ET")
+                                    if (element.style.syntheticBold) {
+                                        command("Q")
+                                        command("rg", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
+                                    }
                                     if (element.style.underline) {
                                         val metrics = lineMetrics[element.style.fontId]
                                         val position = metrics?.getOrNull(3)?.takeIf { it.isFinite() } ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified underline metrics")
@@ -254,7 +278,7 @@ internal object PdfBoxWriter {
                                             fail(PdfFailureCode.UNSUPPORTED_TEXT, "Underline exceeds the qualified font bounds")
                                         // OpenType post.underlinePosition denotes the top edge, unlike PostScript's center coordinate.
                                         command("re", number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift) + (position - thickness) * element.style.size),
-                                            number(measurer.measure(element.text, element.style).width), number(thickness * element.style.size))
+                                            number(element.trailingDecorationWidth ?: measurer.measure(element.text, element.style).width), number(thickness * element.style.size))
                                         command("f")
                                     }
                                     if (element.style.strikethrough) {
@@ -265,7 +289,7 @@ internal object PdfBoxWriter {
                                         if (position - thickness < box.lowerLeftY / 1000f || position > box.upperRightY / 1000f)
                                             fail(PdfFailureCode.UNSUPPORTED_TEXT, "Strikeout exceeds the qualified font bounds")
                                         command("re", number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift) + (position - thickness) * element.style.size),
-                                            number(measurer.measure(element.text, element.style).width), number(thickness * element.style.size))
+                                            number(element.trailingDecorationWidth ?: measurer.measure(element.text, element.style).width), number(thickness * element.style.size))
                                         command("f")
                                     }
                                     if (element.style.languageTag != null) command("EMC")

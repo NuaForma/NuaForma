@@ -15,7 +15,7 @@ import java.io.IOException
 internal class FontShaper(resources: List<PdfFont>, private val fonts: Map<String, PDType0Font>, private val control: PdfRenderControl) {
     data class Glyph(val id: Int, val x: Float, val y: Float, val logical: String)
     data class Shape(val glyphs: List<Glyph>, val advance: Float)
-    private data class Key(val text: String, val font: String, val size: Float, val features: PdfFontFeatures)
+    private data class Key(val text: String, val font: String, val size: Float, val features: PdfFontFeatures, val characterSpacing: Float)
     private val supplied = resources.associateBy { it.id }
     private val faces = mutableMapOf<String, Font>()
     private val cache = linkedMapOf<Key, Shape>()
@@ -32,10 +32,11 @@ internal class FontShaper(resources: List<PdfFont>, private val fonts: Map<Strin
             font(style.fontId)
             return Shape(emptyList(), 0f)
         }
-        val key = Key(text, style.fontId, style.size, style.fontFeatures)
+        val key = Key(text, style.fontId, style.size, style.fontFeatures, style.characterSpacing)
         return cache[key] ?: try {
-            val result = if (style.fontFeatures.kerning == PdfKerning.OPENTYPE || style.fontFeatures.standardLigatures)
+            val natural = if (style.fontFeatures.kerning == PdfKerning.OPENTYPE || style.fontFeatures.standardLigatures)
                 openType(text, style) else pairs(text, style)
+            val result = if (style.characterSpacing == 0f) natural else tracked(natural, style.characterSpacing)
             val glyphCount = trueType(style.fontId).numberOfGlyphs
             if (!result.advance.isFinite() || result.advance < 0 || glyphCount !in 1..65535 ||
                 result.glyphs.any { !it.x.isFinite() || !it.y.isFinite() || it.id !in 1 until glyphCount })
@@ -45,6 +46,16 @@ internal class FontShaper(resources: List<PdfFont>, private val fonts: Map<Strin
             result
         } catch (_: IOException) { fail(PdfFailureCode.INVALID_RESOURCE, "Cannot read supplied font layout data") }
         catch (_: FontFormatException) { fail(PdfFailureCode.INVALID_RESOURCE, "Cannot shape the supplied TrueType font") }
+    }
+
+    private fun tracked(shape: Shape, spacing: Float): Shape {
+        if (shape.glyphs.any { it.logical.codePointCount(0, it.logical.length) != 1 })
+            fail(PdfFailureCode.UNSUPPORTED_TEXT, "Character spacing with complex or ligature clusters is not qualified")
+        val glyphs = shape.glyphs.mapIndexed { index, glyph -> glyph.copy(x = glyph.x + index * spacing) }
+        val advance = shape.advance + glyphs.size * spacing
+        if (glyphs.zipWithNext().any { (before, after) -> after.x < before.x } || (glyphs.lastOrNull()?.x ?: 0f) > advance)
+            fail(PdfFailureCode.UNSUPPORTED_TEXT, "Character spacing reverses glyph advances")
+        return Shape(glyphs, advance)
     }
 
     private fun remember(key: Key, shape: Shape) {

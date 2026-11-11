@@ -1,0 +1,11 @@
+{
+  "sourceSha256": "d99bead49c2ee34682c5858116d12179f1348361bc5b2c945965a9bae08cf584",
+  "pdfSha256": "267633c3a680144e5671ae65737ee94b3acc80a913ffc384953552b283078c04",
+  "build": "16.0.20527",
+  "version": "16.0",
+  "updatedFields": false,
+  "exporter": "Microsoft Word ExportAsFixedFormat",
+  "fontSha256": [
+    "4659bc0c58c5028dd488ec928d41d9265db43d9b669fc14ca8b0832daca7b144"
+  ]
+}

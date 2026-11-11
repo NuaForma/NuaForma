@@ -1,0 +1,14 @@
+{
+  "qualification": "Combined normal full build PASS (1759 tests,832 native); real HTTP and Playground source-retention/reuse checks PASS. Existing note baseline geometry limits remain explicitly documented; no protected golden replacement.",
+  "pages": 2,
+  "sha256": {
+    "source.docx": "b9568c50862df06cb9e97bb9ab87c721f1363bdc34433535a5b977d6eb340dfe",
+    "word-reference.pdf": "2c49ad93ef5d2818c6d1a6bd18d30817751923f44f1690fb74262d6dd906aa50",
+    "word-reference.pdf.provenance.json": "38dfbdfee61d05c8a75253a54a59c6f51e0da8d4e9886dca9bb2498ec286787d",
+    "page-1.png": "d07dd2d06a928950c473538823c269177510493fbe615c7940a094f98f5fc8f5",
+    "page-2.png": "0b90e473c0e642eea5f365ee08a36d8c6b09b96d362864fa12eba25753048cec"
+  },
+  "golden": "note-separator-formatting/endnotes/control/a4/",
+  "knownBaselineLimit": "Existing automatic endnote separator baseline differs from Word by0.7pt. Metadata support preserves that current geometry; no claim to fix or conceal it.",
+  "protectedGoldensReplaced": 0
+}

@@ -1,0 +1,31 @@
+# Font-defined private-use glyphs
+
+Source issue #258 adds bounded BMP private-use glyph rendering to the shared PDF engine. These characters have meanings defined by the supplied font; the engine does not substitute a system font or guess an icon from its code. This is unreleased source behavior, with no new public API or runtime dependency.
+
+## Bounds and logical text
+
+The additional simple-glyph path is limited to Unicode category `Private_Use` in U+E000–U+F8FF. The selected font must encode every requested character, permit the chosen embedding mode and meet existing size/resource constraints. Missing glyphs still fail. Other unknown scripts, supplementary private-use characters, controls and unqualified shaping remain rejected.
+
+Distinct character sequences may address the same physical glyph. For fonts used by private-use body text, page bands, frames, labels or watermarks, the writer uses its existing request-local character-alias mapping to preserve the original Unicode text. This applies to subset and full embedding, including an assigned alias and a private-use code appearing together in either order. The original font program, family/face and permission flags are unchanged.
+
+## Independent appearance reference
+
+The unmodified test-only Font Awesome Free TTF contains private-use and assigned Unicode aliases of the same physical glyphs. The tests verify those glyph IDs directly, then compare the new private-glyph PDF raster exactly with an assigned-alias control produced by the preceding engine. Ordinary words remain searchable and the actual private-use codes remain in extracted text.
+
+The retained Microsoft Word references are exports of `control-source.docx`, which uses the assigned aliases and selects the expected physical font. Their glyph positions and widths are independently checked. In the local direct-private-use Word probe, the exporter selected a different font; that output is not used as a matching reference. The provenance records explicitly distinguish the private source from the Word control. No direct Word/private-source equivalence is claimed.
+
+The A4/Letter controls retain four measured font glyphs, with maximum horizontal difference 0.178 points, vertical difference 0.050 points and width difference 0.040 points against Word. Initial control images were visually reviewed; older goldens were not replaced.
+
+## Reproduction and verification
+
+`tools/pdf-evaluation/own-engine/build_private_glyph_fixture.py` reproduces both source variants on A4 and Letter. The [test-font guide](../nuaforma-pdf/src/test/resources/fonts/README.md) retains the complete license, official source and checksums. These font bytes are not included in production font packages or library JARs.
+
+`PdfPrivateGlyphTest` verifies physical aliases, exact rasters, logical text, full/subset embedding, concurrent subset isolation, watermark/body collisions and rejection boundaries. `NativePrivateGlyphTest` exercises real DOCX generation and independent validation for all four PDF profiles and both embedding modes, plus atomic missing-family failure. The normal combined #261–#264 build passes 1,538 tests without failures or skipped tests; see the [combined qualification](minimum-table-row-heights.md#regression-coverage). The unchanged local corpus yields nine complete PDFs and 241 explicit rejections. The two symbol-font additions are visually reviewed with embedded fonts; the subsequent row-height iteration retains all nine PDFs and thirteen pages exactly. These are local corpus results, not Word comparisons or a published release.
+
+Playground impact: the existing generation path benefits when callers supply the actual required fonts. No additional font is installed in the production/Playground image, no fallback is enabled and no new setting or release is introduced.
+
+## Automatic and minimum line metrics
+
+Source #261 measures nonprinting font metrics without encoding an ASCII space. A symbol font can therefore establish a natural or minimum line box even when its character map has no space. Printed spaces and list-space suffixes still require a real encodable glyph; missing fonts and glyphs remain explicit failures.
+
+The builder’s `--automatic-lines` option reproduces the `private-glyph-natural-lines` controls on A4 and Letter. The assigned-alias Word reference retains the expected physical font; original private Unicode text is preserved and its raster matches the assigned control exactly. The maximum measured glyph difference is 0.178 points horizontally, 0.058 vertically and 0.040 in width. Both full and subset embedding are exercised across all four PDF profiles.

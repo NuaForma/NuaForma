@@ -1,0 +1,14 @@
+{
+  "build": "16.0.20527",
+  "exporter": "Microsoft Word ExportAsFixedFormat",
+  "updatedFields": false,
+  "sourceSha256": "f0067c8bf11d1ab16512350c2a222c7a6059c2b5d81647b6303fb634694cdf2e",
+  "version": "16.0",
+  "pdfSha256": "5cdec47fcb248d3b204e372251d13339f0069b09653ad9dc780dbeb1d3db5282",
+  "fontSha256": [
+    "3973aa5054fb467dd5627245d3dc82e37bf16fe075756156a570455871351582",
+    "c80fa7f2ffa0e01d4d8dcd6a6d1e43eda665222d1b4db597dde1174c456006cf",
+    "830c5fa600505fb4c1a271b4271c53c44bae43f492b2a240d0e98a3a7a380121",
+    "4659bc0c58c5028dd488ec928d41d9265db43d9b669fc14ca8b0832daca7b144"
+  ]
+}

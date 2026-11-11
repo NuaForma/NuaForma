@@ -62,21 +62,33 @@ class NativeTemplateCleanupTest {
     }
 
     @Test
-    fun `unsupported package parts and their package relationships are removed with complete reporting`() {
+    fun `qualified opaque JPEG previews remain byte exact during cleanup`() {
         val source = parts()
         source["docProps/thumbnail.jpeg"] = byteArrayOf(1, 2, 3)
         change(source, "_rels/.rels") { it.replace("</Relationships>", """<Relationship Id="thumbnail" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/thumbnail" Target="docProps/thumbnail.jpeg"/></Relationships>""") }
         change(source, "[Content_Types].xml") { it.replace("</Types>", """<Override PartName="/docProps/thumbnail.jpeg" ContentType="image/jpeg"/></Types>""") }
         val bytes = pack(source)
+        val (actual, report) = clean(bytes)
+        assertArrayEquals(bytes, actual)
+        assertTrue(report.changes.isEmpty(), report.changes.toString())
+    }
+
+    @Test
+    fun `unsupported package parts and their package relationships are removed with complete reporting`() {
+        val source = parts()
+        source["docProps/thumbnail.gif"] = byteArrayOf(1, 2, 3)
+        change(source, "_rels/.rels") { it.replace("</Relationships>", """<Relationship Id="thumbnail" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/thumbnail" Target="docProps/thumbnail.gif"/></Relationships>""") }
+        change(source, "[Content_Types].xml") { it.replace("</Types>", """<Override PartName="/docProps/thumbnail.gif" ContentType="image/gif"/></Types>""") }
+        val bytes = pack(source)
         val snapshot = bytes.copyOf()
         val (actual, report) = clean(bytes)
         val output = unpack(actual)
-        assertFalse(output.containsKey("docProps/thumbnail.jpeg"))
+        assertFalse(output.containsKey("docProps/thumbnail.gif"))
         assertFalse(output.getValue("_rels/.rels").decodeToString().contains("thumbnail"))
         assertFalse(output.getValue("[Content_Types].xml").decodeToString().contains("thumbnail"))
         assertArrayEquals(source.getValue("word/document.xml"), output.getValue("word/document.xml"))
         assertArrayEquals(snapshot, bytes)
-        assertTrue(report.changes.any { it.action == TemplateCleanupAction.REMOVE_PART && it.part == "docProps/thumbnail.jpeg" })
+        assertTrue(report.changes.any { it.action == TemplateCleanupAction.REMOVE_PART && it.part == "docProps/thumbnail.gif" })
         assertTrue(report.changes.any { it.part == "_rels/.rels" })
         assertTrue(report.changes.any { it.part == "[Content_Types].xml" })
     }

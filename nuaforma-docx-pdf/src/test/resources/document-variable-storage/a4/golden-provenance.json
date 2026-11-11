@@ -1,0 +1,17 @@
+{
+  "sourceSha256": "cb642ed5776dd12a986d18b644d3ca8e7c19bd1bbbc7c91f1df04405c92c3210",
+  "wordPdfSha256": "f275b6177ed02781185a63aa88da266ee3adae7f0a504b8088793796eb95cf6a",
+  "legacySourceSha256": "38703e4d9aebf63f6a69843551d836a439162fce3e7ab770fd39e8095c21df02",
+  "legacyWordPdfSha256": "926f6297d60118fd952b26a29fc735245a6df635233041e59fc706be539086ac",
+  "pages": [
+    {
+      "page": 1,
+      "resource": "/typography-preferences/trailing-1/page-1.png",
+      "sha256": "4467eb6e165528a1dd4b9444e0e00535fb46b2b705280353099fcc83ef64bf9f"
+    }
+  ],
+  "dpi": 96,
+  "reviewedAgainstWord": true,
+  "wordPixelsUnchangedByStoredVariables": true,
+  "policy": "Reuse existing immutable qualified goldens; no replacement or regeneration."
+}

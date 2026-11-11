@@ -1,0 +1,28 @@
+{
+  "sourceSha256": "0fad781244b7ba77fcbcae96ae172977b47ef3c676dbbae9dfbef5b78d52fbd4",
+  "controlSourceSha256": "742c581749ad6b14074a03e35d2ab6201e2a769d9a19b500a22545080188cb78",
+  "controlWordPdfSha256": "e1da086e3a98117f999ca22975479274139f0619893d012071d2ad16f29a421a",
+  "engineControlPdfSha256": "5f25c2d7c2a5548089c69c67ce24bce91cac0ca16dbb009939f91154ad1ee80c",
+  "fontSha256": "af19d135d3a935b3ebfbd80320716ffe1202052c5f68dc2c5f1abc57005ac605",
+  "wordReferenceSource": "control-source.docx",
+  "directPrivateWordComparisonQualified": false,
+  "oraclePolicy": "The retained Word reference uses assigned aliases of the same physical font glyphs. The direct private-use Word probe selected a different font; it is not claimed to match. New engine private-glyph rasters must exactly match the preceding-engine assigned-alias control.",
+  "reviewedAgainstWordAssignedControl": true,
+  "initialGolden": true,
+  "dpi": 96,
+  "masks": 0,
+  "wordGlyphMetrics": {
+    "glyphs": 4,
+    "maxDx": 0.17700195,
+    "maxDy": 0.049987793,
+    "maxWidthDifference": 0.039993286
+  },
+  "pages": [
+    {
+      "page": 1,
+      "file": "page-1.png",
+      "sha256": "5e731ffdb97c6db46f022976e2cf105f40d4ff32577a914f6c0b3f19e17d1ec7"
+    }
+  ],
+  "policy": "Initially reviewed golden from assigned-glyph control. Existing golden files were not changed; replacement requires explicit review and approval."
+}

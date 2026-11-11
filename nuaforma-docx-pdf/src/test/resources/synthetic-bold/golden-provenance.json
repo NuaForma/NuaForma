@@ -1,0 +1,10 @@
+{
+  "issue": 234,
+  "dpi": 96,
+  "origin": "Reviewed own-engine output compared with the retained real Word export; not a Word raster",
+  "sourceSha256": "a6d622fc9ec199b75ed9d5e8615f7809ffd4a27719ac41254db99098aee44550",
+  "wordSha256": "6d5a749723a86b0bb0441c310e77f9f1916ee5677a37e0149ddb659f77f3a781",
+  "goldenSha256": "cdf4cb94dc70cefc30ce28e0da18cf40a85f15bd7456f0b39af44f37d440ee88",
+  "updatePolicy": "Do not replace without an explained and explicitly approved visual change",
+  "wordMaximumHorizontalGlyphDifferencePoints": 0.66
+}

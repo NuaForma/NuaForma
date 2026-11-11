@@ -9,8 +9,13 @@ import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
 internal class NativeDocxSource(private val context: GenerationContext) {
     private data class Entry(val part: String, val parent: XmlElement?, val ordinal: Int, val paragraph: Int?, val anchor: XmlElement)
     private val entries = java.util.IdentityHashMap<XmlElement, Entry>()
+    private val origins = java.util.IdentityHashMap<XmlElement, XmlElement>()
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     var current: XmlElement? = null
+
+    fun alias(copy: XmlElement, original: XmlElement) {
+        origins[copy] = original
+    }
 
     fun index(root: XmlElement, part: String) {
         if (context.logging.mode != dev.nuaforma.contracts.LoggingMode.DEVELOPMENT) return
@@ -31,7 +36,7 @@ internal class NativeDocxSource(private val context: GenerationContext) {
     }
 
     fun failure(message: String, fallbackPart: String): NativeDocxReadException {
-        val node = current
+        val node = origins[current] ?: current
         val entry = entries[node]
         val excerptNode = entry?.let { if (it.paragraph != null) it.anchor else node }
         val excerpt = excerptNode?.descendants()?.filter { it.name.namespaceURI == word && it.name.localPart == "t" }
@@ -55,6 +60,8 @@ internal class NativeDocxSource(private val context: GenerationContext) {
     } catch (_: IllegalArgumentException) {
         DocumentSourceContext(explanation, null, null, excerpt)
     }
+
+    fun routeOf(node: XmlElement): List<Pair<javax.xml.namespace.QName, Int>> = route(origins[node] ?: node)
 
     private fun route(node: XmlElement): List<Pair<javax.xml.namespace.QName, Int>> {
         val result = mutableListOf<Pair<javax.xml.namespace.QName, Int>>()

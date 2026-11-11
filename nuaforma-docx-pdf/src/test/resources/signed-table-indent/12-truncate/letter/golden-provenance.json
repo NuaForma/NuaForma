@@ -1,0 +1,24 @@
+{
+  "issues": [
+    279
+  ],
+  "golden": "signed-table-indent/12-truncate/letter/page-1.png",
+  "note": "Initial synthetic native reference, visually inspected with independent exact-source Word text, geometry, paper and embedded-font checks. Existing protected references are reused without replacement.",
+  "sha256": {
+    "source.docx": "d98e4dfaba9b08c9c97f8cd609a4a2ca408b0e19edf4740ca37a0ecca09d0171",
+    "word-reference.pdf": "b5538ae35d65d0872650b8b5407b0d10bbaf5406943cf7e7bf180bac951db4f2",
+    "word-reference.pdf.provenance.json": "4b25418f51a9d08ea2eead2edef4cc45b9fb5ac720cdd53a00fc8f9bde10cc86",
+    "page-1.png": "0f61171fa027c04fe16f05d8dd67ceb474e4d17b0f7f5db9e93921934f69f180"
+  },
+  "wordComparison": {
+    "case": "signed-12-truncate-letter",
+    "pass": true,
+    "pagesEqual": true,
+    "textEqual": true,
+    "markersEqual": true,
+    "fontsEmbedded": true,
+    "paperEqual": true,
+    "maxDx": 0.01599884033203125,
+    "maxDy": 0.08001708984375
+  }
+}

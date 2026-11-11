@@ -1,0 +1,24 @@
+{
+  "issues": [
+    279
+  ],
+  "golden": "nested-table-indent/12-zero/a4/page-1.png",
+  "note": "Initial synthetic native reference reviewed with exact-source Word text, page geometry and embedded fonts; negative nested indentation reuses the exact zero-indent native reference. No protected golden replaced.",
+  "sha256": {
+    "source.docx": "2d05b263d91111f032b73766ca586c5b0778df1b28a0f64511c151b33799a64c",
+    "word-reference.pdf": "4366d22610b7cb803f9aa600158abc32fbd400a10bfd2326877b0f6525d8afcb",
+    "word-reference.pdf.provenance.json": "302a0254953465731d58a0171e04f008f19c8e11393d3ac1d92ae3961b082a15",
+    "page-1.png": "eed1cad11f033e12c5a09624bce5bb5f3873a60cd731bbd614c23c3afcee7463"
+  },
+  "wordComparison": {
+    "case": "12-nested-fixed-negative-a4",
+    "pass": true,
+    "pagesEqual": true,
+    "textEqual": true,
+    "markersEqual": true,
+    "fontsEmbedded": true,
+    "paperEqual": true,
+    "maxDx": 0.0800018310546875,
+    "maxDy": 0.1199951171875
+  }
+}

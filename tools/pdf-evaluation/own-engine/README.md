@@ -1,5 +1,11 @@
 # First own-engine DOCX fidelity proof
 
+Unreleased source #273–#278 adds qualified print-source metadata, default horizontal flow and fractional layout spellings. See [scope and verification](../../../docs/word-review-and-numeric-spellings.md).
+
+The [synthetic-bold proof](../../../docs/word-synthetic-bold.md) compares actual Word fill-and-stroke text with the shared neutral style API, using portable Noto Serif Light references and strict per-profile goldens.
+
+The [passive Office package proof](../../../docs/word-passive-office-package.md) adds synthetic A4/Letter metadata/resource graphs with real Word exports, reusing existing immutable typography goldens.
+
 The subsequent [three-page report proof](REPORT.md) adds fixed tables, repeated table headers, flowing pagination and shared page headers/footers with PAGE fields. The [advanced table trials](ADVANCED.md) then exercise merged cells, nested tables and rows spanning pages. The [frame trials](FRAMES.md) add page-band images, text boxes and rotated barcodes. The [paragraph pagination trial](PAGINATION.md) adds keeps, widow/orphan control and explicit page breaks in a ten-page Word comparison. The [lists trial](LISTS.md) adds native numbering, chapter styles, restarts and hanging indentation. The scope and measurements below describe the original letter; the later guides own their additional supported subsets and per-page evidence.
 
 This source-only experiment converts a real synthetic DOCX to ordinary PDF 1.7 through a DOCX reader in `nuaforma-docx-pdf` and the neutral model/layout/writer in `nuaforma-pdf`. Microsoft Word is used only to export an independent reference. No Word, LibreOffice or external renderer participates in the own-engine conversion. No new third-party dependency, provider switch, hosted-input qualification, archival profile or publication is introduced.
