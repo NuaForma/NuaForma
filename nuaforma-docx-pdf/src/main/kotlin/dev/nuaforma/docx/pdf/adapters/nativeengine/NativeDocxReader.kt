@@ -593,7 +593,7 @@ internal class NativeDocxReader(
                     }
                     val navigation = pendingDestinations.takeIf { it.isNotEmpty() }?.let { PdfTextNavigation(destinations = it.toList()) }.also { pendingDestinations.clear() }
                     val id = "source-field${fieldCounter++}"
-                    if (instruction.kind == "SEQ") return listOf(PdfSequenceField(id, requireNotNull(instruction.argument), style,
+                    if (instruction.kind == "SEQ") return listOf(PdfSequenceField(id, requireNotNull(instruction.argument).lowercase(java.util.Locale.ROOT), style,
                         instruction.restart, instruction.repeat, instruction.headingReset, navigation))
                     val kind = when (instruction.kind) {
                         "REF" -> PdfReferenceKind.TEXT; "PAGEREF" -> PdfReferenceKind.PAGE; "PAGE" -> PdfReferenceKind.CURRENT_PAGE
