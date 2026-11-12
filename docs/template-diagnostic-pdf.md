@@ -12,7 +12,7 @@ Contract 0.6 adds optional `TemplateDiagnosticProvider.diagnoseTemplate(request,
 
 Package checks, native profile restrictions, font policy, admission, byte/work limits, cancellation and mandatory structural validation remain enabled. There is no Office fallback, external retrieval, second evaluator, server-side artifact cache or partial success output. Unsupported source layouts/fonts can prevent PDF creation. The Playground retains the original error and reports why the PDF is unavailable; it does not substitute a text-only PDF. Valid templates and errors without a reliable source mapping produce no diagnostic artifact.
 
-## Native PDF render failures (unreleased)
+## Native PDF render failures (selected for 0.5.0-alpha.3)
 
 After `NATIVE_PDF_RENDER_STARTED`, a document can still fail during layout, font encoding, PDF writing or independent validation. Development responses now retain the concrete `PdfFailureCode` and a recognized built-in explanation in `sourceExplanation`, for example `CONTENT_OVERFLOW: Paragraph indentation exceeds the physical page` or `MISSING_GLYPH: The supplied font cannot encode requested text`. The Playground shows this in its existing **Cause** line. Correlated `DOCUMENT_SOURCE_DETAIL` development logs retain the same detail beside the ordinary `GENERATION_REJECTED` event; search by request ID. This also applies to PDF/A-3b.
 
