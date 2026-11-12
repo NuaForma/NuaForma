@@ -18,10 +18,37 @@ internal object NativePdfFailureDiagnostics {
         val diagnostic = Diagnostic(code, RejectionReason.NATIVE_PDF_RENDER_REJECTED)
         if (mode != LoggingMode.DEVELOPMENT) return diagnostic
         val message = error.message.orEmpty()
-        val explanation = if (message.length <= 192 && message in explanations) message
+        val explanation = if (message.length <= 192 && (message in explanations || error.code == PdfFailureCode.CONTENT_OVERFLOW && measuredOverflow.matches(message))) message
             else "No recognized renderer explanation is available"
         return diagnostic.withSourceContext(DocumentSourceContext("${error.code}: $explanation", null, null, ""))
     }
+
+    // Only owned reasons plus numeric measurements cross the diagnostic boundary; no arbitrary text.
+    private val overflowReasons = setOf(
+        "Image exceeds area width",
+        "Image exceeds remaining area height",
+        "Page break requires another layout area",
+        "List marker exceeds left boundary",
+        "List marker exceeds right boundary",
+        "Line start leaves no content width",
+        "Paragraph indents leave no content width",
+        "Line box exceeds remaining area height",
+        "Line ascent exceeds space above baseline",
+        "Line descent exceeds space below baseline",
+        "Tab alignment moves behind current text",
+        "Tab start exceeds line boundary",
+        "Aligned tab content exceeds line boundary",
+        "Word and leading spaces exceed line width",
+        "Word width exceeds line width",
+        "Whitespace exceeds line width",
+        "Paragraph border spacing exceeds remaining height",
+        "Automatic line height is not finite",
+        "Automatic line height is below minimum",
+        "Automatic line height exceeds layout limit",
+        "Automatic line height is below natural content height",
+    )
+    private val number = "(?:-?(?:[0-9]+(?:\\.[0-9]+)?(?:E-?[0-9]+)?|Infinity)|NaN)"
+    private val measuredOverflow = Regex("(?:${overflowReasons.joinToString("|") { Regex.escape(it) }}); required=$number (pt|areas); available=$number \\1")
 
     // Add only fixed application-owned explanations. Unknown/new reasons retain their code, never raw text.
     private val explanations = setOf(

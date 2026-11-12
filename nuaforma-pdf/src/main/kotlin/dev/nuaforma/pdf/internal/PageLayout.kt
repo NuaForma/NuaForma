@@ -47,7 +47,8 @@ internal object PageLayouter {
                 }
                 is PdfTable -> throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, "Tables require the paginated profile")
                 is PdfImage -> {
-                    if (block.width > width || top + block.height > bottom) overflow()
+                    if (block.width > width) overflow("Image exceeds area width", block.width, width)
+                    if (top + block.height > bottom) overflow("Image exceeds remaining area height", block.height, bottom - top)
                     elements += PositionedImage(block, page.margins.left, top)
                     top += block.height
                     previousAfter = 0f
@@ -56,7 +57,7 @@ internal object PageLayouter {
                     if (!measurement) ParagraphBounds.check(block, page)
                     val paragraphStart = elements.size
                     if (block.anchoredImages.isNotEmpty()) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Anchored images require body pagination")
-                    if (block.format.pageBreakBefore && elements.isNotEmpty()) overflow()
+                    if (block.format.pageBreakBefore && elements.isNotEmpty()) overflow("Page break requires another layout area", 2f, 1f, "areas")
                     val format = block.format
                     if (format.textDirection != null && block.runs.filterIsInstance<PdfTextRun>().any { it.navigation != null || it.semantics != null })
                         throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Bidi navigation is not qualified")
@@ -84,7 +85,8 @@ internal object PageLayouter {
                     val markerAnchor = format.leftIndent + format.firstLineIndent
                     val markerLeft = markerAnchor - (marker?.width ?: 0f) * when (label?.alignment) { PdfAlignment.RIGHT -> 1f; PdfAlignment.CENTER -> .5f; else -> 0f }
                     val markerEnd = markerLeft + (marker?.width ?: 0f)
-                    if (label != null && (markerLeft < -.001f || markerEnd > width - format.rightIndent + .001f)) overflow()
+                    if (label != null && markerLeft < -.001f) overflow("List marker exceeds left boundary", -markerLeft, 0f)
+                    if (label != null && markerEnd > width - format.rightIndent + .001f) overflow("List marker exceeds right boundary", markerEnd, width - format.rightIndent)
                     val firstTextLeft = if (label == null) format.leftIndent + format.firstLineIndent else when (label.suffix) {
                         PdfListSuffix.NOTHING -> markerEnd
                         PdfListSuffix.SPACE -> markerEnd + measurer.measure(" ", label.style).width
@@ -107,7 +109,8 @@ internal object PageLayouter {
 
                     fun availableWidth() = (if (lineArea == null) width - format.rightIndent else minOf(area().first + area().second, width - format.rightIndent)) - lineLeft()
 
-                    if (availableWidth() <= 0 || width - format.leftIndent - format.rightIndent <= 0) overflow()
+                    if (availableWidth() <= 0) overflow("Line start leaves no content width", lineLeft(), lineLeft() + availableWidth())
+                    if (width - format.leftIndent - format.rightIndent <= 0) overflow("Paragraph indents leave no content width", format.leftIndent + format.rightIndent, width)
                     var line = mutableListOf<Fragment>()
                     var lineWidth = 0f
                     var lineContainsTab = false
@@ -129,9 +132,10 @@ internal object PageLayouter {
                         val ascent = maxOf(line.maxOf { if (automatic == null) it.metrics.ascent else it.metrics.naturalAscent }, if (firstLine) (if (automatic == null) marker?.ascent else marker?.naturalAscent) ?: 0f else 0f)
                         val descent = maxOf(line.maxOf { if (automatic == null) it.metrics.descent else it.metrics.naturalDescent }, if (firstLine) (if (automatic == null) marker?.descent else marker?.naturalDescent) ?: 0f else 0f)
                         val height = automatic?.first ?: format.exactLineHeight ?: (ascent + descent) * 1.2f
-                        if (top + height > bottom) overflow()
+                        if (top + height > bottom) overflow("Line box exceeds remaining area height", height, bottom - top)
                         val baseline = top + (automatic?.second ?: format.exactLineHeight?.times(0.8f) ?: ascent)
-                        if (baseline - ascent < page.margins.top - 0.01f || baseline + descent > bottom + 0.01f) overflow()
+                        if (baseline - ascent < page.margins.top - 0.01f) overflow("Line ascent exceeds space above baseline", ascent, baseline - page.margins.top)
+                        if (baseline + descent > bottom + 0.01f) overflow("Line descent exceeds space below baseline", descent, bottom - baseline)
                         val remaining = availableWidth() - lineWidth
                         val prefix = (label?.value?.text?.length ?: 0) + if (label == null || label.suffix == PdfListSuffix.NOTHING) 0 else 1
                         if (firstLine && label != null) elements += PositionedText(label.value.text, label.style, page.margins.left + area().first + markerLeft, baseline, logicalOwner = block.semantics?.id, span = block.semantics?.let { PdfSpanSemantics(semanticChildId(it.id, "label"), PdfSemanticRole.LABEL) }, logicalOffset = block.semantics?.let { 0 })
@@ -208,7 +212,10 @@ internal object PageLayouter {
                                 PdfTabAlignment.LEFT -> 0f; PdfTabAlignment.RIGHT -> payloadWidth
                                 PdfTabAlignment.CENTER -> payloadWidth / 2; PdfTabAlignment.DECIMAL -> decimalWidth
                             }
-                            if (start < cursor - .001f || start > width - format.rightIndent + .001f || stop.alignment != PdfTabAlignment.LEFT && start + payloadWidth > width - format.rightIndent + .001f) overflow()
+                            if (start < cursor - .001f) overflow("Tab alignment moves behind current text", cursor, start)
+                            if (start > width - format.rightIndent + .001f) overflow("Tab start exceeds line boundary", start, width - format.rightIndent)
+                            if (stop.alignment != PdfTabAlignment.LEFT && start + payloadWidth > width - format.rightIndent + .001f)
+                                overflow("Aligned tab content exceeds line boundary", start + payloadWidth, width - format.rightIndent)
                             val gap = maxOf(0f, start - cursor)
                             val symbol = when (stop.leader) { PdfTabLeader.NONE -> " "; PdfTabLeader.DOT -> "."; PdfTabLeader.HYPHEN -> "-"; PdfTabLeader.UNDERSCORE -> "_" }
                             val metrics = measurer.measure(symbol, control.style)
@@ -227,11 +234,11 @@ internal object PageLayouter {
                         val wordWidth = word.sumOf { it.metrics.width.toDouble() }.toFloat()
                         val spaceWidth = spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
                         if (lineWidth + spaceWidth + wordWidth > availableWidth() + .001f) {
-                            if (line.isEmpty()) overflow()
+                            if (line.isEmpty()) overflow("Word and leading spaces exceed line width", spaceWidth + wordWidth, availableWidth())
                             flush(justify = true)
                             spaces.clear()
                         }
-                        if (wordWidth > availableWidth() + .001f) overflow()
+                        if (wordWidth > availableWidth() + .001f) overflow("Word width exceeds line width", wordWidth, availableWidth())
                         line += spaces
                         lineWidth += spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
                         spaces.clear()
@@ -240,7 +247,8 @@ internal object PageLayouter {
                     }
                     if (line.isEmpty() && spaces.isNotEmpty()) {
                         if (block.underlineTrailingSpaces == null) {
-                            if (spaces.sumOf { it.metrics.width.toDouble() } > availableWidth()) overflow()
+                            if (spaces.sumOf { it.metrics.width.toDouble() } > availableWidth())
+                                overflow("Whitespace exceeds line width", spaces.sumOf { it.metrics.width.toDouble() }.toFloat(), availableWidth())
                             line += spaces
                             lineWidth = spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
                         } else {
@@ -253,8 +261,9 @@ internal object PageLayouter {
                     val strokes = mutableListOf<PositionedElement>()
                     ParagraphLines.strokes(block, frame, width, paragraphTop, top - paragraphTop, true, true, strokes)
                     elements += strokes.map { FlowLayouter.translate(it, page.margins.left, 0f) }
+                    val remainingAfterContent = bottom - top
                     top += frame.after
-                    if (top > bottom + .001f) overflow()
+                    if (top > bottom + .001f) overflow("Paragraph border spacing exceeds remaining height", frame.after, remainingAfterContent)
                     top += block.spaceAfter
                     previousAfter = block.spaceAfter
                     for (index in paragraphStart until elements.size) elements[index] = ParagraphPageOffsets.mark(elements[index], block.pageOffset)
@@ -279,7 +288,7 @@ internal object PageLayouter {
             // An unprinted paragraph mark supplies a minimum box, not extra descent below a taller image.
             val naturalHeight = maxOf(baseline, fontBaseline + (minimum?.naturalDescent ?: 0f))
             val height = maxOf(naturalHeight * multiple, minimumHeight ?: 0f)
-            if (!height.isFinite() || height !in 1f..14_400f || height < naturalHeight) overflow()
+            checkAutomaticHeight(height, naturalHeight)
             return height to (baseline + if (minimumHeight != null) height - naturalHeight else 0f)
         }
         val styles = p.runs.mapNotNull { when (it) {
@@ -306,7 +315,7 @@ internal object PageLayouter {
         val descent = all.maxOfOrNull { it.naturalDescent } ?: 0f
         val naturalHeight = ascent + descent
         val height = maxOf(naturalHeight * multiple, minimumHeight ?: 0f)
-        if (!height.isFinite() || height !in 1f..14_400f || height < naturalHeight) overflow()
+        checkAutomaticHeight(height, naturalHeight)
         return height to (ascent + if (minimumHeight != null) height - naturalHeight else 0f)
     }
 
@@ -423,7 +432,15 @@ internal object PageLayouter {
         }
     }
 
-    private fun overflow(): Nothing = throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, "Content does not fit the single-page foundation profile")
+    private fun checkAutomaticHeight(height: Float, naturalHeight: Float) {
+        if (!height.isFinite()) overflow("Automatic line height is not finite", height, 14_400f)
+        if (height < 1f) overflow("Automatic line height is below minimum", 1f, height)
+        if (height > 14_400f) overflow("Automatic line height exceeds layout limit", height, 14_400f)
+        if (height < naturalHeight) overflow("Automatic line height is below natural content height", naturalHeight, height)
+    }
+
+    private fun overflow(reason: String, required: Float, available: Float, unit: String = "pt"): Nothing =
+        throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, "$reason; required=$required $unit; available=$available $unit")
 
     internal fun checkCancellation() {
         if (Thread.currentThread().isInterrupted) throw PdfRenderException(PdfFailureCode.CANCELLED, "PDF rendering cancelled")
