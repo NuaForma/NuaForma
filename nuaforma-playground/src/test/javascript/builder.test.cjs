@@ -208,6 +208,7 @@ test('native source diagnostics show the concrete construct path and excerpt as 
 test('PDF render failures display their concrete cause without inventing source coordinates',()=>{
   const {api}=fixture();
   for (const cause of ['CONTENT_OVERFLOW: Paragraph indentation exceeds the physical page',
+    'CONTENT_OVERFLOW: Word and leading spaces exceed line width; required=900.1234 pt; available=468.0 pt',
     'MISSING_GLYPH: The supplied font cannot encode requested text']) {
     const text=api.formatDiagnostics([{code:'UNSUPPORTED_INPUT',reason:'NATIVE_PDF_RENDER_REJECTED',
       message:'The native PDF engine rejected content, fonts or the requested output',sourceExplanation:cause}]);
