@@ -46,11 +46,43 @@ class OwnEngineTableCompatibilityTest {
         }
     }
 
-    @Test fun `modern indentation that exceeds the page rejects without changing declared column widths`() {
-        val model = OwnEngineDocxReader().read(settings(source(), listOf("15")))
+    @Test
+    fun `modern indentation may use the right margin while preserving declared columns`() {
+        val reader = OwnEngineDocxReader()
+        val legacy = reader.read(source()).blocks.filterIsInstance<PdfTable>().single()
+        val model = reader.read(settings(source(), listOf("15")))
+        val table = model.blocks.filterIsInstance<PdfTable>().single()
+        val right = table.leftIndent + table.columnWidths.sum()
+        assertEquals(legacy.columnWidths, table.columnWidths)
+        assertTrue(right > model.page.width - model.page.margins.left - model.page.margins.right)
+        assertTrue(model.page.margins.left + right + requireNotNull(table.border).width / 2 < model.page.width)
+        assertTrue(table.rightOverflow > 0f)
+        Loader.loadPDF(PdfEngine().render(model, fonts())).use { pdf ->
+            assertEquals(3, pdf.numberOfPages)
+            assertEquals(legacy.columnWidths, table.columnWidths)
+        }
+    }
+
+    @Test
+    fun `modern indentation beyond the physical page rejects without changing declared column widths`() {
+        val bytes = settings(source(), listOf("15"))
+        val reader = OwnEngineDocxReader()
+        val base = reader.read(bytes)
+        val originalTable = base.blocks.filterIsInstance<PdfTable>().single()
+        val indentation = ((base.page.width - base.page.margins.left - originalTable.columnWidths.sum()) * 20).toInt() + 40
+        val parts = entries(bytes)
+        val original = parts.getValue("word/document.xml").decodeToString()
+        val changed = original.replace(Regex("""(<w:tblInd\b[^>]*\bw:w=")[^"]+""")) { "${it.groupValues[1]}$indentation" }
+        assertNotEquals(original, changed)
+        parts["word/document.xml"] = changed.toByteArray()
+        val model = reader.read(zip(parts))
+        val table = model.blocks.filterIsInstance<PdfTable>().single()
+        assertEquals(originalTable.columnWidths, table.columnWidths)
+        assertTrue(model.page.margins.left + table.leftIndent + table.columnWidths.sum() > model.page.width)
         assertEquals(PdfFailureCode.CONTENT_OVERFLOW, assertThrows(PdfRenderException::class.java) {
             PdfEngine().render(model, fonts())
         }.code)
+        assertEquals(originalTable.columnWidths, table.columnWidths)
     }
 
     @Test fun `modern outer table alignment does not apply a second shift inside nested tables`() {

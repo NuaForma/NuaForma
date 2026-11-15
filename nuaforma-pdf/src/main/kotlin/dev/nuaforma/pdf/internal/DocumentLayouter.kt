@@ -71,7 +71,9 @@ internal object DocumentLayouter {
                 for ((local, layout) in decorated.withIndex()) layouts[offset + local] = layout
             }
         }
-        return pass.layout.copy(pages = layouts.mapIndexed { index, layout -> ParagraphPageOffsets.resolve(layout, index + 1) })
+        return pass.layout.copy(pages = layouts.mapIndexed { index, layout ->
+            ParagraphPageOffsets.resolve(layout, index + 1).also { PhysicalTextBounds.check(it, measurer) }
+        })
     }
 
     fun texts(elements: List<PositionedElement>): Sequence<PositionedText> = elements.asSequence().flatMap {

@@ -1,5 +1,6 @@
 package dev.nuaforma.docx.internal
 
+import dev.nuaforma.docx.OpenTypeFontNames
 import dev.nuaforma.contracts.RejectionReason
 import dev.nuaforma.contracts.DiagnosticCodes
 import java.nio.ByteBuffer
@@ -9,6 +10,7 @@ import java.nio.charset.StandardCharsets
 /** Bounded metadata inspection, not a rasterizer or a full OpenType validator. */
 internal class OpenTypeMetadata private constructor(val families: Set<String>, val face: String, val embeddingBits: Int, private val os2Version: Int,
     val panose: ByteArray, val unicodeRanges: List<String>, val codePageRanges: List<String>) {
+
     fun requireEditableEmbedding() {
         val usage = embeddingBits and 15
         if (usage and 1 != 0 || os2Version >= 3 && usage !in setOf(0, 2, 4, 8)) fail(RejectionReason.INVALID_OPENTYPE_EMBEDDING_PERMISSIONS)
@@ -19,13 +21,18 @@ internal class OpenTypeMetadata private constructor(val families: Set<String>, v
     }
 
     companion object {
+
         fun read(bytes: ByteArray): OpenTypeMetadata {
             val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN)
+
             fun range(start: Long, size: Long) {
                 if (start < 0 || size < 0 || start > bytes.size.toLong() - size) fail(RejectionReason.INVALID_OPENTYPE_TABLE_BOUNDS)
             }
+
             fun short(offset: Int): Int { range(offset.toLong(), 2); return buffer.getShort(offset).toInt() and 65535 }
+
             fun uint(offset: Int): Long { range(offset.toLong(), 4); return buffer.getInt(offset).toLong() and 0xFFFFFFFFL }
+
             range(0, 12)
             if (uint(0) != 0x00010000L && uint(0) != 0x4F54544FL) fail(RejectionReason.ONLY_STANDALONE_OPENTYPE_OR_TRUETYPE_FONTS_ARE_SUPPORTED)
             val count = short(4)
@@ -55,29 +62,16 @@ internal class OpenTypeMetadata private constructor(val families: Set<String>, v
                 else -> "regular"
             }
             val (name, nameSize) = tables["name"] ?: fail(RejectionReason.FONT_NEEDS_A_NAME_TABLE)
-            if (nameSize < 6 || short(name) !in 0..1) fail(RejectionReason.UNSUPPORTED_FONT_NAME_TABLE)
-            val names = short(name + 2); val strings = short(name + 4)
-            if (names > 4096 || 6L + names * 12L > nameSize || strings < 6 + names * 12 || strings > nameSize) fail(RejectionReason.INVALID_FONT_NAME_RECORDS)
-            val families = mutableSetOf<String>()
-            repeat(names) { index ->
-                val record = name + 6 + index * 12
-                val platform = short(record); val encoding = short(record + 2); val id = short(record + 6)
-                val size = short(record + 8); val offset = short(record + 10)
-                if (strings.toLong() + offset + size > nameSize) fail(RejectionReason.FONT_NAME_EXCEEDS_ITS_TABLE)
-                if (id in setOf(1, 16) && (platform == 0 || platform == 3 && encoding in setOf(0, 1, 10))) {
-                    if (size == 0 || size % 2 != 0 || size > 256) fail(RejectionReason.INVALID_FONT_FAMILY_NAME)
-                    val family = String(bytes, name + strings + offset, size, StandardCharsets.UTF_16BE)
-                    if (family.isBlank() || family.any { it.isISOControl() || it == '\uFFFD' }) fail(RejectionReason.INVALID_FONT_FAMILY_NAME)
-                    families.add(family)
-                }
-            }
-            if (families.isEmpty()) fail(RejectionReason.FONT_NEEDS_A_UNICODE_FAMILY_NAME)
+            val families = OpenTypeFontNames.families(bytes.copyOfRange(name, name + nameSize))
+
             fun hex(offset: Int) = uint(offset).toString(16).uppercase(java.util.Locale.ROOT).padStart(8, '0')
+
             val unicode = (0..3).map { hex(os2 + 42 + it * 4) }
             val codePages = if (short(os2) >= 1 && os2Size >= 86) listOf(hex(os2 + 78), hex(os2 + 82)) else listOf("00000000", "00000000")
             return OpenTypeMetadata(families, face, permissions, short(os2), bytes.copyOfRange(os2 + 32, os2 + 42), unicode, codePages)
         }
 
         private fun fail(reason: RejectionReason): Nothing = DocxFailure.fail(DiagnosticCodes.INVALID_REQUEST, reason)
+
     }
 }

@@ -1,5 +1,9 @@
 # NuaForma DOCX/PDF provider
 
+Current source supports qualified DOCX soft line breaks without creating extra paragraphs or list items. See [supported controls and Word comparisons](../docs/soft-line-breaks.md); this refinement is not in unchanged alpha.3 artifacts.
+
+Source #295 distinguishes virtual exact-leading measurements from final physical-page ink bounds. See [scope and Word controls](../docs/exact-leading-ink.md); this refinement is not in unchanged alpha.3 artifacts.
+
 Unreleased #283–#287 and the #279 follow-up qualify [print preferences and contained nested indentation](../docs/word-print-preferences-and-contained-tables.md), including the approved additive right-margin option in the shared model and no new dependencies.
 
 Unreleased source #279–#282 adds bounded signed table indentation, historical grids and Word-backed numbering inheritance. See [scope, restrictions and verification](../docs/word-table-and-numbering-inheritance.md).
@@ -181,3 +185,9 @@ Unreleased regular legacy text inputs and unused Word editing selections are des
 Unreleased source work additionally qualifies [note separator metadata](../docs/word-note-separator-metadata.md) and [Word sequence field formatting](../docs/word-fields-and-bookmarks.md#sequence-field-formatting), preserving the documented source and rendering limits.
 
 Unreleased source work also qualifies [case-insensitive Word sequence counters](../docs/word-fields-and-bookmarks.md#sequence-counter-identity) and [ordinary body-cell paragraph pagination defaults](../docs/word-cell-pagination-defaults.md), with retained original template bytes and strict source validation.
+
+Unreleased [wide fixed-table qualification](../docs/wide-fixed-tables.md) retains explicit body grids extending into the right margin while preserving physical page, nested-cell and page-band bounds.
+
+Unreleased [long-word wrapping](../docs/long-word-breaking.md) preserves fixed body-table columns while breaking oversized unshaped words at grapheme boundaries. Automatic widths, nested cells and page bands retain their existing policies.
+
+Unreleased [font family identity qualification](../docs/font-family-identities.md) is shared by DOCX and native PDF. Extended Light, Display and similar designs retain their precise family names rather than impersonating their base family; ordinary four-face style linking remains supported.

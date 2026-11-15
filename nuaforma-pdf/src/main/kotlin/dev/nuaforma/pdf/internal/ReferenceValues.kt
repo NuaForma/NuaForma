@@ -44,6 +44,7 @@ internal class ReferenceValues(private val document: PdfDocument) {
                     is PdfTextRun -> it.text
                     is PdfReferenceField -> field(it.id, depth + 1)
                     is PdfSequenceField -> sequences[it.id] ?: unsupported("Unknown sequence value")
+                    is PdfLineBreak -> unsupported("Line breaks in text reference ranges are not qualified")
                     else -> unsupported("Tabs and non-text reference ranges are not qualified")
                 } }).also { if (it.isBlank()) unsupported("Empty text reference ranges are not qualified") }
             }

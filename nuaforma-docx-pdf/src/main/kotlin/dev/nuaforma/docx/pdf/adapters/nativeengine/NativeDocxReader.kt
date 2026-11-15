@@ -95,6 +95,10 @@ internal class NativeDocxReader(
                 source.failure(message, part)
             }
             val observe = normalizations?.let { WordSourceNormalization.observe(root, part, source) }
+            NativeLineBreaks.validateSource(root, context) { node, message ->
+                source.current = node
+                throw source.failure(message, part)
+            }
             WordGridHistoryMetadata.normalizeSource(root, context) { node, message ->
                 source.current = node
                 throw source.failure(message, part)
@@ -628,7 +632,7 @@ internal class NativeDocxReader(
                     }
                     return listOf(PdfReferenceField(id, kind, style, target, instruction.linked, navigation))
                 }
-                children(run, setOf("rPr", "t", "tab", "drawing", "pict", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
+                children(run, setOf("rPr", "t", "tab", "br", "cr", "drawing", "pict", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
                 val contents = run.elements().filter { it.name.localPart != "rPr" }
                 if (contents.isEmpty()) return emptyList()
                 val face = faceFor(run.one("rPr"))
@@ -672,6 +676,13 @@ internal class NativeDocxReader(
                         PdfTextRun(text.ifEmpty { " " }, textStyle(face), navigation)
                     }
                     "tab" -> { check(link == null, "Linked tabs are not qualified"); attributes(item, emptySet()); check(item.elements().isEmpty(), "Invalid tab control"); PdfTab(textStyle(face)) }
+                    "br", "cr" -> {
+                        attributes(item, if (item.name.localPart == "br") setOf("type", "clear") else emptySet())
+                        check(item.elements().isEmpty() && item.children.filterIsInstance<XmlText>().all { it.text.isBlank() }, "Invalid line break control")
+                        check(item.value("type") in setOf(null, "textWrapping") && item.value("clear") in setOf(null, "none"),
+                            "Only ordinary text-wrapping line breaks are qualified")
+                        PdfLineBreak(textStyle(face))
+                    }
                     "pict", "drawing" -> { if (vectorReader.isVector(item)) {
                         check(link == null && pendingDestinations.isEmpty() && !face.underline && !face.strikethrough && !face.superscript,
                             "Navigation or text decorations on inline vectors are not qualified")
@@ -726,7 +737,7 @@ internal class NativeDocxReader(
             val content = runs.ifEmpty { listOf(PdfTextRun(" ", markStyle ?: textStyle(base))) }
             check(content.none { it is PdfImageRun } || content.size == 1, "Mixed image/text paragraphs are outside the proof profile")
             val label = listEntry?.let { entry ->
-                check(content.all { it is PdfTextRun || it is PdfReferenceField || it is PdfSequenceField }, "List images and inline tabs are outside the proof")
+                check(content.all { it is PdfTextRun || it is PdfReferenceField || it is PdfSequenceField || it is PdfLineBreak }, "List images and inline tabs are outside the proof")
                 val markerFace = resolveRun(entry.level.one("rPr"), base)
                 val markerSegments = if (mixedFonts(markerFace)) WordLatinFontSelection.segments(entry.value.text, context, ::reject, ::fontRunsBound) else emptyList()
                 check(markerSegments.size <= 1, "Mixed font selection within one list label is not qualified")
@@ -762,8 +773,10 @@ internal class NativeDocxReader(
                 .withPageOffset(pageOffset)
                 .withMinimumLineHeight(geometry.minimum)
                 .withUnderlineTrailingSpaces(formatting.underlineTrailingSpaces)
-                .withMinimumLineStyle(markStyle ?: if (geometry.automatic != null &&
+                .withMinimumLineStyle(if (content.any { it is PdfLineBreak }) null else markStyle ?: if (geometry.automatic != null &&
                     (content.singleOrNull() is PdfImageRun || content.singleOrNull() is PdfVectorRun)) textStyle(base) else null)
+                .withParagraphMarkStyle(if ((geometry.automatic != null || geometry.minimum != null) && content.any { it is PdfLineBreak })
+                    markStyle ?: textStyle(base) else null)
         }
 
         fun readTable(table: XmlElement, partRelations: Map<String, String>, fields: Boolean, depth: Int = 0): PdfTable {
@@ -927,9 +940,10 @@ internal class NativeDocxReader(
                     val blocks = cell.elements().filter { it.name.localPart != "tcPr" }.map { child ->
                         when (child.name.localPart) {
                             "p" -> readParagraph(child, partRelations, fields, cellStyles).let { paragraph ->
+                                val resolved = paragraph.withLongWordBreaking(depth == 0 && !fields && !automaticLayout)
                                 if (depth == 0 && !fields && span == 1 && cp.one("vMerge") == null)
-                                    paragraph.copy(format = paragraph.format.copy(keepLines = false, widowControl = false))
-                                else paragraph
+                                    resolved.copy(format = resolved.format.copy(keepLines = false, widowControl = false))
+                                else resolved
                             }
                             "tbl" -> readTable(child, partRelations, fields, depth + 1)
                             else -> reject("Unsupported cell block")
@@ -1006,8 +1020,12 @@ internal class NativeDocxReader(
                 // Legacy Word distinguishes an omitted indent from an explicitly declared zero.
                 if (declaredIndent == null) 0f else indent - padding.left
             } else effectiveIndent + (border?.width ?: 0f) / 2
+            val legacyOverflow = if (depth == 0 && !modernTableAlignment && declaredIndent != null && preferredTableWidth?.percent != null)
+                padding.right else 0f
+            val fixedOverflow = if (depth == 0 && !fields && !automaticLayout)
+                (physicalIndent + widths.sum() - (page.width - page.margins.left - page.margins.right)).coerceAtLeast(0f) else 0f
             return PdfTable(widths, rows, padding, border, count, physicalIndent, if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else if (automaticLayout) PdfTableWidthPolicy.AUTO_FIT else PdfTableWidthPolicy.FIXED, preferredWidth = resolvedTableWidth)
-                .withRightOverflow(if (depth == 0 && !modernTableAlignment && declaredIndent != null && preferredTableWidth?.percent != null) padding.right else 0f)
+                .withRightOverflow(maxOf(legacyOverflow, fixedOverflow))
         }
 
         fun readBox(pict: XmlElement, partRelations: Map<String, String>, fields: Boolean = false): PdfTextBox {
@@ -1685,7 +1703,7 @@ internal class NativeDocxReader(
             source.current = it
             reject("Unsupported document feature")
         }
-        check(node.elements().groupBy { it.name.localPart }.all { (name, values) -> name in setOf("r", "p", "style", "tbl", "tr", "tc", "tblStylePr", "fldSimple", "t", "tab", "headerReference", "footerReference", "hyperlink", "bookmarkStart", "bookmarkEnd") || values.size == 1 }, "Duplicate property")
+        check(node.elements().groupBy { it.name.localPart }.all { (name, values) -> name in setOf("r", "p", "style", "tbl", "tr", "tc", "tblStylePr", "fldSimple", "t", "tab", "br", "cr", "headerReference", "footerReference", "hyperlink", "bookmarkStart", "bookmarkEnd") || values.size == 1 }, "Duplicate property")
     }
 
     private fun attributes(node: XmlElement, allowed: Set<String>) {

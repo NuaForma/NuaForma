@@ -7,6 +7,8 @@ internal fun interface TextMeasurer {
 
     fun measure(text: String, style: PdfTextStyle): TextMetrics
 
+    fun ink(text: String, style: PdfTextStyle): TextMetrics = measure(text, style)
+
     fun gap(before: String, spaces: String, after: String, style: PdfTextStyle): TextMetrics = measure(spaces, style)
 
 }
@@ -17,7 +19,7 @@ internal enum class StrokeLayer { FLOW, BACKGROUND, FOREGROUND }
 internal data class PositionedStroke(val x: Float, val top: Float, val endX: Float, val endY: Float, val stroke: PdfLineStroke,
     val pageX: Boolean = false, val pageY: Boolean = false, val layer: StrokeLayer = StrokeLayer.FLOW,
     val joinOwner: PdfParagraph? = null, val joinFollowing: PdfParagraph? = null, val pageOffset: PdfParagraphPageOffset? = null) : PositionedElement
-internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false, val navigation: PdfTextNavigation? = null, val logicalOwner: String? = null, val span: PdfSpanSemantics? = null, val logicalOffset: Int? = null, val pageOffset: PdfParagraphPageOffset? = null, val trailingDecorationWidth: Float? = null) : PositionedElement
+internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false, val navigation: PdfTextNavigation? = null, val logicalOwner: String? = null, val span: PdfSpanSemantics? = null, val logicalOffset: Int? = null, val pageOffset: PdfParagraphPageOffset? = null, val trailingDecorationWidth: Float? = null, val requiresPhysicalBounds: Boolean = false) : PositionedElement
 internal data class PositionedImage(val image: PdfImage, val x: Float, val top: Float, val foreground: Boolean = false, val pageOffset: PdfParagraphPageOffset? = null, val pageY: Boolean = false) : PositionedElement
 internal data class PositionedRectangle(val x: Float, val top: Float, val width: Float, val height: Float, val fill: PdfColor?, val border: PdfBorder?) : PositionedElement
 internal data class PositionedTableBorder(val x: Float, val top: Float, val length: Float, val horizontal: Boolean, val stroke: PdfEdgeStroke, val group: Any) : PositionedElement
@@ -68,7 +70,7 @@ internal object PageLayouter {
                         throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "RTL character spacing is not qualified")
                     val automaticSpacing = format.automaticLineSpacing != null || block.minimumLineHeight != null
                     if (automaticSpacing && format.textDirection != null) automaticBox(block, measurer, allowMixed = false)
-                    if (format.textDirection != null && block.runs.any { it !is PdfTextRun })
+                    if (format.textDirection != null && block.runs.any { it !is PdfTextRun && it !is PdfLineBreak })
                         throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Bidi tabs and inline images are not qualified")
                     if (format.textDirection == PdfTextDirection.RIGHT_TO_LEFT && (block.listLabel != null || format.firstLineIndent != 0f))
                         throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "RTL hanging or first-line indentation is not qualified")
@@ -117,7 +119,7 @@ internal object PageLayouter {
                     val spaces = mutableListOf<Fragment>()
                     val groups = words(block.runs, measurer, format.textDirection != null)
                     val paragraphBidi = format.textDirection?.let { direction ->
-                        val text = block.runs.filterIsInstance<PdfTextRun>().joinToString("") { it.text }
+                        val text = block.runs.joinToString("") { when (it) { is PdfTextRun -> it.text; is PdfLineBreak -> "\n"; else -> "" } }
                         java.text.Bidi(text, if (direction == PdfTextDirection.RIGHT_TO_LEFT) java.text.Bidi.DIRECTION_RIGHT_TO_LEFT else java.text.Bidi.DIRECTION_LEFT_TO_RIGHT)
                     }
 
@@ -125,45 +127,54 @@ internal object PageLayouter {
                         if (line.isEmpty()) return
                         if (justify && lineContainsTab && format.alignment == PdfAlignment.JUSTIFY)
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Tabs in non-final justified lines are not qualified")
-                        val automatic = if (automaticSpacing) automaticBox(block.copy(runs = line.map { fragment ->
-                            fragment.vector ?: fragment.image?.let(::PdfImageRun) ?: PdfTextRun(fragment.text, requireNotNull(fragment.style))
-                        }, listLabel = block.listLabel.takeIf { firstLine }), measurer) else null
+                        val automatic = if (automaticSpacing) {
+                            val lineRuns = line.filter { it.lineBreak == null }.ifEmpty { line }.map { fragment ->
+                                fragment.lineBreak ?: fragment.vector ?: fragment.image?.let(::PdfImageRun) ?: PdfTextRun(fragment.text, requireNotNull(fragment.style))
+                            }
+                            val lineParagraph = block.copy(runs = lineRuns, listLabel = block.listLabel.takeIf { firstLine })
+                            automaticBox(lineParagraph, measurer)
+                        } else null
                         val lineStart = elements.size
                         val ascent = maxOf(line.maxOf { if (automatic == null) it.metrics.ascent else it.metrics.naturalAscent }, if (firstLine) (if (automatic == null) marker?.ascent else marker?.naturalAscent) ?: 0f else 0f)
                         val descent = maxOf(line.maxOf { if (automatic == null) it.metrics.descent else it.metrics.naturalDescent }, if (firstLine) (if (automatic == null) marker?.descent else marker?.naturalDescent) ?: 0f else 0f)
                         val height = automatic?.first ?: format.exactLineHeight ?: (ascent + descent) * 1.2f
                         if (top + height > bottom) overflow("Line box exceeds remaining area height", height, bottom - top)
                         val baseline = top + (automatic?.second ?: format.exactLineHeight?.times(0.8f) ?: ascent)
-                        if (baseline - ascent < page.margins.top - 0.01f) overflow("Line ascent exceeds space above baseline", ascent, baseline - page.margins.top)
-                        if (baseline + descent > bottom + 0.01f) overflow("Line descent exceeds space below baseline", descent, bottom - baseline)
+                        val deferInkBounds = measurement && format.exactLineHeight != null && !automaticSpacing &&
+                            block.runs.all { it is PdfTextRun || it is PdfTab || it is PdfLineBreak }
+                        if (!deferInkBounds && baseline - ascent < page.margins.top - 0.01f) overflow("Line ascent exceeds space above baseline", ascent, baseline - page.margins.top)
+                        if (!deferInkBounds && baseline + descent > bottom + 0.01f) overflow("Line descent exceeds space below baseline", descent, bottom - baseline)
                         val remaining = availableWidth() - lineWidth
                         val prefix = (label?.value?.text?.length ?: 0) + if (label == null || label.suffix == PdfListSuffix.NOTHING) 0 else 1
-                        if (firstLine && label != null) elements += PositionedText(label.value.text, label.style, page.margins.left + area().first + markerLeft, baseline, logicalOwner = block.semantics?.id, span = block.semantics?.let { PdfSpanSemantics(semanticChildId(it.id, "label"), PdfSemanticRole.LABEL) }, logicalOffset = block.semantics?.let { 0 })
+                        if (firstLine && label != null) elements += PositionedText(label.value.text, label.style, page.margins.left + area().first + markerLeft, baseline, logicalOwner = block.semantics?.id, span = block.semantics?.let { PdfSpanSemantics(semanticChildId(it.id, "label"), PdfSemanticRole.LABEL) }, logicalOffset = block.semantics?.let { 0 }, requiresPhysicalBounds = deferInkBounds)
                         var x = page.margins.left + lineLeft() + when (format.alignment) {
                             PdfAlignment.LEFT, PdfAlignment.JUSTIFY -> 0f
                             PdfAlignment.CENTER -> remaining / 2
                             PdfAlignment.RIGHT -> remaining
                         }
-                        val firstContent = line.indexOfFirst { it.text.any { char -> char != ' ' } }
-                        val lastContent = line.indexOfLast { it.text.any { char -> char != ' ' } }
+                        val firstContent = line.indexOfFirst { it.lineBreak == null && it.text.any { char -> char != ' ' } }
+                        val lastContent = line.indexOfLast { it.lineBreak == null && it.text.any { char -> char != ' ' } }
                         val stretch = if (justify && format.alignment == PdfAlignment.JUSTIFY && remaining > 0f)
                             line.mapIndexed { index, fragment -> if (index > firstContent && index < lastContent &&
                                 fragment.text.all { it == ' ' }) fragment.text.length else 0 } else List(line.size) { 0 }
                         val spaceCount = stretch.sum()
                         val extraPerSpace = if (spaceCount == 0) 0f else remaining / spaceCount
-                        if (paragraphBidi != null) {
-                            val slices = line.map { LogicalTextSlice(it.text, requireNotNull(it.style), it.sourceStart) }
+                        if (line.all { it.lineBreak != null }) {
+                            elements += PositionedText("", requireNotNull(line.first().style), x, baseline)
+                        } else if (paragraphBidi != null) {
+                            val slices = line.filter { it.lineBreak == null }.map { LogicalTextSlice(it.text, requireNotNull(it.style), it.sourceStart) }
                             for (run in BidiLine.visualRuns(paragraphBidi, slices)) {
-                                elements += PositionedText(run.text, run.style, x, baseline, logicalOwner = block.semantics?.id, logicalOffset = block.semantics?.let { run.sourceStart + prefix })
+                                elements += PositionedText(run.text, run.style, x, baseline, logicalOwner = block.semantics?.id, logicalOffset = block.semantics?.let { run.sourceStart + prefix }, requiresPhysicalBounds = deferInkBounds)
                                 x += measurer.measure(run.text, run.style).width
                             }
                         } else for ((fragmentIndex, fragment) in line.withIndex()) {
+                            if (fragment.lineBreak != null) continue
                             val extra = stretch[fragmentIndex] * extraPerSpace
                             if (fragment.vector != null) elements += PositionedVector(fragment.vector, x, baseline - fragment.vector.height)
                             else if (fragment.image != null) elements += PositionedImage(fragment.image, x, baseline - fragment.image.height)
                             else elements += PositionedText(fragment.text, requireNotNull(fragment.style), x + fragment.paintOffset, baseline, fragment.decoration, fragment.navigation, block.semantics?.id, fragment.semantics,
                                 block.semantics?.takeUnless { fragment.decoration || fragment.text.isEmpty() }?.let { fragment.sourceStart + prefix },
-                                trailingDecorationWidth = if (extra > 0f) fragment.metrics.width + extra else null)
+                                trailingDecorationWidth = if (extra > 0f) fragment.metrics.width + extra else null, requiresPhysicalBounds = deferInkBounds)
                             x += fragment.metrics.width + extra
                         }
                         if (block.underlineTrailingSpaces == true) {
@@ -173,7 +184,7 @@ internal object PageLayouter {
                             for (space in spaces) {
                                 val length = minOf(space.metrics.width, maxOf(0f, edge - x))
                                 if (space.style?.let { it.underline || it.strikethrough } == true && length > 0f)
-                                    elements += PositionedText(" ", requireNotNull(space.style), x, baseline, decoration = true, trailingDecorationWidth = length)
+                                    elements += PositionedText(" ", requireNotNull(space.style), x, baseline, decoration = true, trailingDecorationWidth = length, requiresPhysicalBounds = deferInkBounds)
                                 x += space.metrics.width
                             }
                         }
@@ -188,6 +199,15 @@ internal object PageLayouter {
 
                     for ((groupIndex, word) in groups.withIndex()) {
                         checkCancellation()
+                        val lineBreak = word.singleOrNull()?.lineBreak
+                        if (lineBreak != null) {
+                            line += spaces
+                            lineWidth += spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
+                            spaces.clear()
+                            line += word
+                            flush(justify = true)
+                            continue
+                        }
                         val control = word.singleOrNull()?.tab
                         if (control != null) {
                             if (format.alignment !in setOf(PdfAlignment.LEFT, PdfAlignment.JUSTIFY))
@@ -196,7 +216,7 @@ internal object PageLayouter {
                             line += spaces; lineWidth += spaces.sumOf { it.metrics.width.toDouble() }.toFloat(); spaces.clear()
                             val settings = format.tabs ?: PdfTabSettings()
                             val cursor = lineLeft() + lineWidth
-                            val following = groups.drop(groupIndex + 1).takeWhile { group -> group.none { it.tab != null } }.flatten()
+                            val following = groups.drop(groupIndex + 1).takeWhile { group -> group.none { it.tab != null || it.lineBreak != null } }.flatten()
                             val payloadWidth = following.sumOf { it.metrics.width.toDouble() }.toFloat()
                             var decimalWidth = 0f
                             for (fragment in following) {
@@ -233,6 +253,33 @@ internal object PageLayouter {
                         }
                         val wordWidth = word.sumOf { it.metrics.width.toDouble() }.toFloat()
                         val spaceWidth = spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
+                        if (block.breakLongWords && wordWidth > availableWidth() + .001f) {
+                            if (format.textDirection != null || word.any { it.style == null || it.text.isEmpty() })
+                                throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Long-word breaking with bidi or inline objects is not qualified")
+                            if (line.isNotEmpty()) {
+                                flush(justify = true)
+                                spaces.clear()
+                            }
+                            val leadingWidth = spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
+                            if (leadingWidth >= availableWidth())
+                                overflow("Word and leading spaces exceed line width", leadingWidth + wordWidth, availableWidth())
+                            line += spaces
+                            lineWidth += leadingWidth
+                            spaces.clear()
+                            val breaks = LongWordBreaks(word.map { it.text to requireNotNull(it.style) }, measurer)
+                            while (breaks.hasMore) {
+                                checkCancellation()
+                                val parts = breaks.next(availableWidth() - lineWidth).map { slice ->
+                                    val original = word[slice.run]
+                                    original.copy(text = original.text.substring(slice.from, slice.until), metrics = slice.metrics,
+                                        sourceStart = original.sourceStart + slice.from)
+                                }
+                                line += parts
+                                lineWidth += parts.sumOf { it.metrics.width.toDouble() }.toFloat()
+                                if (breaks.hasMore) flush(justify = true)
+                            }
+                            continue
+                        }
                         if (lineWidth + spaceWidth + wordWidth > availableWidth() + .001f) {
                             if (line.isEmpty()) overflow("Word and leading spaces exceed line width", spaceWidth + wordWidth, availableWidth())
                             flush(justify = true)
@@ -244,6 +291,10 @@ internal object PageLayouter {
                         spaces.clear()
                         line += word
                         lineWidth += wordWidth
+                    }
+                    groups.lastOrNull()?.singleOrNull()?.takeIf { it.lineBreak != null }?.let { last ->
+                        val mark = block.paragraphMarkStyle ?: requireNotNull(last.style)
+                        line += last.copy(style = mark, lineBreak = PdfLineBreak(mark))
                     }
                     if (line.isEmpty() && spaces.isNotEmpty()) {
                         if (block.underlineTrailingSpaces == null) {
@@ -293,7 +344,7 @@ internal object PageLayouter {
         }
         val styles = p.runs.mapNotNull { when (it) {
             is PdfVectorRun -> null
-            is PdfTextRun -> it.style; is PdfTab -> it.style; is PdfPageField -> it.style
+            is PdfTextRun -> it.style; is PdfTab -> it.style; is PdfLineBreak -> it.style; is PdfPageField -> it.style
             else -> throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Automatic inline image spacing is not qualified")
         } } + listOfNotNull(p.listLabel?.style)
         val metrics = styles.map { measurer.measure("", it) }
@@ -319,14 +370,8 @@ internal object PageLayouter {
         return height to (ascent + if (minimumHeight != null) height - naturalHeight else 0f)
     }
 
-    internal fun unwrappedTextWidth(runs: List<PdfTextRun>, measurer: TextMeasurer): Float {
-        var width = 0f
-        for (group in words(runs, measurer, false)) {
-            checkCancellation()
-            width += group.sumOf { it.metrics.width.toDouble() }.toFloat()
-        }
-        return width
-    }
+    internal fun unwrappedTextWidth(runs: List<PdfInline>, measurer: TextMeasurer): Float =
+        maximumLineWidth(words(runs, measurer, false))
 
     internal fun intrinsicWidths(paragraph: PdfParagraph, measurer: TextMeasurer): Pair<Float, Float> {
         if (paragraph.format.tabs != null || paragraph.runs.any { it is PdfTab } || paragraph.anchoredImages.isNotEmpty())
@@ -336,10 +381,23 @@ internal object PageLayouter {
         val minimum = groups.indices.filter { index -> groups[index].any { fragment -> fragment.text.any { it != ' ' } } }.maxOfOrNull { widths[it] } ?: 0f
         val indent = paragraph.format.leftIndent + paragraph.format.rightIndent + maxOf(0f, paragraph.format.firstLineIndent)
         val label = paragraph.listLabel?.let { measurer.measure(it.value.text, it.style).width } ?: 0f
-        return maxOf(0f, minimum + indent + label) to maxOf(0f, widths.sum() + indent + label)
+        return maxOf(0f, minimum + indent + label) to maxOf(0f, maximumLineWidth(groups) + indent + label)
     }
 
-    private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null, val tab: PdfTab? = null, val paintOffset: Float = 0f, val decoration: Boolean = false, val sourceStart: Int = 0, val navigation: PdfTextNavigation? = null, val semantics: PdfSpanSemantics? = null, val vector: PdfVectorRun? = null)
+    private fun maximumLineWidth(groups: List<List<Fragment>>): Float {
+        var line = 0f
+        var widest = 0f
+        for (group in groups) {
+            checkCancellation()
+            if (group.any { it.lineBreak != null }) {
+                widest = maxOf(widest, line)
+                line = 0f
+            } else line += group.sumOf { it.metrics.width.toDouble() }.toFloat()
+        }
+        return maxOf(widest, line)
+    }
+
+    private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null, val tab: PdfTab? = null, val paintOffset: Float = 0f, val decoration: Boolean = false, val sourceStart: Int = 0, val navigation: PdfTextNavigation? = null, val semantics: PdfSpanSemantics? = null, val vector: PdfVectorRun? = null, val lineBreak: PdfLineBreak? = null)
 
     private fun words(runs: List<PdfInline>, measurer: TextMeasurer, bidi: Boolean): List<List<Fragment>> {
         val groups = mutableListOf<MutableList<Fragment>>()
@@ -349,6 +407,13 @@ internal object PageLayouter {
             if (run is PdfPageField) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields require page-band resolution")
             if (run is PdfReferenceField || run is PdfSequenceField) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "References require document-wide resolution")
             if (run is PdfNoteCall || run is PdfNoteLabel) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Notes require document-wide resolution")
+            if (run is PdfLineBreak) {
+                measurer.measure("", run.style)
+                groups += mutableListOf(Fragment("\n", run.style, TextMetrics(0f, 0f, 0f), sourceStart = sourceOffset, lineBreak = run))
+                previousSpace = null
+                sourceOffset++
+                continue
+            }
             if (run is PdfTab) {
                 if (run.style.underline) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Underlined tabs are not qualified")
                 groups += mutableListOf(Fragment("\t", run.style, TextMetrics(0f, 0f, 0f), tab = run))
@@ -384,7 +449,7 @@ internal object PageLayouter {
             if (!style.fontFeatures.active || gap.text.any { it != ' ' }) continue
             val previous = groups[index - 1].lastOrNull() ?: continue
             val next = groups[index + 1].firstOrNull() ?: continue
-            if (previous.style == style && next.style == style && previous.tab == null && next.tab == null) {
+            if (previous.style == style && next.style == style && previous.tab == null && next.tab == null && previous.lineBreak == null && next.lineBreak == null) {
                 groups[index][0] = gap.copy(metrics = measurer.gap(previous.text, gap.text, next.text, style))
             }
         }

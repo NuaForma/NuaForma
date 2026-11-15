@@ -1,5 +1,9 @@
 # NuaForma documentation
 
+- [Soft line breaks](soft-line-breaks.md): typed inline controls, explicit paragraph-mark metrics and Word-backed body/table/band/pagination tests.
+
+- [Exact-leading text and physical page bounds](exact-leading-ink.md): virtual measurement, final ink checks and Word-backed A4/Letter controls (source #295).
+
 - [Word print preferences and contained nested tables](word-print-preferences-and-contained-tables.md): numbering display names, image save-DPI, theme locks, zero-gutter positioning, bounded nested indentation and legacy percentage-table right margins (#283–#287, #279 follow-up; locally qualified, unreleased).
 - [Word table placement and numbering inheritance](word-table-and-numbering-inheritance.md): signed physical indentation, previous grids, definition links and inherited numbering levels (#279–#282).
 - [Word print-source metadata and numeric spellings](word-review-and-numeric-spellings.md): qualified review/view/preview metadata, horizontal defaults and integer binding (#273–#278).
@@ -148,4 +152,10 @@ Unreleased #254–#257 qualify original proofing preferences, printer-tray metad
 
 - [Word cell paragraph pagination](word-cell-pagination-defaults.md): ordinary body-cell keeps, first-row fragments, independent Word controls and retained limits (unreleased #296/#298).
 
+- [Wide fixed body tables](wide-fixed-tables.md): retain declared columns inside the physical page without widening nested cells or page bands.
+
+- [Long words in fixed cells](long-word-breaking.md): opt-in grapheme-safe wrapping with preserved columns, source offsets and measured overflow.
+
 Selected 0.5.0-alpha.3 identifies concrete native render failures in the Playground and development logs without changing font selection, conversion support or public contracts. See the [release notes](../release-notes/0.5.0-alpha.3.md) and [candidate audit](release-0.5.0-alpha.3-audit.md); preparation does not itself publish artifacts.
+
+- [Font family and face identity](font-family-identities.md): shared bounded OpenType naming and extended variant qualification (unreleased source).

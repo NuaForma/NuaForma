@@ -25,6 +25,8 @@ internal object NativePdfFailureDiagnostics {
 
     // Only owned reasons plus numeric measurements cross the diagnostic boundary; no arbitrary text.
     private val overflowReasons = setOf(
+        "Text ascent exceeds physical page top",
+        "Text descent exceeds physical page bottom",
         "Image exceeds area width",
         "Image exceeds remaining area height",
         "Page break requires another layout area",
@@ -40,6 +42,7 @@ internal object NativePdfFailureDiagnostics {
         "Aligned tab content exceeds line boundary",
         "Word and leading spaces exceed line width",
         "Word width exceeds line width",
+        "Word cluster width exceeds line width",
         "Whitespace exceeds line width",
         "Paragraph border spacing exceeds remaining height",
         "Automatic line height is not finite",
@@ -52,6 +55,8 @@ internal object NativePdfFailureDiagnostics {
 
     // Add only fixed application-owned explanations. Unknown/new reasons retain their code, never raw text.
     private val explanations = setOf(
+        "Line breaks in text reference ranges are not qualified",
+        "Text ink bounds are not finite",
         "A navigation target requires visible text",
         "A note label requires a definition",
         "A note label requires its definition",
@@ -138,6 +143,8 @@ internal object NativePdfFailureDiagnostics {
         "List body alignment is outside the qualified profile",
         "Logical identities changed during field resolution",
         "Logical node budget exceeded",
+        "Long-word breaking with font shaping is not qualified",
+        "Long-word breaking with bidi or inline objects is not qualified",
         "Merged cell content crosses an unsupported row boundary",
         "Minimum line metrics are unavailable",
         "Mirrored punctuation is outside the qualified bidi profile",

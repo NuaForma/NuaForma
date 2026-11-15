@@ -147,6 +147,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     throw source.failure(message, part)
                 }
+                NativeLineBreaks.validateSource(root, context) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }
                 NativeDocxFields.validateCodeSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)

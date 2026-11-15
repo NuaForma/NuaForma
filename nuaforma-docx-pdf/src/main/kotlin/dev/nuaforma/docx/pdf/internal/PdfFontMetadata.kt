@@ -1,5 +1,6 @@
 package dev.nuaforma.docx.pdf.internal
 
+import dev.nuaforma.docx.OpenTypeFontNames
 import dev.nuaforma.contracts.RejectionReason
 import dev.nuaforma.contracts.DiagnosticCodes
 import java.nio.ByteBuffer
@@ -8,6 +9,7 @@ import java.nio.charset.StandardCharsets
 
 /** Bounded SFNT metadata only; native outline parsing belongs to the shared PDF engine. */
 internal class PdfFontMetadata(val families: Set<String>, val face: String, val permissions: Int, val version: Int) {
+
     fun requirePrintEmbedding() {
         val usage = permissions and 15
         if (usage and 1 != 0 || version >= 3 && usage !in setOf(0, 2, 4, 8)) invalid(RejectionReason.INVALID_OPENTYPE_EMBEDDING_PERMISSIONS)
@@ -18,11 +20,16 @@ internal class PdfFontMetadata(val families: Set<String>, val face: String, val 
     }
 
     companion object {
+
         fun read(bytes: ByteArray): PdfFontMetadata {
             val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.BIG_ENDIAN)
+
             fun range(start: Long, size: Long) { if (start < 0 || size < 0 || start > bytes.size.toLong() - size) invalid(RejectionReason.INVALID_OPENTYPE_TABLE_BOUNDS) }
+
             fun short(offset: Int): Int { range(offset.toLong(), 2); return buffer.getShort(offset).toInt() and 65535 }
+
             fun uint(offset: Int): Long { range(offset.toLong(), 4); return buffer.getInt(offset).toLong() and 0xFFFFFFFFL }
+
             range(0, 12)
             if (uint(0) !in setOf(0x00010000L, 0x4F54544FL)) invalid(RejectionReason.ONLY_STANDALONE_OPENTYPE_OR_TRUETYPE_FONTS_ARE_SUPPORTED)
             val count = short(4)
@@ -47,26 +54,11 @@ internal class PdfFontMetadata(val families: Set<String>, val face: String, val 
             val selection = short(os2 + 62)
             val face = when { selection and 33 == 33 -> "boldItalic"; selection and 32 != 0 -> "bold"; selection and 1 != 0 -> "italic"; else -> "regular" }
             val (name, size) = tables["name"] ?: invalid(RejectionReason.FONT_NEEDS_A_NAME_TABLE)
-            if (size < 6 || short(name) !in 0..1) invalid(RejectionReason.UNSUPPORTED_FONT_NAME_TABLE)
-            val names = short(name + 2); val strings = short(name + 4)
-            if (names > 4096 || 6L + names * 12L > size || strings < 6 + names * 12 || strings > size) invalid(RejectionReason.INVALID_FONT_NAME_RECORDS)
-            val families = mutableSetOf<String>()
-            repeat(names) { index ->
-                val record = name + 6 + index * 12
-                val platform = short(record); val encoding = short(record + 2); val id = short(record + 6)
-                val length = short(record + 8); val offset = short(record + 10)
-                if (strings.toLong() + offset + length > size) invalid(RejectionReason.FONT_NAME_EXCEEDS_ITS_TABLE)
-                if (id in setOf(1, 16) && (platform == 0 || platform == 3 && encoding in setOf(0, 1, 10))) {
-                    if (length == 0 || length % 2 != 0 || length > 256) invalid(RejectionReason.INVALID_FONT_FAMILY_NAME)
-                    val family = String(bytes, name + strings + offset, length, StandardCharsets.UTF_16BE)
-                    if (family.isBlank() || family.any { it.isISOControl() || it == '\uFFFD' }) invalid(RejectionReason.INVALID_FONT_FAMILY_NAME)
-                    families.add(family)
-                }
-            }
-            if (families.isEmpty()) invalid(RejectionReason.FONT_NEEDS_A_UNICODE_FAMILY_NAME)
+            val families = OpenTypeFontNames.families(bytes.copyOfRange(name, name + size))
             return PdfFontMetadata(families, face, permissions, version)
         }
 
         private fun invalid(reason: RejectionReason): Nothing = PdfFailure.fail(DiagnosticCodes.INVALID_REQUEST, reason)
+
     }
 }

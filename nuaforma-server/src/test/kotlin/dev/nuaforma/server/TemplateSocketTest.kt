@@ -172,9 +172,19 @@ class TemplateSocketTest {
                         assertEquals(422, valid.statusCode())
                         assertTrue(valid.body().decodeToString().contains("TEMPLATE_DIAGNOSTIC_REQUIRES_PARSER_ERROR"))
                         val interrupted = send("{broken</w:t><w:br/><w:t>}", "/api/v1/diagnostics/template")
-                        assertEquals(422, interrupted.statusCode())
-                        assertTrue(interrupted.body().decodeToString().contains("NATIVE_DOCX_PROFILE_UNSUPPORTED"))
-                        assertFalse(interrupted.headers().firstValue("Content-Type").orElse("").contains("application/pdf"))
+                        assertEquals(200, interrupted.statusCode(), if (interrupted.statusCode() == 200) "" else interrupted.body().decodeToString())
+                        assertEquals("template-error", interrupted.headers().firstValue("NuaForma-Diagnostic-Artifact").orElseThrow())
+                        assertEquals("no-store", interrupted.headers().firstValue("Cache-Control").orElseThrow())
+                        Loader.loadPDF(interrupted.body()).use { pdf ->
+                            val text = PDFTextStripper().getText(pdf)
+                            assertTrue(text.contains("[ERROR 1]"), text)
+                            assertTrue(text.contains("broken"), text)
+                            assertTrue(text.contains("UNCLOSED_TEMPLATE_MARKER"), text)
+                        }
+                        val pageBreak = send("{broken</w:t><w:br w:type=\"page\"/><w:t>}", "/api/v1/diagnostics/template")
+                        assertEquals(422, pageBreak.statusCode())
+                        assertTrue(pageBreak.body().decodeToString().contains("NATIVE_DOCX_PROFILE_UNSUPPORTED"))
+                        assertFalse(pageBreak.headers().firstValue("Content-Type").orElse("").contains("application/pdf"))
                     } else {
                         assertEquals(404, marked.statusCode())
                         assertFalse(marked.body().decodeToString().contains("{broken"))
