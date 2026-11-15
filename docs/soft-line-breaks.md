@@ -1,6 +1,6 @@
 # Soft line breaks
 
-Current source adds `PdfLineBreak(style)` to the existing shared PDF artifact. A control starts another physical line inside the same paragraph: it does not restart numbering, introduce paragraph spacing or create another heading. Leading, consecutive and trailing controls retain their empty lines. DOCX maps ordinary `w:br` with omitted/default `textWrapping` and `none` policies, plus attribute-free `w:cr`. Column breaks, inline page breaks and floating-object clear policies remain explicit source rejections.
+Selected 0.5.0-alpha.4 adds `PdfLineBreak(style)` to the existing shared PDF artifact. A control starts another physical line inside the same paragraph: it does not restart numbering, introduce paragraph spacing or create another heading. Leading, consecutive and trailing controls retain their empty lines. DOCX maps ordinary `w:br` with omitted/default `textWrapping` and `none` policies, plus attribute-free `w:cr`. Column breaks, inline page breaks and floating-object clear policies remain explicit source rejections.
 
 The source adapter validates original control attributes, namespaces and contents before Word binding, and the native reader checks them again. Invalid enum values cannot disappear into defaults during serialization. Qualified cleanup retains supported controls and original template bytes without evaluating expressions.
 

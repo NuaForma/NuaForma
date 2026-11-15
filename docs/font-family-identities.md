@@ -1,6 +1,6 @@
 # Font family and face identity
 
-Unreleased source work qualifies font-family aliases consistently for DOCX and native PDF. A font's extended typographic name can cover designs such as Light, Display or Condensed. These designs retain their precise legacy family names when their legacy and typographic subfamily records identify different groups. Ordinary regular, bold, italic and bold-italic style linking remains supported.
+Selected 0.5.0-alpha.4 qualifies font-family aliases consistently for DOCX and native PDF. A font's extended typographic name can cover designs such as Light, Display or Condensed. These designs retain their precise legacy family names when their legacy and typographic subfamily records identify different groups. Ordinary regular, bold, italic and bold-italic style linking remains supported.
 
 The [OpenType naming specification](https://learn.microsoft.com/en-us/typography/opentype/spec/name) distinguishes the four-style family/subfamily fields from the broader typographic fields. The shared parser pairs subfamily records within the same platform, encoding and language before comparing them. Case and whitespace differences alone do not create a different group. Legacy-only, typographic-only and unpaired records retain their existing behavior.
 
