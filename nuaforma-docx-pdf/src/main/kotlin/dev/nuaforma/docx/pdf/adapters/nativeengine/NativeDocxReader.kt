@@ -940,9 +940,10 @@ internal class NativeDocxReader(
                     val blocks = cell.elements().filter { it.name.localPart != "tcPr" }.map { child ->
                         when (child.name.localPart) {
                             "p" -> readParagraph(child, partRelations, fields, cellStyles).let { paragraph ->
+                                val resolved = paragraph.withLongWordBreaking(depth == 0 && !fields && !automaticLayout)
                                 if (depth == 0 && !fields && span == 1 && cp.one("vMerge") == null)
-                                    paragraph.copy(format = paragraph.format.copy(keepLines = false, widowControl = false))
-                                else paragraph
+                                    resolved.copy(format = resolved.format.copy(keepLines = false, widowControl = false))
+                                else resolved
                             }
                             "tbl" -> readTable(child, partRelations, fields, depth + 1)
                             else -> reject("Unsupported cell block")

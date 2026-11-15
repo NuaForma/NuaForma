@@ -308,7 +308,8 @@ class PdfParagraph private constructor(
     private class Decoration(val borders: PdfParagraphBorders?, val lines: List<PdfLineDrawing>,
         val spacing: PdfParagraphSpacing = PdfParagraphSpacing(), val pageOffset: PdfParagraphPageOffset? = null,
         val minimumLineStyle: PdfTextStyle? = null, val minimumLineHeight: Float? = null,
-        val underlineTrailingSpaces: Boolean? = null, val paragraphMarkStyle: PdfTextStyle? = null)
+        val underlineTrailingSpaces: Boolean? = null, val paragraphMarkStyle: PdfTextStyle? = null,
+        val breakLongWords: Boolean = false)
     /** Original constructors and Kotlin default-argument bridge remain binary compatible. */
     @JvmOverloads constructor(runs: List<PdfInline>, spaceBefore: Float = 0f, spaceAfter: Float = 8f,
         format: PdfParagraphFormat = PdfParagraphFormat(), listLabel: PdfListLabel? = null,
@@ -328,21 +329,27 @@ class PdfParagraph private constructor(
     val minimumLineHeight: Float? = decoration.minimumLineHeight
     val underlineTrailingSpaces: Boolean? = decoration.underlineTrailingSpaces
     val paragraphMarkStyle: PdfTextStyle? = decoration.paragraphMarkStyle
+    val breakLongWords: Boolean = decoration.breakLongWords
+
+    /** Break an oversized unshaped word at grapheme boundaries after ordinary wrapping. */
+    fun withLongWordBreaking(enabled: Boolean): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
+        format, listLabel, anchoredImages, semantics, contents,
+        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces, paragraphMarkStyle, enabled))
 
     /** Font metrics for an implicit empty final line following a line break. */
     fun withParagraphMarkStyle(style: PdfTextStyle?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
         format, listLabel, anchoredImages, semantics, contents,
-        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces, style))
+        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces, style, breakLongWords))
 
     /** Explicit trailing-space decoration; null preserves the original paragraph behavior. */
     fun withUnderlineTrailingSpaces(enabled: Boolean?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
         format, listLabel, anchoredImages, semantics, contents,
-        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, enabled, paragraphMarkStyle))
+        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, enabled, paragraphMarkStyle, breakLongWords))
 
     /** Minimum natural line height in points; null retains the original line-spacing policy. */
     fun withMinimumLineHeight(points: Float?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
         format, listLabel, anchoredImages, semantics, contents,
-        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, points, underlineTrailingSpaces, paragraphMarkStyle))
+        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, points, underlineTrailingSpaces, paragraphMarkStyle, breakLongWords))
 
     /** Additive immutable policy; existing public constructors retain their binary descriptors. */
     fun withSpacing(spacing: PdfParagraphSpacing): PdfParagraph = copy(spacing = spacing)
@@ -351,7 +358,7 @@ class PdfParagraph private constructor(
 
     /** Nonprinting font metrics can establish a minimum automatic line box without styling the text. */
     fun withMinimumLineStyle(style: PdfTextStyle?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
-        format, listLabel, anchoredImages, semantics, contents, Decoration(borders, lines, spacing, pageOffset, style, minimumLineHeight, underlineTrailingSpaces, paragraphMarkStyle))
+        format, listLabel, anchoredImages, semantics, contents, Decoration(borders, lines, spacing, pageOffset, style, minimumLineHeight, underlineTrailingSpaces, paragraphMarkStyle, breakLongWords))
 
     fun copy(runs: List<PdfInline> = this.runs, spaceBefore: Float = this.spaceBefore, spaceAfter: Float = this.spaceAfter,
         format: PdfParagraphFormat = this.format, listLabel: PdfListLabel? = this.listLabel,
@@ -359,7 +366,7 @@ class PdfParagraph private constructor(
         contents: PdfContents? = this.contents, borders: PdfParagraphBorders? = this.borders, lines: List<PdfLineDrawing> = this.lines,
         spacing: PdfParagraphSpacing = this.spacing, pageOffset: PdfParagraphPageOffset? = this.pageOffset,
     ): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter, format, listLabel, anchoredImages,
-        semantics, contents, Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces, paragraphMarkStyle))
+        semantics, contents, Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces, paragraphMarkStyle, breakLongWords))
 
     val runs: List<PdfInline> = Collections.unmodifiableList(ArrayList(runs))
     val anchoredImages: List<PdfAnchoredImage> = Collections.unmodifiableList(ArrayList(anchoredImages))

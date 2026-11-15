@@ -253,6 +253,33 @@ internal object PageLayouter {
                         }
                         val wordWidth = word.sumOf { it.metrics.width.toDouble() }.toFloat()
                         val spaceWidth = spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
+                        if (block.breakLongWords && wordWidth > availableWidth() + .001f) {
+                            if (format.textDirection != null || word.any { it.style == null || it.text.isEmpty() })
+                                throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Long-word breaking with bidi or inline objects is not qualified")
+                            if (line.isNotEmpty()) {
+                                flush(justify = true)
+                                spaces.clear()
+                            }
+                            val leadingWidth = spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
+                            if (leadingWidth >= availableWidth())
+                                overflow("Word and leading spaces exceed line width", leadingWidth + wordWidth, availableWidth())
+                            line += spaces
+                            lineWidth += leadingWidth
+                            spaces.clear()
+                            val breaks = LongWordBreaks(word.map { it.text to requireNotNull(it.style) }, measurer)
+                            while (breaks.hasMore) {
+                                checkCancellation()
+                                val parts = breaks.next(availableWidth() - lineWidth).map { slice ->
+                                    val original = word[slice.run]
+                                    original.copy(text = original.text.substring(slice.from, slice.until), metrics = slice.metrics,
+                                        sourceStart = original.sourceStart + slice.from)
+                                }
+                                line += parts
+                                lineWidth += parts.sumOf { it.metrics.width.toDouble() }.toFloat()
+                                if (breaks.hasMore) flush(justify = true)
+                            }
+                            continue
+                        }
                         if (lineWidth + spaceWidth + wordWidth > availableWidth() + .001f) {
                             if (line.isEmpty()) overflow("Word and leading spaces exceed line width", spaceWidth + wordWidth, availableWidth())
                             flush(justify = true)

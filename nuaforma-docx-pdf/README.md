@@ -187,3 +187,5 @@ Unreleased source work additionally qualifies [note separator metadata](../docs/
 Unreleased source work also qualifies [case-insensitive Word sequence counters](../docs/word-fields-and-bookmarks.md#sequence-counter-identity) and [ordinary body-cell paragraph pagination defaults](../docs/word-cell-pagination-defaults.md), with retained original template bytes and strict source validation.
 
 Unreleased [wide fixed-table qualification](../docs/wide-fixed-tables.md) retains explicit body grids extending into the right margin while preserving physical page, nested-cell and page-band bounds.
+
+Unreleased [long-word wrapping](../docs/long-word-breaking.md) preserves fixed body-table columns while breaking oversized unshaped words at grapheme boundaries. Automatic widths, nested cells and page bands retain their existing policies.
