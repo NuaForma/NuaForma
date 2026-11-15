@@ -23,10 +23,11 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
     init {
         require(maxPages in 1..32 && this.pageSequences.size <= maxPages) { "Invalid document page budget" }
         require(this.pageSequences.sumOf { it.blocks.size } <= 1_000) { "Document block budget exceeded" }
-        require(allParagraphs().sumOf { it.runs.sumOf { run -> when (run) { is PdfTextRun -> run.text.length.toLong(); is PdfPageNumber -> 4L; is PdfPageField -> 2L; else -> 0L } } + (it.listLabel?.value?.text?.length ?: 0) } <= 100_000) {
+        require(allParagraphs().sumOf { it.runs.sumOf { run -> when (run) { is PdfTextRun -> run.text.length.toLong(); is PdfLineBreak -> 1L; is PdfPageNumber -> 4L; is PdfPageField -> 2L; else -> 0L } } + (it.listLabel?.value?.text?.length ?: 0) } <= 100_000) {
             "Document text exceeds the foundation limit"
         }
         require(allParagraphs().sumOf { it.runs.count { run -> run is PdfTab } } <= 2_000) { "Tab control budget exceeded" }
+        require(allParagraphs().sumOf { it.runs.count { run -> run is PdfLineBreak } } <= 2_000) { "Line break control budget exceeded" }
         require(this.referenceTargets.size <= 1_000 && this.referenceTargets.map { it.name }.distinct().size == this.referenceTargets.size) { "Duplicate or excessive reference targets" }
         require(this.referenceTargets.sumOf { it.runs.size } <= 10_000 && this.referenceTargets.sumOf { it.runs.filterIsInstance<PdfTextRun>().sumOf { run -> run.text.length.toLong() } } <= 100_000) { "Reference-range budget exceeded" }
         require(this.notes.size <= 500 && this.notes.map { it.id }.distinct().size == this.notes.size) { "Duplicate or excessive notes" }
@@ -307,7 +308,7 @@ class PdfParagraph private constructor(
     private class Decoration(val borders: PdfParagraphBorders?, val lines: List<PdfLineDrawing>,
         val spacing: PdfParagraphSpacing = PdfParagraphSpacing(), val pageOffset: PdfParagraphPageOffset? = null,
         val minimumLineStyle: PdfTextStyle? = null, val minimumLineHeight: Float? = null,
-        val underlineTrailingSpaces: Boolean? = null)
+        val underlineTrailingSpaces: Boolean? = null, val paragraphMarkStyle: PdfTextStyle? = null)
     /** Original constructors and Kotlin default-argument bridge remain binary compatible. */
     @JvmOverloads constructor(runs: List<PdfInline>, spaceBefore: Float = 0f, spaceAfter: Float = 8f,
         format: PdfParagraphFormat = PdfParagraphFormat(), listLabel: PdfListLabel? = null,
@@ -326,16 +327,22 @@ class PdfParagraph private constructor(
     val minimumLineStyle: PdfTextStyle? = decoration.minimumLineStyle
     val minimumLineHeight: Float? = decoration.minimumLineHeight
     val underlineTrailingSpaces: Boolean? = decoration.underlineTrailingSpaces
+    val paragraphMarkStyle: PdfTextStyle? = decoration.paragraphMarkStyle
+
+    /** Font metrics for an implicit empty final line following a line break. */
+    fun withParagraphMarkStyle(style: PdfTextStyle?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
+        format, listLabel, anchoredImages, semantics, contents,
+        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces, style))
 
     /** Explicit trailing-space decoration; null preserves the original paragraph behavior. */
     fun withUnderlineTrailingSpaces(enabled: Boolean?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
         format, listLabel, anchoredImages, semantics, contents,
-        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, enabled))
+        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, enabled, paragraphMarkStyle))
 
     /** Minimum natural line height in points; null retains the original line-spacing policy. */
     fun withMinimumLineHeight(points: Float?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
         format, listLabel, anchoredImages, semantics, contents,
-        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, points, underlineTrailingSpaces))
+        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, points, underlineTrailingSpaces, paragraphMarkStyle))
 
     /** Additive immutable policy; existing public constructors retain their binary descriptors. */
     fun withSpacing(spacing: PdfParagraphSpacing): PdfParagraph = copy(spacing = spacing)
@@ -344,7 +351,7 @@ class PdfParagraph private constructor(
 
     /** Nonprinting font metrics can establish a minimum automatic line box without styling the text. */
     fun withMinimumLineStyle(style: PdfTextStyle?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
-        format, listLabel, anchoredImages, semantics, contents, Decoration(borders, lines, spacing, pageOffset, style, minimumLineHeight, underlineTrailingSpaces))
+        format, listLabel, anchoredImages, semantics, contents, Decoration(borders, lines, spacing, pageOffset, style, minimumLineHeight, underlineTrailingSpaces, paragraphMarkStyle))
 
     fun copy(runs: List<PdfInline> = this.runs, spaceBefore: Float = this.spaceBefore, spaceAfter: Float = this.spaceAfter,
         format: PdfParagraphFormat = this.format, listLabel: PdfListLabel? = this.listLabel,
@@ -352,7 +359,7 @@ class PdfParagraph private constructor(
         contents: PdfContents? = this.contents, borders: PdfParagraphBorders? = this.borders, lines: List<PdfLineDrawing> = this.lines,
         spacing: PdfParagraphSpacing = this.spacing, pageOffset: PdfParagraphPageOffset? = this.pageOffset,
     ): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter, format, listLabel, anchoredImages,
-        semantics, contents, Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces))
+        semantics, contents, Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces, paragraphMarkStyle))
 
     val runs: List<PdfInline> = Collections.unmodifiableList(ArrayList(runs))
     val anchoredImages: List<PdfAnchoredImage> = Collections.unmodifiableList(ArrayList(anchoredImages))

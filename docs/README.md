@@ -1,5 +1,7 @@
 # NuaForma documentation
 
+- [Soft line breaks](soft-line-breaks.md): typed inline controls, explicit paragraph-mark metrics and Word-backed body/table/band/pagination tests.
+
 - [Exact-leading text and physical page bounds](exact-leading-ink.md): virtual measurement, final ink checks and Word-backed A4/Letter controls (source #295).
 
 - [Word print preferences and contained nested tables](word-print-preferences-and-contained-tables.md): numbering display names, image save-DPI, theme locks, zero-gutter positioning, bounded nested indentation and legacy percentage-table right margins (#283–#287, #279 follow-up; locally qualified, unreleased).

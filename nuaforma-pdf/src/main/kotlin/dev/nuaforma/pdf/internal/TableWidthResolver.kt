@@ -20,10 +20,9 @@ internal object TableWidthResolver {
                     val format = paragraph.format
                     if (paragraph.listLabel != null || format.leftIndent != 0f || format.rightIndent != 0f ||
                         format.firstLineIndent != 0f || format.tabs != null || format.textDirection == PdfTextDirection.RIGHT_TO_LEFT) unsupported()
-                    val text = paragraph.runs.map { it as? PdfTextRun ?: unsupported() }
-                    val value = text.joinToString("") { it.text }
-                    if (value != value.trim() || value.any { it.isISOControl() }) unsupported()
-                    val width = PageLayouter.unwrappedTextWidth(text, measurer)
+                    val value = paragraph.runs.joinToString("") { when (it) { is PdfTextRun -> it.text; is PdfLineBreak -> "\n"; else -> unsupported() } }
+                    if (value.split('\n').any { it != it.trim() || it.any { character -> character.isISOControl() } }) unsupported()
+                    val width = PageLayouter.unwrappedTextWidth(paragraph.runs, measurer)
                     if (!width.isFinite() || width < 0f) throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, "Invalid natural table width")
                     widths[column] = maxOf(widths[column], width)
                     content = maxOf(content, width)

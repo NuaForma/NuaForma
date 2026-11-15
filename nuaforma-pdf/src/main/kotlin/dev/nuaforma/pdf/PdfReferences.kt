@@ -36,7 +36,7 @@ class PdfReferenceTarget(val name: String, runs: List<PdfInline>) {
     val runs: List<PdfInline> = Collections.unmodifiableList(ArrayList(runs))
     init {
         requireSemanticId(name)
-        require(this.runs.size in 1..1_000 && this.runs.all { it is PdfTextRun || it is PdfReferenceField || it is PdfSequenceField || it is PdfTab }) { "Invalid text reference range" }
+        require(this.runs.size in 1..1_000 && this.runs.all { it is PdfTextRun || it is PdfReferenceField || it is PdfSequenceField || it is PdfTab || it is PdfLineBreak }) { "Invalid text reference range" }
     }
 }
 

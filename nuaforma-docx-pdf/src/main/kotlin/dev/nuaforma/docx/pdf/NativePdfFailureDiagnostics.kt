@@ -54,6 +54,7 @@ internal object NativePdfFailureDiagnostics {
 
     // Add only fixed application-owned explanations. Unknown/new reasons retain their code, never raw text.
     private val explanations = setOf(
+        "Line breaks in text reference ranges are not qualified",
         "Text ink bounds are not finite",
         "A navigation target requires visible text",
         "A note label requires a definition",

@@ -1,0 +1,20 @@
+{
+  "feature": "Soft line breaks and explicit paragraph-mark metrics",
+  "qualification": "Initial controls:31 actual HTTP conversions on A4/Letter, representative standard/PDF-A-1b/2b/3b. Twenty-five non-RTL outputs matched Word text/pages and164 anchors, maxdx0.145/maxdy0.141pt. Hebrew soft-break/paragraph controls are independently pixel-identical in Word and native output, retaining Word text/baselines; the existing absolute glyph-origin X difference up to0.264pt remains separate. Twenty malformed/unsupported HTTP requests rejected with source details and no PDF. The combined normal build passes 1833 JVM tests with no failures, errors or skips. No existing golden replaced.",
+  "sha256": {
+    "page-1.png": "c11bb8130ab2f80b82df7560ad311b27bef82cc43ef81a24db0a546969890d91",
+    "source.docx": "eacb709084646868c271b884e1592d0a72dd6c90ee3ce5dd8dddee2490824bd9",
+    "word-reference.pdf": "3fc6fde70950b71dab3d59943169b82fd6c37dabd331ea403d804c2771b53676",
+    "word-reference.pdf.provenance.json": "a39815c644d88ecff6b6856f6c8398466ee1bcd29045f2c3e52f20aced2c9021"
+  },
+  "pages": 1,
+  "dpi": 96,
+  "protectedGoldensReplaced": 0,
+  "normalFullBuild": {
+    "tests": 1833,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sourceQualificationDate": "2026-11-15"
+  }
+}
