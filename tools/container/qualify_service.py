@@ -16,7 +16,7 @@ import zlib
 from verify_isolation_config import verify as verify_isolation
 
 
-def template(paragraphs=1, text="Hello {name}", line_twips=320):
+def template(paragraphs=1, text="Hello {name}", line_twips=320, page_top_twips=1134):
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("[Content_Types].xml", '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>')
@@ -24,7 +24,7 @@ def template(paragraphs=1, text="Hello {name}", line_twips=320):
         archive.writestr("word/_rels/document.xml.rels", '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="styles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>')
         archive.writestr("word/styles.xml", '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Liberation Serif" w:hAnsi="Liberation Serif"/><w:sz w:val="22"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:before="0" w:after="0" w:line="' + str(line_twips) + '" w:lineRule="exact"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>')
         archive.writestr("word/document.xml", '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>' +
-                         ('<w:p><w:r><w:t>' + text + '</w:t></w:r></w:p>') * paragraphs + '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>')
+                         ('<w:p><w:r><w:t>' + text + '</w:t></w:r></w:p>') * paragraphs + '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="' + str(page_top_twips) + '" w:right="1134" w:bottom="1134" w:left="1134" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>')
     return output.getvalue()
 
 
@@ -84,6 +84,27 @@ def verify_pdf_profile(runtime, source, profile):
     validate(runtime, source, 'validate', version)
     if profile != 'standard':
         validate(runtime, source, 'validate-' + profile, version)
+
+
+def qualify_exact_leading(base, output, runtime):
+    tight_source = template(paragraphs=2, line_twips=264)
+    status, _, body = generate(base, "docx", tight_source, {"name": "TIGHT-LINE"})
+    assert status == 200, (status, body[:2048])
+    with zipfile.ZipFile(io.BytesIO(body)) as archive:
+        assert b'w:line="264"' in archive.read("word/styles.xml")
+        assert archive.read("word/document.xml").count(b"TIGHT-LINE") == 2
+    status, headers, body = generate(base, "pdf", tight_source, {"name": "TIGHT-LINE"})
+    assert status == 200 and "application/pdf" in headers["Content-Type"] and body.startswith(b"%PDF-"), (status, body[:2048])
+    target = output / "tight-line.pdf"
+    target.write_bytes(body)
+    verify_pdf_profile(runtime, target, "pdfa-3b")
+    physical_source = template(line_twips=20, page_top_twips=0)
+    assert generate(base, "docx", physical_source, {"name": "PHYSICAL-TOP"})[0] == 200
+    status, _, body = generate(base, "pdf", physical_source, {"name": "PHYSICAL-TOP"})
+    assert status == 422 and not body.startswith(b"%PDF-"), (status, body[:2048])
+    diagnostic = json.loads(body)["diagnostics"][0]
+    assert diagnostic["code"] == "UNSUPPORTED_INPUT" and diagnostic["reason"] == "NATIVE_PDF_RENDER_REJECTED", diagnostic
+    runtime.clean()
 
 
 class Runtime:
@@ -225,10 +246,8 @@ def main():
                     verify_pdf_profile(runtime, file, profile)
                 runtime.clean()
         checks.append("dynamic-native-watermarks/all-supported-profiles/opaque-and-transparent/one-b-always-rejects")
-        tight_source = template(line_twips=264)
-        assert generate(base, "docx", tight_source, {"name": "TIGHT-LINE"})[0] == 200
-        assert generate(base, "pdf", tight_source, {"name": "TIGHT-LINE"})[0] == 422
-        checks.append("tight-line-explicit-rejection/no-silent-style-enlargement")
+        qualify_exact_leading(base, args.output, runtime)
+        checks.append("qualified-exact-leading/preserved-source-spacing/physical-page-overflow-rejection")
         assert generate(base, "pdf", template(), {}, {"profile": "pdfa-1b", "version": "1.7"})[0] == 422
         assert generate(base, "pdf", template(), {}, {"profile": "pdfa-3a"})[0] == 422
         runtime.clean()
