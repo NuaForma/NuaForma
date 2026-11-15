@@ -98,13 +98,22 @@ def qualify_exact_leading(base, output, runtime):
     target = output / "tight-line.pdf"
     target.write_bytes(body)
     verify_pdf_profile(runtime, target, "pdfa-3b")
+    qualify_physical_top_boundary(base, runtime)
+    runtime.clean()
+
+
+def qualify_physical_top_boundary(base, runtime):
     physical_source = template(line_twips=20, page_top_twips=0)
     assert generate(base, "docx", physical_source, {"name": "PHYSICAL-TOP"})[0] == 200
-    status, _, body = generate(base, "pdf", physical_source, {"name": "PHYSICAL-TOP"})
+    status, headers, body = generate(base, "pdf", physical_source, {"name": "PHYSICAL-TOP"})
     assert status == 422 and not body.startswith(b"%PDF-"), (status, body[:2048])
     diagnostic = json.loads(body)["diagnostics"][0]
-    assert diagnostic["code"] == "UNSUPPORTED_INPUT" and diagnostic["reason"] == "NATIVE_PDF_RENDER_REJECTED", diagnostic
-    runtime.clean()
+    assert diagnostic["code"] == "UNSUPPORTED_INPUT" and set(diagnostic) == {"code", "severity", "message"}, diagnostic
+    identity = request_id(headers)
+    logs = runtime.command("logs", runtime.name)
+    rejected = [line for line in logs.splitlines() if "event=GENERATION_REJECTED" in line and "requestId=" + identity in line]
+    assert any('code="UNSUPPORTED_INPUT"' in line and 'reason="NATIVE_PDF_RENDER_REJECTED"' in line for line in rejected), rejected
+    assert "PHYSICAL-TOP" not in logs
 
 
 class Runtime:
