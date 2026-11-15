@@ -51,7 +51,8 @@ class RenderDiagnosticsHttpTest {
             application { KtorServer(registry, ServerConfiguration(ServerConfiguration(temporaryDirectory = temporary), mode), events::add).installRoutes(this) }
             val cases = listOf(
                 Triple(source("Visible text", "<w:pPr><w:ind w:left=\"12000\"/></w:pPr>"), "CONTENT_OVERFLOW", "Paragraph indentation exceeds the physical page"),
-                Triple(source("Visible text \uE000", ""), "MISSING_GLYPH", "The supplied font cannot encode requested text"))
+                Triple(source("Visible text \uE000", ""), "MISSING_GLYPH", "The supplied font cannot encode requested text"),
+                Triple(source("W".repeat(200), ""), "CONTENT_OVERFLOW", "Word and leading spaces exceed line width"))
             for ((source, failure, explanation) in cases) {
                 val request = """{"input":{"format":"docx"},"output":{"format":"pdf","options":{"profile":"pdfa-3b"}}}"""
                 val body = ByteArrayOutputStream()
@@ -69,12 +70,17 @@ class RenderDiagnosticsHttpTest {
                 assertEquals("UNSUPPORTED_INPUT", diagnostic.path("code").asText())
                 if (mode == LoggingMode.DEVELOPMENT) {
                     assertEquals("NATIVE_PDF_RENDER_REJECTED", diagnostic.path("reason").asText())
-                    assertEquals("$failure: $explanation", diagnostic.path("sourceExplanation").asText())
+                    val detail = diagnostic.path("sourceExplanation").asText()
+                    if (explanation.startsWith("Word and leading")) {
+                        val measurements = Regex("CONTENT_OVERFLOW: $explanation; required=([0-9.]+) pt; available=([0-9.]+) pt").matchEntire(detail)
+                        assertNotNull(measurements, detail)
+                        assertTrue(measurements!!.groupValues[1].toFloat() > measurements.groupValues[2].toFloat())
+                    } else assertEquals("$failure: $explanation", detail)
                     assertFalse(diagnostic.has("sourceConstruct"))
                     assertFalse(diagnostic.has("sourcePath"))
                     assertFalse(diagnostic.has("documentLocation"))
                     assertTrue(events.any { it.requestId == requestId && it.code == "DOCUMENT_SOURCE_DETAIL" &&
-                        it.text.contains(failure) && it.text.contains(explanation) })
+                        it.text.contains(detail) })
                 } else {
                     assertFalse(diagnostic.has("sourceExplanation"))
                     assertFalse(response.bodyAsText().contains(explanation))

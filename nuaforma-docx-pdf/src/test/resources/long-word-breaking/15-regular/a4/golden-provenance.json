@@ -1,0 +1,27 @@
+{
+  "feature": "Emergency word wrapping in fixed body-table cells",
+  "qualification": "Fifteen actual HTTP PDFs qualify standard PDF/PDF-A-1b/2b/3b. Twelve exact-source Word comparisons cover1296 visible glyphs within the unchanged0.21pt gate. Twelve actual Playground cleanup/download/reuse PDFs and three archival variants are pixel-identical at96dpi, no masks. Four actual HTTP indivisible-cluster rejections retain required/available measurements and publish no PDF. Initial golden image only; The normal combined build passes 1847 JVM tests with no failures, errors or skips.",
+  "sha256": {
+    "source.docx": "4ea5168d4668d402974a9216dd8a483bf3daec174d09640a1a65629f34165dd4",
+    "word-reference.pdf": "8de0c3d273bf57b10a0dba6adcc1d536e5b803b63cfbdd4afff9bc9dbcaf32ab",
+    "word-reference.pdf.provenance.json": "d92a265324da0f8cb3f653ec3244ed23d801ecdd794b962a1c196dee705ce1ef",
+    "page-1.png": "7709098366debe1c2c1628b74ed94b196386e31bc9ecc1d2c1e3274cf0485019"
+  },
+  "pages": 1,
+  "dpi": 96,
+  "protectedGoldensReplaced": 0,
+  "wordGeometry": {
+    "cases": 12,
+    "glyphs": 1296,
+    "maxDx": 0.20135498046875,
+    "maxDy": 0.20001220703125,
+    "maskCount": 0
+  },
+  "normalFullBuild": {
+    "tests": 1847,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sourceQualificationDate": "2026-11-15"
+  }
+}

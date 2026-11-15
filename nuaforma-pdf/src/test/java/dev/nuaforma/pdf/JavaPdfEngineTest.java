@@ -11,6 +11,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class JavaPdfEngineTest {
 
     @Test
+    void javaCallerCanDeclareSoftLinesAndRetainParagraphMarkStyle() {
+        var style = new PdfTextStyle("regular", 12);
+        var line = new PdfLineBreak(style);
+        var original = new PdfParagraph(List.of(new PdfTextRun("First", style), line, new PdfTextRun("Second", style)));
+        var marked = original.withParagraphMarkStyle(style);
+        org.junit.jupiter.api.Assertions.assertNull(original.getParagraphMarkStyle());
+        assertEquals(style, line.getStyle());
+        assertEquals(style, marked.withSpacing(new PdfParagraphSpacing()).getParagraphMarkStyle());
+        assertEquals(style, marked.withMinimumLineStyle(style).getParagraphMarkStyle());
+        org.junit.jupiter.api.Assertions.assertNull(marked.withParagraphMarkStyle(null).getParagraphMarkStyle());
+    }
+
+    @Test
     void javaCallerRetainsExistingTableConstructorsAndOptsIntoRightOverflow() {
         var cell = new PdfTableCell(List.of(new PdfParagraph(List.of(new PdfTextRun("Row", new PdfTextStyle("regular", 10))))));
         var rows = List.of(new PdfTableRow(List.of(cell)));

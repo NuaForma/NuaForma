@@ -1,5 +1,9 @@
 # NuaForma documentation
 
+- [Soft line breaks](soft-line-breaks.md): typed inline controls, explicit paragraph-mark metrics and Word-backed body/table/band/pagination tests.
+
+- [Exact-leading text and physical page bounds](exact-leading-ink.md): virtual measurement, final ink checks and Word-backed A4/Letter controls (source #295).
+
 - [Word print preferences and contained nested tables](word-print-preferences-and-contained-tables.md): numbering display names, image save-DPI, theme locks, zero-gutter positioning, bounded nested indentation and legacy percentage-table right margins (#283–#287, #279 follow-up; locally qualified, unreleased).
 - [Word table placement and numbering inheritance](word-table-and-numbering-inheritance.md): signed physical indentation, previous grids, definition links and inherited numbering levels (#279–#282).
 - [Word print-source metadata and numeric spellings](word-review-and-numeric-spellings.md): qualified review/view/preview metadata, horizontal defaults and integer binding (#273–#278).
@@ -19,7 +23,7 @@ Choose a guide for the task you want to complete. Module guides are the technica
 - [Template language](../nuaforma-template/README.md): placeholders, null/missing values, conditions, nested repetitions, formatting and pipes.
 - [Word templates](../nuaforma-docx/README.md): paragraph/table rules, text boxes, images, fonts and watermarks.
 - [Rich text](rich-text.md): explicit bounded RTF insertion, independent boundary trims, inline placement and font policies (selected for alpha.5).
-- [Checkbox content](checkbox-content.md): boolean expressions and font-independent inline vector marks (selected for 0.5.0-alpha.3).
+- [Checkbox content](checkbox-content.md): boolean expressions and font-independent inline vector marks (selected for 0.5.0-alpha.4).
 - [PDF output](../nuaforma-docx-pdf/README.md): standard/PDF-A profiles, font requirements, isolation and fidelity limits.
 - [Native JPEG pictures and label metadata (source #226)](native-picture-compatibility.md): bounded image decoding, package validation and Playground impact.
 - [Word editor/web settings](word-editor-settings.md): qualified shape identifiers, HTML-export preferences and passive privacy/drawing-grid settings that preserve print layout (source #227 / #229 / #230).
@@ -74,7 +78,7 @@ Unreleased #234 qualifies [Word-compatible synthetic bold](word-synthetic-bold.m
 
 Unreleased #233 qualifies [passive Office package resources](word-passive-office-package.md), with strict graph checks and unchanged caller-font requirements.
 
-This checkout uses the native DOCX reader and shared `nuaforma-pdf` renderer. Libraries target Java 17; server/Playground use Java 25, with separate Java 17 PDF validators. This guide targets the native engine selected for `0.5.0-alpha.3`. Consult the actual signed release and matching Maven/container artifacts for published availability; older LibreOffice-based images do not gain this implementation automatically. Source builds and checks do not themselves publish artifacts. Local evaluation can use staged libraries and the source container; publication retains its candidate-specific qualification and approval gates.
+This checkout uses the native DOCX reader and shared `nuaforma-pdf` renderer. Libraries target Java 17; server/Playground use Java 25, with separate Java 17 PDF validators. This guide targets the native engine selected for `0.5.0-alpha.4`. Consult the actual signed release and matching Maven/container artifacts for published availability; older LibreOffice-based images do not gain this implementation automatically. Source builds and checks do not themselves publish artifacts. Local evaluation can use staged libraries and the source container; publication retains its candidate-specific qualification and approval gates.
 
 Published 0.4.0-alpha.1 retains runtime contract `0.8`, accepting compatible provider minima `0.1` through `0.8`. Its DOCX/PDF providers require 0.8 for optional document inspection and source diagnostics; rich-text metadata and the PDF diagnostic facet remain available. Keep all NuaForma libraries aligned and review the [rich-text compatibility notes](rich-text.md#contracts-and-compatibility) when upgrading extensions. PDF generation defaults to PDF/A-3b. Only exact `NUAFORMA_PDFA_VALIDATION=false` delegates conformance checking downstream; structural/font checks and the container validation boundary remain mandatory. See the [current PDF guide](../nuaforma-docx-pdf/README.md).
 
@@ -148,4 +152,10 @@ Unreleased #254–#257 qualify original proofing preferences, printer-tray metad
 
 - [Word cell paragraph pagination](word-cell-pagination-defaults.md): ordinary body-cell keeps, first-row fragments, independent Word controls and retained limits (unreleased #296/#298).
 
-Selected 0.5.0-alpha.3 identifies concrete native render failures in the Playground and development logs without changing font selection, conversion support or public contracts. See the [release notes](../release-notes/0.5.0-alpha.3.md) and [candidate audit](release-0.5.0-alpha.3-audit.md); preparation does not itself publish artifacts.
+- [Wide fixed body tables](wide-fixed-tables.md): retain declared columns inside the physical page without widening nested cells or page bands.
+
+- [Long words in fixed cells](long-word-breaking.md): opt-in grapheme-safe wrapping with preserved columns, source offsets and measured overflow.
+
+Selected 0.5.0-alpha.4 adds styled soft breaks, physical ink bounds, fixed-table placement/wrapping and consistent precise font-family selection. See the [release notes](../release-notes/0.5.0-alpha.4.md) and [candidate audit](release-0.5.0-alpha.4-audit.md); preparation does not itself publish artifacts.
+
+- [Font family and face identity](font-family-identities.md): shared bounded OpenType naming and extended variant qualification (unreleased source).

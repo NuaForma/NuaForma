@@ -1,5 +1,9 @@
 # Shared PDF engine: alpha foundation
 
+Unreleased source adds opt-in `PdfParagraph.breakLongWords` / `withLongWordBreaking(enabled)` for oversized unshaped words. See [source semantics, bounds and Word controls](../docs/long-word-breaking.md).
+
+Current source adds `PdfLineBreak(style)` and immutable `PdfParagraph.paragraphMarkStyle` / `withParagraphMarkStyle(style)` in this same shared artifact. See [semantics, limits and Word controls](../docs/soft-line-breaks.md). Existing constructors/copy signatures are retained; exhaustive Kotlin `PdfInline` consumers must handle the added variant.
+
 Unreleased source #268–#271 adds optional physical cell margins, legal first-row fragments and qualified final-line tabs in justified paragraphs. See [the model, Word controls and retained limits](../docs/word-cell-margins-and-final-tabs.md).
 
 Source #266 adds immutable `PdfTextStyle.characterSpacing` / `withCharacterSpacing(points)`, default zero, for physical tracking in the shared renderer. See [scope, shaping bounds and independent Word qualification](../docs/character-spacing.md).

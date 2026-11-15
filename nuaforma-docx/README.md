@@ -287,3 +287,5 @@ The maintainer-approved additive `DocxImages.normalize(bytes)` / `DocxImages.nor
 ## Physical OOXML trash items
 
 Unreleased source work for #247 recognizes exactly named, untyped discarded ZIP items while preserving byte, entry, cancellation and integrity checks. They cannot become document relationship targets or template instructions. See [the qualification and serialization policy](../docs/word-package-trash.md).
+
+Selected 0.5.0-alpha.4 [font family identity qualification](../docs/font-family-identities.md) is shared by DOCX and native PDF. Extended Light, Display and similar designs retain their precise family names rather than impersonating their base family; ordinary four-face style linking remains supported.
