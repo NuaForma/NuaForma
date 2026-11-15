@@ -1,6 +1,6 @@
 # Exact-leading text and physical page bounds
 
-Source #295 separates virtual paragraph measurement from final physical-page ink checks. With exact line spacing, glyphs may legitimately extend above or below their logical line box; Word also permits adjacent lines to overlap. A virtual paragraph origin is not a physical page boundary.
+Selected 0.5.0-alpha.4 (#295) separates virtual paragraph measurement from final physical-page ink checks. With exact line spacing, glyphs may legitimately extend above or below their logical line box; Word also permits adjacent lines to overlap. A virtual paragraph origin is not a physical page boundary.
 
 The shared engine defers ink checks only while measuring text-only paragraphs with exact leading. It preserves logical line heights, pagination, cancellation and resource limits. After placement, marked text is checked against the final physical page using the printed glyph outlines, baseline shift, synthetic-bold strokes and decorations. Whole-font extrema are not the ink of every text fragment: an unrelated deep glyph must not reject an uppercase line that fits. Real top/bottom overflow rejects before publication and reports the actual required/available space in development diagnostics. Nonfinite ink bounds reject explicitly. Automatic line spacing, inline images/vectors, text-frame validation and the nonpaginated foundation checks retain their existing policies. No public API or dependency changes are required for this fix.
 

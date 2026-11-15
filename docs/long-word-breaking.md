@@ -1,6 +1,6 @@
 # Long words in fixed table cells
 
-Unreleased source work adds emergency wrapping for a word wider than a fixed body-table cell. The declared column grid and table width remain unchanged. Ordinary word wrapping takes priority; a word that still cannot fit starts on the next line and breaks at supported grapheme boundaries. No hyphen is inserted.
+Selected 0.5.0-alpha.4 adds emergency wrapping for a word wider than a fixed body-table cell. The declared column grid and table width remain unchanged. Ordinary word wrapping takes priority; a word that still cannot fit starts on the next line and breaks at supported grapheme boundaries. No hyphen is inserted.
 
 The shared model exposes `PdfParagraph.breakLongWords` and the immutable `withLongWordBreaking(enabled)` method. Existing constructors default to `false`; all paragraph copy methods retain the setting. The DOCX adapter enables it for top-level fixed body-table cells. Automatic width negotiation, nested cells and page bands retain their existing policies. The setting is source-neutral and can also be used by a future ODT adapter.
 

@@ -1,6 +1,6 @@
 # Fixed tables extending into the body margin
 
-Unreleased source qualification preserves a top-level body table's explicit fixed grid when it extends beyond the text area but remains inside the physical page. Word permits this placement. Narrowing the grid to the text area would alter column widths, wrapping and table layout.
+Selected 0.5.0-alpha.4 qualification preserves a top-level body table's explicit fixed grid when it extends beyond the text area but remains inside the physical page. Word permits this placement. Narrowing the grid to the text area would alter column widths, wrapping and table layout.
 
 The DOCX adapter uses the existing `PdfTable.rightOverflow` setting for the exact additional space required by the fixed grid and resolved indentation. The shared engine still enforces the physical page edge, including border strokes. No public API, dependency, resource limit or rendering fallback changes. Existing percentage-table behavior retains its separate qualified allowance.
 
