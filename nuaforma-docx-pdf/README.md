@@ -1,5 +1,7 @@
 # NuaForma DOCX/PDF provider
 
+Source #295 distinguishes virtual exact-leading measurements from final physical-page ink bounds. See [scope and Word controls](../docs/exact-leading-ink.md); this refinement is not in unchanged alpha.3 artifacts.
+
 Unreleased #283–#287 and the #279 follow-up qualify [print preferences and contained nested indentation](../docs/word-print-preferences-and-contained-tables.md), including the approved additive right-margin option in the shared model and no new dependencies.
 
 Unreleased source #279–#282 adds bounded signed table indentation, historical grids and Word-backed numbering inheritance. See [scope, restrictions and verification](../docs/word-table-and-numbering-inheritance.md).

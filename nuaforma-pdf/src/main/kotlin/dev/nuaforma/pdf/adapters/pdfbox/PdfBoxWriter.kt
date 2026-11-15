@@ -83,6 +83,12 @@ internal object PdfBoxWriter {
                     lineMetrics[style.fontId]?.get(2)?.times(style.size) ?: Float.NaN)
               }
 
+              override fun ink(text: String, style: PdfTextStyle): TextMetrics {
+                val font = fonts[style.fontId] ?: fail(PdfFailureCode.FONT_UNAVAILABLE, "Referenced font is not supplied")
+                val bounds = GlyphInkBounds.measure(font, shaper.inkShape(text, style), style, lineMetrics[style.fontId], control)
+                return measure(text, style).copy(ascent = bounds.first, descent = bounds.second)
+              }
+
               override fun gap(before: String, spaces: String, after: String, style: PdfTextStyle): TextMetrics {
                 val width = shaper.shape(before + spaces + after, style).advance - shaper.shape(before, style).advance - shaper.shape(after, style).advance
                 if (!width.isFinite() || width < 0) fail(PdfFailureCode.INVALID_RESOURCE, "Invalid contextual font spacing")

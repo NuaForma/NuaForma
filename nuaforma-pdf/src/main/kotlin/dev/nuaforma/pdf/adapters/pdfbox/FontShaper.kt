@@ -25,6 +25,12 @@ internal class FontShaper(resources: List<PdfFont>, private val fonts: Map<Strin
 
     fun enabled(fontId: String): Boolean = fontId in enabledFonts
 
+    /** Already-qualified bidi text follows the writer's direct encoding without optional shaping. */
+    fun inkShape(text: String, style: PdfTextStyle): Shape {
+        control.checkActive()
+        return if (style.fontFeatures.active) shape(text, style) else pairs(text, style)
+    }
+
     fun shape(text: String, style: PdfTextStyle): Shape {
         control.checkActive()
         PageLayouter.requireSupportedText(text)

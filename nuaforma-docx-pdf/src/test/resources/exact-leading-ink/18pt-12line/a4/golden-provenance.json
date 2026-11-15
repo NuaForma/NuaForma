@@ -1,0 +1,20 @@
+{
+  "issue": 295,
+  "qualification": "Initial synthetic controls, independently exported by Microsoft Word. Thirteen real HTTP conversions on A4/Letter and standard/PDF-A-1b/2b/3b matched Word text, pages and 39 anchors (maximum 0.10 pt difference). Representative exact-leading overlap was visually reviewed against Word. The combined normal build passes 1833 JVM tests with no failures, errors or skips. Existing golden images were not replaced.",
+  "sha256": {
+    "page-1.png": "5d73d510f1d2d66bb6ef7d7e3460805d3effd5a4b2ee3e739ef07c5d2c00eaeb",
+    "source.docx": "9229bc3757ef3c2f247a9fb12d6bee07ee6c11f9cf04bba77adfcf5512f3469c",
+    "word-reference.pdf": "0eaf4a0e9bb865fb3a07aa61ef53731bb0000a24457251b66a2b12556dabc7d5",
+    "word-reference.pdf.provenance.json": "bd885541ce14108cb07adf3fa0b1a860157ae6aa9d05996b7b11c875e55674b5"
+  },
+  "pages": 1,
+  "dpi": 96,
+  "protectedGoldensReplaced": 0,
+  "normalFullBuild": {
+    "tests": 1833,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sourceQualificationDate": "2026-11-15"
+  }
+}

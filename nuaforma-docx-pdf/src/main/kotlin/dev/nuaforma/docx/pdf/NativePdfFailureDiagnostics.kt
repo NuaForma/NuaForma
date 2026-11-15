@@ -25,6 +25,8 @@ internal object NativePdfFailureDiagnostics {
 
     // Only owned reasons plus numeric measurements cross the diagnostic boundary; no arbitrary text.
     private val overflowReasons = setOf(
+        "Text ascent exceeds physical page top",
+        "Text descent exceeds physical page bottom",
         "Image exceeds area width",
         "Image exceeds remaining area height",
         "Page break requires another layout area",
@@ -52,6 +54,7 @@ internal object NativePdfFailureDiagnostics {
 
     // Add only fixed application-owned explanations. Unknown/new reasons retain their code, never raw text.
     private val explanations = setOf(
+        "Text ink bounds are not finite",
         "A navigation target requires visible text",
         "A note label requires a definition",
         "A note label requires its definition",

@@ -7,6 +7,8 @@ internal fun interface TextMeasurer {
 
     fun measure(text: String, style: PdfTextStyle): TextMetrics
 
+    fun ink(text: String, style: PdfTextStyle): TextMetrics = measure(text, style)
+
     fun gap(before: String, spaces: String, after: String, style: PdfTextStyle): TextMetrics = measure(spaces, style)
 
 }
@@ -17,7 +19,7 @@ internal enum class StrokeLayer { FLOW, BACKGROUND, FOREGROUND }
 internal data class PositionedStroke(val x: Float, val top: Float, val endX: Float, val endY: Float, val stroke: PdfLineStroke,
     val pageX: Boolean = false, val pageY: Boolean = false, val layer: StrokeLayer = StrokeLayer.FLOW,
     val joinOwner: PdfParagraph? = null, val joinFollowing: PdfParagraph? = null, val pageOffset: PdfParagraphPageOffset? = null) : PositionedElement
-internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false, val navigation: PdfTextNavigation? = null, val logicalOwner: String? = null, val span: PdfSpanSemantics? = null, val logicalOffset: Int? = null, val pageOffset: PdfParagraphPageOffset? = null, val trailingDecorationWidth: Float? = null) : PositionedElement
+internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false, val navigation: PdfTextNavigation? = null, val logicalOwner: String? = null, val span: PdfSpanSemantics? = null, val logicalOffset: Int? = null, val pageOffset: PdfParagraphPageOffset? = null, val trailingDecorationWidth: Float? = null, val requiresPhysicalBounds: Boolean = false) : PositionedElement
 internal data class PositionedImage(val image: PdfImage, val x: Float, val top: Float, val foreground: Boolean = false, val pageOffset: PdfParagraphPageOffset? = null, val pageY: Boolean = false) : PositionedElement
 internal data class PositionedRectangle(val x: Float, val top: Float, val width: Float, val height: Float, val fill: PdfColor?, val border: PdfBorder?) : PositionedElement
 internal data class PositionedTableBorder(val x: Float, val top: Float, val length: Float, val horizontal: Boolean, val stroke: PdfEdgeStroke, val group: Any) : PositionedElement
@@ -134,11 +136,13 @@ internal object PageLayouter {
                         val height = automatic?.first ?: format.exactLineHeight ?: (ascent + descent) * 1.2f
                         if (top + height > bottom) overflow("Line box exceeds remaining area height", height, bottom - top)
                         val baseline = top + (automatic?.second ?: format.exactLineHeight?.times(0.8f) ?: ascent)
-                        if (baseline - ascent < page.margins.top - 0.01f) overflow("Line ascent exceeds space above baseline", ascent, baseline - page.margins.top)
-                        if (baseline + descent > bottom + 0.01f) overflow("Line descent exceeds space below baseline", descent, bottom - baseline)
+                        val deferInkBounds = measurement && format.exactLineHeight != null && !automaticSpacing &&
+                            block.runs.all { it is PdfTextRun || it is PdfTab }
+                        if (!deferInkBounds && baseline - ascent < page.margins.top - 0.01f) overflow("Line ascent exceeds space above baseline", ascent, baseline - page.margins.top)
+                        if (!deferInkBounds && baseline + descent > bottom + 0.01f) overflow("Line descent exceeds space below baseline", descent, bottom - baseline)
                         val remaining = availableWidth() - lineWidth
                         val prefix = (label?.value?.text?.length ?: 0) + if (label == null || label.suffix == PdfListSuffix.NOTHING) 0 else 1
-                        if (firstLine && label != null) elements += PositionedText(label.value.text, label.style, page.margins.left + area().first + markerLeft, baseline, logicalOwner = block.semantics?.id, span = block.semantics?.let { PdfSpanSemantics(semanticChildId(it.id, "label"), PdfSemanticRole.LABEL) }, logicalOffset = block.semantics?.let { 0 })
+                        if (firstLine && label != null) elements += PositionedText(label.value.text, label.style, page.margins.left + area().first + markerLeft, baseline, logicalOwner = block.semantics?.id, span = block.semantics?.let { PdfSpanSemantics(semanticChildId(it.id, "label"), PdfSemanticRole.LABEL) }, logicalOffset = block.semantics?.let { 0 }, requiresPhysicalBounds = deferInkBounds)
                         var x = page.margins.left + lineLeft() + when (format.alignment) {
                             PdfAlignment.LEFT, PdfAlignment.JUSTIFY -> 0f
                             PdfAlignment.CENTER -> remaining / 2
@@ -154,7 +158,7 @@ internal object PageLayouter {
                         if (paragraphBidi != null) {
                             val slices = line.map { LogicalTextSlice(it.text, requireNotNull(it.style), it.sourceStart) }
                             for (run in BidiLine.visualRuns(paragraphBidi, slices)) {
-                                elements += PositionedText(run.text, run.style, x, baseline, logicalOwner = block.semantics?.id, logicalOffset = block.semantics?.let { run.sourceStart + prefix })
+                                elements += PositionedText(run.text, run.style, x, baseline, logicalOwner = block.semantics?.id, logicalOffset = block.semantics?.let { run.sourceStart + prefix }, requiresPhysicalBounds = deferInkBounds)
                                 x += measurer.measure(run.text, run.style).width
                             }
                         } else for ((fragmentIndex, fragment) in line.withIndex()) {
@@ -163,7 +167,7 @@ internal object PageLayouter {
                             else if (fragment.image != null) elements += PositionedImage(fragment.image, x, baseline - fragment.image.height)
                             else elements += PositionedText(fragment.text, requireNotNull(fragment.style), x + fragment.paintOffset, baseline, fragment.decoration, fragment.navigation, block.semantics?.id, fragment.semantics,
                                 block.semantics?.takeUnless { fragment.decoration || fragment.text.isEmpty() }?.let { fragment.sourceStart + prefix },
-                                trailingDecorationWidth = if (extra > 0f) fragment.metrics.width + extra else null)
+                                trailingDecorationWidth = if (extra > 0f) fragment.metrics.width + extra else null, requiresPhysicalBounds = deferInkBounds)
                             x += fragment.metrics.width + extra
                         }
                         if (block.underlineTrailingSpaces == true) {
@@ -173,7 +177,7 @@ internal object PageLayouter {
                             for (space in spaces) {
                                 val length = minOf(space.metrics.width, maxOf(0f, edge - x))
                                 if (space.style?.let { it.underline || it.strikethrough } == true && length > 0f)
-                                    elements += PositionedText(" ", requireNotNull(space.style), x, baseline, decoration = true, trailingDecorationWidth = length)
+                                    elements += PositionedText(" ", requireNotNull(space.style), x, baseline, decoration = true, trailingDecorationWidth = length, requiresPhysicalBounds = deferInkBounds)
                                 x += space.metrics.width
                             }
                         }
