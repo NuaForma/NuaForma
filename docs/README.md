@@ -157,3 +157,5 @@ Unreleased #254–#257 qualify original proofing preferences, printer-tray metad
 - [Long words in fixed cells](long-word-breaking.md): opt-in grapheme-safe wrapping with preserved columns, source offsets and measured overflow.
 
 Selected 0.5.0-alpha.3 identifies concrete native render failures in the Playground and development logs without changing font selection, conversion support or public contracts. See the [release notes](../release-notes/0.5.0-alpha.3.md) and [candidate audit](release-0.5.0-alpha.3-audit.md); preparation does not itself publish artifacts.
+
+- [Font family and face identity](font-family-identities.md): shared bounded OpenType naming and extended variant qualification (unreleased source).

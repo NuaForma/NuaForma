@@ -189,3 +189,5 @@ Unreleased source work also qualifies [case-insensitive Word sequence counters](
 Unreleased [wide fixed-table qualification](../docs/wide-fixed-tables.md) retains explicit body grids extending into the right margin while preserving physical page, nested-cell and page-band bounds.
 
 Unreleased [long-word wrapping](../docs/long-word-breaking.md) preserves fixed body-table columns while breaking oversized unshaped words at grapheme boundaries. Automatic widths, nested cells and page bands retain their existing policies.
+
+Unreleased [font family identity qualification](../docs/font-family-identities.md) is shared by DOCX and native PDF. Extended Light, Display and similar designs retain their precise family names rather than impersonating their base family; ordinary four-face style linking remains supported.
