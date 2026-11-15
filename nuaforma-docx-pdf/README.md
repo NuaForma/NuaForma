@@ -185,3 +185,5 @@ Unreleased regular legacy text inputs and unused Word editing selections are des
 Unreleased source work additionally qualifies [note separator metadata](../docs/word-note-separator-metadata.md) and [Word sequence field formatting](../docs/word-fields-and-bookmarks.md#sequence-field-formatting), preserving the documented source and rendering limits.
 
 Unreleased source work also qualifies [case-insensitive Word sequence counters](../docs/word-fields-and-bookmarks.md#sequence-counter-identity) and [ordinary body-cell paragraph pagination defaults](../docs/word-cell-pagination-defaults.md), with retained original template bytes and strict source validation.
+
+Unreleased [wide fixed-table qualification](../docs/wide-fixed-tables.md) retains explicit body grids extending into the right margin while preserving physical page, nested-cell and page-band bounds.

@@ -70,3 +70,5 @@ nuaforma-docx-pdf/src/test/resources/editing-selections/**/word-reference.pdf.pr
 /nuaforma-docx-pdf/src/test/resources/exact-leading-ink/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 
 /nuaforma-docx-pdf/src/test/resources/soft-line-breaks/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+/nuaforma-docx-pdf/src/test/resources/wide-fixed-tables/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

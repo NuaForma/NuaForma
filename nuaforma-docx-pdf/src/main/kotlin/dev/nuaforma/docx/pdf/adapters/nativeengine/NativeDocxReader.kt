@@ -1019,8 +1019,12 @@ internal class NativeDocxReader(
                 // Legacy Word distinguishes an omitted indent from an explicitly declared zero.
                 if (declaredIndent == null) 0f else indent - padding.left
             } else effectiveIndent + (border?.width ?: 0f) / 2
+            val legacyOverflow = if (depth == 0 && !modernTableAlignment && declaredIndent != null && preferredTableWidth?.percent != null)
+                padding.right else 0f
+            val fixedOverflow = if (depth == 0 && !fields && !automaticLayout)
+                (physicalIndent + widths.sum() - (page.width - page.margins.left - page.margins.right)).coerceAtLeast(0f) else 0f
             return PdfTable(widths, rows, padding, border, count, physicalIndent, if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else if (automaticLayout) PdfTableWidthPolicy.AUTO_FIT else PdfTableWidthPolicy.FIXED, preferredWidth = resolvedTableWidth)
-                .withRightOverflow(if (depth == 0 && !modernTableAlignment && declaredIndent != null && preferredTableWidth?.percent != null) padding.right else 0f)
+                .withRightOverflow(maxOf(legacyOverflow, fixedOverflow))
         }
 
         fun readBox(pict: XmlElement, partRelations: Map<String, String>, fields: Boolean = false): PdfTextBox {

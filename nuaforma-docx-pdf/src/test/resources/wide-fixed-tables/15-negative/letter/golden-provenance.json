@@ -1,0 +1,20 @@
+{
+  "feature": "Wide fixed body tables inside physical page bounds",
+  "qualification": "Nineteen actual HTTP PDFs cover A4/Letter and standard/PDF-A-1b/2b/3b, with114 exact-source Word markers; maxdx0.131/maxdy0.081pt. Four actual HTTP physical-boundary controls reject without PDF. Initial golden image only; The combined normal build passes 1833 JVM tests with no failures, errors or skips.",
+  "sha256": {
+    "source.docx": "df5b7a0e79b22df733b5fbdc71585c52d7b1597d7770f08ed6a317c28ca2981b",
+    "word-reference.pdf": "21d2593b408131c0bc2004995ac800e497b883e1f0596fc8e56e8a38205e9aeb",
+    "word-reference.pdf.provenance.json": "8f99eb9be21312fa6e09d5cad8da2361864f18e5672a98c67288fd2b8502105d",
+    "page-1.png": "c1266a97c487544728e784907bdc021664c5c3849f0384270d01289301ea9e3c"
+  },
+  "pages": 1,
+  "dpi": 96,
+  "protectedGoldensReplaced": 0,
+  "normalFullBuild": {
+    "tests": 1833,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "sourceQualificationDate": "2026-11-15"
+  }
+}
