@@ -36,11 +36,10 @@ class NativeUnicodeSpaceModelTest {
     }
 
     @Test
-    fun `ordinary XML edge whitespace still requires explicit preservation`() {
+    fun `ordinary XML edge whitespace without preservation follows Word trimming`() {
         for (value in listOf(" leading", "trailing ", "\tleading", "trailing\n")) {
             val input = changed { it.replace("<w:t xml:space=\"preserve\">S1_LEAD_L</w:t>", "<w:t>$value</w:t>") }
-            val error = assertThrows(NativeDocxReadException::class.java) { text(input) }
-            assertTrue(error.message!!.contains("Significant edge whitespace"))
+            assertEquals(text(source("source.docx")).replace("S1_LEAD_L", value.trim(' ', '\t', '\r', '\n')), text(input))
         }
     }
 }

@@ -35,7 +35,7 @@ internal class FootnoteFlow(document: PdfDocument, private val measurer: TextMea
         var previousAfter = 0f
         for ((index, paragraph) in note.paragraphs.withIndex()) {
             control.checkActive()
-            if (paragraph.format.pageBreakBefore) unsupported("Explicit page breaks inside notes are not qualified")
+            if (paragraph.format.pageBreakBefore || paragraph.runs.any { it is PdfPageBreak }) unsupported("Explicit page breaks inside notes are not qualified")
             val measured = FlowLayouter.paragraph(paragraph, width, measurer, previous = note.paragraphs.getOrNull(index - 1), next = note.paragraphs.getOrNull(index + 1))
             val before = ParagraphSpacing.before(paragraph, previousAfter, index == 0)
             measured.lines.forEachIndexed { line, elements ->

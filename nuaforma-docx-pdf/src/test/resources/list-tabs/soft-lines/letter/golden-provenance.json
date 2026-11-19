@@ -1,0 +1,88 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-19",
+  "feature": "Inline tabs in numbered paragraphs",
+  "wordComparison": {
+    "variant": "soft-lines",
+    "paper": "letter",
+    "pages": 1,
+    "markerCount": 8,
+    "maxX": 0.036000000000001364,
+    "maxY": 0.05553127999996832,
+    "nativeMarkers": {
+      "L00_START": {
+        "x": 92.7,
+        "y": 58.49886872000002
+      },
+      "L01_TAIL": {
+        "x": 236.7,
+        "y": 58.49886872000002
+      },
+      "L02_NEXT": {
+        "x": 92.7,
+        "y": 75.74736871999994
+      },
+      "L03_FINAL": {
+        "x": 236.7,
+        "y": 75.74736871999994
+      },
+      "L10_START": {
+        "x": 92.7,
+        "y": 98.99590871999999
+      },
+      "L11_TAIL": {
+        "x": 236.7,
+        "y": 98.99590871999999
+      },
+      "L12_NEXT": {
+        "x": 92.7,
+        "y": 116.24446871999999
+      },
+      "L13_FINAL": {
+        "x": 236.7,
+        "y": 116.24446871999999
+      }
+    },
+    "wordMarkers": {
+      "L00_START": {
+        "x": 92.664,
+        "y": 58.460000000000036
+      },
+      "L01_TAIL": {
+        "x": 236.69,
+        "y": 58.460000000000036
+      },
+      "L02_NEXT": {
+        "x": 92.664,
+        "y": 75.74000000000001
+      },
+      "L03_FINAL": {
+        "x": 236.69,
+        "y": 75.74000000000001
+      },
+      "L10_START": {
+        "x": 92.664,
+        "y": 99.01999999999998
+      },
+      "L11_TAIL": {
+        "x": 236.69,
+        "y": 99.01999999999998
+      },
+      "L12_NEXT": {
+        "x": 92.664,
+        "y": 116.29999999999995
+      },
+      "L13_FINAL": {
+        "x": 236.69,
+        "y": 116.29999999999995
+      }
+    }
+  },
+  "visualReview": "All sixteen A4/Letter native/Word pairs were visually reviewed after independent complete-content, paper and marker-geometry checks, including continuation indents, soft line breaks and comma decimal stops. Initial native PNG uses PDFBox at 96 dpi with no masks. No established golden replaced.",
+  "sha256": {
+    "page-1.png": "6708ed187a9f8d40e1152d184a14416f18298b1dc0ee50b97fa3babe76524469",
+    "source.docx": "52206508ce2b75441907ba861bd5b1e8eae9c58036a0ba3b7176bf05b9b42096",
+    "word-reference.pdf": "941efa35bfd98a83595711622892e9822c9c1dfbe7570242f2a6aef6bf7d7cc7",
+    "word-reference.pdf.provenance.json": "7ea48c4b6010dbf9ac3cf44942529b800ae627607ba7bc0872489e2d009c0c5a"
+  }
+}

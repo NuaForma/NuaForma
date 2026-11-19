@@ -2,7 +2,10 @@ package dev.nuaforma.docx.pdf
 
 import dev.nuaforma.contracts.*
 import dev.nuaforma.docx.pdf.adapters.nativeengine.NativeDocxReader
+import dev.nuaforma.image.comparison.kotlin.assertImagesMatch
 import dev.nuaforma.pdf.PdfTable
+import org.apache.pdfbox.Loader
+import org.apache.pdfbox.rendering.PDFRenderer
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -10,6 +13,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import java.io.ByteArrayOutputStream
 import java.nio.file.Path
+import javax.imageio.ImageIO
 
 class NativeWideFixedTableTest {
     @TempDir lateinit var temporary: Path
@@ -37,6 +41,33 @@ class NativeWideFixedTableTest {
             val second = ByteArrayOutputStream()
             assertTrue(support.provider.cleanTemplate(first.toByteArray().inputStream(), second, context).changes.isEmpty())
             assertArrayEquals(source, second.toByteArray())
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["a4", "letter"])
+    fun `automatic zero width with a fixed grid renders like its physical width control`(paper: String) {
+        val support = NativeWordFeatureSupport(temporary)
+        val folder = "/wide-fixed-tables/15-zero/$paper/"
+        val source = support.bytes(folder + "source.docx")
+        val parts = PdfFixture.unzip(source)
+        val document = parts.getValue("word/document.xml").decodeToString()
+        val tableWidth = Regex("""<w:tblW\b[^>]*/>""")
+        assertEquals(1, tableWidth.findAll(document).count())
+        val modified = tableWidth.replace(document, """<w:tblW w:w="0" w:type="auto"/>""")
+        val automatic = PdfFixture.zip(parts + ("word/document.xml" to modified.toByteArray()))
+        val cleaned = ByteArrayOutputStream()
+        val context = GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT))
+        assertTrue(support.provider.cleanTemplate(automatic.inputStream(), cleaned, context).changes.isEmpty())
+        assertArrayEquals(automatic, cleaned.toByteArray())
+        Loader.loadPDF(support.generate(automatic, "standard")).use { native ->
+            val golden = ImageIO.read(support.bytes(folder + "page-1.png").inputStream())
+            assertEquals(1, native.numberOfPages)
+            assertImagesMatch(golden, PDFRenderer(native).renderImageWithDPI(0, 96f)) {
+                pixelTolerance = 0.0
+                allowedDifferentPixelsPercent = 0.0
+                threshold = 1
+            }
         }
     }
 

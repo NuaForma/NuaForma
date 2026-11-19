@@ -81,8 +81,8 @@ class PdfTabsTest {
         }
     }
 
-    @Test fun `overlapping aligned fields and tab or leader resource excess fail explicitly`() {
-        val tooWide=p(listOf(PdfTextRun("Label",style),PdfTab(style),PdfTextRun("WWWWWWWWWWWWWWWWWWWW",style)),PdfTabSettings(listOf(PdfTabStop(50f,PdfTabAlignment.RIGHT))))
+    @Test fun `oversized aligned fields and tab or leader resource excess fail explicitly`() {
+        val tooWide=p(listOf(PdfTextRun("Label",style),PdfTab(style),PdfTextRun("W".repeat(30),style)),PdfTabSettings(listOf(PdfTabStop(50f,PdfTabAlignment.RIGHT))))
         assertEquals(PdfFailureCode.CONTENT_OVERFLOW,assertThrows(PdfRenderException::class.java) {PdfEngine().render(PdfDocument(page,listOf(tooWide)),fonts)}.code)
         assertThrows(IllegalArgumentException::class.java) {p(List(33){PdfTab(style)})}
         assertThrows(IllegalArgumentException::class.java) {PdfDocument(page,List(667){p(List(3){PdfTab(style)})})}

@@ -37,7 +37,7 @@ internal class NativeDocxTableStyles(
     private val conditional = styles.flatMap { style ->
         context.checkActive()
         child(style, "tcPr")?.let(::validateCell)
-        child(style, "tblPr")?.let { validate(it, emptySet(), setOf("tblW", "tblInd", "tblLayout", "tblBorders", "tblCellMar", "tblStyleRowBandSize", "tblStyleColBandSize", "tblLook")) }
+        child(style, "tblPr")?.let { validate(it, emptySet(), setOf("tblW", "tblInd", "jc", "tblLayout", "tblBorders", "tblCellMar", "tblStyleRowBandSize", "tblStyleColBandSize", "tblLook")) }
         val conditions = style.elements().filter { it.name.namespaceURI == word && it.name.localPart == "tblStylePr" }
         val seen = mutableSetOf<String>()
         conditions.map { region ->

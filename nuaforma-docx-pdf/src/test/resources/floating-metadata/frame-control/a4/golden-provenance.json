@@ -1,0 +1,34 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-18",
+  "feature": "Validated inactive floating anchor metadata",
+  "wordComparison": {
+    "variant": "frame-control",
+    "paper": "a4",
+    "pages": 1,
+    "markerCount": 1,
+    "maxX": 0.036000000000001364,
+    "maxY": 0.09245940000005248,
+    "maxImageBoxDifference": 0,
+    "nativeColorBounds": [
+      133,
+      173,
+      374,
+      227
+    ],
+    "wordColorBounds": [
+      133,
+      173,
+      374,
+      227
+    ],
+    "bodyBlackPixelCounts": []
+  },
+  "visualReview": "All 36 native/Word pairs reviewed across frames, raster pictures and DrawingML lines on A4 and Letter. Each native variant also has byte-identical PNG pixels to its own control; Word independently has exact control pixels. Original sources/export receipts retained. Initial native PNG uses PDFBox96dpi with no masks. No established golden replaced.",
+  "sha256": {
+    "page-1.png": "ee5246ef4be3a601fab5fcaa7a9cb9250e46e5f3f05a39a7afaa53f70a074823",
+    "source.docx": "b2db1c448d45a34d1ee480c75f1161efd5266aaead966adf7c9edbfea8477f40",
+    "word-reference.pdf": "5482ae0957c423435adc98666d249f163bce6ee15feff83f4e26390191dd4239",
+    "word-reference.pdf.provenance.json": "fda2704de0d96b00c7e3c57e059800a03029032b4c79eec213da66eefbb96fbc"
+  }
+}

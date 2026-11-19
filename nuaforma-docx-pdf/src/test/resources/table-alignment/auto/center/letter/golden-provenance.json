@@ -1,0 +1,238 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-19",
+  "feature": "Horizontal table alignment after width negotiation",
+  "wordComparison": {
+    "kind": "auto",
+    "variant": "center",
+    "paper": "letter",
+    "pages": 1,
+    "checks": [
+      {
+        "page": 1,
+        "markerCount": 26,
+        "maxX": 0.1490000000000009,
+        "maxY": 0.18245940000002747,
+        "nativeMarkers": {
+          "PHYSICAL_1_1": {
+            "x": 151.4,
+            "y": 103.81914060000008
+          },
+          "PHYSICAL_1_2": {
+            "x": 233.901,
+            "y": 103.81914060000008
+          },
+          "PHYSICAL_2_1": {
+            "x": 151.4,
+            "y": 118.31914060000008
+          },
+          "PHYSICAL_2_2": {
+            "x": 233.901,
+            "y": 118.31914060000008
+          },
+          "PHYSICAL_3_1": {
+            "x": 151.4,
+            "y": 146.81914060000008
+          },
+          "PHYSICAL_3_2": {
+            "x": 233.901,
+            "y": 146.81914060000008
+          },
+          "PERCENT_1_1": {
+            "x": 124.4,
+            "y": 175.81914060000008
+          },
+          "PERCENT_1_2": {
+            "x": 217.9,
+            "y": 175.81914060000008
+          },
+          "PERCENT_2_1": {
+            "x": 124.4,
+            "y": 190.31914060000008
+          },
+          "PERCENT_2_2": {
+            "x": 217.9,
+            "y": 190.31914060000008
+          },
+          "PERCENT_3_1": {
+            "x": 124.4,
+            "y": 218.81914060000008
+          },
+          "PERCENT_3_2": {
+            "x": 217.9,
+            "y": 218.81914060000008
+          },
+          "IMPLICIT_1_1": {
+            "x": 151.4,
+            "y": 247.81914060000008
+          },
+          "IMPLICIT_1_2": {
+            "x": 231.4,
+            "y": 247.81914060000008
+          },
+          "IMPLICIT_2_1": {
+            "x": 151.4,
+            "y": 262.3191406000001
+          },
+          "IMPLICIT_2_2": {
+            "x": 231.4,
+            "y": 262.3191406000001
+          },
+          "IMPLICIT_3_1": {
+            "x": 151.4,
+            "y": 290.81914059999997
+          },
+          "IMPLICIT_3_2": {
+            "x": 231.4,
+            "y": 290.81914059999997
+          },
+          "MERGED_1_1": {
+            "x": 151.4,
+            "y": 319.81914059999997
+          },
+          "MERGED_1_2": {
+            "x": 231.4,
+            "y": 319.81914059999997
+          },
+          "MERGED_2_1": {
+            "x": 151.4,
+            "y": 334.31914059999997
+          },
+          "MERGED_2_2": {
+            "x": 231.4,
+            "y": 334.31914059999997
+          },
+          "MERGED_3_1": {
+            "x": 151.4,
+            "y": 362.81914059999997
+          },
+          "MERGED_3_2": {
+            "x": 231.4,
+            "y": 362.81914059999997
+          },
+          "MERGED_SHARED_COLUMNS": {
+            "x": 151.4,
+            "y": 377.31914059999997
+          },
+          "END_PREFERRED_TABLES": {
+            "x": 72.0,
+            "y": 391.81914059999997
+          }
+        },
+        "wordMarkers": {
+          "PHYSICAL_1_1": {
+            "x": 151.46,
+            "y": 103.87160000000006
+          },
+          "PHYSICAL_1_2": {
+            "x": 234.05,
+            "y": 103.87160000000006
+          },
+          "PHYSICAL_2_1": {
+            "x": 151.46,
+            "y": 118.39160000000004
+          },
+          "PHYSICAL_2_2": {
+            "x": 234.05,
+            "y": 118.39160000000004
+          },
+          "PHYSICAL_3_1": {
+            "x": 151.46,
+            "y": 146.9516000000001
+          },
+          "PHYSICAL_3_2": {
+            "x": 234.05,
+            "y": 146.9516000000001
+          },
+          "PERCENT_1_1": {
+            "x": 124.46,
+            "y": 175.87160000000006
+          },
+          "PERCENT_1_2": {
+            "x": 217.97,
+            "y": 175.87160000000006
+          },
+          "PERCENT_2_1": {
+            "x": 124.46,
+            "y": 190.39160000000004
+          },
+          "PERCENT_2_2": {
+            "x": 217.97,
+            "y": 190.39160000000004
+          },
+          "PERCENT_3_1": {
+            "x": 124.46,
+            "y": 218.98160000000007
+          },
+          "PERCENT_3_2": {
+            "x": 217.97,
+            "y": 218.98160000000007
+          },
+          "IMPLICIT_1_1": {
+            "x": 151.46,
+            "y": 247.90160000000003
+          },
+          "IMPLICIT_1_2": {
+            "x": 231.41,
+            "y": 247.90160000000003
+          },
+          "IMPLICIT_2_1": {
+            "x": 151.46,
+            "y": 262.4216
+          },
+          "IMPLICIT_2_2": {
+            "x": 231.41,
+            "y": 262.4216
+          },
+          "IMPLICIT_3_1": {
+            "x": 151.46,
+            "y": 290.9816
+          },
+          "IMPLICIT_3_2": {
+            "x": 231.41,
+            "y": 290.9816
+          },
+          "MERGED_1_1": {
+            "x": 151.46,
+            "y": 319.9016
+          },
+          "MERGED_1_2": {
+            "x": 231.41,
+            "y": 319.9016
+          },
+          "MERGED_2_1": {
+            "x": 151.46,
+            "y": 334.4216
+          },
+          "MERGED_2_2": {
+            "x": 231.41,
+            "y": 334.4216
+          },
+          "MERGED_3_1": {
+            "x": 151.46,
+            "y": 363.0016
+          },
+          "MERGED_3_2": {
+            "x": 231.41,
+            "y": 363.0016
+          },
+          "MERGED_SHARED_COLUMNS": {
+            "x": 151.46,
+            "y": 377.4016
+          },
+          "END_PREFERRED_TABLES": {
+            "x": 72.024,
+            "y": 391.9216
+          }
+        }
+      }
+    ]
+  },
+  "visualReview": "All 24 native/Word page pairs visually reviewed after independent full-content, paper and marker-position checks. Fixed and negotiated widths, legacy/modern alignment and declared indentation covered on A4 and Letter. Initial native PNG uses PDFBox at 96 dpi without masks. No established golden replaced.",
+  "sha256": {
+    "source.docx": "304dbac67dbf30e4680227b4880da4fcac475c63b97b0ad662c917f014e8d6d5",
+    "word-reference.pdf": "977c57da17f4e6cb845473fb36307987ce5842a847592d716179b3c63405869e",
+    "word-reference.pdf.provenance.json": "33e2bb4e74150c4279cfd76b8d71d3d03b3eb89775afb9e15d1f9edf677c7975",
+    "page-1.png": "28a877b0b8d40964f8cd93950c2511b225ee72e3dffd0a1a1c8ee26c0d7516ac"
+  }
+}

@@ -15,7 +15,7 @@ import java.io.IOException
 internal class FontShaper(resources: List<PdfFont>, private val fonts: Map<String, PDType0Font>, private val control: PdfRenderControl) {
     data class Glyph(val id: Int, val x: Float, val y: Float, val logical: String)
     data class Shape(val glyphs: List<Glyph>, val advance: Float)
-    private data class Key(val text: String, val font: String, val size: Float, val features: PdfFontFeatures, val characterSpacing: Float)
+    private data class Key(val text: String, val font: String, val size: Float, val features: PdfFontFeatures, val characterSpacing: Float, val horizontalScale: Float)
     private val supplied = resources.associateBy { it.id }
     private val faces = mutableMapOf<String, Font>()
     private val cache = linkedMapOf<Key, Shape>()
@@ -38,11 +38,12 @@ internal class FontShaper(resources: List<PdfFont>, private val fonts: Map<Strin
             font(style.fontId)
             return Shape(emptyList(), 0f)
         }
-        val key = Key(text, style.fontId, style.size, style.fontFeatures, style.characterSpacing)
+        val key = Key(text, style.fontId, style.size, style.fontFeatures, style.characterSpacing, style.horizontalScale)
         return cache[key] ?: try {
             val natural = if (style.fontFeatures.kerning == PdfKerning.OPENTYPE || style.fontFeatures.standardLigatures)
                 openType(text, style) else pairs(text, style)
-            val result = if (style.characterSpacing == 0f) natural else tracked(natural, style.characterSpacing)
+            val scaled = if (style.horizontalScale == 1f) natural else horizontallyScaled(natural, style)
+            val result = if (style.characterSpacing == 0f) scaled else tracked(scaled, style.characterSpacing)
             val glyphCount = trueType(style.fontId).numberOfGlyphs
             if (!result.advance.isFinite() || result.advance < 0 || glyphCount !in 1..65535 ||
                 result.glyphs.any { !it.x.isFinite() || !it.y.isFinite() || it.id !in 1 until glyphCount })
@@ -62,6 +63,17 @@ internal class FontShaper(resources: List<PdfFont>, private val fonts: Map<Strin
         if (glyphs.zipWithNext().any { (before, after) -> after.x < before.x } || (glyphs.lastOrNull()?.x ?: 0f) > advance)
             fail(PdfFailureCode.UNSUPPORTED_TEXT, "Character spacing reverses glyph advances")
         return Shape(glyphs, advance)
+    }
+
+    private fun horizontallyScaled(shape: Shape, style: PdfTextStyle): Shape {
+        val face = trueType(style.fontId)
+        var naturalAdvance = 0f
+        val glyphs = shape.glyphs.map { glyph ->
+            val x = glyph.x + naturalAdvance * (style.horizontalScale - 1f)
+            naturalAdvance += face.getAdvanceWidth(glyph.id) * style.size / face.unitsPerEm
+            glyph.copy(x = x)
+        }
+        return Shape(glyphs, shape.advance + naturalAdvance * (style.horizontalScale - 1f))
     }
 
     private fun remember(key: Key, shape: Shape) {

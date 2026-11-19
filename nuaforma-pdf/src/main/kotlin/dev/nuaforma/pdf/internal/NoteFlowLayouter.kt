@@ -77,6 +77,9 @@ internal object NoteFlowLayouter {
                     if (block.anchoredImages.any { it.wrap != PdfImageWrap.NONE }) unsupported("Image wrapping with notes is not qualified")
                     if (block.format.pageBreakBefore && bodyItems > 0) nextPage()
                     val p = paragraph(block)
+                    if (p.breakAfter.isNotEmpty() && (block.format.keepWithNext || block.format.keepLines))
+                        unsupported("Inline page breaks with paragraph keep rules are not qualified")
+                    if (endnotes != null && p.breakAfter.isNotEmpty()) unsupported("Explicit page breaks inside notes are not qualified")
                     var before = ParagraphSpacing.before(block, after, bodyItems == 0, block.format.pageBreakBefore)
                     if (block.format.keepWithNext && blockIndex >= protectedThrough) {
                         val groupBlocks = if (blockIndex < document.blocks.size) document.blocks else bodyBlocks
@@ -105,7 +108,8 @@ internal object NoteFlowLayouter {
                     while (consumed < p.lines.size) {
                         control.checkActive()
                         if (paragraphPage != pages.lastIndex) { paragraphPage = pages.lastIndex; onPage = 0 }
-                        val left = p.lines.size - consumed
+                        val boundary = p.breakAfter.firstOrNull { it >= consumed }?.plus(1) ?: p.lines.size
+                        val left = boundary - consumed
                         val count = when {
                             block.format.keepLines -> left
                             !block.format.widowControl -> 1
@@ -127,6 +131,7 @@ internal object NoteFlowLayouter {
                         if (consumed == 0) pages.last() += PageBandObjects.place(block.anchoredImages.map { it to top }, emptyList(), 0f, page, measurer, foreground = true)
                         repeat(count) { FlowLayouter.placeLine(p.lines[consumed], page.margins.left, top, pages.last()); top += p.heights[consumed++]; bodyItems++ }
                         onPage += count
+                        if (consumed - 1 in p.breakAfter) nextPage()
                     }
                     top += block.spaceAfter; after = block.spaceAfter
                 }
@@ -145,7 +150,7 @@ internal object NoteFlowLayouter {
                 is PdfTable -> {
                     val table = TableLayouter.measure(block, measurer, width)
                     TableLayouter.checkWidth(table.table, width, page.margins.left, page.width - page.margins.left)
-                    val left = page.margins.left + block.leftIndent
+                    val left = page.margins.left + table.table.leftIndent
                     if (block.rows.any { it.allowSplit }) unsupported("Splitting table rows with notes is not qualified")
                     val complex = block.rows.any { row -> row.cells.any { it.rowSpan > 1 || it.blocks.any { value -> value is PdfTable } } }
                     if (complex) {

@@ -1,0 +1,24 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-18",
+  "feature": "Horizontal glyph scaling and explicit page breaks",
+  "wordComparison": {
+    "variant": "consecutive",
+    "paper": "letter",
+    "pages": 3,
+    "markers": 2,
+    "maxX": 0.060000000000002274,
+    "maxY": 0.052459399999975176
+  },
+  "visualReview": "All 28 native/Word page pairs reviewed, including intentional blank pages, wrapping, run decorations and split paragraph shading. Initial native golden images use PDFBox at 96 dpi with no masks; no established golden replaced.",
+  "horizontalTolerance": 0.21,
+  "widthQualification": "Scaled wrapping retains Word line breaks; the longest marker accumulates a measured 0.312-point horizontal difference. Point-based tracking and kerning stay unscaled, avoiding the earlier multi-point errors.",
+  "sha256": {
+    "page-1.png": "7aacf5ac0824265e6a196e2a21aaf52713b34d58a1faf0ba19b044ef9fee48bf",
+    "page-2.png": "68731b9ec5b41bd45aad53003396f0cca2b904325a4fcad3cb978261e2d4e9ee",
+    "page-3.png": "13725fbb227c0d4346e434038731e08b5ffe6b73ef2ec89a3225eca957e8d69b",
+    "source.docx": "eac9ef96a5d4ad9c9c53ba5a92214d01385211b94f549b50441d8410a5ba97d3",
+    "word-reference.pdf": "0f03fd0597a509da7862d2b87a33c3738f492e88cd8838f87e21a5091dba6d91",
+    "word-reference.pdf.provenance.json": "c0d1050b7c03372d4adf7031ff588216e46a28290ae8000a588e4f80fe2d0f40"
+  }
+}

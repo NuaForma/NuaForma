@@ -55,13 +55,13 @@ class PdfLayoutOverflowDiagnosticsTest {
     }
 
     @Test
-    fun `tab failures distinguish backwards alignment start and payload overflow`() {
+    fun `tabs clamp backwards alignment and distinguish start from payload overflow`() {
 
         fun tab(text: String, position: Float, alignment: PdfTabAlignment, prefix: String = ""): PdfParagraph =
             PdfParagraph(listOfNotNull(prefix.takeIf { it.isNotEmpty() }?.let { PdfTextRun(it, style) }) + PdfTab(style) + PdfTextRun(text, style),
                 0f, 0f, PdfParagraphFormat(exactLineHeight = 10f, tabs = PdfTabSettings(listOf(PdfTabStop(position, alignment)))))
 
-        failure("Tab alignment moves behind current text", 10f, -9f) { layout(tab("aa", 11f, PdfTabAlignment.RIGHT, "a")) }
+        assertDoesNotThrow { layout(tab("aa", 11f, PdfTabAlignment.RIGHT, "a")) }
         failure("Tab start exceeds line boundary", 81f, 80f) { layout(tab("a", 81f, PdfTabAlignment.LEFT)) }
         failure("Aligned tab content exceeds line boundary", 85f, 80f) { layout(tab("aa", 75f, PdfTabAlignment.CENTER)) }
     }

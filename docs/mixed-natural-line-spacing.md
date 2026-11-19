@@ -8,6 +8,8 @@ Automatically spaced paragraphs measure the supplied font runs on each physical 
 
 The existing automatic multiple scales that natural height. An `atLeast` floor retains a larger natural box and adds leading above the baseline when the floor is larger. Glyphs are never scaled to meet a spacing policy. Explicit exact spacing keeps its fixed height.
 
+Current source additionally retains the advances of larger space-only runs between visible text without using those nonprinting faces to enlarge the automatic line box. The paragraph minimum and physical decorations remain checked; see [Word whitespace controls](whitespace-and-image-padding.md).
+
 Internal measurement retains each line's element range, origin and height. Body pagination, paragraph splitting, table fragments, page bands, frames and notes consume those individual heights. Paragraph borders use the same physical line extents. Uniform lines retain their existing arithmetic and reviewed output.
 
 ## Boundaries

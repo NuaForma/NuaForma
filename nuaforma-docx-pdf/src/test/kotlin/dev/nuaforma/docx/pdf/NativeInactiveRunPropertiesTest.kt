@@ -19,7 +19,7 @@ class NativeInactiveRunPropertiesTest {
     }
 
     @Test
-    fun `active or malformed original properties keep source context and publish no partial PDF`() {
+    fun `unsupported or malformed original properties keep source context and publish no partial PDF`() {
         val support = NativeWordFeatureSupport(temporary)
         for (replacement in listOf("<w:dstrike/>", "<w:dstrike w:val=\"on\"/>", "<w:dstrike w:val=\"unknown\"/>",
             "<w:dstrike w:val=\"0\" extra=\"1\"/>", "<w:dstrike w:val=\"0\"/><w:dstrike w:val=\"0\"/>")) {
@@ -27,7 +27,7 @@ class NativeInactiveRunPropertiesTest {
                 it.replaceFirst("<w:dstrike w:val=\"0\"/>", replacement)
             }
         }
-        for (value in listOf("99", "105", "100.0", "-100")) {
+        for (value in listOf("0", "601", "100.0", "-100")) {
             support.rejectChanged("/inactive-run-properties/zero/a4/source.docx", "word/document.xml", "/w:w[") {
                 it.replaceFirst("<w:w w:val=\"100\"/>", "<w:w w:val=\"$value\"/>")
             }

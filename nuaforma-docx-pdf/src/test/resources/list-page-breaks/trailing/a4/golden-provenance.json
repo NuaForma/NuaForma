@@ -1,0 +1,88 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-19",
+  "feature": "Explicit page breaks inside numbered paragraphs",
+  "wordComparison": {
+    "variant": "trailing",
+    "paper": "a4",
+    "pages": 2,
+    "checks": [
+      {
+        "page": 1,
+        "markerCount": 3,
+        "maxX": 0.03999999999999204,
+        "maxY": 0.058818719999976565,
+        "nativeMarkers": {
+          "1.": {
+            "x": 74.7,
+            "y": 58.49881871999992
+          },
+          "L00_START": {
+            "x": 92.7,
+            "y": 58.49881871999992
+          },
+          "L01_TAIL": {
+            "x": 164.7,
+            "y": 58.49881871999992
+          }
+        },
+        "wordMarkers": {
+          "1.": {
+            "x": 74.664,
+            "y": 58.43999999999994
+          },
+          "L00_START": {
+            "x": 92.664,
+            "y": 58.43999999999994
+          },
+          "L01_TAIL": {
+            "x": 164.66,
+            "y": 58.43999999999994
+          }
+        }
+      },
+      {
+        "page": 2,
+        "markerCount": 3,
+        "maxX": 0.03999999999999204,
+        "maxY": 0.058818719999976565,
+        "nativeMarkers": {
+          "2.": {
+            "x": 74.7,
+            "y": 58.49881871999992
+          },
+          "L10_START": {
+            "x": 92.7,
+            "y": 58.49881871999992
+          },
+          "L11_TAIL": {
+            "x": 164.7,
+            "y": 58.49881871999992
+          }
+        },
+        "wordMarkers": {
+          "2.": {
+            "x": 74.664,
+            "y": 58.43999999999994
+          },
+          "L10_START": {
+            "x": 92.664,
+            "y": 58.43999999999994
+          },
+          "L11_TAIL": {
+            "x": 164.66,
+            "y": 58.43999999999994
+          }
+        }
+      }
+    ]
+  },
+  "visualReview": "All 34 native/Word page pairs visually reviewed after independent per-page complete-content, numbering, paper and marker-position checks. Leading, middle, trailing, consecutive and empty-item controls covered on A4 and Letter. Initial native PNG uses PDFBox at 96 dpi without masks. No established golden replaced.",
+  "sha256": {
+    "source.docx": "7be778532aae2ef00e371afa613226e0a9dc82e300de194ec9614159fbb18094",
+    "word-reference.pdf": "4156528c2fec72e39e5979a8472b01979f90a32a7e50ab852e33533744215c3a",
+    "word-reference.pdf.provenance.json": "53df983d0e1ea7e04f3b6917459d5b104e7aa9d922ded670620c5e5f4f9eb4ae",
+    "page-1.png": "05e9f4a4c07c9c1016e5cc0261d22bbc69253a4ca819f98cd37c3ffa1a11e0c8",
+    "page-2.png": "b370d710b6e5ce6e969351da5d760f076d3d2f2524833fca582492c803ec5ce9"
+  }
+}

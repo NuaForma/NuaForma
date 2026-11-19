@@ -1,0 +1,21 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-18",
+  "feature": "Tight automatic line spacing and paragraph backgrounds",
+  "wordComparison": {
+    "variant": "integration",
+    "paper": "a4",
+    "pages": 1,
+    "markers": 8,
+    "maxX": 0.0700000000000216,
+    "maxY": 0.09999999999990905
+  },
+  "visualReview": "Actual Word/native pairs reviewed: wrapping, inheritance, glyph visibility, opaque fills, border padding, table/page-band placement and split paragraph fragments. Existing golden images preserved. Initial native references use 96 dpi without masks.",
+  "sha256": {
+    "page-1.png": "372a901241d1f985a4b6d1fa94af5b02a4fd802c06d9b3bda258803564d82fa8",
+    "source.docx": "7b0f1f94eb5303ab9b37b450775c56f2543a583419fcc5356ef05494a9df4f09",
+    "word-reference.pdf": "0b43c045947042a83a4cdffeeffd220e56e2857484e29a70373868378b09231e",
+    "word-reference.pdf.provenance.json": "0b587f2c65a559c83de208bb7e79a01001d8d9700b0aad5c7f59c8993193140a"
+  },
+  "initialAuthoringCorrection": "Before the first regression run, the provisional initial border-fill image was corrected to fill to the inner border edges, as independently measured and reviewed against Word. All established golden files remain unchanged."
+}

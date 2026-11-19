@@ -1,0 +1,72 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-19",
+  "feature": "Explicit page breaks inside numbered paragraphs",
+  "wordComparison": {
+    "variant": "empty-last",
+    "paper": "letter",
+    "pages": 2,
+    "checks": [
+      {
+        "page": 1,
+        "markerCount": 3,
+        "maxX": 0.03999999999999204,
+        "maxY": 0.038868719999982204,
+        "nativeMarkers": {
+          "1.": {
+            "x": 74.7,
+            "y": 58.49886872000002
+          },
+          "L00_START": {
+            "x": 92.7,
+            "y": 58.49886872000002
+          },
+          "L01_TAIL": {
+            "x": 164.7,
+            "y": 58.49886872000002
+          }
+        },
+        "wordMarkers": {
+          "1.": {
+            "x": 74.664,
+            "y": 58.460000000000036
+          },
+          "L00_START": {
+            "x": 92.664,
+            "y": 58.460000000000036
+          },
+          "L01_TAIL": {
+            "x": 164.66,
+            "y": 58.460000000000036
+          }
+        }
+      },
+      {
+        "page": 2,
+        "markerCount": 1,
+        "maxX": 0.060000000000002274,
+        "maxY": 0.06744059999994079,
+        "nativeMarkers": {
+          "END_LIST_PAGE_BREAK": {
+            "x": 56.7,
+            "y": 58.19904059999999
+          }
+        },
+        "wordMarkers": {
+          "END_LIST_PAGE_BREAK": {
+            "x": 56.64,
+            "y": 58.13160000000005
+          }
+        }
+      }
+    ]
+  },
+  "visualReview": "All 34 native/Word page pairs visually reviewed after independent per-page complete-content, numbering, paper and marker-position checks. Leading, middle, trailing, consecutive and empty-item controls covered on A4 and Letter. Initial native PNG uses PDFBox at 96 dpi without masks. No established golden replaced.",
+  "sha256": {
+    "source.docx": "bd5633fcd612d2d5f4589c49a32a29a697dbcb49a4bad287f8b6ef742739288d",
+    "word-reference.pdf": "7f2c9ad2415acaa9d8273e8309a8fd0048dcd7bc93ac144f086beafae292e636",
+    "word-reference.pdf.provenance.json": "9a9819f15d185e3a6a389208cc20edca70bb67af16ee5c88db1fe6cf754af7c9",
+    "page-1.png": "b89b1b332f97da4f4968e7c705f5275b84e61d81e87b2f95ed188e6e6b27a1a7",
+    "page-2.png": "2eee0b8fc40a06dbb9a03c2336d26725684545f65c8028beee3af7339ecec372"
+  }
+}

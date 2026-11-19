@@ -4,7 +4,7 @@ import dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
 import javax.xml.namespace.QName
 
-/** Explicit no-op formatting is qualified before binding; active effects remain unsupported. */
+/** Source-shape guards for horizontal scale and the independently unsupported double-strike effect. */
 internal object WordInactiveRunProperties {
     private const val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
     private val names = setOf("dstrike", "w")
@@ -44,7 +44,8 @@ internal object WordInactiveRunProperties {
         if (node.name.localPart == "dstrike") {
             if (raw != null && raw !in setOf("0", "false", "off", "1", "true", "on"))
                 reject(node, "Invalid original double-strike toggle")
-        } else if (raw == null || !raw.matches(Regex("[0-9]{1,6}"))) reject(node, "Invalid original horizontal text scale")
+        } else if (raw == null || !raw.matches(Regex("[0-9]{1,6}")) || raw.toIntOrNull() !in 1..600)
+            reject(node, "Invalid original horizontal text scale")
     }
 
     fun requireInactive(node: XmlElement, reject: (XmlElement, String) -> Nothing) {
@@ -55,6 +56,14 @@ internal object WordInactiveRunProperties {
             "w" -> if (node.attribute(word, "val") != "100")
                 reject(node, "Non-default horizontal text scaling is not qualified")
         }
+    }
+
+    fun horizontalScale(node: XmlElement, reject: (XmlElement, String) -> Nothing): Float {
+        validateShape(node, reject)
+        val value = node.attribute(word, "val")?.toIntOrNull()
+        if (node.name.localPart != "w" || value == null || value !in 1..600)
+            reject(node, "Horizontal text scale must be between 1 and 600 percent")
+        return value / 100f
     }
 
 }

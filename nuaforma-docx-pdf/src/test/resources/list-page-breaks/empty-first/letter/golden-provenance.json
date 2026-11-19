@@ -1,0 +1,70 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-19",
+  "feature": "Explicit page breaks inside numbered paragraphs",
+  "wordComparison": {
+    "variant": "empty-first",
+    "paper": "letter",
+    "pages": 2,
+    "checks": [
+      {
+        "page": 1,
+        "markerCount": 0,
+        "maxX": 0,
+        "maxY": 0,
+        "nativeMarkers": {},
+        "wordMarkers": {}
+      },
+      {
+        "page": 2,
+        "markerCount": 4,
+        "maxX": 0.060000000000002274,
+        "maxY": 0.038868719999982204,
+        "nativeMarkers": {
+          "2.": {
+            "x": 74.7,
+            "y": 58.49886872000002
+          },
+          "L10_START": {
+            "x": 92.7,
+            "y": 58.49886872000002
+          },
+          "L11_TAIL": {
+            "x": 164.7,
+            "y": 58.49886872000002
+          },
+          "END_LIST_PAGE_BREAK": {
+            "x": 56.7,
+            "y": 81.44754060000002
+          }
+        },
+        "wordMarkers": {
+          "2.": {
+            "x": 74.664,
+            "y": 58.460000000000036
+          },
+          "L10_START": {
+            "x": 92.664,
+            "y": 58.460000000000036
+          },
+          "L11_TAIL": {
+            "x": 164.66,
+            "y": 58.460000000000036
+          },
+          "END_LIST_PAGE_BREAK": {
+            "x": 56.64,
+            "y": 81.4316
+          }
+        }
+      }
+    ]
+  },
+  "visualReview": "All 34 native/Word page pairs visually reviewed after independent per-page complete-content, numbering, paper and marker-position checks. Leading, middle, trailing, consecutive and empty-item controls covered on A4 and Letter. Initial native PNG uses PDFBox at 96 dpi without masks. No established golden replaced.",
+  "sha256": {
+    "source.docx": "a15d66055bf8ae5a430a328ba03dcd5b5167f2dca01638056600edc2fdb0c96a",
+    "word-reference.pdf": "e5b360d50dd525d7df1286744930ec39e9a854bee5582a66a3becc24c1a0be36",
+    "word-reference.pdf.provenance.json": "a55579bcf11e611abaa5fbd9561a852d359d2e5a09e37f3774da85ae63ef84c0",
+    "page-1.png": "68731b9ec5b41bd45aad53003396f0cca2b904325a4fcad3cb978261e2d4e9ee",
+    "page-2.png": "55a44ffcfecb7111009574e39fbb2471bc30d27b2901b47d0ab06f6ef9b8daa6"
+  }
+}

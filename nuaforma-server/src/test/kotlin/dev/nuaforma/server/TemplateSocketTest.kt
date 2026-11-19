@@ -182,9 +182,21 @@ class TemplateSocketTest {
                             assertTrue(text.contains("UNCLOSED_TEMPLATE_MARKER"), text)
                         }
                         val pageBreak = send("{broken</w:t><w:br w:type=\"page\"/><w:t>}", "/api/v1/diagnostics/template")
-                        assertEquals(422, pageBreak.statusCode())
-                        assertTrue(pageBreak.body().decodeToString().contains("NATIVE_DOCX_PROFILE_UNSUPPORTED"))
-                        assertFalse(pageBreak.headers().firstValue("Content-Type").orElse("").contains("application/pdf"))
+                        assertEquals(200, pageBreak.statusCode(), if (pageBreak.statusCode() == 200) "" else pageBreak.body().decodeToString())
+                        assertEquals("template-error", pageBreak.headers().firstValue("NuaForma-Diagnostic-Artifact").orElseThrow())
+                        assertEquals("no-store", pageBreak.headers().firstValue("Cache-Control").orElseThrow())
+                        assertTrue(pageBreak.headers().firstValue("Content-Type").orElse("").contains("application/pdf"))
+                        Loader.loadPDF(pageBreak.body()).use { pdf ->
+                            val text = PDFTextStripper().getText(pdf)
+                            assertTrue(text.contains("[ERROR 1]"), text)
+                            assertTrue(text.contains("broken"), text)
+                            assertTrue(text.contains("UNCLOSED_TEMPLATE_MARKER"), text)
+                            assertTrue(pdf.numberOfPages >= 3)
+                        }
+                        val columnBreak = send("{broken</w:t><w:br w:type=\"column\"/><w:t>}", "/api/v1/diagnostics/template")
+                        assertEquals(422, columnBreak.statusCode())
+                        assertTrue(columnBreak.body().decodeToString().contains("NATIVE_DOCX_PROFILE_UNSUPPORTED"))
+                        assertFalse(columnBreak.headers().firstValue("Content-Type").orElse("").contains("application/pdf"))
                     } else {
                         assertEquals(404, marked.statusCode())
                         assertFalse(marked.body().decodeToString().contains("{broken"))
