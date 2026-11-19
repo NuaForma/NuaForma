@@ -1,5 +1,24 @@
 # NuaForma documentation
 
+- [Horizontal table alignment](table-alignment.md): candidate left/center/right placement after width negotiation.
+
+- [Tabs inside lists](list-tabs.md): candidate inline tab controls following list markers and hanging indentation.
+- [Page breaks inside lists](list-page-breaks.md): numbered-item continuation, deliberate blank pages and ending boundaries.
+
+- [Non-wrapping drawing extents](unwrapped-drawing-extents.md): candidate passive extents and validated Office frame paint/text settings.
+
+- [Floating drawing order](floating-drawing-order.md): candidate physical layers, ordering and Word anchor editing metadata.
+
+- [Word text edges and picture padding](whitespace-and-image-padding.md): XML whitespace defaults and measured inline picture extents.
+
+- [Scaling and page boundaries](scaling-and-page-breaks.md): horizontal text scaling and explicit page breaks within one logical paragraph.
+
+- [Paragraph formatting](paragraph-formatting.md): solid paragraph backgrounds and Word-compatible automatic line spacing below one line.
+
+- [Text backgrounds](text-backgrounds.md): highlighting, solid run shading, inherited colors and Word-backed A4/Letter controls.
+
+- [Tabs after data expansion](tab-collisions.md): Word-compatible alignment collisions, passed stops and A4/Letter template controls.
+
 - [Soft line breaks](soft-line-breaks.md): typed inline controls, explicit paragraph-mark metrics and Word-backed body/table/band/pagination tests.
 
 - [Exact-leading text and physical page bounds](exact-leading-ink.md): virtual measurement, final ink checks and Word-backed A4/Letter controls (source #295).
