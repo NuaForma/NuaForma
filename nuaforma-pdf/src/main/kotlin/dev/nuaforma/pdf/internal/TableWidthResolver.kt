@@ -5,6 +5,26 @@ import dev.nuaforma.pdf.*
 internal object TableWidthResolver {
 
     fun resolve(table: PdfTable, measurer: TextMeasurer, availableWidth: Float): PdfTable {
+        if (table.alignment == PdfTableAlignment.LEFT) return widths(table, measurer, availableWidth)
+        val measured = widths(positioned(table, 0f), measurer, availableWidth)
+        val remainder = availableWidth - measured.columnWidths.sum()
+        val origin = if (table.alignment == PdfTableAlignment.CENTER) remainder / 2 else remainder - rightStroke(measured) / 2
+        return positioned(measured, origin + table.leftIndent)
+    }
+
+    private fun positioned(table: PdfTable, indent: Float): PdfTable {
+        if (!indent.isFinite() || indent !in -14_400f..14_400f)
+            throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, "Table exceeds its containing width")
+        return PdfTable(table.columnWidths, table.rows, table.cellMargins, table.border, table.repeatedHeaderRows,
+            indent, table.widthPolicy, table.semantics, table.preferredWidth)
+            .withRightOverflow(table.rightOverflow).withAlignment(table.alignment)
+    }
+
+    private fun rightStroke(table: PdfTable): Float = table.placements()
+        .filter { it.column + it.cell.columnSpan == table.columnWidths.size }
+        .maxOfOrNull { it.cell.borders?.let { borders -> borders.right?.border?.width ?: 0f } ?: (table.border?.width ?: 0f) } ?: 0f
+
+    private fun widths(table: PdfTable, measurer: TextMeasurer, availableWidth: Float): PdfTable {
         if (table.widthPolicy == PdfTableWidthPolicy.FIXED) return table
         if (table.widthPolicy == PdfTableWidthPolicy.AUTO_FIT) return AutoTableWidths.resolve(table, measurer, availableWidth)
         val widths = MutableList(table.columnWidths.size) { 0f }
@@ -33,7 +53,7 @@ internal object TableWidthResolver {
         if (widths.any { it <= 0f }) unsupported()
         if (framed.sum() > 14_400f) overflow()
         return PdfTable(framed, table.rows,
-            table.cellMargins, table.border, table.repeatedHeaderRows, table.leftIndent, semantics = table.semantics, preferredWidth = table.preferredWidth).withRightOverflow(table.rightOverflow)
+            table.cellMargins, table.border, table.repeatedHeaderRows, table.leftIndent, semantics = table.semantics, preferredWidth = table.preferredWidth).withRightOverflow(table.rightOverflow).withAlignment(table.alignment)
     }
 
     private fun framedWidth(content: Float, margins: PdfMargins): Float {

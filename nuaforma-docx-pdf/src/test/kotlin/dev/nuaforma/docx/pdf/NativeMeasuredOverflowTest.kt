@@ -11,6 +11,18 @@ class NativeMeasuredOverflowTest {
     @Test
     fun `measured renderer failures retain the complete exact reason and values only in development`() {
         val messages = listOf(
+            "Inline image exceeds physical left boundary; required=1.0 pt; available=0.0 pt",
+            "Inline image exceeds physical right boundary; required=20.0 pt; available=10.0 pt",
+            "Inline image exceeds physical top boundary; required=1.0 pt; available=0.0 pt",
+            "Inline image exceeds physical bottom boundary; required=20.0 pt; available=10.0 pt",
+            "Paragraph background exceeds physical left boundary; required=1.0 pt; available=0.0 pt",
+            "Paragraph background exceeds physical right boundary; required=10.0 pt; available=5.0 pt",
+            "Paragraph background exceeds physical top boundary; required=1.0 pt; available=0.0 pt",
+            "Paragraph background exceeds physical bottom boundary; required=12.0 pt; available=9.0 pt",
+            "Text background exceeds physical left boundary; required=1.0 pt; available=0.0 pt",
+            "Text background exceeds physical right boundary; required=10.0 pt; available=5.0 pt",
+            "Text background exceeds physical top boundary; required=1.0 pt; available=0.0 pt",
+            "Text background exceeds physical bottom boundary; required=12.0 pt; available=9.0 pt",
             "Text ascent exceeds physical page top; required=20.0 pt; available=8.0 pt",
             "Text descent exceeds physical page bottom; required=8.0 pt; available=2.0 pt",
             "Word and leading spaces exceed line width; required=900.0 pt; available=80.0 pt",

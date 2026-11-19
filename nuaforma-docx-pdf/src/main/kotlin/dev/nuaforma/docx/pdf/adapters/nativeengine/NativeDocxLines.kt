@@ -10,6 +10,7 @@ internal class NativeDocxLines(private val focus: (XmlElement) -> Unit, private 
     private val wp = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
     private val v = "urn:schemas-microsoft-com:vml"
     private val wps = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+    private val wp14 = "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
 
     fun isLine(node: XmlElement): Boolean = node.descendants().any {
         it.name.namespaceURI == v && it.name.localPart == "line" ||
@@ -81,14 +82,18 @@ internal class NativeDocxLines(private val focus: (XmlElement) -> Unit, private 
         requireThat(node.elements().size == 1, "Invalid line drawing container")
         val anchor = node.elements().single(); focus(anchor)
         requireThat(anchor.name.namespaceURI == wp && anchor.name.localPart == "anchor", "Only anchored drawing lines are qualified")
-        attrs(anchor, setOf("distT", "distB", "distL", "distR", "simplePos", "relativeHeight", "behindDoc", "locked", "layoutInCell", "allowOverlap"))
+        WordDrawingOrder.validate(anchor) { origin, message -> focus(origin); reject(message) }
         requireThat(anchor.attribute("", "simplePos") in setOf(null, "0", "false"), "Simple-position lines are not qualified")
         requireThat(anchor.attribute("", "behindDoc") in setOf(null, "0", "1", "false", "true"), "Invalid line layer")
         requireThat(anchor.attribute("", "layoutInCell") in setOf(null, "1", "true"), "Lines escaping their owning cell are not qualified")
         val allowed = mapOf(wp to setOf("anchor", "simplePos", "positionH", "positionV", "posOffset", "extent", "effectExtent", "wrapNone", "docPr", "cNvGraphicFramePr"),
             a to setOf("graphic", "graphicData", "graphicFrameLocks", "xfrm", "off", "ext", "prstGeom", "avLst", "ln", "solidFill", "srgbClr", "prstDash", "headEnd", "tailEnd", "noFill"),
-            wps to setOf("wsp", "cNvSpPr", "cNvPr", "spPr", "bodyPr"))
-        requireThat(anchor.descendants().all { it.name.localPart in allowed[it.name.namespaceURI].orEmpty() }, "Unsupported line effect, theme or geometry")
+            wps to setOf("wsp", "cNvSpPr", "cNvPr", "spPr", "bodyPr"),
+            wp14 to setOf("sizeRelH", "sizeRelV", "pctWidth", "pctHeight"))
+        anchor.descendants().firstOrNull { it.name.localPart !in allowed[it.name.namespaceURI].orEmpty() }?.let { unsupported ->
+            focus(unsupported)
+            reject("Unsupported line effect, theme or geometry: ${unsupported.name.localPart.take(64)}")
+        }
         val all = anchor.descendants().toList()
         fun one(ns: String, name: String): XmlElement = all.singleOrNull { it.name.namespaceURI == ns && it.name.localPart == name } ?: reject("Missing or duplicate line $name")
         requireThat(anchor.elements().count { it.name.namespaceURI == wp && it.name.localPart == "wrapNone" } == 1, "Only non-wrapping lines are qualified")
@@ -97,7 +102,9 @@ internal class NativeDocxLines(private val focus: (XmlElement) -> Unit, private 
         all.filter { it.name.localPart in setOf("headEnd", "tailEnd") }.forEach { end ->
             focus(end); attrs(end, setOf("type", "w", "len")); requireThat(end.attribute("", "type") in setOf(null, "none"), "Line arrows are not qualified")
         }
-        all.filter { it.name.localPart == "effectExtent" }.forEach { extent -> requireThat(extent.attributes.values.all { it == "0" }, "Line effects are not qualified") }
+        all.filter { it.name.localPart == "effectExtent" }.forEach { extent ->
+            WordInlineImagePadding.read(extent) { origin, message -> focus(origin); reject(message) }
+        }
         val transform = one(a, "xfrm"); focus(transform); attrs(transform, setOf("rot", "flipH", "flipV"))
         for (flip in listOf("flipH", "flipV")) requireThat(transform.attribute("", flip) in setOf(null, "0", "1", "false", "true"), "Invalid line reflection")
         requireThat(transform.elements().all { it.name.localPart in setOf("off", "ext") }, "Unsupported line transform")

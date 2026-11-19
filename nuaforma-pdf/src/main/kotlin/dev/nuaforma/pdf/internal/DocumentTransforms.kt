@@ -29,9 +29,9 @@ internal object DocumentTransforms {
                     }
                     val own = metadata(block, key, role)?.let { if (it.role == PdfSemanticRole.HEADING && it.level == null) it.copy(level = block.format.outlineLevel ?: 0) else it }
                     val input = if (normalize) block.copy(runs = block.runs.mapIndexed { runIndex, run ->
-                        if (run is PdfImageRun) PdfImageRun(image(run.image, semanticChildId(key, "image$runIndex"))) else run
-                    }, anchoredImages = block.anchoredImages.mapIndexed { anchorIndex, anchor -> PdfAnchoredImage(image(anchor.image, semanticChildId(key, "anchor$anchorIndex")),
-                            anchor.left, anchor.top, anchor.anchor, anchor.wrap, anchor.distances) }, semantics = own) else block
+                        if (run is PdfImageRun) run.copy(image = image(run.image, semanticChildId(key, "image$runIndex"))) else run
+                    }, anchoredImages = block.anchoredImages.mapIndexed { anchorIndex, anchor ->
+                        anchor.copy(image = image(anchor.image, semanticChildId(key, "anchor$anchorIndex"))) }, semantics = own) else block
                     if (input.contents != null && scope != Scope.BODY) unsupported("Contents require a body block")
                     paragraph(input, key, scope).also { output ->
                         textSize += output.sumOf { p -> p.runs.sumOf { when (it) { is PdfTextRun -> it.text.length.toLong(); is PdfPageField -> 4L; else -> 0L } } + (p.listLabel?.value?.text?.length ?: 0) }
@@ -41,13 +41,13 @@ internal object DocumentTransforms {
                 is PdfImage -> listOf(image(block, key))
                 is PdfTextBox -> listOf(PdfTextBox(block.left, block.top, block.width, block.height,
                     blocks(block.paragraphs, key, Scope.FRAME).map { it as PdfParagraph }, block.anchor, block.rotation,
-                    block.padding, block.fill, block.border, block.verticalAlignment, block.wrap, metadata(block, key, PdfSemanticRole.FRAME)))
+                    block.padding, block.fill, block.border, block.verticalAlignment, block.wrap, metadata(block, key, PdfSemanticRole.FRAME)).withDrawingOrder(block.drawingOrder))
                 is PdfTable -> listOf(PdfTable(block.columnWidths, block.rows.mapIndexed { rowIndex, row ->
                     PdfTableRow(row.cells.mapIndexed { cellIndex, cell -> PdfTableCell(
                         blocks(cell.blocks, semanticChildId(key, "r$rowIndex-c$cellIndex"), Scope.CELL), cell.background,
                         cell.columnSpan, cell.rowSpan, cell.verticalAlignment, cell.borders, cell.preferredWidth, cell.margins)
                     }, row.allowSplit, row.splitOversized, row.minimumHeight)
-                }, block.cellMargins, block.border, block.repeatedHeaderRows, block.leftIndent, block.widthPolicy, metadata(block, key, PdfSemanticRole.TABLE), block.preferredWidth).withRightOverflow(block.rightOverflow))
+                }, block.cellMargins, block.border, block.repeatedHeaderRows, block.leftIndent, block.widthPolicy, metadata(block, key, PdfSemanticRole.TABLE), block.preferredWidth).withRightOverflow(block.rightOverflow).withAlignment(block.alignment))
             }
         }
 

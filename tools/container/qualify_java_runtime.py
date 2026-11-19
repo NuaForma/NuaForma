@@ -8,6 +8,7 @@ import re
 import shutil
 import xml.etree.ElementTree as ET
 import zipfile
+from collect_build_provenance import RUNTIMES
 from qualify_service import Runtime, generate, http, multipart, template
 from verify_native_platform import verify
 from qualify_automatic_fonts import qualify as qualify_automatic_fonts
@@ -43,9 +44,12 @@ def main():
         image = json.loads(runtime.command("image", "inspect", args.image))[0]
         engine = json.loads(runtime.command("info", "--format", "{{json .}}"))
         verify(image, engine, args.architecture)
-        for role, path, version in (("server", "server", "25.0.5"), ("validator", "openjdk", "17.0.21")):
+        java_architecture = {"amd64": "x86_64", "arm64": "aarch64"}[args.architecture]
+        _, validator_runtime, server_runtime = RUNTIMES[java_architecture]
+        for role, path, (version, _) in (("server", "server", server_runtime), ("validator", "openjdk", validator_runtime)):
             result = runtime.command("exec", runtime.name, f"/opt/java/{path}/bin/java", "-version")
-            assert re.search(r'openjdk version "' + re.escape(version) + r'"', result), (role, result)
+            build = f"(build {version})"
+            assert build in result, (role, build, result)
             checks.append(role + "-java-" + version)
         base = runtime.connect()
         status, _, body = http(base, "/api/v1/capabilities")

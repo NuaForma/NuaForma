@@ -53,12 +53,12 @@ internal object LogicalStructureBuilder {
                     }
                 }
                 is PdfImageRun -> image(run.image, semantic.id)
-                is PdfTab, is PdfLineBreak -> {
+                is PdfTab, is PdfLineBreak, is PdfPageBreak -> {
                     val before = p.runs.getOrNull(index - 1) as? PdfTextRun
                     val after = p.runs.getOrNull(index + 1) as? PdfTextRun
                     if (before?.semantics?.id != null && before.semantics.id == after?.semantics?.id) {
                         val id = before.semantics.id
-                        val separator = if (run is PdfLineBreak) "\n" else "\t"
+                        val separator = if (run is PdfTab) "\t" else "\n"
                         nodes[id] = nodes.getValue(id).let { it.copy(text = it.text.orEmpty() + separator) }
                         before.navigation?.logicalId?.takeIf { it in nodes }?.let { link -> nodes[link] = nodes.getValue(link).let { it.copy(text = it.text.orEmpty() + separator) } }
                     }
@@ -145,6 +145,6 @@ internal object LogicalStructureBuilder {
     fun paragraphText(p: PdfParagraph, includeNoteCalls: Boolean = true): String? {
         if (p.runs.any { it is PdfPageField }) return null
         val label = p.listLabel?.let { it.value.text + if (it.suffix == PdfListSuffix.NOTHING) "" else if (it.suffix == PdfListSuffix.TAB) "\t" else " " }.orEmpty()
-        return label + p.runs.joinToString("") { when (it) { is PdfTextRun -> if (!includeNoteCalls && it.semantics?.role == PdfSemanticRole.NOTE_REFERENCE) "" else it.text; is PdfTab -> "\t"; is PdfLineBreak -> "\n"; is PdfImageRun, is PdfVectorRun -> "\uFFFC"; else -> "" } }
+        return label + p.runs.joinToString("") { when (it) { is PdfTextRun -> if (!includeNoteCalls && it.semantics?.role == PdfSemanticRole.NOTE_REFERENCE) "" else it.text; is PdfTab -> "\t"; is PdfLineBreak, is PdfPageBreak -> "\n"; is PdfImageRun, is PdfVectorRun -> "\uFFFC"; else -> "" } }
     }
 }

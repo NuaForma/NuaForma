@@ -1,5 +1,23 @@
 # Shared PDF engine: alpha foundation
 
+Explicit page boundaries preserve list-item identity and defer a leading marker to its first content. See [pagination semantics](../docs/list-page-breaks.md).
+
+The development candidate adds immutable table alignment through `PdfTable.withAlignment`. See [placement and source qualification](../docs/table-alignment.md).
+
+The development candidate adds an optional numeric-field policy to `PdfTabSettings` through `withDecimalPolicy`. Existing constructors retain explicit-separator alignment. See [tab semantics and candidate qualification](../docs/list-tabs.md).
+
+The development candidate adds immutable drawing order for text frames and anchored images. See [candidate semantics and Word controls](../docs/floating-drawing-order.md).
+
+Current source adds immutable inline image padding while retaining visible raster dimensions and physical bounds. See [inline box semantics and Word controls](../docs/whitespace-and-image-padding.md).
+
+Current source adds horizontal glyph scaling and explicit inline page boundaries in the shared model. See [semantics, limits and Word controls](../docs/scaling-and-page-breaks.md).
+
+Current source adds paragraph backgrounds and automatic line multiples below one, retaining the one-point physical line minimum. See [shared settings and Word controls](../docs/paragraph-formatting.md).
+
+Current source adds optional `PdfTextStyle.background` / `withBackground(color)` in this shared artifact. Existing constructors and copy methods retain their signatures. See [text backgrounds and Word qualification](../docs/text-backgrounds.md).
+
+Current source handles tab alignment collisions after longer preceding text without moving the field backwards or rejecting solely for overlap. See [Word behavior and qualification](../docs/tab-collisions.md).
+
 Unreleased source adds opt-in `PdfParagraph.breakLongWords` / `withLongWordBreaking(enabled)` for oversized unshaped words. See [source semantics, bounds and Word controls](../docs/long-word-breaking.md).
 
 Current source adds `PdfLineBreak(style)` and immutable `PdfParagraph.paragraphMarkStyle` / `withParagraphMarkStyle(style)` in this same shared artifact. See [semantics, limits and Word controls](../docs/soft-line-breaks.md). Existing constructors/copy signatures are retained; exhaustive Kotlin `PdfInline` consumers must handle the added variant.
@@ -132,7 +150,7 @@ The [eight-page Word trial](../tools/pdf-evaluation/own-engine/LISTS.md) qualifi
 
 The source increment [#184 formatting proof](../tools/pdf-evaluation/own-engine/FORMATTING.md) adds `PdfParagraphSpacing` for conditional before/cell-end gaps, `PdfParagraphPageOffset` for translations selected by physical page parity, and immutable `PdfFontFeatures` for classic/OpenType kerning and standard ligatures. These are format-independent policies; the DOCX adapter resolves compatibility and inheritance before supplying them. Request-local shaping uses caller font bytes, and subset/full output retains searchable logical clusters, including ligature aliases. The four existing PDF profiles keep their independent validation gates. This source functionality is selected for 0.4.0-alpha.1.
 
-`PdfAutomaticLineSpacing` selects a 1–10 multiple of the supplied TrueType font's natural `hhea` line box and preserves its ascent/descent/gap. Extra spacing follows each line. Exact spacing and the original single-page default retain their previous behavior; explicit exact and automatic policies cannot be combined. Flow, table and frame measurement share the same box calculation. Unreleased #241 measures mixed natural sizes/metrics per actual physical line and carries those variable heights through qualified layout structures. Mixed bidi natural boxes and variable heights beside floating images remain explicit failures; existing inline-object limits still apply. See [mixed natural line spacing](../docs/mixed-natural-line-spacing.md).
+`PdfAutomaticLineSpacing` selects a 1/240–10 multiple of the supplied TrueType font's natural `hhea` line box. Multiples below one also reduce the baseline offset; the physical line minimum remains one point. Multiples from one retain their existing ascent/descent/gap and extra spacing follows each line. Exact spacing and the original single-page default retain their previous behavior; explicit exact and automatic policies cannot be combined. Flow, table and frame measurement share the same box calculation. Unreleased #241 measures mixed natural sizes/metrics per actual physical line and carries those variable heights through qualified layout structures. Mixed bidi natural boxes and variable heights beside floating images remain explicit failures; existing inline-object limits still apply. See [mixed natural line spacing](../docs/mixed-natural-line-spacing.md) and [tight-line controls](../docs/paragraph-formatting.md).
 
 The [two-page style proof](../tools/pdf-evaluation/own-engine/STYLES.md) qualifies source defaults, paragraph/character/table-style inheritance, direct overrides, Latin theme font references, single/1.5/double spacing and suppression between equal contextual paragraph styles. Source-specific inheritance resolves in the DOCX adapter; the shared model receives effective fonts, styles and physical paragraph spacing. No DOCX theme/style nodes enter shared layout. That original proof excludes conditional table styles and automatic-before/after flags; the #184 formatting proof above extends those portions. Complex default-toggle combinations, line-count paragraph units and general font matching remain outside the qualified profile.
 

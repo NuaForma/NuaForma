@@ -1,5 +1,24 @@
 # NuaForma documentation
 
+- [Horizontal table alignment](table-alignment.md): candidate left/center/right placement after width negotiation.
+
+- [Tabs inside lists](list-tabs.md): candidate inline tab controls following list markers and hanging indentation.
+- [Page breaks inside lists](list-page-breaks.md): numbered-item continuation, deliberate blank pages and ending boundaries.
+
+- [Non-wrapping drawing extents](unwrapped-drawing-extents.md): candidate passive extents and validated Office frame paint/text settings.
+
+- [Floating drawing order](floating-drawing-order.md): candidate physical layers, ordering and Word anchor editing metadata.
+
+- [Word text edges and picture padding](whitespace-and-image-padding.md): XML whitespace defaults and measured inline picture extents.
+
+- [Scaling and page boundaries](scaling-and-page-breaks.md): horizontal text scaling and explicit page breaks within one logical paragraph.
+
+- [Paragraph formatting](paragraph-formatting.md): solid paragraph backgrounds and Word-compatible automatic line spacing below one line.
+
+- [Text backgrounds](text-backgrounds.md): highlighting, solid run shading, inherited colors and Word-backed A4/Letter controls.
+
+- [Tabs after data expansion](tab-collisions.md): Word-compatible alignment collisions, passed stops and A4/Letter template controls.
+
 - [Soft line breaks](soft-line-breaks.md): typed inline controls, explicit paragraph-mark metrics and Word-backed body/table/band/pagination tests.
 
 - [Exact-leading text and physical page bounds](exact-leading-ink.md): virtual measurement, final ink checks and Word-backed A4/Letter controls (source #295).
@@ -78,7 +97,7 @@ Unreleased #234 qualifies [Word-compatible synthetic bold](word-synthetic-bold.m
 
 Unreleased #233 qualifies [passive Office package resources](word-passive-office-package.md), with strict graph checks and unchanged caller-font requirements.
 
-This checkout uses the native DOCX reader and shared `nuaforma-pdf` renderer. Libraries target Java 17; server/Playground use Java 25, with separate Java 17 PDF validators. This guide targets the native engine selected for `0.5.0-alpha.4`. Consult the actual signed release and matching Maven/container artifacts for published availability; older LibreOffice-based images do not gain this implementation automatically. Source builds and checks do not themselves publish artifacts. Local evaluation can use staged libraries and the source container; publication retains its candidate-specific qualification and approval gates.
+This checkout uses the native DOCX reader and shared `nuaforma-pdf` renderer. Libraries target Java 17; server/Playground use Java 25, with separate Java 17 PDF validators. This guide targets the native engine selected for `0.5.0-alpha.5`. Consult the actual signed release and matching Maven/container artifacts for published availability; older LibreOffice-based images do not gain this implementation automatically. Source builds and checks do not themselves publish artifacts. Local evaluation can use staged libraries and the source container; publication retains its candidate-specific qualification and approval gates.
 
 Published 0.4.0-alpha.1 retains runtime contract `0.8`, accepting compatible provider minima `0.1` through `0.8`. Its DOCX/PDF providers require 0.8 for optional document inspection and source diagnostics; rich-text metadata and the PDF diagnostic facet remain available. Keep all NuaForma libraries aligned and review the [rich-text compatibility notes](rich-text.md#contracts-and-compatibility) when upgrading extensions. PDF generation defaults to PDF/A-3b. Only exact `NUAFORMA_PDFA_VALIDATION=false` delegates conformance checking downstream; structural/font checks and the container validation boundary remain mandatory. See the [current PDF guide](../nuaforma-docx-pdf/README.md).
 
@@ -156,6 +175,6 @@ Unreleased #254–#257 qualify original proofing preferences, printer-tray metad
 
 - [Long words in fixed cells](long-word-breaking.md): opt-in grapheme-safe wrapping with preserved columns, source offsets and measured overflow.
 
-Selected 0.5.0-alpha.4 adds styled soft breaks, physical ink bounds, fixed-table placement/wrapping and consistent precise font-family selection. See the [release notes](../release-notes/0.5.0-alpha.4.md) and [candidate audit](release-0.5.0-alpha.4-audit.md); preparation does not itself publish artifacts.
+Selected 0.5.0-alpha.5 adds right-margin tabs, fixed automatic-width grids and broader Word layout support. See the [release notes](../release-notes/0.5.0-alpha.5.md) and [candidate audit](release-0.5.0-alpha.5-audit.md).
 
 - [Font family and face identity](font-family-identities.md): shared bounded OpenType naming and extended variant qualification (unreleased source).

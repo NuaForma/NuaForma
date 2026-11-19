@@ -1,0 +1,12 @@
+{
+  "feature": "Text highlighting and solid run shading",
+  "initialGolden": true,
+  "reviewedOn": "2026-11-18",
+  "visualReview": "Actual Word/native page pairs reviewed. Content, paper and marker positions preserved. Automatic versus explicit text colors independently checked against Word, including mixed RGB contrast boundaries. Native golden comparison uses 96 dpi, zero pixel tolerance and no masks. Full physical line backgrounds include spaces and tabs; trailing end spaces follow Word.",
+  "sha256": {
+    "page-1.png": "aa15653efc756ea89e25805d6b44726fd8d193657145eb2075b715fc92558785",
+    "source.docx": "8e3c3eecb32b46c004de503cc3dd49dbf05f22d0a3bc37e65f2083b7b44d9468",
+    "word-reference.pdf": "6340718376bbeb0be4c89789d0c2f9f3d7629654c44af278e4aa9e11950342b1",
+    "word-reference.pdf.provenance.json": "e4393b0fa188a40a63bbd3e1a96c2c24722cf6e323696c0283b1ff276cc8044a"
+  }
+}

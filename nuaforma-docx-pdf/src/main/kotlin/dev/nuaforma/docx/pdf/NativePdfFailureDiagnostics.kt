@@ -25,8 +25,20 @@ internal object NativePdfFailureDiagnostics {
 
     // Only owned reasons plus numeric measurements cross the diagnostic boundary; no arbitrary text.
     private val overflowReasons = setOf(
+        "Inline image exceeds physical left boundary",
+        "Inline image exceeds physical right boundary",
+        "Inline image exceeds physical top boundary",
+        "Inline image exceeds physical bottom boundary",
+        "Paragraph background exceeds physical left boundary",
+        "Paragraph background exceeds physical right boundary",
+        "Paragraph background exceeds physical top boundary",
+        "Paragraph background exceeds physical bottom boundary",
         "Text ascent exceeds physical page top",
         "Text descent exceeds physical page bottom",
+        "Text background exceeds physical left boundary",
+        "Text background exceeds physical right boundary",
+        "Text background exceeds physical top boundary",
+        "Text background exceeds physical bottom boundary",
         "Image exceeds area width",
         "Image exceeds remaining area height",
         "Page break requires another layout area",
@@ -55,6 +67,13 @@ internal object NativePdfFailureDiagnostics {
 
     // Add only fixed application-owned explanations. Unknown/new reasons retain their code, never raw text.
     private val explanations = setOf(
+        "Inline page breaks require body pagination",
+        "Inline page breaks inside page bands are not qualified",
+        "Inline page breaks inside frames are not qualified",
+        "Inline page breaks inside table cells are not qualified",
+        "Inline page breaks with paragraph keep rules are not qualified",
+        "Inline page breaks with wrapped frames are not qualified",
+        "Page breaks in text reference ranges are not qualified",
         "Line breaks in text reference ranges are not qualified",
         "Text ink bounds are not finite",
         "A navigation target requires visible text",
@@ -199,6 +218,7 @@ internal object NativePdfFailureDiagnostics {
         "Paginating spanning or nested tables with notes is not qualified",
         "Paragraph borders and lines beside floating images are not qualified",
         "Paragraph indentation exceeds the physical page",
+        "Paragraph backgrounds beside floating images are not qualified",
         "Paragraph keep rules with wrapped frames are not qualified",
         "Paragraph line metrics are unavailable",
         "Paragraph pagination rules inside table cells are not qualified",

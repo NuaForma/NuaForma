@@ -1,0 +1,28 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-19",
+  "feature": "Numeric-field decimal tab policy",
+  "wordComparison": {
+    "variant": "text-comma",
+    "paper": "letter",
+    "pages": 1,
+    "markerCount": 2,
+    "maxX": 0.057999999999992724,
+    "maxY": 0.038868719999982204,
+    "nativeField": [
+      212.028,
+      58.49886872000002
+    ],
+    "wordField": [
+      211.97,
+      58.460000000000036
+    ]
+  },
+  "visualReview": "All forty-four A4/Letter native/Word pairs were visually reviewed after independent complete-content, paper and marker-geometry checks, including grouped amounts, currency and text prefixes, units, leading separators and numeric fallback. Initial native PNG uses PDFBox at 96 dpi with no masks. No established golden replaced.",
+  "sha256": {
+    "page-1.png": "f9f1b42da07b6fba3a0312ce497fb1390a723592a0453cb83ee09f9f3306d3b3",
+    "source.docx": "6681159eb064ca7dfa5a3c59b0d5258a0c9c8e4a5f970ad461c16b0a0ec789fd",
+    "word-reference.pdf": "089eeaa57b082f8697607c37a2108362b5cc968510116d107ed1033407142f65",
+    "word-reference.pdf.provenance.json": "401b016a7d686a6b8abb794be2b4a7894cd36f5874289462ae0f9b5625fbf325"
+  }
+}

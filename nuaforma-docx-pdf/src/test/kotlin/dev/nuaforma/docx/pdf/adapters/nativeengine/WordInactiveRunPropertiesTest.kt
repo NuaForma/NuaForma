@@ -15,6 +15,17 @@ class WordInactiveRunPropertiesTest {
     private fun reject(node: XmlElement, message: String): Nothing = throw NativeDocxReadException(message, "word/styles.xml")
 
     @Test
+    fun `horizontal scale retains bounded percentage values independently of inactive toggles`() {
+        for (value in listOf(1, 50, 80, 100, 125, 600)) {
+            val input = root("""<w:w w:val="$value"/>""")
+            WordInactiveRunProperties.validateSource(input, ::reject)
+            assertEquals(value / 100f, WordInactiveRunProperties.horizontalScale(input.elements().single(), ::reject))
+        }
+        for (value in listOf("0", "601", "100000", "NaN"))
+            assertThrows(NativeDocxReadException::class.java) { WordInactiveRunProperties.validateSource(root("""<w:w w:val="$value"/>"""), ::reject) }
+    }
+
+    @Test
     fun `inactive toggles and normal scale remain explicit while on off aliases normalize before binding`() {
         for (value in listOf("0", "false", "off")) {
             val input = root("""<w:dstrike w:val="$value"/><w:w w:val="100"/>""")

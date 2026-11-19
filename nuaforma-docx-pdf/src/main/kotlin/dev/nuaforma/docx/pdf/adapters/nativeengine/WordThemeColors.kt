@@ -18,7 +18,7 @@ internal class WordThemeColors(
     fun resolve(node: XmlElement): PdfColor {
         validateShape(node, reject)
         val role = node.attribute(W, "themeColor")
-        if (role == null || role == "none") return rgb(node, node.attribute(W, "val"))
+        if (role == null || role == "none") return if (node.attribute(W, "val") == "auto") PdfColor(0, 0, 0) else rgb(node, node.attribute(W, "val"))
         return themed(node, role, node.attribute(W, "themeTint"), node.attribute(W, "themeShade"))
     }
 
@@ -28,6 +28,11 @@ internal class WordThemeColors(
         if (role == "none") return null
         if (role == null) return node.attribute(W, "fill")?.takeUnless { it == "auto" }?.let { rgb(node, it) }
         return themed(node, role, node.attribute(W, "themeFillTint"), node.attribute(W, "themeFillShade"))
+    }
+
+    fun runFill(node: XmlElement): PdfColor? {
+        validateRunFill(node, reject)
+        return if (node.attribute(W, "val") == "nil") null else cellFill(normalizedRunFill(node))
     }
 
     private fun themed(node: XmlElement, role: String, tintValue: String?, shadeValue: String?): PdfColor {
@@ -123,7 +128,7 @@ internal class WordThemeColors(
             }
             for (properties in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart == "rPr" }) {
                 val colors = properties.elements().filter { it.name.namespaceURI == W && it.name.localPart == "color" }
-                if (colors.none { node -> node.attributes.keys.any { it.namespaceURI == W && it.localPart in setOf("themeColor", "themeTint", "themeShade") } }) continue
+                if (colors.isEmpty()) continue
                 if (colors.size != 1) reject(colors[1], "Duplicate run theme color")
                 validateShape(colors.single(), reject)
             }
@@ -162,6 +167,20 @@ internal class WordThemeColors(
                 if (expected == null || node.attribute("", "lastClr")?.uppercase() != expected)
                     reject(node, "Only standard black and white system theme colors are qualified")
             }
+        }
+
+        fun validateRunFill(node: XmlElement, reject: (XmlElement, String) -> Nothing) {
+            val color = node.attribute(W, "color")
+            if (node.attribute(W, "val") !in setOf("clear", "nil") ||
+                color != null && color != "auto" && !color.matches(Regex("[0-9A-Fa-f]{6}")))
+                reject(node, "Unsupported run shading pattern or foreground color")
+            validateCellFill(normalizedRunFill(node)) { _, message -> reject(node, message.replace("cell", "run")) }
+        }
+
+        private fun normalizedRunFill(node: XmlElement): XmlElement = XmlElement(node.name, node.attributes.toMutableMap(),
+            node.namespaces.toMutableMap(), node.children.toMutableList()).also {
+            it.attributes[javax.xml.namespace.QName(W, "val")] = "clear"
+            it.attributes[javax.xml.namespace.QName(W, "color")] = "auto"
         }
 
         private fun validateCellFill(node: XmlElement, reject: (XmlElement, String) -> Nothing) {

@@ -88,7 +88,7 @@ class NativeUnicodeSpacesTest {
     }
 
     @Test
-    fun `unmarked ordinary spaces still reject without publishing partial PDF`() {
+    fun `unmarked ordinary edge spaces trim without changing visible Unicode-space content or pixels`() {
         val provider = provider()
         val parts = PdfFixture.unzip(resource("/unicode-spaces/a4/source.docx"))
         val before = parts.getValue("word/document.xml").decodeToString()
@@ -96,11 +96,14 @@ class NativeUnicodeSpacesTest {
         assertNotEquals(before, after)
         val source = PdfFixture.zip(parts.mapValues { (name, bytes) -> if (name == "word/document.xml") after.toByteArray() else bytes })
         val output = ByteArrayOutputStream()
-        val error = assertThrows(GenerationException::class.java) {
-            provider.generate(request(source), output, GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT)))
-        }
-        assertEquals(0, output.size())
-        assertTrue(error.diagnostics.any { it.code == DiagnosticCodes.UNSUPPORTED_INPUT && it.part == "word/document.xml" &&
-            it.sourceContext?.explanation == "Significant edge whitespace requires explicit preservation" })
+        val baseline = ByteArrayOutputStream()
+        provider.generate(request(source), output, GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT)))
+        provider.generate(request(resource("/unicode-spaces/a4/source.docx")), baseline, GenerationContext())
+        Loader.loadPDF(output.toByteArray()).use { actual -> Loader.loadPDF(baseline.toByteArray()).use { expected ->
+            assertEquals(lines(expected), lines(actual))
+            assertImagesMatch(PDFRenderer(expected).renderImageWithDPI(0, 96f), PDFRenderer(actual).renderImageWithDPI(0, 96f)) {
+                pixelTolerance = 0.0; allowedDifferentPixelsPercent = 0.0; threshold = 1
+            }
+        } }
     }
 }

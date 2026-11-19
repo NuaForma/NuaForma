@@ -1,0 +1,14 @@
+{
+  "feature": "Word-compatible tab alignment collisions after template data expansion",
+  "initialGolden": true,
+  "reviewedOn": "2026-11-18",
+  "visualReview": "Six Word/native full-page pairs reviewed, including full collision/A4, short/A4 and passed-stop/Letter pairs. One page each; no clipped content or backwards field placement. Forty-three field/prefix anchors per output agree within 0.21 point. Full text matches after whitespace and targeted decorative leader normalization. Internal glyph advances can differ slightly from Word. Native golden comparison is exact at 96 dpi without masks.",
+  "profiles": "Standard PDF controls; collision/A4 also independently validated PDF/A-1b/2b/3b.",
+  "sha256": {
+    "source.docx": "9d12b1c5999927e9822dd48f137558376b0b06bfa456f4b3ae83a38c2ebaad3b",
+    "word-reference.pdf": "1aff22b0b1775124672bf3376b150283f0940f94677bec4fd9d5ed71f56ad968",
+    "word-reference.pdf.provenance.json": "5817ff135ab1de1f41b6500e310fa4412f701b24ce6a61a61f4bfcc6ffa4ae04",
+    "page-1.png": "d64dbaab49d1624007b50179de668ad612781eba4a1eeb958434b1e338413ea1",
+    "template.docx": "0e1cb6e29d141cfaffeb767608c815799e6dce4f8051bed8537ac944020f42a1"
+  }
+}

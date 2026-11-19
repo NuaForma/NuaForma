@@ -1,0 +1,238 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-19",
+  "feature": "Horizontal table alignment after width negotiation",
+  "wordComparison": {
+    "kind": "auto",
+    "variant": "right",
+    "paper": "letter",
+    "pages": 1,
+    "checks": [
+      {
+        "page": 1,
+        "markerCount": 26,
+        "maxX": 0.07900000000000773,
+        "maxY": 0.18245940000002747,
+        "nativeMarkers": {
+          "PHYSICAL_1_1": {
+            "x": 225.15,
+            "y": 103.81914060000008
+          },
+          "PHYSICAL_1_2": {
+            "x": 307.651,
+            "y": 103.81914060000008
+          },
+          "PHYSICAL_2_1": {
+            "x": 225.15,
+            "y": 118.31914060000008
+          },
+          "PHYSICAL_2_2": {
+            "x": 307.651,
+            "y": 118.31914060000008
+          },
+          "PHYSICAL_3_1": {
+            "x": 225.15,
+            "y": 146.81914060000008
+          },
+          "PHYSICAL_3_2": {
+            "x": 307.651,
+            "y": 146.81914060000008
+          },
+          "PERCENT_1_1": {
+            "x": 171.15,
+            "y": 175.81914060000008
+          },
+          "PERCENT_1_2": {
+            "x": 264.65,
+            "y": 175.81914060000008
+          },
+          "PERCENT_2_1": {
+            "x": 171.15,
+            "y": 190.31914060000008
+          },
+          "PERCENT_2_2": {
+            "x": 264.65,
+            "y": 190.31914060000008
+          },
+          "PERCENT_3_1": {
+            "x": 171.15,
+            "y": 218.81914060000008
+          },
+          "PERCENT_3_2": {
+            "x": 264.65,
+            "y": 218.81914060000008
+          },
+          "IMPLICIT_1_1": {
+            "x": 225.15,
+            "y": 247.81914060000008
+          },
+          "IMPLICIT_1_2": {
+            "x": 305.15,
+            "y": 247.81914060000008
+          },
+          "IMPLICIT_2_1": {
+            "x": 225.15,
+            "y": 262.3191406000001
+          },
+          "IMPLICIT_2_2": {
+            "x": 305.15,
+            "y": 262.3191406000001
+          },
+          "IMPLICIT_3_1": {
+            "x": 225.15,
+            "y": 290.81914059999997
+          },
+          "IMPLICIT_3_2": {
+            "x": 305.15,
+            "y": 290.81914059999997
+          },
+          "MERGED_1_1": {
+            "x": 225.15,
+            "y": 319.81914059999997
+          },
+          "MERGED_1_2": {
+            "x": 305.15,
+            "y": 319.81914059999997
+          },
+          "MERGED_2_1": {
+            "x": 225.15,
+            "y": 334.31914059999997
+          },
+          "MERGED_2_2": {
+            "x": 305.15,
+            "y": 334.31914059999997
+          },
+          "MERGED_3_1": {
+            "x": 225.15,
+            "y": 362.81914059999997
+          },
+          "MERGED_3_2": {
+            "x": 305.15,
+            "y": 362.81914059999997
+          },
+          "MERGED_SHARED_COLUMNS": {
+            "x": 225.15,
+            "y": 377.31914059999997
+          },
+          "END_PREFERRED_TABLES": {
+            "x": 72.0,
+            "y": 391.81914059999997
+          }
+        },
+        "wordMarkers": {
+          "PHYSICAL_1_1": {
+            "x": 225.17,
+            "y": 103.87160000000006
+          },
+          "PHYSICAL_1_2": {
+            "x": 307.73,
+            "y": 103.87160000000006
+          },
+          "PHYSICAL_2_1": {
+            "x": 225.17,
+            "y": 118.39160000000004
+          },
+          "PHYSICAL_2_2": {
+            "x": 307.73,
+            "y": 118.39160000000004
+          },
+          "PHYSICAL_3_1": {
+            "x": 225.17,
+            "y": 146.9516000000001
+          },
+          "PHYSICAL_3_2": {
+            "x": 307.73,
+            "y": 146.9516000000001
+          },
+          "PERCENT_1_1": {
+            "x": 171.14,
+            "y": 175.87160000000006
+          },
+          "PERCENT_1_2": {
+            "x": 264.65,
+            "y": 175.87160000000006
+          },
+          "PERCENT_2_1": {
+            "x": 171.14,
+            "y": 190.39160000000004
+          },
+          "PERCENT_2_2": {
+            "x": 264.65,
+            "y": 190.39160000000004
+          },
+          "PERCENT_3_1": {
+            "x": 171.14,
+            "y": 218.98160000000007
+          },
+          "PERCENT_3_2": {
+            "x": 264.65,
+            "y": 218.98160000000007
+          },
+          "IMPLICIT_1_1": {
+            "x": 225.17,
+            "y": 247.90160000000003
+          },
+          "IMPLICIT_1_2": {
+            "x": 305.21,
+            "y": 247.90160000000003
+          },
+          "IMPLICIT_2_1": {
+            "x": 225.17,
+            "y": 262.4216
+          },
+          "IMPLICIT_2_2": {
+            "x": 305.21,
+            "y": 262.4216
+          },
+          "IMPLICIT_3_1": {
+            "x": 225.17,
+            "y": 290.9816
+          },
+          "IMPLICIT_3_2": {
+            "x": 305.21,
+            "y": 290.9816
+          },
+          "MERGED_1_1": {
+            "x": 225.17,
+            "y": 319.9016
+          },
+          "MERGED_1_2": {
+            "x": 305.21,
+            "y": 319.9016
+          },
+          "MERGED_2_1": {
+            "x": 225.17,
+            "y": 334.4216
+          },
+          "MERGED_2_2": {
+            "x": 305.21,
+            "y": 334.4216
+          },
+          "MERGED_3_1": {
+            "x": 225.17,
+            "y": 363.0016
+          },
+          "MERGED_3_2": {
+            "x": 305.21,
+            "y": 363.0016
+          },
+          "MERGED_SHARED_COLUMNS": {
+            "x": 225.17,
+            "y": 377.4016
+          },
+          "END_PREFERRED_TABLES": {
+            "x": 72.024,
+            "y": 391.9216
+          }
+        }
+      }
+    ]
+  },
+  "visualReview": "All 24 native/Word page pairs visually reviewed after independent full-content, paper and marker-position checks. Fixed and negotiated widths, legacy/modern alignment and declared indentation covered on A4 and Letter. Initial native PNG uses PDFBox at 96 dpi without masks. No established golden replaced.",
+  "sha256": {
+    "source.docx": "4cd9defc47e96e4e2614f30ce0b0ac4c63e8222260461602b199856c47f8660b",
+    "word-reference.pdf": "85245203f3a4477350fd2acf73c02611627235dbe2b8cafdae3bd5419b3a5016",
+    "word-reference.pdf.provenance.json": "3c21c2a97e3b897a8e2b9adfac4aad0a6966a41dc9acee6c8dd3370818afc60d",
+    "page-1.png": "1875717eb891a822a5fdc49a94e6b301e45e90e5a0d8fa2a3c02d7dca9609011"
+  }
+}

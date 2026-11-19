@@ -1,0 +1,20 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-18",
+  "feature": "Paragraph fills clipped to zero-margin table cells",
+  "wordComparison": {
+    "variant": "zero-margins",
+    "paper": "letter",
+    "pages": 1,
+    "markers": 8,
+    "maxX": 0.060000000000002274,
+    "maxY": 0.10000000000002274
+  },
+  "visualReview": "Full Word/native page pair reviewed: paragraph fill stays inside each cell, preserving text, border fill, page bands and following paragraph. Zero pixel tolerance at 96 dpi, no masks.",
+  "sha256": {
+    "page-1.png": "0a598e470d00a55da098911efa63aacb9627ad151ba2ae7f35dc077704ec8ac2",
+    "source.docx": "3d0c2c5f95341626c4ef55465ed4da7b6aade5b843afe80017900d92a888402f",
+    "word-reference.pdf": "9a7a5036b0d734adeaaafdf5a5de479cd93fafa0e151a5caa6f6b3a4ee1eecc2",
+    "word-reference.pdf.provenance.json": "b0f01731905ee9bcfb1ea239fd448968fea1fe8e1a4d753d4e5387f0f9f99905"
+  }
+}

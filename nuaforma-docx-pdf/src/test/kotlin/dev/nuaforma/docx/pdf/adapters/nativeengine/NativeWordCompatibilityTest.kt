@@ -38,15 +38,18 @@ class NativeWordCompatibilityTest {
             val report = NativeDocxPdfProvider(NativePdfConfiguration(emptyList())).cleanTemplate(bytes.inputStream(), output, context())
             assertTrue(report.changes.isEmpty(), report.changes.toString())
             assertArrayEquals(bytes, output.toByteArray())
-            assertEquals("VISIBLE", ((read(bytes).blocks.first() as PdfParagraph).runs.first() as PdfTextRun).text)
+            val visible = (read(bytes).blocks.first() as PdfParagraph).runs.first() as PdfTextRun
+            assertEquals("VISIBLE", visible.text)
+            assertNull(visible.style.background)
         }
         for (highlight in listOf("<w:highlight/>", "<w:highlight w:val=\"unknown\"/>",
             "<w:highlight w:val=\"none\"/><w:highlight w:val=\"yellow\"/>", "<w:highlight w:val=\"none\"><w:b/></w:highlight>")) {
             assertThrows(NativeDocxReadException::class.java) { read(source("<w:rPr>$highlight</w:rPr>")) }
         }
-        assertThrows(NativeDocxReadException::class.java) {
-            read(source("", "<w:r><w:rPr><w:highlight w:val=\"yellow\"/></w:rPr><w:t>VISIBLE</w:t></w:r>"))
-        }
+        val highlighted = read(source("", "<w:r><w:rPr><w:highlight w:val=\"yellow\"/></w:rPr><w:t>VISIBLE</w:t></w:r>"))
+        val visible = (highlighted.blocks.first() as PdfParagraph).runs.single() as PdfTextRun
+        assertEquals("VISIBLE", visible.text)
+        assertEquals(dev.nuaforma.pdf.PdfColor(255, 255, 0), visible.style.background)
     }
 
     @Test

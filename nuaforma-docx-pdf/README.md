@@ -1,5 +1,25 @@
 # NuaForma DOCX/PDF provider
 
+Numbered paragraphs can retain inline page boundaries and their list numbering. See [Word controls and limits](../docs/list-page-breaks.md).
+
+The development candidate maps qualified Word table alignment into the shared model after width negotiation. See [candidate semantics and limits](../docs/table-alignment.md).
+
+The development candidate admits inline tabs inside list paragraphs. See [candidate semantics and limits](../docs/list-tabs.md).
+
+The development candidate admits bounded extent metadata on non-wrapping objects and validates unrotated Office frame flags and opaque solid paint. See [candidate semantics and limits](../docs/unwrapped-drawing-extents.md).
+
+The development candidate maps Word floating drawing order and bounded editing metadata into shared physical layers. See [candidate semantics and limits](../docs/floating-drawing-order.md).
+
+Current source follows ordinary Word text-edge whitespace policies and maps qualified inline picture extents to shared padding. See [semantics and limits](../docs/whitespace-and-image-padding.md).
+
+Current source supports bounded `w:w` text scaling and explicit body page breaks. See [qualified semantics and limitations](../docs/scaling-and-page-breaks.md).
+
+Current source supports solid paragraph shading and tight automatic line spacing, including Word-qualified inheritance and pagination. See [semantics and qualification](../docs/paragraph-formatting.md).
+
+Current source supports text highlighting and solid run shading, including inherited colors, theme fills and Word-qualified automatic foreground choices. See [supported semantics and limits](../docs/text-backgrounds.md).
+
+Current source follows Word when data expansion causes right, center or decimal tab alignment to collide with preceding text. See [tab placement and Word controls](../docs/tab-collisions.md).
+
 Current source supports qualified DOCX soft line breaks without creating extra paragraphs or list items. See [supported controls and Word comparisons](../docs/soft-line-breaks.md); this refinement is not in unchanged alpha.3 artifacts.
 
 Source #295 distinguishes virtual exact-leading measurements from final physical-page ink bounds. See [scope and Word controls](../docs/exact-leading-ink.md); this refinement is not in unchanged alpha.3 artifacts.

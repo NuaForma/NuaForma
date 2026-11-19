@@ -35,7 +35,7 @@ internal object AutoTableWidths {
         val target = minOf(available, maxOf(minimum.sum(), physical ?: preferred.sum()))
         val widths = fit(preferred, minimum, target)
         return PdfTable(widths, table.rows, table.cellMargins, table.border, table.repeatedHeaderRows,
-            table.leftIndent, semantics = table.semantics, preferredWidth = table.preferredWidth).withRightOverflow(table.rightOverflow)
+            table.leftIndent, semantics = table.semantics, preferredWidth = table.preferredWidth).withRightOverflow(table.rightOverflow).withAlignment(table.alignment)
     }
 
     private fun preferred(value: PdfPreferredWidth?, reference: Float): Float? = value?.let {

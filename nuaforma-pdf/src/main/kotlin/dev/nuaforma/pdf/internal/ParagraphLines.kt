@@ -36,6 +36,14 @@ internal object ParagraphLines {
     fun strokes(p: PdfParagraph, frame: Frame, width: Float, textTop: Float, height: Float,
         first: Boolean, last: Boolean, target: MutableList<PositionedElement>) {
         val b = frame.borders
+        p.background?.let { color ->
+            val left = minOf(p.format.leftIndent, p.format.leftIndent + p.format.firstLineIndent) - 1.5f - (b?.left?.space ?: 0f)
+            val right = width - p.format.rightIndent + 1.5f + (b?.right?.space ?: 0f)
+            val top = textTop - if (first) frame.before - (if (frame.previous) 0f else b?.top?.stroke?.extent ?: 0f) else 0f
+            val bottom = textTop + height + if (last) frame.after - (if (frame.next) 0f else b?.bottom?.stroke?.extent ?: 0f) else 0f
+            target += PositionedRectangle(left, top, right - left, bottom - top, color, null,
+                frame.owner, first, if (last && frame.following?.background != null) frame.following else null)
+        }
         val left = p.format.leftIndent - 1.5f
         val right = width - p.format.rightIndent + 1.5f
         val outerLeft = left - (b?.left?.let { it.space + it.stroke.extent } ?: 0f)
@@ -72,12 +80,13 @@ internal object ParagraphLines {
 
     /** Connect only actual neighboring fragments on the same canvas, after pagination is final. */
     fun connect(elements: List<PositionedElement>): List<PositionedElement> {
+        val shaded = ParagraphBackgrounds.connect(elements)
         val starts = java.util.IdentityHashMap<PdfParagraph, MutableList<PositionedStroke>>()
         elements.filterIsInstance<PositionedStroke>().forEach { stroke ->
             stroke.joinOwner?.let { starts.getOrPut(it) { mutableListOf() } += stroke }
         }
-        if (starts.isEmpty()) return elements.toList()
-        return elements.map { element ->
+        if (starts.isEmpty()) return shaded
+        return shaded.map { element ->
             PageLayouter.checkCancellation()
             if (element !is PositionedStroke || element.joinFollowing == null) element else {
                 val next = starts[element.joinFollowing].orEmpty().asSequence().filter {

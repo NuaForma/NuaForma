@@ -123,7 +123,7 @@ class NativeLinesTest {
             { it.replaceFirst("flipH=\"false\"", "flipH=\"invalid\"") },
             { it.replaceFirst("<a:ext cx=\"2540000\" cy=\"0\"/>", "<a:ext cx=\"2540001\" cy=\"0\"/>") },
             { it.replaceFirst("<a:off x=\"0\" y=\"0\"/>", "<a:off x=\"12700\" y=\"0\"/>") },
-            { it.replaceFirst("effectExtent l=\"0\"", "effectExtent l=\"10\"") },
+            { it.replaceFirst("effectExtent l=\"0\"", "effectExtent l=\"-10\"") },
             { it.replaceFirst("cmpd=\"sng\"", "cmpd=\"thickThin\"") },
             { it.replaceFirst("layoutInCell=\"1\"", "layoutInCell=\"0\"") },
             { it.replaceFirst("simplePos=\"0\"", "simplePos=\"1\"") },

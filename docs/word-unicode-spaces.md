@@ -2,7 +2,7 @@
 
 Unreleased source qualification under [#252](https://github.com/NuaForma/NuaForma/issues/252).
 
-The DOCX reader distinguishes XML S whitespace (ordinary space, tab, CR and LF) from Unicode spacing characters. Nonbreaking space U+00A0, figure space U+2007 and narrow nonbreaking space U+202F remain document text when `xml:space="preserve"` is omitted or the default is selected. Existing glyph, shaping, font and resource policies still apply. This does not qualify every Unicode spacing character or silently trim unmarked ordinary XML edge whitespace.
+The DOCX reader distinguishes XML S whitespace (ordinary space, tab, CR and LF) from Unicode spacing characters. Nonbreaking space U+00A0, figure space U+2007 and narrow nonbreaking space U+202F remain document text when `xml:space="preserve"` is omitted or the default is selected. Existing glyph, shaping, font and resource policies still apply. This does not qualify every Unicode spacing character. Current source separately follows the independently verified [Word text-edge defaults](whitespace-and-image-padding.md) for ordinary XML whitespace.
 
 The neutral PDF model retains the original Unicode text. Qualified spacing and nonbreaking behavior pass through the existing PDF engine without a public model change, new dependency, alternate renderer or font substitution. An unsupported source remains an error with no partial PDF. Template-expression evaluation and other DOCX round-trip behavior are unchanged. The Playground uses this same reader and its source diagnostics; accepted cleanup retains the original template bytes.
 

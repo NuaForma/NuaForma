@@ -6,6 +6,8 @@ The DOCX adapter uses the existing `PdfTable.rightOverflow` setting for the exac
 
 The additional allowance applies only to fixed tables in the main body. It does not grant more width to nested cells or page bands. A table/grid width mismatch, unsupported source formatting or actual physical overflow still rejects before PDF publication. Automatic width negotiation retains its existing policy.
 
+A fixed table with `w:tblW w:type="auto" w:w="0"` uses its explicit grid when the physical cell widths agree with it. The automatic value leaves the overall width unspecified; the fixed layout still uses its grid, including for spanned cells. Nonzero automatic values and inconsistent physical cell widths are rejected. The A4 and Letter synthetic Word exports are identical in rendered pixels and text geometry to the corresponding physical-width controls. Provider regression tests require exact native pixels against the existing goldens and verify that Playground cleanup preserves the input bytes.
+
 ## Regression controls
 
 Sixteen synthetic DOCX/Word pairs cover A4/Letter, Word compatibility modes 12/15 and omitted, zero, positive and negative indentation. They retain independent Word-export receipts bound to the exact source bytes. The maintained inputs live under `nuaforma-docx-pdf/src/test/resources/wide-fixed-tables`.

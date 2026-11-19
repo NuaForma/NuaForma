@@ -7,8 +7,56 @@ import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class JavaPdfEngineTest {
+
+    @Test
+    void javaCallerCanPadInlineImagesWithoutReplacingTheirPixels() throws IOException {
+        byte[] bytes;
+        try (var input = getClass().getResourceAsStream("/fixtures/nuaforma-icon-transparent.png")) {
+            bytes = java.util.Objects.requireNonNull(input).readAllBytes();
+        }
+        var image = new PdfImage(bytes, 20f, 10f);
+        var original = new PdfImageRun(image);
+        var padding = new PdfMargins(1f, 2f, 3f, 4f);
+        var padded = original.withPadding(padding);
+        assertEquals(padding, padded.copy(image).getPadding());
+        org.junit.jupiter.api.Assertions.assertTrue(padded.withLineClipping(true).copy(image).getClipToLine());
+        assertEquals(image, padded.getImage());
+        assertEquals(new PdfMargins(0, 0, 0, 0), original.getPadding());
+    }
+
+    @Test
+    void javaCallerCanRetainScaleAndExplicitPageControls() {
+        var style = new PdfTextStyle("regular", 12).withHorizontalScale(.8f);
+        assertEquals(.8f, style.withCharacterSpacing(1f).withSyntheticBold(true).getHorizontalScale());
+        var control = new PdfPageBreak(style);
+        assertEquals(style, control.getStyle());
+    }
+
+    @Test
+    void paragraphBackgroundAndTightSpacingAreAvailableFromJava() {
+        PdfColor fill = new PdfColor(221, 238, 255);
+        PdfParagraph plain = new PdfParagraph(List.of(new PdfTextRun("Text", new PdfTextStyle("regular", 12f))));
+        PdfParagraph shaded = plain.withBackground(fill);
+        assertNull(plain.getBackground());
+        assertEquals(fill, shaded.getBackground());
+        assertEquals(fill, shaded.withLongWordBreaking(true).getBackground());
+        assertNull(shaded.withBackground(null).getBackground());
+        assertEquals(.95f, new PdfAutomaticLineSpacing(.95f).getMultiple());
+    }
+
+    @Test
+    void javaCallerRetainsAndClearsOpaqueTextBackgrounds() {
+        var plain = new PdfTextStyle("regular", 12);
+        var color = new PdfColor(255, 255, 0);
+        var marked = plain.withBackground(color);
+        assertEquals(color, marked.getBackground());
+        assertEquals(color, marked.withCharacterSpacing(1).withSyntheticBold(true).withStrikethrough(true).getBackground());
+        assertEquals(plain, marked.withBackground(null));
+        assertEquals(plain.hashCode(), marked.withBackground(null).hashCode());
+    }
 
     @Test
     void javaCallerCanDeclareSoftLinesAndRetainParagraphMarkStyle() {
@@ -248,6 +296,9 @@ class JavaPdfEngineTest {
         var paragraph = new PdfParagraph(List.of(new PdfTextRun("Positioned Java frame", new PdfTextStyle("regular", 10))),
             0, 0, new PdfParagraphFormat(PdfAlignment.LEFT, 0, 0, 0, 16f));
         var box = new PdfTextBox(30, 40, 200, 60, List.of(paragraph), PdfBoxAnchor.PAGE);
+        var order = new PdfDrawingOrder(PdfDrawingLayer.FOREGROUND, 100, 2);
+        assertEquals(order, box.withDrawingOrder(order).getDrawingOrder());
+        assertEquals(null, box.getDrawingOrder());
         var document = new PdfDocument(new PdfPage(300, 200, new PdfMargins(20, 20, 20, 20)), List.of(box));
         try (var pdf = Loader.loadPDF(new PdfEngine().render(document, List.of(new PdfFont("regular", font))))) {
             assertTrue(new PDFTextStripper().getText(pdf).contains("Positioned Java frame"));

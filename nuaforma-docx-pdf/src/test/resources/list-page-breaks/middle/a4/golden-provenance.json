@@ -1,0 +1,99 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-19",
+  "feature": "Explicit page breaks inside numbered paragraphs",
+  "wordComparison": {
+    "variant": "middle",
+    "paper": "a4",
+    "pages": 3,
+    "checks": [
+      {
+        "page": 1,
+        "markerCount": 2,
+        "maxX": 0.036000000000001364,
+        "maxY": 0.058818719999976565,
+        "nativeMarkers": {
+          "1.": {
+            "x": 74.7,
+            "y": 58.49881871999992
+          },
+          "L00_START": {
+            "x": 92.7,
+            "y": 58.49881871999992
+          }
+        },
+        "wordMarkers": {
+          "1.": {
+            "x": 74.664,
+            "y": 58.43999999999994
+          },
+          "L00_START": {
+            "x": 92.664,
+            "y": 58.43999999999994
+          }
+        }
+      },
+      {
+        "page": 2,
+        "markerCount": 3,
+        "maxX": 0.036000000000001364,
+        "maxY": 0.058818719999976565,
+        "nativeMarkers": {
+          "L01_TAIL": {
+            "x": 92.7,
+            "y": 58.49881871999992
+          },
+          "2.": {
+            "x": 74.7,
+            "y": 81.74736871999994
+          },
+          "L10_START": {
+            "x": 92.7,
+            "y": 81.74736871999994
+          }
+        },
+        "wordMarkers": {
+          "L01_TAIL": {
+            "x": 92.664,
+            "y": 58.43999999999994
+          },
+          "2.": {
+            "x": 74.664,
+            "y": 81.7399999999999
+          },
+          "L10_START": {
+            "x": 92.664,
+            "y": 81.7399999999999
+          }
+        }
+      },
+      {
+        "page": 3,
+        "markerCount": 1,
+        "maxX": 0.036000000000001364,
+        "maxY": 0.058818719999976565,
+        "nativeMarkers": {
+          "L11_TAIL": {
+            "x": 92.7,
+            "y": 58.49881871999992
+          }
+        },
+        "wordMarkers": {
+          "L11_TAIL": {
+            "x": 92.664,
+            "y": 58.43999999999994
+          }
+        }
+      }
+    ]
+  },
+  "visualReview": "All 34 native/Word page pairs visually reviewed after independent per-page complete-content, numbering, paper and marker-position checks. Leading, middle, trailing, consecutive and empty-item controls covered on A4 and Letter. Initial native PNG uses PDFBox at 96 dpi without masks. No established golden replaced.",
+  "sha256": {
+    "source.docx": "8bf6c532dd4859ea8008f309e5ef6f774c0457deb5d0029d0cc9827350803472",
+    "word-reference.pdf": "d7e0f09d48e2f43a4053c65ec51aafdbdd90019193fc521d827822b2c8a2b9cc",
+    "word-reference.pdf.provenance.json": "6d21691253b74bb239d2e5a0ba55912947d0d0557890341a60b48e553ffe44df",
+    "page-1.png": "2f379ccf614f3d91beb83a9fefbbcbe6fa8901e06318e296d585274b7be863aa",
+    "page-2.png": "1910251652b9b48441c4eb065925ebaaa5353a76e58cdb78bc09abc831bc9a9e",
+    "page-3.png": "7daf319bb0392340b074cb1f731412f8000dc88a35f672fc6d00b76984dc0362"
+  }
+}
