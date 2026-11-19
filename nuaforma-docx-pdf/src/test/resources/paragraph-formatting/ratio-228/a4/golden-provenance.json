@@ -1,0 +1,20 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-18",
+  "feature": "Tight automatic line spacing and paragraph backgrounds",
+  "wordComparison": {
+    "variant": "ratio-228",
+    "paper": "a4",
+    "pages": 1,
+    "markers": 2,
+    "maxX": 0.036000000000001364,
+    "maxY": 0.07303999999999178
+  },
+  "visualReview": "Actual Word/native pairs reviewed: wrapping, inheritance, glyph visibility, opaque fills, border padding, table/page-band placement and split paragraph fragments. Existing golden images preserved. Initial native references use 96 dpi without masks.",
+  "sha256": {
+    "page-1.png": "b51b3a24cffe229d16c07a2172a66fa1f78f0e309564a5a5b7205cffbd8c9b65",
+    "source.docx": "7606a39d96d17ef258c00f9877f33150f67dab6422c316c1017fcbc1c5f0961f",
+    "word-reference.pdf": "533994070b59e7548f921e7b04289fa592842fed7a1ac48f0ed4d2740b198262",
+    "word-reference.pdf.provenance.json": "e24ef261f97e87cd06f4e741508dc22152300f42d641dfce1cf1d9dc0c773755"
+  }
+}

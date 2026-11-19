@@ -143,6 +143,30 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                 NativeWordTextInput.validateSource(root, { source.current = it }) { message ->
                     throw source.failure(message, part)
                 }
+                WordRunBackground.validateSource(root, context) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }
+                WordTextWhitespace.validateSource(root, context) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }
+                WordInlineImagePadding.validateSource(root, context) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }
+                WordDrawingOrder.validateSource(root, context) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }
+                WordFrameTextMetadata.validateSource(root, context) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }
+                WordFramePaint.validateSource(root, context) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }
                 NativeCellPagination.validateSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)
@@ -174,6 +198,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     throw source.failure(message, part)
                 }
                 WordRowHeights.validateSource(root) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }
+                WordTableAlignment.validateSource(root, context) { node, message ->
                     source.current = node
                     throw source.failure(message, part)
                 }

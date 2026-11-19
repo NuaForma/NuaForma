@@ -1,0 +1,34 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-18",
+  "feature": "Validated inactive floating anchor metadata",
+  "wordComparison": {
+    "variant": "line-combined",
+    "paper": "a4",
+    "pages": 1,
+    "markerCount": 1,
+    "maxX": 0.036000000000001364,
+    "maxY": 0.09245940000005248,
+    "maxImageBoxDifference": 0,
+    "nativeColorBounds": [
+      133,
+      172,
+      400,
+      174
+    ],
+    "wordColorBounds": [
+      133,
+      172,
+      400,
+      174
+    ],
+    "bodyBlackPixelCounts": []
+  },
+  "visualReview": "All 36 native/Word pairs reviewed across frames, raster pictures and DrawingML lines on A4 and Letter. Each native variant also has byte-identical PNG pixels to its own control; Word independently has exact control pixels. Original sources/export receipts retained. Initial native PNG uses PDFBox96dpi with no masks. No established golden replaced.",
+  "sha256": {
+    "page-1.png": "0fa91d629671667edd8983c01443bd8920e4b582c8bc60171ac9534887833439",
+    "source.docx": "32e471fc9321016e2437b8a79e1463debdab7dcc18859d46a016c3ee046d546a",
+    "word-reference.pdf": "0724cbd0f110f63d6d0a9f43bcb0a05cae4e50cff01adee6f66c262cb701c2ad",
+    "word-reference.pdf.provenance.json": "2d6c2d9e02ec740c5ec3952e1d441b391cc9f8f5889abdb272e3288645c8e128"
+  }
+}

@@ -74,3 +74,17 @@ nuaforma-docx-pdf/src/test/resources/editing-selections/**/word-reference.pdf.pr
 /nuaforma-docx-pdf/src/test/resources/wide-fixed-tables/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 
 /nuaforma-docx-pdf/src/test/resources/long-word-breaking/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+
+# Preserve independent Word-export receipts for the next corpus qualification.
+/nuaforma-docx-pdf/src/test/resources/tab-collisions/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/text-backgrounds/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/paragraph-formatting/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/scaling-breaks/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/whitespace-padding/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/floating-drawings/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/floating-metadata/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/unwrapped-extents/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/list-tabs/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/decimal-tabs/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/table-alignment/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+/nuaforma-docx-pdf/src/test/resources/list-page-breaks/**/word-reference.pdf.provenance.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

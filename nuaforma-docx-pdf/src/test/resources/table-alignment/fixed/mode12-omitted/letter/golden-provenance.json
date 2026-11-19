@@ -1,0 +1,94 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-19",
+  "feature": "Horizontal table alignment after width negotiation",
+  "wordComparison": {
+    "kind": "fixed",
+    "variant": "mode12-omitted",
+    "paper": "letter",
+    "pages": 1,
+    "checks": [
+      {
+        "page": 1,
+        "markerCount": 8,
+        "maxX": 0.060000000000002274,
+        "maxY": 0.06467128000008415,
+        "nativeMarkers": {
+          "A00_BODY": {
+            "x": 56.7,
+            "y": 58.49886872000002
+          },
+          "T00_CELL": {
+            "x": 68.7,
+            "y": 76.79766871999993
+          },
+          "T01_CELL": {
+            "x": 188.7,
+            "y": 76.79766871999993
+          },
+          "T10_CELL": {
+            "x": 68.7,
+            "y": 99.09646871999996
+          },
+          "T11_CELL": {
+            "x": 188.7,
+            "y": 99.09646871999996
+          },
+          "T20_CELL": {
+            "x": 68.7,
+            "y": 121.39532871999995
+          },
+          "T21_CELL": {
+            "x": 188.7,
+            "y": 121.39532871999995
+          },
+          "A99_NEXT": {
+            "x": 56.7,
+            "y": 139.69416872
+          }
+        },
+        "wordMarkers": {
+          "A00_BODY": {
+            "x": 56.64,
+            "y": 58.460000000000036
+          },
+          "T00_CELL": {
+            "x": 68.664,
+            "y": 76.81999999999994
+          },
+          "T01_CELL": {
+            "x": 188.66,
+            "y": 76.81999999999994
+          },
+          "T10_CELL": {
+            "x": 68.664,
+            "y": 99.13999999999999
+          },
+          "T11_CELL": {
+            "x": 188.66,
+            "y": 99.13999999999999
+          },
+          "T20_CELL": {
+            "x": 68.664,
+            "y": 121.46000000000004
+          },
+          "T21_CELL": {
+            "x": 188.66,
+            "y": 121.46000000000004
+          },
+          "A99_NEXT": {
+            "x": 56.64,
+            "y": 139.69999999999993
+          }
+        }
+      }
+    ]
+  },
+  "visualReview": "All 24 native/Word page pairs visually reviewed after independent full-content, paper and marker-position checks. Fixed and negotiated widths, legacy/modern alignment and declared indentation covered on A4 and Letter. Initial native PNG uses PDFBox at 96 dpi without masks. No established golden replaced.",
+  "sha256": {
+    "source.docx": "a220f0ebdc59d68bdf68721cc89cd0eeda8e9f61bddc11f118746adbdcb6e1ec",
+    "word-reference.pdf": "2b8f9b35cbdf2f6bf8791b7960ca17e797cfc3416b6fa3e3d953db1198d57eea",
+    "word-reference.pdf.provenance.json": "1f288b06394bca480af1f2db7bdf1c384efa46b6e945abacec0e8147c082a33a",
+    "page-1.png": "940043e86bd58cc59ce3a64dc30d8713e1ba4401618150573d32ba55176a3844"
+  }
+}

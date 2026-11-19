@@ -1,0 +1,34 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-18",
+  "feature": "Non-wrapping drawing extents and unrotated Office text-frame metadata",
+  "wordComparison": {
+    "variant": "image-control",
+    "paper": "a4",
+    "pages": 1,
+    "markerCount": 1,
+    "maxX": 0.036000000000001364,
+    "maxY": 0.09245940000005248,
+    "maxImageBoxDifference": 0,
+    "nativeColorBounds": [
+      133,
+      173,
+      374,
+      227
+    ],
+    "wordColorBounds": [
+      133,
+      173,
+      374,
+      227
+    ],
+    "bodyBlackPixelCounts": []
+  },
+  "visualReview": "All 24 native/Word pairs visually reviewed: text frames containing actual text, raster pictures and DrawingML lines on A4 and Letter. All native variants have byte-identical PNGs against their own kind control; independent Word variants also retain exact control pixels. Initial native PNG is PDFBox 96 dpi with no masks. No established golden replaced.",
+  "sha256": {
+    "page-1.png": "ffdaf683dfffd8e9ec39fab23d3b0fbbad147a2a005f4173855491df33a2eb34",
+    "source.docx": "9a81cf66ccfecfe2ca3b29598b3f771a3e252b660af67724a290020415c78c79",
+    "word-reference.pdf": "9fb874bf0bf835637ff28890ba2489107243b2c368fd76349472df802a51065f",
+    "word-reference.pdf.provenance.json": "3c85485bcfd2f174a2be8cb2c0d9c0288fef8228358583a74ca68e4a686be9fe"
+  }
+}

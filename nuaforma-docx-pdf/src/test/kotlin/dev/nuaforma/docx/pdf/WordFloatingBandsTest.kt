@@ -191,12 +191,12 @@ class WordFloatingBandsTest {
     }
 
     @Test
-    fun `cleanup removes an optional effect extent as a whole rather than leaving required attributes missing`() {
+    fun `cleanup removes a malformed optional effect extent as a whole rather than leaving required attributes missing`() {
         val baseline = source("a4")
         val entries = parts(baseline)
         val part = "word/footer1.xml"
         val footer = entries.getValue(part).decodeToString().replace(Regex("<wp:effectExtent\b[^>]*/>"), "")
-        entries[part] = footer.replace("<wp:docPr", """<wp:effectExtent l="12700" t="0" r="0" b="0"/><wp:docPr""").toByteArray()
+        entries[part] = footer.replace("<wp:docPr", """<wp:effectExtent l="invalid" t="0" r="0" b="0"/><wp:docPr""").toByteArray()
         val input = zip(entries)
         val error = assertThrows(NativeDocxReadException::class.java) { NativeDocxReader(context()) { _, _, _ -> "regular" }.read(input) }
         assertTrue(error.sourceContext.path!!.endsWith("effectExtent[1]"))

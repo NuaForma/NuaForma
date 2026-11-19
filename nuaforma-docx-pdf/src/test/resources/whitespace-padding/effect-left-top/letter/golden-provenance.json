@@ -1,0 +1,21 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-18",
+  "feature": "XML whitespace, automatic space-only metrics and inline picture padding/line clipping",
+  "wordComparison": {
+    "variant": "effect-left-top",
+    "paper": "letter",
+    "pages": 1,
+    "markers": 3,
+    "maxX": 0.060000000000002274,
+    "maxY": 0.052459399999975176,
+    "maxImageBoxDifference": 0
+  },
+  "visualReview": "All 24 full Word/native page pairs reviewed on A4 and Letter, with enlarged exact-leading/body/cell clips. Visible image bounds and each clipped image band agree within one raster pixel. Source picture interpolation differs at internal checkerboard edges; retained source image geometry matches within 0.001 point. Native golden uses PDFBox 96 dpi without masks and asserts exact pixels. No established golden replaced.",
+  "sha256": {
+    "page-1.png": "0f70cf127dbb27f3b99b8daf57a695053666639cebc23af3c94dca0c4a9c2cbf",
+    "source.docx": "b3ed571796b49bfd5aa8f78e0de1a69614a7f6341c363881349564eb12b93934",
+    "word-reference.pdf": "d82245f3cbf72ba0338dc5aa0776a2d221810fcb551aefaf2fa8bb167e197640",
+    "word-reference.pdf.provenance.json": "12c8af2d51cae41a6daa80bb6a37a42be17a21ce4e245c7dba5f3ea99feaa079"
+  }
+}

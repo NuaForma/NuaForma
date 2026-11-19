@@ -4,6 +4,7 @@ import dev.nuaforma.contracts.*
 import dev.nuaforma.image.comparison.kotlin.assertImagesMatch
 import dev.nuaforma.pdf.PdfProcessValidator
 import org.apache.pdfbox.Loader
+import org.apache.pdfbox.contentstream.operator.color.*
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.rendering.PDFRenderer
 import org.apache.pdfbox.text.PDFTextStripper
@@ -43,8 +44,8 @@ internal class NativeWordFeatureSupport(temporary: Path) {
         return output.toByteArray()
     }
 
-    private fun text(document: PDDocument, normalizeTabLeaders: Boolean): String {
-        val text = PDFTextStripper().apply { sortByPosition = true }.getText(document).replace(Regex("[\\p{Z}\\s]+"), "")
+    private fun text(document: PDDocument, normalizeTabLeaders: Boolean, logicalTextOrder: Boolean): String {
+        val text = PDFTextStripper().apply { sortByPosition = !logicalTextOrder }.getText(document).replace(Regex("[\\p{Z}\\s]+"), "")
         // Leader glyph counts differ with fractional advances; content, marker geometry and native golden pixels still assert.
         return if (normalizeTabLeaders) text.replace(Regex("[.]{2,}|[-]{2,}|[_]{2,}"), "") else text
     }
@@ -75,7 +76,8 @@ internal class NativeWordFeatureSupport(temporary: Path) {
         assertEquals(0, output.size())
         val diagnostic = failure.diagnostics.single()
         assertEquals(part, diagnostic.part)
-        assertTrue(diagnostic.sourceContext?.path.orEmpty().contains(element), diagnostic.toString())
+        assertTrue(diagnostic.sourceContext?.path.orEmpty().contains(element),
+            "${diagnostic.code}: ${diagnostic.sourceContext?.explanation}: ${diagnostic.sourceContext?.path}")
     }
 
     data class Position(val x: Float, val y: Float, val page: Int)
@@ -109,9 +111,41 @@ internal class NativeWordFeatureSupport(temporary: Path) {
         return result
     }
 
+    private fun foregrounds(document: PDDocument, pattern: Regex): Map<String, Set<Int>> {
+        val lines = linkedMapOf<Pair<Int, Int>, MutableList<Pair<TextPosition, Int>>>()
+        val stripper = object : PDFTextStripper() {
+            init {
+                addOperator(SetNonStrokingColorSpace(this))
+                addOperator(SetNonStrokingColor(this))
+                addOperator(SetNonStrokingColorN(this))
+                addOperator(SetNonStrokingDeviceRGBColor(this))
+                addOperator(SetNonStrokingDeviceGrayColor(this))
+                addOperator(SetNonStrokingDeviceCMYKColor(this))
+            }
+
+            override fun processTextPosition(position: TextPosition) {
+                val color = graphicsState.nonStrokingColor.toRGB() and 0xFFFFFF
+                repeat(position.unicode.length) {
+                    lines.getOrPut(currentPageNo to kotlin.math.round(position.yDirAdj * 100).toInt()) { mutableListOf() } += position to color
+                }
+                super.processTextPosition(position)
+            }
+
+        }
+        stripper.getText(document)
+        val result = linkedMapOf<String, Set<Int>>()
+        for ((_, line) in lines) {
+            line.sortBy { it.first.xDirAdj }
+            val raw = line.joinToString("") { it.first.unicode }
+            for (match in pattern.findAll(raw)) assertNull(result.put(match.value, match.range.map { line[it].second }.toSet()))
+        }
+        return result
+    }
+
     fun verify(folder: String, profiles: List<String>, pattern: Regex, markerCount: Int,
                tails: Boolean = false, colors: Boolean = false, golden: String = folder + "page-1.png", pageCount: Int = 1,
-               normalizeTabLeaders: Boolean = false, goldenDirectory: String? = null) {
+               normalizeTabLeaders: Boolean = false, goldenDirectory: String? = null, foregroundColors: Boolean = false,
+               logicalTextOrder: Boolean = false, horizontalTolerance: Float = .21f) {
         val source = bytes(folder + "source.docx")
         val reference = bytes(folder + "word-reference.pdf")
         val images = (1..pageCount).map { bytes(goldenDirectory?.let { directory -> directory + "page-$it.png" }
@@ -122,22 +156,24 @@ internal class NativeWordFeatureSupport(temporary: Path) {
         Loader.loadPDF(reference).use { word ->
             assertEquals(pageCount, word.numberOfPages)
             val expected = positions(word, pattern, tails)
+            val expectedForegrounds = if (foregroundColors) foregrounds(word, pattern) else emptyMap()
             assertEquals(markerCount, expected.size)
             val wordImages = (0 until pageCount).map { PDFRenderer(word).renderImageWithDPI(it, 96f) }
             for (profile in profiles) Loader.loadPDF(generate(source, profile)).use { actual ->
                 assertEquals(pageCount, actual.numberOfPages)
-                assertEquals(text(word, normalizeTabLeaders), text(actual, normalizeTabLeaders))
+                assertEquals(text(word, normalizeTabLeaders, logicalTextOrder), text(actual, normalizeTabLeaders, logicalTextOrder))
                 for (page in 0 until pageCount) {
                     assertEquals(word.getPage(page).mediaBox.width, actual.getPage(page).mediaBox.width, .1f)
                     assertEquals(word.getPage(page).mediaBox.height, actual.getPage(page).mediaBox.height, .1f)
                     assertTrue(actual.getPage(page).resources.fontNames.all { actual.getPage(page).resources.getFont(it).isEmbedded })
                 }
                 val found = positions(actual, pattern, tails)
+                if (foregroundColors) assertEquals(expectedForegrounds, foregrounds(actual, pattern), folder)
                 assertEquals(expected.keys, found.keys)
                 val actualImages = (0 until pageCount).map { PDFRenderer(actual).renderImageWithDPI(it, 96f) }
                 for ((marker, before) in expected) {
                     val after = found.getValue(marker)
-                    assertEquals(before.x, after.x, .21f, marker)
+                    assertEquals(before.x, after.x, horizontalTolerance, marker)
                     assertEquals(before.y, after.y, .21f, marker)
                     if (colors) {
 

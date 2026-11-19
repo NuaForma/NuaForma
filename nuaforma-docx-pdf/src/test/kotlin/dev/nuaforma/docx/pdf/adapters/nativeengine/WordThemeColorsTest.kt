@@ -65,9 +65,10 @@ class WordThemeColorsTest {
         for (properties in listOf("w:themeColor=\"accent7\" w:val=\"123456\"", "w:themeColor=\"accent1\" x:val=\"123456\"",
             "w:themeColor=\"accent1\" w:themeTint=\"1\"", "w:themeColor=\"accent1\" w:themeTint=\"GG\"",
             "w:themeColor=\"accent1\" w:themeShade=\"-1\"", "w:themeTint=\"99\" w:val=\"123456\"",
-            "w:themeColor=\"none\" w:themeTint=\"99\" w:val=\"123456\"", "w:val=\"auto\"", "w:val=\"12345\""))
+            "w:themeColor=\"none\" w:themeTint=\"99\" w:val=\"123456\"", "w:val=\"12345\""))
             assertThrows(NativeDocxReadException::class.java) { colors.resolve(color(properties)) }
         assertThrows(NativeDocxReadException::class.java) { colors(null).resolve(color("w:themeColor=\"accent1\" w:val=\"123456\"")) }
+        assertEquals(PdfColor(0, 0, 0), colors(null).resolve(color("w:val=\"auto\"")))
     }
 
     @Test

@@ -1,0 +1,56 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-19",
+  "feature": "Inline tabs in numbered paragraphs",
+  "wordComparison": {
+    "variant": "explicit-left",
+    "paper": "letter",
+    "pages": 1,
+    "markerCount": 4,
+    "maxX": 0.036000000000001364,
+    "maxY": 0.038868719999982204,
+    "nativeMarkers": {
+      "L00_START": {
+        "x": 92.7,
+        "y": 58.49886872000002
+      },
+      "L01_TAIL": {
+        "x": 236.7,
+        "y": 58.49886872000002
+      },
+      "L10_START": {
+        "x": 92.7,
+        "y": 81.74736871999994
+      },
+      "L11_TAIL": {
+        "x": 236.7,
+        "y": 81.74736871999994
+      }
+    },
+    "wordMarkers": {
+      "L00_START": {
+        "x": 92.664,
+        "y": 58.460000000000036
+      },
+      "L01_TAIL": {
+        "x": 236.69,
+        "y": 58.460000000000036
+      },
+      "L10_START": {
+        "x": 92.664,
+        "y": 81.74000000000001
+      },
+      "L11_TAIL": {
+        "x": 236.69,
+        "y": 81.74000000000001
+      }
+    }
+  },
+  "visualReview": "All sixteen A4/Letter native/Word pairs were visually reviewed after independent complete-content, paper and marker-geometry checks, including continuation indents, soft line breaks and comma decimal stops. Initial native PNG uses PDFBox at 96 dpi with no masks. No established golden replaced.",
+  "sha256": {
+    "page-1.png": "b5733e2c46c19da8ae52ecbdc15598d43730be9aa1a64557d22fcbc514717587",
+    "source.docx": "6f6e9e401b97ed7444473a67efa92e16210e8ae4a518256539f990e15dfe9814",
+    "word-reference.pdf": "e05dc0689fee350796d7ea5e55108c38acaaf5382fc32dc283d208c79cc85b62",
+    "word-reference.pdf.provenance.json": "8e2378e0172a49c6e1ae5f5849c55d49f62d9a6f1a86b5d47ed50fd48147c7ff"
+  }
+}

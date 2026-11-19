@@ -114,7 +114,7 @@ class NativeSoftLineBreakTest {
         val support = NativeWordFeatureSupport(temporary)
         for (bad in listOf("<w:br w:type=\"invalid\"/>", "<w:br w:clear=\"invalid\"/>", "<w:br type=\"page\"/>",
             "<x:br xmlns:x=\"urn:future\"/>", "<w:br><w:t>hidden</w:t></w:br>", "<w:br>hidden</w:br>",
-            "<w:br w:type=\"page\"/>", "<w:br w:type=\"column\"/>", "<w:br w:clear=\"all\"/>"))
+            "<w:br w:type=\"column\"/>", "<w:br w:clear=\"all\"/>"))
             support.rejectChanged("/soft-line-breaks/ordinary/a4/source.docx", "word/document.xml", "br") { it.replace("<w:br />", bad) }
         support.rejectChanged("/soft-line-breaks/ordinary/a4/source.docx", "word/document.xml", "cr") {
             it.replace("<w:br />", "<w:cr w:type=\"textWrapping\"/>")

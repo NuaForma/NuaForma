@@ -1,0 +1,34 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-18",
+  "feature": "Floating drawing layers and stable Word order",
+  "wordComparison": {
+    "variant": "layout-outside-cell",
+    "paper": "a4",
+    "pages": 1,
+    "markerCount": 1,
+    "maxX": 0.036000000000001364,
+    "maxY": 0.09245940000005248,
+    "maxImageBoxDifference": 0,
+    "nativeColorBounds": [
+      133,
+      173,
+      374,
+      227
+    ],
+    "wordColorBounds": [
+      133,
+      173,
+      374,
+      227
+    ],
+    "bodyBlackPixelCounts": []
+  },
+  "visualReview": "All 42 native/Word page pairs reviewed, including all object/body intersections, raster/frame order and identity ties on A4 and Letter. Complete content/paper, marker/image geometry, colored bounds and visible/occluded glyph checks agree. Native golden uses PDFBox96dpi with exact pixels and no masks. No established golden replaced.",
+  "sha256": {
+    "page-1.png": "ee5246ef4be3a601fab5fcaa7a9cb9250e46e5f3f05a39a7afaa53f70a074823",
+    "source.docx": "b1bfec1dc6ebfe844621360e5710b27c983d6dfd4f36eeadb288d3efdc9c2a4b",
+    "word-reference.pdf": "20baa5c337ef4c379b4d96d4aef7813dc3cb224472ab001ea3b9c29b67b86419",
+    "word-reference.pdf.provenance.json": "94bd01e09b64e12224396352a31623812bd68ece6cf64d78a88809ea403d2ff4"
+  }
+}

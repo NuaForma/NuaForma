@@ -1,0 +1,20 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-18",
+  "feature": "Paragraph shading connection boundaries",
+  "wordComparison": {
+    "variant": "joins",
+    "paper": "a4",
+    "pages": 1,
+    "markers": 21,
+    "maxX": 0.036000000000001364,
+    "maxY": 0.12999999999999545
+  },
+  "visualReview": "Full A4/Letter Word/native pairs reviewed: different indentation/borders separate fills; matching visible bounds and borders connect, including first-line and hanging offsets. Exact 96-dpi native golden, no masks.",
+  "sha256": {
+    "page-1.png": "8e6c278f79db069f770cbae15c60eb9d46610ce10c89a02ba81b629a81fc06ca",
+    "source.docx": "91a1ef725404ece47c67b95991d0b7f426f3bd84a9fd29a6423ad469079359a6",
+    "word-reference.pdf": "d0a5f290f392f95902d4ae378dfa4271db4f3908e203d106e57ce814005f2b33",
+    "word-reference.pdf.provenance.json": "8d0d2aeb023c31ba38723908efd8d2256f8f3ae12a31cfc1e307b23823d5da3d"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-19",
+  "feature": "Numeric-field decimal tab policy",
+  "wordComparison": {
+    "variant": "currency-fraction",
+    "paper": "a4",
+    "pages": 1,
+    "markerCount": 2,
+    "maxX": 0.08199999999999363,
+    "maxY": 0.058818719999976565,
+    "nativeField": [
+      226.692,
+      58.49881871999992
+    ],
+    "wordField": [
+      226.61,
+      58.43999999999994
+    ]
+  },
+  "visualReview": "All forty-four A4/Letter native/Word pairs were visually reviewed after independent complete-content, paper and marker-geometry checks, including grouped amounts, currency and text prefixes, units, leading separators and numeric fallback. Initial native PNG uses PDFBox at 96 dpi with no masks. No established golden replaced.",
+  "sha256": {
+    "page-1.png": "b6427c5d25951a403dadaee3436e7ea8e815ce225496ff4cfb2007ed2c330e40",
+    "source.docx": "0efb04dc391411e4ccefb3fa9eeb1bbc81786df4126fdc7e566f55e9301a03f9",
+    "word-reference.pdf": "fce5d20cf3ae5ae7bb7d3f5541bb15334be1efdc278947bfa3ca3bf875344628",
+    "word-reference.pdf.provenance.json": "4c4741a1fe43e352d9085fd4945d5ba5e5d5ed71c493c997d04b2af5f711cf31"
+  }
+}

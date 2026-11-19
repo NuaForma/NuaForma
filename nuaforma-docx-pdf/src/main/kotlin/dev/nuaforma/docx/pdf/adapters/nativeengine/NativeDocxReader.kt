@@ -28,6 +28,7 @@ internal class NativeDocxReader(
     private val relationships = "http://schemas.openxmlformats.org/package/2006/relationships"
     private val drawing = "http://schemas.openxmlformats.org/drawingml/2006/main"
     private val wp = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+    private val wp14 = "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
     private val picture = "http://schemas.openxmlformats.org/drawingml/2006/picture"
 
     private val provenance = java.util.IdentityHashMap<XmlElement, String>()
@@ -439,7 +440,7 @@ internal class NativeDocxReader(
             openBookmarks.remove(key)
         }
 
-        fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false, tableStyles: List<XmlElement> = emptyList(), uniformFonts: Boolean = false): PdfParagraph {
+        fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false, tableStyles: List<XmlElement> = emptyList(), uniformFonts: Boolean = false, allowPageBreak: Boolean = true): PdfParagraph {
             source.current = paragraph
             context.checkActive()
             crossParagraphBookmarks += openBookmarks.mapNotNull { bookmarkNames[it] }
@@ -457,7 +458,7 @@ internal class NativeDocxReader(
             val legacyTableHierarchy = tableStyles.isNotEmpty() && !modernTableAlignment && !formatting.overrideNormalTableStyle
             val tableJustification = tableStyles.any { it.one("pPr")?.one("jc") != null }
             var geometry = paragraphChain.fold(Geometry()) { result, property ->
-                val resolved = paragraphProperties(property, result)
+                val resolved = paragraphProperties(property, result, themeColors)
                 if (legacyTableHierarchy && tableJustification && property === normalStyle?.one("pPr") &&
                     property.one("jc")?.value("val") == "left") resolved.copy(alignment = result.alignment) else resolved
             }
@@ -485,7 +486,8 @@ internal class NativeDocxReader(
                 reject("Active automatic hyphenation is not yet qualified")
             }
             val tableSize = tableStyles.any { it.one("rPr")?.one("sz") != null }
-            val base = (tableStyles + styleChain).fold(resolveRun(defaultRun, Face(openType = modernTableAlignment || formatting.openTypeFeatures))) { result, style ->
+            val base = (tableStyles + styleChain).fold(resolveRun(defaultRun, Face(openType = modernTableAlignment || formatting.openTypeFeatures,
+                paragraphBackground = geometry.background))) { result, style ->
                 val resolved = resolveRun(style.one("rPr"), result)
                 if (legacyTableHierarchy && tableSize && style === normalStyle && style.one("rPr")?.one("sz") != null &&
                     resolved.size in setOf(11f, 12f)) resolved.copy(size = result.size) else resolved
@@ -660,7 +662,8 @@ internal class NativeDocxReader(
                     }
                     "t" -> {
                         check(item.elements().isEmpty(), "Invalid text node")
-                        val text = item.children.filterIsInstance<XmlText>().joinToString("") { it.text }
+                        val text = WordTextWhitespace.visible(item, item.children.filterIsInstance<XmlText>().joinToString("") { it.text })
+                        if (text.isEmpty()) return@mapNotNull null
                         val hebrew = text.codePoints().anyMatch { Character.UnicodeScript.of(it) == Character.UnicodeScript.HEBREW }
                         check(face.rtl != true || hebrew, "Only Hebrew text may force complex-script reading order in this proof")
                         if (hebrew || face.rtl == true) check(geometry.direction == PdfTextDirection.RIGHT_TO_LEFT && face.rtl == true &&
@@ -670,20 +673,27 @@ internal class NativeDocxReader(
                             check(explicit.one("rFonts")?.value("cs") == face.family && explicit.one("szCs")?.value("val")?.let { number(it) / 2 } == face.size &&
                                 explicit.one("bCs") != null && explicit.one("iCs") != null, "Hebrew proof runs must pin all matching complex-script face properties")
                         }
-                        check(text == text.trim(' ', '\t', '\r', '\n') || item.attribute("http://www.w3.org/XML/1998/namespace", "space") == "preserve", "Significant edge whitespace requires explicit preservation")
                         val destinations = if (text.isNotBlank()) pendingDestinations.toList().also { pendingDestinations.clear() } else emptyList()
                         val navigation = if (link != null || destinations.isNotEmpty()) PdfTextNavigation(link, destinations, logicalLink) else null
-                        PdfTextRun(text.ifEmpty { " " }, textStyle(face), navigation)
+                        PdfTextRun(text, textStyle(face), navigation)
                     }
                     "tab" -> { check(link == null, "Linked tabs are not qualified"); attributes(item, emptySet()); check(item.elements().isEmpty(), "Invalid tab control"); PdfTab(textStyle(face)) }
                     "br", "cr" -> {
                         attributes(item, if (item.name.localPart == "br") setOf("type", "clear") else emptySet())
                         check(item.elements().isEmpty() && item.children.filterIsInstance<XmlText>().all { it.text.isBlank() }, "Invalid line break control")
-                        check(item.value("type") in setOf(null, "textWrapping") && item.value("clear") in setOf(null, "none"),
-                            "Only ordinary text-wrapping line breaks are qualified")
-                        PdfLineBreak(textStyle(face))
+                        check(item.value("type") in setOf(null, "textWrapping", "page") && item.value("clear") in setOf(null, "none"),
+                            "Only ordinary text-wrapping and page breaks are qualified")
+                        if (item.value("type") == "page") {
+                            source.current = item
+                            check(allowPageBreak && !fields && currentNoteKind == null && link == null && geometry.direction == null,
+                                "Inline page breaks require ordinary body text")
+                            check(!geometry.keepWithNext && !geometry.keepLines, "Inline page breaks with paragraph keep rules are not qualified")
+                            PdfPageBreak(textStyle(face))
+                        } else PdfLineBreak(textStyle(face))
                     }
-                    "pict", "drawing" -> { if (vectorReader.isVector(item)) {
+                    "pict", "drawing" -> {
+                        check(face.highlight == null && face.shading == null, "Run backgrounds on drawing objects are not qualified")
+                        if (vectorReader.isVector(item)) {
                         check(link == null && pendingDestinations.isEmpty() && !face.underline && !face.strikethrough && !face.superscript,
                             "Navigation or text decorations on inline vectors are not qualified")
                         vectorReader.read(item)
@@ -691,7 +701,11 @@ internal class NativeDocxReader(
                         check(link == null && pendingDestinations.isEmpty(), "Navigation on drawn lines is not qualified")
                         check(lineDrawings.size < 32, "Paragraph line budget exceeded")
                         lineDrawings += lineReader.drawing(item, page); null
-                    } else { check(link == null && pendingDestinations.isEmpty() && !face.underline && !face.strikethrough, "Navigation or text decorations on pictures are not qualified"); PdfImageRun(image(item, partRelations, parts)) } }
+                    } else {
+                        check(link == null && pendingDestinations.isEmpty() && !face.underline && !face.strikethrough, "Navigation or text decorations on pictures are not qualified")
+                        PdfImageRun(image(item, partRelations, parts)).withPadding(WordInlineImagePadding.inline(item) { origin, message -> source.current = origin; reject(message) })
+                            .withLineClipping(true)
+                    } }
                     else -> reject("Unsupported run content")
                 } }.flatMap { inline -> if (inline is PdfTextRun) textRuns(inline, face) else listOf(inline) }
             }
@@ -737,7 +751,7 @@ internal class NativeDocxReader(
             val content = runs.ifEmpty { listOf(PdfTextRun(" ", markStyle ?: textStyle(base))) }
             check(content.none { it is PdfImageRun } || content.size == 1, "Mixed image/text paragraphs are outside the proof profile")
             val label = listEntry?.let { entry ->
-                check(content.all { it is PdfTextRun || it is PdfReferenceField || it is PdfSequenceField || it is PdfLineBreak }, "List images and inline tabs are outside the proof")
+                check(content.all { it is PdfTextRun || it is PdfReferenceField || it is PdfSequenceField || it is PdfLineBreak || it is PdfPageBreak || it is PdfTab }, "This inline list content is outside the qualified profile")
                 val markerFace = resolveRun(entry.level.one("rPr"), base)
                 val markerSegments = if (mixedFonts(markerFace)) WordLatinFontSelection.segments(entry.value.text, context, ::reject, ::fontRunsBound) else emptyList()
                 check(markerSegments.size <= 1, "Mixed font selection within one list label is not qualified")
@@ -759,10 +773,15 @@ internal class NativeDocxReader(
                 source.current = paragraph
                 reject("Character spacing in RTL paragraphs is not qualified")
             }
+            if (contents != null && geometry.background != null) {
+                source.current = direct?.one("shd") ?: paragraph
+                reject("Paragraph backgrounds on generated contents are not qualified")
+            }
             return PdfParagraph(content, geometry.before, geometry.after, PdfParagraphFormat(alignment, geometry.left, geometry.right,
                 geometry.first, geometry.line, !formatting.additiveParagraphSpacing,
                 geometry.keepWithNext, geometry.keepLines, geometry.widowControl, geometry.pageBreakBefore, geometry.outline,
-                if (geometry.tabStops.isNotEmpty() || content.any { it is PdfTab }) PdfTabSettings(geometry.tabStops, defaultTabInterval, decimalSeparator) else null, geometry.automatic, geometry.direction), label,
+                if (geometry.tabStops.isNotEmpty() || content.any { it is PdfTab }) PdfTabSettings(geometry.tabStops, defaultTabInterval, decimalSeparator)
+                    .withDecimalPolicy(PdfDecimalTabPolicy.FIRST_NUMBER, if (decimalSeparator == ",") "." else ",") else null, geometry.automatic, geometry.direction), label,
                 semantics = PdfBlockSemantics(logicalId, when {
                     contents != null -> PdfSemanticRole.CONTENTS
                     geometry.outline != null -> PdfSemanticRole.HEADING
@@ -777,6 +796,7 @@ internal class NativeDocxReader(
                     (content.singleOrNull() is PdfImageRun || content.singleOrNull() is PdfVectorRun)) textStyle(base) else null)
                 .withParagraphMarkStyle(if ((geometry.automatic != null || geometry.minimum != null) && content.any { it is PdfLineBreak })
                     markStyle ?: textStyle(base) else null)
+                .withBackground(geometry.background)
         }
 
         fun readTable(table: XmlElement, partRelations: Map<String, String>, fields: Boolean, depth: Int = 0): PdfTable {
@@ -784,7 +804,7 @@ internal class NativeDocxReader(
             check(depth <= 1, "Only one nested table level is supported")
             children(table, setOf("tblPr", "tblGrid", "tr", "bookmarkEnd"))
             val properties = table.one("tblPr") ?: reject("Explicit table properties required")
-            children(properties, setOf("tblStyle", "tblW", "tblInd", "tblLayout", "tblBorders", "tblCellMar", "tblLook", "tblStyleRowBandSize", "tblStyleColBandSize"))
+            children(properties, setOf("tblStyle", "tblW", "tblInd", "jc", "tblLayout", "tblBorders", "tblCellMar", "tblLook", "tblStyleRowBandSize", "tblStyleColBandSize"))
             val tableStyleId = properties.one("tblStyle")?.let { it.value("val") ?: reject("Missing table style") } ?: defaultTable
             val tableStyles = tableStyleId?.let { chain(it, "table") } ?: emptyList()
             val rowNodes = table.elements().filter { it.name.localPart == "tr" }
@@ -830,15 +850,6 @@ internal class NativeDocxReader(
             fun edge(name: String): Float = dimension(regions.margin(name) ?: reject("Missing cell margin"))
 
             val padding = PdfMargins(edge("top"), edge("right"), edge("bottom"), edge("left"))
-            val resolvedTableWidth = preferredTableWidth?.let { preference ->
-                val percent = preference.percent
-                if (percent != null && depth == 0 && !modernTableAlignment) {
-                    val reference = page.width - page.margins.left - page.margins.right + padding.left + padding.right
-                    val preferred = reference * percent / 100f
-                    check(preferred in 0f..14_400f, "Preferred table width exceeds the physical layout limit")
-                    PdfPreferredWidth.points(preferred)
-                } else preference
-            }
             val borderNodes = regions.property("tblBorders")
             borderNodes?.let { children(it, setOf("top", "left", "bottom", "right", "insideH", "insideV")) }
             val borders = borderNodes?.elements().orEmpty().map { node ->
@@ -846,6 +857,17 @@ internal class NativeDocxReader(
             }
             check(borders.isEmpty() || borders.size == 6 && borders.distinct().size == 1, "Only uniform table borders are supported")
             val border = borders.firstOrNull()
+            val resolvedTableWidth = preferredTableWidth?.let { preference ->
+                val percent = preference.percent
+                if (percent != null && depth == 0) {
+                    val textWidth = page.width - page.margins.left - page.margins.right
+                    val reference = if (modernTableAlignment) textWidth - (border?.width ?: 0f)
+                        else textWidth + padding.left + padding.right
+                    val preferred = reference * percent / 100f
+                    check(preferred in 0f..14_400f, "Preferred table width exceeds the physical layout limit")
+                    PdfPreferredWidth.points(preferred)
+                } else preference
+            }
 
             fun ranked(value: PdfBorder): PdfEdgeStroke {
                 val units = value.width * 8
@@ -939,7 +961,7 @@ internal class NativeDocxReader(
                     val background = cellProperties.mapNotNull { it.one("shd") }.lastOrNull()?.let(themeColors::cellFill)
                     val blocks = cell.elements().filter { it.name.localPart != "tcPr" }.map { child ->
                         when (child.name.localPart) {
-                            "p" -> readParagraph(child, partRelations, fields, cellStyles).let { paragraph ->
+                            "p" -> readParagraph(child, partRelations, fields, cellStyles, allowPageBreak = false).let { paragraph ->
                                 val resolved = paragraph.withLongWordBreaking(depth == 0 && !fields && !automaticLayout)
                                 if (depth == 0 && !fields && span == 1 && cp.one("vMerge") == null)
                                     resolved.copy(format = resolved.format.copy(keepLines = false, widowControl = false))
@@ -1010,22 +1032,46 @@ internal class NativeDocxReader(
             }
             val count = headerFlags.takeWhile { it }.size
             check(headerFlags.drop(count).none { it }, "Table headers must be leading rows")
+            val alignment = regions.property("jc")?.let { property ->
+                WordTableAlignment.read(property) { origin, message -> source.current = origin; reject(message) }
+            } ?: PdfTableAlignment.LEFT
+            source.current = regions.property("jc") ?: table
+            check(depth == 0 || alignment == PdfTableAlignment.LEFT, "Aligned nested Word tables are not yet qualified")
+            check(modernTableAlignment || alignment == PdfTableAlignment.LEFT || preferredTableWidth?.percent == null,
+                "Legacy aligned percentage tables are not yet qualified")
+            check(modernTableAlignment || alignment != PdfTableAlignment.RIGHT || !customBorders,
+                "Legacy right-aligned tables with custom cell borders are not yet qualified")
             val declaredIndent = regions.property("tblInd")
             val indent = declaredIndent?.let { node ->
                 WordNumericSpellings.tableIndentPoints(node) { origin, message -> source.current = origin; reject(message) }
             } ?: 0f
             // Word clamps negative indentation in nested tables without changing the source property.
             val effectiveIndent = if (depth > 0) indent.coerceAtLeast(0f) else indent
-            val physicalIndent = if (depth == 0 && !modernTableAlignment) {
-                // Legacy Word distinguishes an omitted indent from an explicitly declared zero.
-                if (declaredIndent == null) 0f else indent - padding.left
-            } else effectiveIndent + (border?.width ?: 0f) / 2
-            val legacyOverflow = if (depth == 0 && !modernTableAlignment && declaredIndent != null && preferredTableWidth?.percent != null)
-                padding.right else 0f
+            val halfBorder = (border?.width ?: 0f) / 2
+            val physicalIndent = when (alignment) {
+                PdfTableAlignment.CENTER -> 0f
+                PdfTableAlignment.RIGHT -> if (depth == 0 && !modernTableAlignment) padding.right + halfBorder else 0f
+                PdfTableAlignment.LEFT -> if (depth == 0 && !modernTableAlignment) {
+                    // Legacy Word distinguishes an omitted indent from an explicitly declared zero.
+                    if (declaredIndent == null) 0f else indent - padding.left
+                } else effectiveIndent + halfBorder
+            }
+            val legacyOverflow = if (depth == 0 && !modernTableAlignment) when {
+                alignment == PdfTableAlignment.RIGHT -> padding.right + halfBorder
+                alignment == PdfTableAlignment.LEFT && declaredIndent != null && preferredTableWidth?.percent != null -> padding.right
+                else -> 0f
+            } else 0f
+            val contentWidth = page.width - page.margins.left - page.margins.right
+            val fixedOffset = when (alignment) {
+                PdfTableAlignment.LEFT -> physicalIndent
+                PdfTableAlignment.CENTER -> (contentWidth - widths.sum()) / 2 + physicalIndent
+                PdfTableAlignment.RIGHT -> contentWidth - widths.sum() - halfBorder + physicalIndent
+            }
             val fixedOverflow = if (depth == 0 && !fields && !automaticLayout)
-                (physicalIndent + widths.sum() - (page.width - page.margins.left - page.margins.right)).coerceAtLeast(0f) else 0f
-            return PdfTable(widths, rows, padding, border, count, physicalIndent, if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else if (automaticLayout) PdfTableWidthPolicy.AUTO_FIT else PdfTableWidthPolicy.FIXED, preferredWidth = resolvedTableWidth)
-                .withRightOverflow(maxOf(legacyOverflow, fixedOverflow))
+                (fixedOffset + widths.sum() - contentWidth).coerceAtLeast(0f) else 0f
+            return PdfTable(widths, rows, padding, border, count, physicalIndent,
+                if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else if (automaticLayout) PdfTableWidthPolicy.AUTO_FIT else PdfTableWidthPolicy.FIXED,
+                preferredWidth = resolvedTableWidth).withRightOverflow(maxOf(legacyOverflow, fixedOverflow)).withAlignment(alignment)
         }
 
         fun readBox(pict: XmlElement, partRelations: Map<String, String>, fields: Boolean = false): PdfTextBox {
@@ -1061,7 +1107,7 @@ internal class NativeDocxReader(
             check(wrapNode == null || wrapNode.attribute("", "type") == "topAndBottom" && wrapNode.attributes.size == 1, "Unsupported frame wrapping")
             val angle = css["rotation"]?.toFloatOrNull() ?: if ("rotation" in css) reject("Invalid rotation") else 0f
             check(angle == 0f, "VML rotation/text-flow combinations are not qualified; use a DrawingML frame")
-            val paragraphs = content.elements().map { readParagraph(it, partRelations, fields) }
+            val paragraphs = content.elements().map { readParagraph(it, partRelations, fields, allowPageBreak = false) }
             source.current = shape
             return PdfTextBox(points(css["margin-left"]) + if (horizontal == "page") 0f else page.margins.left,
                 points(css["margin-top"]) + if (vertical == "margin") page.margins.top else 0f,
@@ -1079,12 +1125,7 @@ internal class NativeDocxReader(
             val wps = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
             val anchor = node.elements().singleOrNull() ?: reject("Invalid floating drawing")
             check(anchor.name.namespaceURI == wp && anchor.name.localPart == "anchor", "Floating anchor required")
-            val expected = mapOf("distT" to "0", "distB" to "0", "distL" to "0", "distR" to "0", "simplePos" to "0", "relativeHeight" to "0", "behindDoc" to "0", "locked" to "0", "layoutInCell" to "1", "allowOverlap" to "1")
-            val booleans = setOf("simplePos", "behindDoc", "locked", "layoutInCell", "allowOverlap")
-            check(anchor.attributes.size == expected.size && anchor.attributes.all {
-                val value = if (it.key.localPart in booleans) when (it.value) { "true" -> "1"; "false" -> "0"; else -> it.value } else it.value
-                it.key.namespaceURI.isEmpty() && expected[it.key.localPart] == value
-            }, "Unsupported floating anchor policy")
+            val order = WordDrawingOrder.read(anchor) { origin, message -> source.current = origin; reject(message) }
 
             fun one(parent: XmlElement, ns: String, name: String) = parent.elements().singleOrNull { it.name.namespaceURI == ns && it.name.localPart == name } ?: reject("Missing or duplicate drawing property")
 
@@ -1098,48 +1139,47 @@ internal class NativeDocxReader(
             }
 
             val extent = one(anchor, wp, "extent")
-            val simple = one(anchor, wp, "simplePos")
-            check(simple.attribute("", "x") == "0" && simple.attribute("", "y") == "0", "Unsupported simple position")
-            check(anchor.elements().all { it.name.namespaceURI == wp && it.name.localPart in setOf("simplePos", "positionH", "positionV", "extent", "effectExtent", "wrapNone", "docPr", "cNvGraphicFramePr") || it.name.namespaceURI == drawing && it.name.localPart == "graphic" }, "Unsupported floating shape")
+            check(anchor.elements().all { it.name.namespaceURI == wp && it.name.localPart in setOf("simplePos", "positionH", "positionV", "extent", "effectExtent", "wrapNone", "docPr", "cNvGraphicFramePr") ||
+                it.name.namespaceURI == drawing && it.name.localPart == "graphic" ||
+                it.name.namespaceURI == wp14 && it.name.localPart in setOf("sizeRelH", "sizeRelV") }, "Unsupported floating shape")
             one(anchor, wp, "wrapNone")
-            check(one(anchor, wp, "effectExtent").attributes.values.all { it == "0" }, "Drawing effects are unsupported")
+            WordInlineImagePadding.read(one(anchor, wp, "effectExtent")) { origin, message -> source.current = origin; reject(message) }
             val graphic = one(one(anchor, drawing, "graphic"), drawing, "graphicData")
             check(graphic.attribute("", "uri") == wps && graphic.elements().size == 1, "Unsupported floating graphic")
             val shape = one(graphic, wps, "wsp")
             check(shape.elements().size == 4 && shape.elements().all { it.name.namespaceURI == wps && it.name.localPart in setOf("cNvSpPr", "spPr", "txbx", "bodyPr") }, "Unsupported shape content")
             check(one(shape, wps, "cNvSpPr").attribute("", "txBox") in setOf("1", "true"), "Text frame required")
             val props = one(shape, wps, "spPr")
-            check(props.elements().all { it.name.namespaceURI == drawing && it.name.localPart in setOf("xfrm", "prstGeom", "solidFill", "noFill", "ln") }, "Unsupported shape effects")
+            props.elements().firstOrNull { it.name.namespaceURI != drawing || it.name.localPart !in setOf("xfrm", "prstGeom", "solidFill", "noFill", "ln") }?.let { unsupported ->
+                source.current = unsupported
+                reject("Unsupported shape effect or geometry: ${unsupported.name.localPart.take(64)}")
+            }
             val transform = one(props, drawing, "xfrm")
             check(transform.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart == "rot" }, "Flipped frames are unsupported")
             val origin = one(transform, drawing, "off")
             check(origin.attribute("", "x") == "0" && origin.attribute("", "y") == "0", "Unsupported local transform")
             val size = one(transform, drawing, "ext")
             check(size.attributes == extent.attributes && one(props, drawing, "prstGeom").attribute("", "prst") == "rect", "Inconsistent frame geometry")
-
-            fun fill(parent: XmlElement): PdfColor? {
-                val values = parent.elements().filter { it.name.namespaceURI == drawing && it.name.localPart in setOf("solidFill", "noFill") }
-                check(values.size == 1, "Explicit single frame fill required")
-                return if (values.single().name.localPart == "noFill") null else color(one(values.single(), drawing, "srgbClr").attribute("", "val"))
-            }
+            val rotation = (transform.attribute("", "rot")?.let(::numeric) ?: 0f) / 60000
 
             val bodyProps = one(shape, wps, "bodyPr")
-            check(bodyProps.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in setOf("rot", "vert", "wrap", "lIns", "tIns", "rIns", "bIns", "anchor") }, "Unsupported text frame policy")
+            WordFrameTextMetadata.validate(bodyProps, rotation == 0f) { origin, message -> source.current = origin; reject(message) }
+            check(bodyProps.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in setOf("rot", "vert", "wrap", "lIns", "tIns", "rIns", "bIns", "anchor", "anchorCtr", "upright") }, "Unsupported text frame policy")
             check(bodyProps.attribute("", "rot") == "0" && bodyProps.attribute("", "vert") == "horz" && bodyProps.attribute("", "wrap") == "square", "Unsupported text direction")
             check(bodyProps.elements().size == 1 && one(bodyProps, drawing, "noAutofit").attributes.isEmpty(), "Frame autofitting is unsupported")
             val content = one(one(shape, wps, "txbx"), word, "txbxContent")
             children(content, setOf("p"))
             val line = one(props, drawing, "ln")
-            val lineColor = fill(line)
-            val paragraphs = content.elements().map { readParagraph(it, partRelations, fields) }
+            val border = WordFramePaint.stroke(line) { origin, message -> source.current = origin; reject(message) }
+            val paragraphs = content.elements().map { readParagraph(it, partRelations, fields, allowPageBreak = false) }
             source.current = node
             return PdfTextBox(offset("positionH"), offset("positionV"), numeric(extent.attribute("", "cx")) / 12700,
                 numeric(extent.attribute("", "cy")) / 12700, paragraphs, PdfBoxAnchor.PAGE,
-                (transform.attribute("", "rot")?.let(::numeric) ?: 0f) / 60000,
+                rotation,
                 PdfMargins(numeric(bodyProps.attribute("", "tIns")) / 12700, numeric(bodyProps.attribute("", "rIns")) / 12700,
                     numeric(bodyProps.attribute("", "bIns")) / 12700, numeric(bodyProps.attribute("", "lIns")) / 12700),
-                fill(props), lineColor?.let { PdfBorder(numeric(line.attribute("", "w")) / 12700, it) },
-                when (bodyProps.attribute("", "anchor")) { "t" -> PdfVerticalAlignment.TOP; "ctr" -> PdfVerticalAlignment.CENTER; "b" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported vertical alignment") })
+                WordFramePaint.fill(props) { origin, message -> source.current = origin; reject(message) }, border,
+                when (bodyProps.attribute("", "anchor")) { "t" -> PdfVerticalAlignment.TOP; "ctr" -> PdfVerticalAlignment.CENTER; "b" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported vertical alignment") }).withDrawingOrder(order)
         }
 
         fun readAnchoredImage(node: XmlElement, partRelations: Map<String, String>, pageBand: Boolean = false): PdfAnchoredImage {
@@ -1148,15 +1188,7 @@ internal class NativeDocxReader(
 
             fun one(name: String) = anchor.elements().singleOrNull { it.name.namespaceURI == wp && it.name.localPart == name } ?: reject("Missing or duplicate image anchor property")
 
-            val keys = setOf("distT", "distB", "distL", "distR", "simplePos", "relativeHeight", "behindDoc", "locked", "layoutInCell", "allowOverlap")
-            check(anchor.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in keys }, "Unsupported image anchor attribute")
-            for ((key, expected) in mapOf("simplePos" to false, "behindDoc" to false, "locked" to false, "layoutInCell" to true, "allowOverlap" to true)) {
-                val value = when (anchor.attribute("", key)) { "0", "false" -> false; "1", "true" -> true; else -> null }
-                check(value == expected, "Unsupported image anchor policy")
-            }
-            check(anchor.attribute("", "relativeHeight")?.toLongOrNull()?.let { it in 0..4_294_967_295L } == true, "Invalid drawing order")
-            val simple = one("simplePos")
-            check(simple.attributes.size == 2 && simple.attribute("", "x") == "0" && simple.attribute("", "y") == "0", "Unsupported simple image position")
+            val order = WordDrawingOrder.read(anchor) { origin, message -> source.current = origin; reject(message) }
             val extent = one("extent")
             val imageWidth = number(extent.attribute("", "cx")) / 12700
 
@@ -1208,7 +1240,16 @@ internal class NativeDocxReader(
                 WordAnchorMetadata.validate(extra, ::reject)
             }
             source.current = node
+            anchor.elements().filter { it.name.namespaceURI == wp && it.name.localPart == "effectExtent" }.forEach { effect ->
+                val padding = WordInlineImagePadding.read(effect) { origin, message -> source.current = origin; reject(message) }
+                source.current = effect
+                if (policy != PdfImageWrap.NONE && padding != PdfMargins(0f, 0f, 0f, 0f)) {
+                    val side = listOf("l", "t", "r", "b").first { effect.attribute("", it)?.toLongOrNull() != 0L }
+                    reject("Unsupported anchored image effectExtent/@$side")
+                }
+            }
             check(!pageBand || policy == PdfImageWrap.NONE, "Only unwrapped floating images are qualified in page bands")
+            check(order.layer != PdfDrawingLayer.BACKGROUND || policy == PdfImageWrap.NONE, "Wrapped background pictures are not qualified")
             val inline = XmlElement(javax.xml.namespace.QName(wp, "inline"))
             inline.children.addAll(anchor.elements().filter { it.name.namespaceURI == drawing || it.name.localPart in setOf("extent", "effectExtent", "docPr", "cNvGraphicFramePr") })
             val container = XmlElement(node.name).also { it.children += inline }
@@ -1218,7 +1259,7 @@ internal class NativeDocxReader(
                 "Anchored image exceeds the physical page height")
             return PdfAnchoredImage(converted, horizontal, vertical.first, vertical.second, policy,
                 PdfMargins(number(anchor.attribute("", "distT") ?: "0") / 12700, number(anchor.attribute("", "distR") ?: "0") / 12700,
-                    number(anchor.attribute("", "distB") ?: "0") / 12700, number(anchor.attribute("", "distL") ?: "0") / 12700))
+                    number(anchor.attribute("", "distB") ?: "0") / 12700, number(anchor.attribute("", "distL") ?: "0") / 12700)).withDrawingOrder(order)
         }
 
         fun readBlocks(root: XmlElement, partRelations: Map<String, String>, fields: Boolean): List<PdfBlock> = root.elements().filter { it.name.localPart != "sectPr" }.flatMap { block ->
@@ -1322,7 +1363,9 @@ internal class NativeDocxReader(
 
     private data class Face(val family: String? = null, val size: Float? = null, val bold: Boolean = false,
         val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null, val underline: Boolean = false, val superscript: Boolean = false, val strikethrough: Boolean = false,
-        val kerningThreshold: Float = 0f, val standardLigatures: Boolean = false, val openType: Boolean = false, val highAnsiFamily: String? = null, val characterSpacing: Float = 0f) {
+        val kerningThreshold: Float = 0f, val standardLigatures: Boolean = false, val openType: Boolean = false, val highAnsiFamily: String? = null, val characterSpacing: Float = 0f,
+        val highlight: PdfColor? = null, val shading: PdfColor? = null, val automaticColor: Boolean = true,
+        val paragraphBackground: PdfColor? = null, val horizontalScale: Float = 1f) {
 
         fun id(resolve: (String, Boolean, Boolean) -> String): String = resolve(
             requireNotNull(family) { "An explicit font family is required" }, bold, italic)
@@ -1340,19 +1383,34 @@ internal class NativeDocxReader(
         val size = if (face.superscript) kotlin.math.round(nominal * 1.3f) / 2 else nominal
         val kern = if (face.kerningThreshold > 0 && size >= face.kerningThreshold)
             if (face.openType) PdfKerning.OPENTYPE else PdfKerning.PAIRS else PdfKerning.NONE
-        return PdfTextStyle(face.id(fontId), size, face.color, face.languageTag, face.underline, if (face.superscript) nominal - size else 0f, face.strikethrough)
+        val background = face.highlight ?: face.shading
+        // Word's automatic ink follows shading, even when a highlight visually overrides that shading.
+        val color = if (face.automaticColor) WordRunBackground.automaticForeground(face.shading ?: face.paragraphBackground) else face.color
+        return PdfTextStyle(face.id(fontId), size, color, face.languageTag, face.underline, if (face.superscript) nominal - size else 0f, face.strikethrough)
             .withFontFeatures(PdfFontFeatures(kern, face.standardLigatures && face.openType))
             .withSyntheticBold(syntheticBold(requireNotNull(face.family), face.bold, face.italic))
             .withCharacterSpacing(face.characterSpacing)
+            .withBackground(background)
+            .withHorizontalScale(face.horizontalScale)
     }
 
     private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>, themeColors: WordThemeColors): Face {
         if (property == null) return initial
         val word14 = "http://schemas.microsoft.com/office/word/2010/wordml"
-        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern", "spacing", "dstrike", "w"), setOf(word14 to "ligatures"))
+        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern", "spacing", "dstrike", "w", "highlight", "shd"), setOf(word14 to "ligatures"))
         var result = initial
-        for (node in listOf("dstrike", "w").mapNotNull { property.one(it) }) {
+        property.one("highlight")?.let { node ->
+            result = result.copy(highlight = WordRunBackground.highlight(node) { origin, message -> source.current = origin; reject(message) })
+        }
+        property.one("shd")?.let { node ->
+            val fill = themeColors.runFill(node)
+            if (node.value("val") != "nil") result = result.copy(shading = fill)
+        }
+        for (node in listOf("dstrike").mapNotNull { property.one(it) }) {
             WordInactiveRunProperties.requireInactive(node) { origin, message -> source.current = origin; reject(message) }
+        }
+        property.one("w")?.let { node ->
+            result = result.copy(horizontalScale = WordInactiveRunProperties.horizontalScale(node) { origin, message -> source.current = origin; reject(message) })
         }
         property.one("spacing")?.let { node ->
             result = result.copy(characterSpacing = WordRunSpacing.read(node) { origin, message -> source.current = origin; reject(message) })
@@ -1428,7 +1486,9 @@ internal class NativeDocxReader(
         property.one("szCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && number(it.value("val")) / 2 == result.size, "Separate complex-script sizes are not qualified") }
         property.one("bCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && enabled(it) == result.bold, "Separate complex-script weight is not qualified") }
         property.one("iCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && enabled(it) == result.italic, "Separate complex-script slant is not qualified") }
-        property.one("color")?.let { result = result.copy(color = themeColors.resolve(it)) }
+        property.one("color")?.let {
+            result = result.copy(color = themeColors.resolve(it), automaticColor = it.value("val") == "auto" && it.value("themeColor") in setOf(null, "none"))
+        }
         return result
     }
 
@@ -1437,17 +1497,22 @@ internal class NativeDocxReader(
         val overflowPunctuation: Boolean? = null, val suppressAutoHyphens: Boolean = false,
         val autoBefore: Boolean = false, val autoAfter: Boolean = false,
         val mirror: Boolean = false,
+        val background: PdfColor? = null,
         val alignment: PdfAlignment = PdfAlignment.LEFT, val left: Float = 0f, val right: Float = 0f, val first: Float = 0f,
         val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false, val direction: PdfTextDirection? = null, val borders: PdfParagraphBorders? = null)
 
-    private fun paragraphProperties(property: XmlElement, initial: Geometry): Geometry {
+    private fun paragraphProperties(property: XmlElement, initial: Geometry, themeColors: WordThemeColors): Geometry {
         NativeCellPagination.validateProperties(property) { node, message ->
             source.current = node
             activePart = provenance[node] ?: activePart
             reject(message)
         }
-        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "rPr", "mirrorIndents", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr", "overflowPunct", "suppressAutoHyphens"))
+        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "rPr", "mirrorIndents", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr", "overflowPunct", "suppressAutoHyphens", "shd"))
         var result = initial
+        property.one("shd")?.let { node ->
+            val fill = themeColors.runFill(node)
+            if (node.value("val") != "nil") result = result.copy(background = fill)
+        }
         property.one("pBdr")?.let { result = result.copy(borders = lineReader.borders(it, result.borders)) }
 
         fun flag(node: XmlElement): Boolean {
@@ -1564,12 +1629,7 @@ internal class NativeDocxReader(
             at(locks, locks.elements().isEmpty(), "Unsupported image editing lock content")
         }
         inline.elements().filter { it.name.namespaceURI == wp && it.name.localPart == "effectExtent" }.forEach { effect ->
-            val unsupported = effect.attributes.entries.firstOrNull { (name, value) ->
-                name.namespaceURI.isNotEmpty() || name.localPart !in setOf("l", "t", "r", "b") || value != "0"
-            }
-            val property = unsupported?.key?.localPart?.take(64)?.let { "@$it" } ?: "content"
-            // Its four extent attributes are required together; cleanup removes the optional element, not one required attribute.
-            at(effect, unsupported == null && effect.elements().isEmpty(), "Unsupported image effectExtent/$property")
+            WordInlineImagePadding.read(effect) { origin, message -> source.current = origin; reject(message) }
         }
         val extent = inline.elements().singleOrNull { it.name.namespaceURI == wp && it.name.localPart == "extent" } ?: reject("Missing image extent")
         val blip = inline.descendants().singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "blip" } ?: reject("Missing image relationship")

@@ -1,0 +1,88 @@
+{
+  "initialGolden": true,
+  "reviewedOn": "2026-11-19",
+  "feature": "Inline tabs in numbered paragraphs",
+  "wordComparison": {
+    "variant": "soft-lines",
+    "paper": "a4",
+    "pages": 1,
+    "markerCount": 8,
+    "maxX": 0.036000000000001364,
+    "maxY": 0.058818719999976565,
+    "nativeMarkers": {
+      "L00_START": {
+        "x": 92.7,
+        "y": 58.49881871999992
+      },
+      "L01_TAIL": {
+        "x": 236.7,
+        "y": 58.49881871999992
+      },
+      "L02_NEXT": {
+        "x": 92.7,
+        "y": 75.74736871999994
+      },
+      "L03_FINAL": {
+        "x": 236.7,
+        "y": 75.74736871999994
+      },
+      "L10_START": {
+        "x": 92.7,
+        "y": 98.99586871999998
+      },
+      "L11_TAIL": {
+        "x": 236.7,
+        "y": 98.99586871999998
+      },
+      "L12_NEXT": {
+        "x": 92.7,
+        "y": 116.24441872
+      },
+      "L13_FINAL": {
+        "x": 236.7,
+        "y": 116.24441872
+      }
+    },
+    "wordMarkers": {
+      "L00_START": {
+        "x": 92.664,
+        "y": 58.43999999999994
+      },
+      "L01_TAIL": {
+        "x": 236.69,
+        "y": 58.43999999999994
+      },
+      "L02_NEXT": {
+        "x": 92.664,
+        "y": 75.7399999999999
+      },
+      "L03_FINAL": {
+        "x": 236.69,
+        "y": 75.7399999999999
+      },
+      "L10_START": {
+        "x": 92.664,
+        "y": 99.01999999999998
+      },
+      "L11_TAIL": {
+        "x": 236.69,
+        "y": 99.01999999999998
+      },
+      "L12_NEXT": {
+        "x": 92.664,
+        "y": 116.29999999999995
+      },
+      "L13_FINAL": {
+        "x": 236.69,
+        "y": 116.29999999999995
+      }
+    }
+  },
+  "visualReview": "All sixteen A4/Letter native/Word pairs were visually reviewed after independent complete-content, paper and marker-geometry checks, including continuation indents, soft line breaks and comma decimal stops. Initial native PNG uses PDFBox at 96 dpi with no masks. No established golden replaced.",
+  "sha256": {
+    "page-1.png": "c6c6a3c696381a57deec05ea692fb04f768c0abb210c0278f6bed596e7107755",
+    "source.docx": "969780ee4922ce078606c7c041dae658fc62eb1b6df65b50e80a04cf1eb23c39",
+    "word-reference.pdf": "5da7c02245370d96841e8c0287a863b987e197a1f801ef859c24b31a3ee06a69",
+    "word-reference.pdf.provenance.json": "3b482676603cfb1bddf80979d6dd3cdc195ca672df7a48475f4692f303d87dce"
+  }
+}
