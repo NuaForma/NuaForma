@@ -14,9 +14,9 @@ class PdfTabCollisionTest {
         TextMetrics(if (text == "VALUE") 36.12f else text.length * 6f, 8f, 2f)
     }
 
-    private fun layout(before: String, after: String, stops: List<PdfTabStop>, indent: Float = 0f): List<PositionedText> {
+    private fun layout(before: String, after: String, stops: List<PdfTabStop>, indent: Float = 0f, rightIndent: Float = 0f): List<PositionedText> {
         val runs = listOfNotNull(before.takeIf { it.isNotEmpty() }?.let { PdfTextRun(it, style) }, PdfTab(style), PdfTextRun(after, style))
-        val format = PdfParagraphFormat(exactLineHeight = 14f, firstLineIndent = indent, tabs = PdfTabSettings(stops))
+        val format = PdfParagraphFormat(exactLineHeight = 14f, firstLineIndent = indent, rightIndent = rightIndent, tabs = PdfTabSettings(stops))
         return PageLayouter.layout(PdfDocument(page, listOf(PdfParagraph(runs, 0f, 0f, format))), measurer)
             .elements.filterIsInstance<PositionedText>()
     }
@@ -52,6 +52,32 @@ class PdfTabCollisionTest {
             assertEquals(200f - offset, layout("LONGPREFIX", "VALUE", stops).single { it.text == "VALUE" }.x, .001f)
             assertEquals(128f, layout("LONGPREFIX", "VALUE", stops.take(1)).single { it.text == "VALUE" }.x, .001f)
         }
+    }
+
+    @Test
+    fun `aligned tabs beyond the text area use the paragraph right edge`() {
+        for (kind in listOf(PdfTabAlignment.RIGHT, PdfTabAlignment.CENTER, PdfTabAlignment.DECIMAL)) {
+            val positions = layout("PREFIX", "VALUE", listOf(PdfTabStop(230f, kind)), rightIndent = 13f)
+            assertEquals(220.88f, positions.single { it.text == "VALUE" }.x, .001f, kind.name)
+        }
+    }
+
+    @Test
+    fun `a right stop at the text area boundary can use the paragraph indent`() {
+        val positions = layout("PREFIX", "ABCDE VALUE", listOf(PdfTabStop(214f, PdfTabAlignment.RIGHT)), rightIndent = 13f)
+        val prefix = positions.single { it.text == "PREFIX" }
+        val value = positions.single { it.text == "VALUE" }
+        assertEquals(233.88f, value.x, .001f)
+        assertEquals(prefix.baseline, value.baseline, .001f)
+    }
+
+    @Test
+    fun `right edge fallback does not overlap preceding text when the field cannot fit`() {
+        val error = assertThrows(PdfRenderException::class.java) {
+            layout("A".repeat(29), "VALUE", listOf(PdfTabStop(230f, PdfTabAlignment.RIGHT)), rightIndent = 13f)
+        }
+        assertEquals(PdfFailureCode.CONTENT_OVERFLOW, error.code)
+        assertTrue(error.message.orEmpty().contains("Aligned tab content exceeds line boundary"))
     }
 
     @Test

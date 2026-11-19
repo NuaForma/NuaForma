@@ -124,7 +124,17 @@ internal object PageLayouter {
                         return if (lineArea == null) desired else maxOf(area().first, desired)
                     }
 
-                    fun availableWidth() = (if (lineArea == null) width - format.rightIndent else minOf(area().first + area().second, width - format.rightIndent)) - lineLeft()
+                    var rightTabEdge: Float? = null
+
+                    fun lineEdge(): Float {
+                        val paragraphEdge = width - format.rightIndent
+                        return if (lineArea == null) paragraphEdge else minOf(area().first + area().second, paragraphEdge)
+                    }
+
+                    fun availableWidth(): Float {
+                        val edge = lineEdge()
+                        return maxOf(edge, rightTabEdge ?: edge) - lineLeft()
+                    }
 
                     if (availableWidth() <= 0) overflow("Line start leaves no content width", lineLeft(), lineLeft() + availableWidth())
                     if (width - format.leftIndent - format.rightIndent <= 0) overflow("Paragraph indents leave no content width", format.leftIndent + format.rightIndent, width)
@@ -230,6 +240,7 @@ internal object PageLayouter {
                         line = mutableListOf()
                         lineWidth = 0f
                         lineContainsTab = false
+                        rightTabEdge = null
                         firstLine = firstLine && deferredListLabel
                         lineIndex++
                     }
@@ -267,15 +278,31 @@ internal object PageLayouter {
                             }
                             val explicit = settings.stops.firstOrNull { it.position > cursor + .001f }
                             val stop = explicit ?: PdfTabStop((kotlin.math.floor((cursor + .001f) / settings.defaultInterval) + 1) * settings.defaultInterval)
-                            val alignedStart = stop.position - when (stop.alignment) {
-                                PdfTabAlignment.LEFT -> 0f; PdfTabAlignment.RIGHT -> payloadWidth
-                                PdfTabAlignment.CENTER -> payloadWidth / 2; PdfTabAlignment.DECIMAL -> decimalWidth
+                            val paragraphEdge = width - format.rightIndent
+                            val areaEdge = area().let { (left, span) -> minOf(width, left + span) }
+                            val useRightEdge = stop.position > width + .001f && stop.alignment != PdfTabAlignment.LEFT
+                            val alignedStart = if (useRightEdge) {
+                                lineEdge() - payloadWidth
+                            } else {
+                                stop.position - when (stop.alignment) {
+                                    PdfTabAlignment.LEFT -> 0f
+                                    PdfTabAlignment.RIGHT -> payloadWidth
+                                    PdfTabAlignment.CENTER -> payloadWidth / 2
+                                    PdfTabAlignment.DECIMAL -> decimalWidth
+                                }
                             }
                             // A reached alignment anchor cannot move text back over the preceding content.
                             val start = maxOf(cursor, alignedStart)
-                            if (start > width - format.rightIndent + .001f) overflow("Tab start exceeds line boundary", start, width - format.rightIndent)
-                            if (stop.alignment != PdfTabAlignment.LEFT && start + payloadWidth > width - format.rightIndent + .001f)
-                                overflow("Aligned tab content exceeds line boundary", start + payloadWidth, width - format.rightIndent)
+                            val fieldEdge = when {
+                                useRightEdge -> lineEdge()
+                                stop.alignment == PdfTabAlignment.RIGHT && stop.position <= areaEdge + .001f ->
+                                    maxOf(paragraphEdge, stop.position)
+                                else -> paragraphEdge
+                            }
+                            if (start > fieldEdge + .001f) overflow("Tab start exceeds line boundary", start, fieldEdge)
+                            if (stop.alignment != PdfTabAlignment.LEFT && start + payloadWidth > fieldEdge + .001f)
+                                overflow("Aligned tab content exceeds line boundary", start + payloadWidth, fieldEdge)
+                            if (fieldEdge > paragraphEdge) rightTabEdge = maxOf(rightTabEdge ?: paragraphEdge, fieldEdge)
                             val gap = maxOf(0f, start - cursor)
                             val symbol = when (stop.leader) { PdfTabLeader.NONE -> " "; PdfTabLeader.DOT -> "."; PdfTabLeader.HYPHEN -> "-"; PdfTabLeader.UNDERSCORE -> "_" }
                             val metrics = measurer.measure(symbol, control.style)
