@@ -88,13 +88,17 @@ def collect_debian(source, version, packages, destination):
 
 def collect_upstream(destination):
     records = []
-    for major, version, build in ((17, "17.0.21", 9), (25, "25.0.5", 8)):
+    runtimes = (
+        (17, "17.0.21", 9, "89a455fa83b19e3a166bca47a465d51712441be607543dd465083ef2437a426d"),
+        (17, "17.0.21.1", 2, "8f1f079f28e006318c4f79f0736dbc1300cb4a07f8b7e3ff4d8efc3ef914ea73"),
+        (25, "25.0.5", 8, "f331d870d998f9c144c361c220960f8ad2de169dc1b1c4dc4145291c501c2341"),
+        (25, "25.0.5.1", 2, "3fb4af3a690f6c0f47462f3f813a8f09dc4a237f0c6ab462a764f15bc15313a7"),
+    )
+    for major, version, build, pinned in runtimes:
         base = f"https://github.com/adoptium/temurin{major}-binaries/releases/download/jdk-{version}%2B{build}/"
         name = f"OpenJDK{major}U-jdk-sources_{version}_{build}.tar.gz"
         expected = read_url(base + name + ".sha256.txt").decode("ascii").split()[0]
-        pinned = {17: "89a455fa83b19e3a166bca47a465d51712441be607543dd465083ef2437a426d",
-                  25: "f331d870d998f9c144c361c220960f8ad2de169dc1b1c4dc4145291c501c2341"}
-        assert expected == pinned[major], "Temurin source changed; explicit input review required"
+        assert expected == pinned, "Temurin source changed; explicit input review required"
         path = destination / "temurin" / name
         record = download(base + name, path, "sha256", expected)
         record["path"] = path.relative_to(destination).as_posix()

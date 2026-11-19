@@ -17,9 +17,9 @@ FROM base AS runtime-system
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends libstdc++6 zlib1g libfreetype6 libfontconfig1 fonts-liberation \
     && test -x /usr/bin/prlimit
 
-# Official signed Temurin 17.0.21+9 archives; architecture-specific hashes are reviewed inputs.
+# Official signed Temurin archives; the November Java 17 hotfix is shipped on AMD64.
 FROM scratch AS java17-amd64
-ADD --checksum=sha256:9f41bf88c7900c7097444a1bdeb84146ae692bc08842490ab098063c74bf9a8a https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jre_x64_linux_hotspot_17.0.21_9.tar.gz /jre.tar.gz
+ADD --checksum=sha256:5a092a0bc21de4c3d855480edd7945be9cfe157b38cdb84dac280511893bb009 https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21.1%2B2/OpenJDK17U-jre_x64_linux_hotspot_17.0.21.1_2.tar.gz /jre.tar.gz
 FROM scratch AS java17-arm64
 ADD --checksum=sha256:1114f09d6174f54270c3117410b5e4022b43ebc0b43b751af08b927c55ed7bb5 https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21%2B9/OpenJDK17U-jre_aarch64_linux_hotspot_17.0.21_9.tar.gz /jre.tar.gz
 FROM java17-${TARGETARCH} AS java17-archive
@@ -29,8 +29,18 @@ RUN mkdir -p /opt/java/openjdk \
     && tar -xzf /tmp/jre.tar.gz --strip-components=1 -C /opt/java/openjdk \
     && rm /tmp/jre.tar.gz
 
-# Server Java 25 is separate from the bounded Java 17 validators.
-FROM eclipse-temurin:25-jre-noble@sha256:2ef7a81085e0502d7d4ff7e7c0257b6d4f46433f8ea6021180aa3c8a2b9ca3ec AS server-java-runtime
+# Keep the Java 25 server separate from the bounded Java 17 validators.
+FROM scratch AS server-java-amd64-archive
+ADD --checksum=sha256:2edef9e4f81ec5ee426d023336d4cfbd7b4644e99884e7a73a6a867b70b17acf https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.5.1%2B2/OpenJDK25U-jre_x64_linux_hotspot_25.0.5.1_2.tar.gz /jre.tar.gz
+FROM base AS server-java-amd64
+COPY --from=server-java-amd64-archive /jre.tar.gz /tmp/jre.tar.gz
+RUN mkdir -p /opt/java/openjdk \
+    && tar -xzf /tmp/jre.tar.gz --strip-components=1 -C /opt/java/openjdk \
+    && rm /tmp/jre.tar.gz
+
+# The vulnerable intrinsic only exists on x86-64. Retain the reviewed ARM64 image input.
+FROM eclipse-temurin:25-jre-noble@sha256:2ef7a81085e0502d7d4ff7e7c0257b6d4f46433f8ea6021180aa3c8a2b9ca3ec AS server-java-arm64
+FROM server-java-${TARGETARCH} AS server-java-runtime
 
 FROM runtime-system AS qualification
 ARG NUAFORMA_CONTAINER_VERSION=0.3.0-alpha.1

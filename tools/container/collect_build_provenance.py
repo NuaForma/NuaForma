@@ -7,6 +7,28 @@ import tarfile
 import urllib.request
 
 
+RUNTIMES = {
+    "x86_64": ("8d9fd6fa96e5066571a13823b07c2934e5958d8b", ("17.0.21.1+2", "41b754a57540"), ("25.0.5.1+2-LTS", "1513e3f76ff3")),
+    "aarch64": ("1cf43d7a3e77886bfea7d550a902e151a87d724d", ("17.0.21+9", "551f220d8884"), ("25.0.5+8-LTS", "7ec19fb1eda7")),
+}
+
+
+def runtime_identity(path):
+    with tarfile.open(path) as archive:
+        member = next(member for member in archive if member.isfile())
+        assert member.size <= 65_536, "Oversized Java release metadata"
+        release = archive.extractfile(member).read().decode()
+    return dict(line.split("=", 1) for line in release.splitlines() if "=" in line)
+
+
+def check_runtime(identity, architecture, build_source, runtime):
+    version, source = runtime
+    assert identity["OS_ARCH"] == f'"{architecture}"'
+    assert identity["BUILD_SOURCE"] == f'"git:{build_source}"'
+    assert identity["SOURCE"] == f'".:git:{source}"'
+    assert identity["JAVA_RUNTIME_VERSION"] == f'"{version}"'
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--notices", type=pathlib.Path)
@@ -15,20 +37,16 @@ def main():
     args = parser.parse_args()
     if not args.application_only:
         assert args.notices is not None
-        with tarfile.open(args.notices / "java-release.tar") as archive:
-            release = archive.extractfile(next(member for member in archive if member.isfile())).read().decode()
-        assert 'BUILD_SOURCE="git:1cf43d7a3e77886bfea7d550a902e151a87d724d"' in release
-        assert 'SOURCE=".:git:551f220d8884"' in release
-        assert 'JAVA_RUNTIME_VERSION="17.0.21+9"' in release
+        validator = runtime_identity(args.notices / "java-release.tar")
+        architecture = validator["OS_ARCH"].strip('"')
+        build_source, validator_runtime, server_runtime = RUNTIMES[architecture]
+        check_runtime(validator, architecture, build_source, validator_runtime)
         server_release = args.notices / "server-java-release.tar"
         if server_release.is_file():
-            with tarfile.open(server_release) as archive:
-                release = archive.extractfile(next(member for member in archive if member.isfile())).read().decode()
-            assert 'BUILD_SOURCE="git:1cf43d7a3e77886bfea7d550a902e151a87d724d"' in release
-            assert 'SOURCE=".:git:7ec19fb1eda7"' in release
-            assert 'JAVA_RUNTIME_VERSION="25.0.5+8-LTS"' in release
+            check_runtime(runtime_identity(server_release), architecture, build_source, server_runtime)
     args.output.mkdir(parents=True, exist_ok=False)
     urls = {
+        "temurin-build-8d9fd6fa96e5066571a13823b07c2934e5958d8b.tar.gz": "https://api.github.com/repos/adoptium/temurin-build/tarball/8d9fd6fa96e5066571a13823b07c2934e5958d8b",
         "temurin-build-1cf43d7a3e77886bfea7d550a902e151a87d724d.tar.gz": "https://api.github.com/repos/adoptium/temurin-build/tarball/1cf43d7a3e77886bfea7d550a902e151a87d724d",
         "temurin-build-containers-86e89ce20ba391b588e243844d0c0d996071b3ed.tar.gz": "https://api.github.com/repos/adoptium/containers/tarball/86e89ce20ba391b588e243844d0c0d996071b3ed",
         "docx4j-17.3.4-LICENSE": "https://raw.githubusercontent.com/plutext/docx4j/VERSION_17_3_4/legals/LICENSE",

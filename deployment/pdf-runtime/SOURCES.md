@@ -11,7 +11,7 @@ During image assembly, `NUAFORMA_CONTAINER_VERSION` replaces the `0.1.0-alpha.1`
 The versioned release provides a SHA-256 manifest and these source archives, separately from container binaries:
 
 - `nuaforma-sources-debian-0.1.0-alpha.1.tar`: exact Debian source descriptors, original archives, distribution patches and Debian build rules for all inventoried container filesystem packages.
-- `nuaforma-sources-java-0.1.0-alpha.1.tar`: matching Temurin/OpenJDK sources and build scripts. The source service target includes validator Java 17.0.21+9 and server Java 25.0.5+8, so a new release must provide both source trees, their exact `BUILD_SOURCE` scripts and the pinned upstream Java 25 container recipe and reviewed official Java 17 archive inputs; previously published archives remain immutable.
+- `nuaforma-sources-java-0.1.0-alpha.1.tar`: matching Temurin/OpenJDK sources and build scripts. For AMD64 the archive includes the 17.0.21.1+2 and 25.0.5.1+2 corresponding sources and build scripts for the official JRE archives. For ARM64 it includes the 17.0.21+9 and 25.0.5+8 sources, build scripts and the pinned Java 25 container recipe. Previously published archives remain immutable.
 - `nuaforma-sources-jvm-0.1.0-alpha.1.tar`: original application dependency material and veraPDF source JARs, POMs, embedded subcomponent notices and validation profiles. Source JARs are ZIP archives; their source-file headers retain original copyrights and terms.
 
 The signed NuaForma release tag supplies its engine/service source, Dockerfile and fixed launcher scripts. No Java or veraPDF vendor sources are patched by NuaForma; DOCX interpretation and PDF rendering use NuaForma code, while vendor validation remains in separate bounded Java processes.

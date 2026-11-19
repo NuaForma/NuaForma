@@ -7,7 +7,7 @@ Issue [#71](https://github.com/NuaForma/NuaForma/issues/71) splits the source bu
 | contracts, core, template, DOCX, PDF, DOCX/PDF libraries | Java 17 | Java 17 minimum |
 | Standalone REST server | Java 25 | Java 25 |
 | Separate development Playground application | Java 25 | Java 25; not a production server dependency |
-| Separate PDFBox and veraPDF validators | Java 17 | Pinned Temurin 17.0.21+9 |
+| Separate PDFBox and veraPDF validators | Java 17 | Pinned Temurin 17, as listed below |
 
 Install both JDKs for the complete build. Gradle's explicit module toolchains, Java `--release` and Kotlin `-Xjdk-release` prevent a Java 25 build daemon from exposing newer JDK APIs to libraries. Set `JDK17` and `JDK25` if installations are not discovered automatically. Library tests run on the Java 17 toolchain and server/architecture/REST tests on Java 25, independently of the daemon JVM. CI runs the full build with Java 17 and Java 25 daemons, preserving the required `Build (Java 17)` check, and runs independently compiled Java/Maven and Kotlin/Gradle consumers on Java 17. Publication checks inspect the Java-17-effective bytecode of all six libraries and their resolved runtime dependencies. The JVM split does not change library coordinates or contract version; dated dependency updates are documented separately below.
 
@@ -25,23 +25,24 @@ Java 17 providers remain usable on the Java 25 server. Operators may deliberatel
 
 The [stable-component policy](../ARCHITECTURE.md#stable-components-and-upgrade-debt) retains Java 17 for embedded libraries/validators and Java 25 for server/Playground, while requiring current stable security-patch review. The pinned source inputs are below. Reassess any approved patch exception, exact sources and both native platforms before each release through [issue #105](https://github.com/NuaForma/NuaForma/issues/105); the existing pin is not approval to skip the next review.
 
-The source server runtime is unmodified Eclipse Temurin **25.0.5+8**, pinned by OCI index `sha256:2ef7a81085e0502d7d4ff7e7c0257b6d4f46433f8ea6021180aa3c8a2b9ca3ec`:
+The shipped runtimes are unmodified Eclipse Temurin Linux JREs. The November 2026 hotfix closes CVE-2026-114938 on affected x86-64 processors with AVX-512 VBMI. The path is x86-64-specific according to [Adoptium's advisory](https://adoptium.net/news/2026/11/temurin-november-2026-cspu-java4shell/). ARM64 retains the known inputs while the upstream release rolls out. The Java 17/25 compatibility boundaries are unchanged.
 
-- AMD64 child: `sha256:41a70a160a5a157126929c1901e8dcf17ea4fd88eca1e7b9abf3cb1bb04df6c2`.
-- ARM64 child: `sha256:49fa0d811061f2b684eb8d32048c6697890e2b169e2cd6bd329d01f03848a606`.
-- OpenJDK source identity: `7ec19fb1eda7`; Temurin build scripts: `1cf43d7a3e77886bfea7d550a902e151a87d724d`.
-- Official container recipe revision: `86e89ce20ba391b588e243844d0c0d996071b3ed`.
+| Architecture | Validator Java 17 | Server and Playground Java 25 |
+| --- | --- | --- |
+| AMD64 | 17.0.21.1+2 | 25.0.5.1+2 |
+| ARM64 | 17.0.21+9 | 25.0.5+8 |
 
-Validator Java uses official unmodified Temurin **17.0.21+9** JRE archives because the official Java 17 moving image still contains the preceding patch. The maintainer approved this packaging choice under #51. Two scratch download stages pin the official AMD64/ARM64 archive SHA-256 values, and a Debian extraction stage copies the complete JRE tree without patching vendor files. Only the selected architecture is fetched for a build.
+Each AMD64 JRE uses the official signed download directly. The ARM64 validator continues to use its pinned download. ARM64 server and Playground retain the official Java 25 OCI index `sha256:2ef7a81085e0502d7d4ff7e7c0257b6d4f46433f8ea6021180aa3c8a2b9ca3ec` and ARM64 child `sha256:49fa0d811061f2b684eb8d32048c6697890e2b169e2cd6bd329d01f03848a606`, built with the container recipe at `86e89ce20ba391b588e243844d0c0d996071b3ed`.
 
-| Archive | SHA-256 |
+| Official archive | SHA-256 |
 | --- | --- |
-| `OpenJDK17U-jre_x64_linux_hotspot_17.0.21_9.tar.gz` | `9f41bf88c7900c7097444a1bdeb84146ae692bc08842490ab098063c74bf9a8a` |
+| `OpenJDK17U-jre_x64_linux_hotspot_17.0.21.1_2.tar.gz` | `5a092a0bc21de4c3d855480edd7945be9cfe157b38cdb84dac280511893bb009` |
+| `OpenJDK25U-jre_x64_linux_hotspot_25.0.5.1_2.tar.gz` | `2edef9e4f81ec5ee426d023336d4cfbd7b4644e99884e7a73a6a867b70b17acf` |
 | `OpenJDK17U-jre_aarch64_linux_hotspot_17.0.21_9.tar.gz` | `1114f09d6174f54270c3117410b5e4022b43ebc0b43b751af08b927c55ed7bb5` |
 
-Both official Java 17 binary archives and the Java 17/25 source archives were independently SHA-256 checked and their signatures verified against the Adoptium public fingerprint `3B04D753C9050D9A5D343F39843C48A565F8F04B`, using the [vendor verification instructions](https://adoptium.net/installation/gpg-verification). The Java 17 source identity is `551f220d8884`; both runtimes use build scripts `1cf43d7a3e77886bfea7d550a902e151a87d724d`. Signature validation is provenance evidence, not security clearance. Previously published alpha.4 images and their accepted older runtime inputs remain immutable.
+The selected AMD64 Java 17 and 25 source identities are `41b754a57540` and `1513e3f76ff3`; both use Temurin build scripts at `8d9fd6fa96e5066571a13823b07c2934e5958d8b`. ARM64 retains source identities `551f220d8884` and `7ec19fb1eda7` plus build scripts at `1cf43d7a3e77886bfea7d550a902e151a87d724d`. The official AMD64 binary and matching source downloads were checked against their SHA-256 sidecars and signatures from Adoptium fingerprint `3B04D753C9050D9A5D343F39843C48A565F8F04B`. See [vendor verification instructions](https://adoptium.net/installation/gpg-verification). Previously published images remain immutable.
 
-The [2026-10-30 review](runtime-dependency-review-2026-10-30.md) separates maintained JVM patches, Debian security packages and the JVM-bundled FreeType copies. Updating the OS does not patch those bundled copies. Source inspection of both selected OpenJDK trees still lacks the specific FreeType CID overlap guard for CVE-2026-95512. No non-applicability or new evaluation-risk acceptance is inferred; retain the #51 disposition and exact-candidate review before distribution.
+The [2026-10-30 review](runtime-dependency-review-2026-10-30.md) separates maintained JVM patches, Debian security packages and the JVM-bundled FreeType copies. Updating the OS does not patch those bundled copies. The FreeType CID overlap finding CVE-2026-95512 remains tracked under #51. The November Base64 patch addresses CVE-2026-114938. No non-applicability or new evaluation-risk acceptance is inferred; retain the #51 disposition and exact-candidate review before distribution.
 
 Both Java installations retain their complete upstream `legal` directories and `release` metadata. The image inventories every regular runtime file in `java-sha256.txt`; source review must bind that inventory before any binary transfer. Source collection retains matching OpenJDK 17 and 25 sources, signatures/metadata, exact Temurin build scripts and container recipe. These remain GPLv2 with the applicable Classpath/assembly exceptions and component-specific notices, not Apache-2.0 NuaForma code. There is no new proprietary runtime dependency. Collecting materials is not legal approval or recipient source provision: the existing exact-image source/license/security and protected publication gates still apply to both architectures.
 
@@ -53,4 +54,4 @@ References: [Gradle Java compatibility](https://docs.gradle.org/current/userguid
 
 ## Source update qualification
 
-The source inputs now select current patches in the approved Java 17/25 lines and the authenticated Debian snapshot `20261030T000000Z`. Each changed source/JVM/package inventory needs native AMD64/ARM64 verification, the existing resource-bound validator checks, PDF profile/font/watermark/barcode qualification and corresponding-source coverage. Source changes are not a new publication or a reuse of alpha.4's patch exception. See [#51](https://github.com/NuaForma/NuaForma/issues/51) and the dated review for current evidence and unresolved findings.
+The reviewed source inputs select the Java 17/25 versions above and the authenticated Debian snapshot `20261030T000000Z`. Each changed source/JVM/package inventory needs native AMD64/ARM64 verification, the existing resource-bound validator checks, PDF profile/font/watermark/barcode qualification and corresponding-source coverage. Source changes are not a new publication or a reuse of alpha.4's patch exception. See [#51](https://github.com/NuaForma/NuaForma/issues/51) and the dated review for current evidence and unresolved findings.
