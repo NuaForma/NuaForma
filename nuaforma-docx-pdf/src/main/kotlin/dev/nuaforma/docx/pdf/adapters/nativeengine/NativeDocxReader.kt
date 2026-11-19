@@ -843,7 +843,11 @@ internal class NativeDocxReader(
             val tableWidth = regions.property("tblW")
             val preferredTableWidth = if (automaticLayout) preferredWidth(tableWidth) else null
             if (naturalWidths) automaticDimension(requireNotNull(tableWidth))
-            else if (!automaticLayout) check(kotlin.math.abs(widths.sum() - dimension(tableWidth ?: reject("Missing table width"))) < 0.01f, "Table width differs from grid")
+            else if (!automaticLayout) {
+                val fixedWidth = tableWidth ?: reject("Missing table width")
+                if (fixedWidth.value("type") == "auto") automaticDimension(fixedWidth)
+                else check(kotlin.math.abs(widths.sum() - dimension(fixedWidth)) < 0.01f, "Table width differs from grid")
+            }
             val cellMargins = regions.property("tblCellMar") ?: reject("Explicit cell margins required")
             children(cellMargins, setOf("top", "right", "bottom", "left"))
 
