@@ -66,11 +66,11 @@ internal object PdfBoxWriter {
                 val width = try {
                     if (style.fontFeatures.active) shaper.shape(text, style).advance else {
                         if (style.characterSpacing < 0f) text.codePoints().forEach { point ->
-                            val glyphWidth = font.getStringWidth(String(Character.toChars(point))) * style.size / 1000f
+                            val glyphWidth = font.getStringWidth(String(Character.toChars(point))) * style.size / 1000f * style.horizontalScale
                             if (glyphWidth + style.characterSpacing < 0f)
                                 fail(PdfFailureCode.UNSUPPORTED_TEXT, "Character spacing reverses glyph advances")
                         }
-                        font.getStringWidth(text) * style.size / 1000f + text.codePointCount(0, text.length) * style.characterSpacing
+                        font.getStringWidth(text) * style.size / 1000f * style.horizontalScale + text.codePointCount(0, text.length) * style.characterSpacing
                     }
                 } catch (_: IllegalArgumentException) {
                     fail(PdfFailureCode.MISSING_GLYPH, "The supplied font cannot encode requested text")
@@ -155,12 +155,49 @@ internal object PdfBoxWriter {
                     fun number(value: Float) = COSFloat(value)
 
                     fun paint(elements: List<PositionedElement>, canvasHeight: Float, canvasWidth: Float) {
-                        for (element in elements.sortedBy { when {
-                            it is PositionedStroke -> when (it.layer) { StrokeLayer.FLOW -> 0; StrokeLayer.BACKGROUND -> -1; StrokeLayer.FOREGROUND -> 1 }
-                            it is PositionedImage && it.foreground -> 1
+
+                        fun drawingOrder(element: PositionedElement): PdfDrawingOrder? = when (element) {
+                            is PositionedBox -> element.box.drawingOrder
+                            is PositionedImage -> element.drawingOrder
+                            else -> null
+                        }
+
+                        fun layer(element: PositionedElement): Int = drawingOrder(element)?.let {
+                            if (it.layer == PdfDrawingLayer.BACKGROUND) -2 else 2
+                        } ?: when {
+                            element is PositionedStroke -> when (element.layer) { StrokeLayer.FLOW -> 0; StrokeLayer.BACKGROUND -> -1; StrokeLayer.FOREGROUND -> 1 }
+                            element is PositionedImage && element.foreground -> 1
                             else -> 0
-                        } }) {
+                        }
+
+                        val ordered = elements.sortedWith(compareBy<PositionedElement>(::layer)
+                            .thenBy { drawingOrder(it)?.stackingOrder ?: 0L }.thenBy { drawingOrder(it)?.tieBreak ?: 0L })
+
+                        fun backgroundGroup(value: PositionedElement?) = value is PositionedText || value is PositionedStroke && value.layer != StrokeLayer.BACKGROUND ||
+                            value is PositionedTableBorder || value is PositionedRectangle && value.paragraph != null
+
+                        for ((elementIndex, element) in ordered.withIndex()) {
                             control.checkActive()
+                            if (backgroundGroup(element) && !backgroundGroup(ordered.getOrNull(elementIndex - 1))) {
+                                var backgroundIndex = elementIndex
+                                val group = mutableListOf<PositionedElement>()
+                                while (backgroundIndex < ordered.size && backgroundGroup(ordered[backgroundIndex])) group += ordered[backgroundIndex++]
+                                for (fill in group.filterIsInstance<PositionedRectangle>()) {
+                                    control.checkActive()
+                                    val clipped = ParagraphBackgrounds.clipped(fill) ?: continue
+                                    ParagraphBackgrounds.validate(clipped, canvasWidth, canvasHeight)
+                                    command("BMC", COSName.ARTIFACT)
+                                    paint(listOf(clipped.copy(paragraph = null)), canvasHeight, canvasWidth)
+                                    command("EMC")
+                                }
+                                for (text in group.filterIsInstance<PositionedText>()) {
+                                    control.checkActive()
+                                    val background = TextBackgrounds.rectangle(text, canvasWidth, canvasHeight) ?: continue
+                                    command("BMC", COSName.ARTIFACT)
+                                    paint(listOf(background), canvasHeight, canvasWidth)
+                                    command("EMC")
+                                }
+                            }
                             when (element) {
                                 is PositionedVector -> {
                                     val run = element.run
@@ -224,6 +261,7 @@ internal object PdfBoxWriter {
                                     command("Q")
                                 }
                                 is PositionedRectangle -> {
+                                    if (element.paragraph != null) continue
                                     command("q")
                                     element.fill?.let { color ->
                                         command("rg", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
@@ -253,20 +291,20 @@ internal object PdfBoxWriter {
                                     if (element.style.syntheticBold) command("q")
                                     command("BT")
                                     command("Tf", page.resources.add(font), number(element.style.size))
-                                    command("Tc", number(if (element.style.fontFeatures.active) 0f else element.style.characterSpacing))
+                                    command("Tc", number(if (element.style.fontFeatures.active) 0f else element.style.characterSpacing / element.style.horizontalScale))
                                     command("rg", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
                                     if (element.style.syntheticBold) {
                                         command("RG", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
                                         command("w", number(element.style.size / 35f))
                                         command("Tr", COSInteger.get(2))
                                     }
-                                    command("Tm", number(1f), number(0f), number(0f), number(1f), number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift)))
+                                    command("Tm", number(element.style.horizontalScale), number(0f), number(0f), number(1f), number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift)))
                                     if (element.style.fontFeatures.active) {
                                         val shape = shaper.shape(element.text, element.style)
                                         encoding.record(element.style.fontId, shape)
                                         for (glyph in shape.glyphs) {
                                             control.checkActive()
-                                            command("Tm", number(1f), number(0f), number(0f), number(1f), number(element.x + glyph.x),
+                                            command("Tm", number(element.style.horizontalScale), number(0f), number(0f), number(1f), number(element.x + glyph.x),
                                                 number(canvasHeight - (element.baseline - element.style.baselineShift + glyph.y)))
                                             command("Tj", COSString(encoding.glyph(element.style.fontId, glyph)))
                                         }
@@ -302,6 +340,22 @@ internal object PdfBoxWriter {
                                     if (element.decoration) command("EMC")
                                 }
                                 is PositionedImage -> {
+                                    if (element.requiresPhysicalBounds) {
+
+                                        fun exceeds(edge: String, required: Float, available: Float): Nothing =
+                                            fail(PdfFailureCode.CONTENT_OVERFLOW, "Inline image exceeds physical $edge boundary; required=$required pt; available=$available pt")
+
+                                        val left = maxOf(element.x, element.clip?.left ?: element.x)
+                                        val top = maxOf(element.top, element.clip?.top ?: element.top)
+                                        val right = minOf(element.x + element.image.width, element.clip?.right ?: Float.POSITIVE_INFINITY)
+                                        val bottom = minOf(element.top + element.image.height, element.clip?.bottom ?: Float.POSITIVE_INFINITY)
+                                        if (left < right && top < bottom) {
+                                            if (left < -.001f) exceeds("left", -left, 0f)
+                                            if (top < -.001f) exceeds("top", -top, 0f)
+                                            if (right > canvasWidth + .001f) exceeds("right", right - left, canvasWidth - left)
+                                            if (bottom > canvasHeight + .001f) exceeds("bottom", bottom - top, canvasHeight - top)
+                                        }
+                                    }
                                     val image = images.getOrPut(element.image) {
                                         val bytes = element.image.bytes()
                                         validatePng(bytes)
@@ -315,6 +369,10 @@ internal object PdfBoxWriter {
                                         catch (_: IOException) { fail(PdfFailureCode.INVALID_RESOURCE, "Cannot decode the supplied PNG") }
                                     }
                                     command("q")
+                                    element.clip?.let { clip ->
+                                        command("re", number(clip.left), number(canvasHeight - clip.bottom), number(clip.right - clip.left), number(clip.bottom - clip.top))
+                                        command("W"); command("n")
+                                    }
                                     val crop = element.image.crop
                                     val width = element.image.width / (1f - crop.left - crop.right)
                                     val height = element.image.height / (1f - crop.top - crop.bottom)

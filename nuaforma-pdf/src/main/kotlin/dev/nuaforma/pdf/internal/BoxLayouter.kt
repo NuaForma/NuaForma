@@ -21,6 +21,7 @@ internal object BoxLayouter {
         var after = 0f
         for ((index, p) in box.paragraphs.withIndex()) {
             PageLayouter.checkCancellation()
+            if (p.runs.any { it is PdfPageBreak }) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Inline page breaks inside frames are not qualified")
             if (p.format.pageBreakBefore) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Page breaks inside frames are unsupported")
             if (p.runs.any { it is PdfPageField }) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Frame page fields are unsupported")
             val measured = FlowLayouter.paragraph(p, width, measurer, previous = box.paragraphs.getOrNull(index - 1), next = box.paragraphs.getOrNull(index + 1))

@@ -37,7 +37,7 @@ class PdfAutomaticLineSpacingTest {
         }
     }
     @Test fun `invalid and conflicting natural spacing policies reject explicitly`() {
-        for(value in listOf(0f,.5f,11f,Float.NaN,Float.POSITIVE_INFINITY))assertThrows(IllegalArgumentException::class.java) {PdfAutomaticLineSpacing(value)}
+        for(value in listOf(0f,1f/480f,11f,Float.NaN,Float.POSITIVE_INFINITY))assertThrows(IllegalArgumentException::class.java) {PdfAutomaticLineSpacing(value)}
         assertThrows(IllegalArgumentException::class.java) {PdfParagraphFormat(exactLineHeight=14f,automaticLineSpacing=PdfAutomaticLineSpacing())}
     }
     @Test fun `missing natural metrics fail without substituting a font`() {

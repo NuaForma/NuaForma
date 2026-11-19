@@ -18,6 +18,8 @@ internal object ParagraphKeeps {
                 is PdfParagraph -> {
                     if (index > start && block.format.pageBreakBefore) return if (index > start + 1) Group(minimum, index - 1) else null
                     val measured = paragraph(index)
+                    if (measured.breakAfter.isNotEmpty())
+                        throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Inline page breaks with paragraph keep rules are not qualified")
                     val before = if (index == start) 0f else if (block.format.collapseSpacing) maxOf(0f, block.spaceBefore - previousAfter) else block.spaceBefore
                     val prefix = full + before
                     val count = measured.lines.size

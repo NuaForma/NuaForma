@@ -46,6 +46,8 @@ internal object TableLayouter {
             for ((blockIndex, block) in placement.cell.blocks.withIndex()) {
                 when (block) {
                     is PdfParagraph -> {
+                        if (block.runs.any { it is PdfPageBreak })
+                            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Inline page breaks inside table cells are not qualified")
                         if (block.format.keepWithNext || block.format.keepLines || block.format.widowControl || block.format.pageBreakBefore) {
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph pagination rules inside table cells are not qualified")
                         }
@@ -65,7 +67,7 @@ internal object TableLayouter {
                         val child = measure(block, measurer, width, depth + 1)
                         checkWidth(child.table, width + margins.right, 0f)
                         val elements = mutableListOf<PositionedElement>()
-                        slice(child, 0f, child.contentEnd, block.leftIndent, 0f, elements)
+                        slice(child, 0f, child.contentEnd, child.table.leftIndent, 0f, elements)
                         pieces += Piece(top, child.height, elements)
                         top += child.height
                         after = 0f
@@ -120,7 +122,10 @@ internal object TableLayouter {
                 val y = start + inset + cell.margins.top + shift + piece.top
                 if (y + piece.height <= from + 0.001f || y >= until - 0.001f) continue
                 if (y < from - 0.001f || y + piece.height > until + 0.001f) overflow("Merged cell content crosses an unsupported row boundary")
-                target += piece.elements.map { translate(it, left + cell.margins.left, top + y - from) }
+                target += piece.elements.map { element ->
+                    clipParagraph(translate(element, left + cell.margins.left, top + y - from),
+                        RectangleClip(left, top + a - from, left + width, top + b - from))
+                }
             }
         }
     }
@@ -155,7 +160,10 @@ internal object TableLayouter {
             for (piece in cell.pieces) {
                 if (piece.top < from - 0.001f || piece.top + piece.height > until + 0.001f) continue
                 val inset = if (layout.customBorders) layout.topInsets[row] else layout.closing
-                target += piece.elements.map { translate(it, left + cell.margins.left, top + inset + cell.margins.top + piece.top - from) }
+                target += piece.elements.map { element ->
+                    clipParagraph(translate(element, left + cell.margins.left, top + inset + cell.margins.top + piece.top - from),
+                        RectangleClip(left, top, left + width, top + height))
+                }
             }
         }
         return height
@@ -193,12 +201,16 @@ internal object TableLayouter {
         is PositionedVector -> element.copy(x = element.x + x, top = element.top + y)
         is PositionedStroke -> FlowLayouter.translate(element, x, y)
         is PositionedText -> element.copy(x = element.x + x, baseline = element.baseline + y)
-        is PositionedImage -> element.copy(x = element.x + x, top = element.top + y)
-        is PositionedRectangle -> element.copy(x = element.x + x, top = element.top + y)
+        is PositionedImage -> element.copy(x = element.x + x, top = element.top + y, clip = element.clip?.translated(x, y))
+        is PositionedRectangle -> element.copy(x = element.x + x, top = element.top + y, clip = element.clip?.translated(x, y))
         is PositionedTableBorder -> element.copy(x = element.x + x, top = element.top + y)
         is PositionedBox -> element.copy(x = element.x + x, top = element.top + y)
     }
 
     private fun overflow(message: String): Nothing = throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, message)
+
+    private fun clipParagraph(element: PositionedElement, bounds: RectangleClip): PositionedElement =
+        if (element is PositionedRectangle && element.paragraph != null)
+            element.copy(clip = element.clip?.intersect(bounds) ?: bounds) else element
 
 }

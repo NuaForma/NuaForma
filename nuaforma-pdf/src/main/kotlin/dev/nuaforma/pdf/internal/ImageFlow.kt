@@ -12,6 +12,7 @@ internal object ImageFlow {
         if (p.format.keepWithNext || p.format.keepLines || p.listLabel != null || p.format.textDirection == PdfTextDirection.RIGHT_TO_LEFT || p.runs.any { it !is PdfTextRun })
             fail(PdfFailureCode.UNSUPPORTED_TEXT, "Floating image paragraphs with keeps, lists, RTL text or inline objects are not qualified")
         if (p.borders != null || p.lines.isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph borders and lines beside floating images are not qualified")
+        if (p.background != null) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph backgrounds beside floating images are not qualified")
         val clean = p.copy(spaceBefore = 0f, spaceAfter = 0f, anchoredImages = emptyList(), borders = null, lines = emptyList())
         val width = page.width - page.margins.left - page.margins.right
         val bottom = page.height - page.margins.bottom
@@ -38,7 +39,7 @@ internal object ImageFlow {
                 fail(PdfFailureCode.CONTENT_OVERFLOW, "Anchored image exceeds the physical page")
             if (anchor.wrap != PdfImageWrap.NONE && (y - anchor.distances.top < start - .001f || y + anchor.image.height + anchor.distances.bottom > bottom + .001f))
                 fail(PdfFailureCode.CONTENT_OVERFLOW, "Wrapped image exceeds its body flow area")
-            PositionedImage(anchor.image, anchor.left, y, foreground = true) to Exclusion(anchor.left - anchor.distances.left, y - anchor.distances.top,
+            PositionedImage(anchor.image, anchor.left, y, foreground = true, drawingOrder = anchor.drawingOrder) to Exclusion(anchor.left - anchor.distances.left, y - anchor.distances.top,
                 anchor.left + anchor.image.width + anchor.distances.right, y + anchor.image.height + anchor.distances.bottom, anchor.wrap)
         }
         val preceding = pages.getOrNull(anchorPage).orEmpty().filterIsInstance<PositionedImage>().filter { it.foreground }.toMutableList()
