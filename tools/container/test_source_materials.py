@@ -5,11 +5,28 @@ import tempfile
 from types import SimpleNamespace
 import unittest
 
+from collect_build_provenance import RUNTIMES, check_runtime
 from package_source_materials import add_record, package
 from stage_application_materials import stage
 
 
 class SourceMaterialsTest(unittest.TestCase):
+    def test_java_release_inputs_are_exact_and_architecture_specific(self):
+        build, validator, server = RUNTIMES["x86_64"]
+        expected = {
+            "OS_ARCH": '"x86_64"',
+            "BUILD_SOURCE": '"git:8d9fd6fa96e5066571a13823b07c2934e5958d8b"',
+            "SOURCE": '".:git:1513e3f76ff3"',
+            "JAVA_RUNTIME_VERSION": '"25.0.5.1+2-LTS"',
+        }
+        check_runtime(expected, "x86_64", build, server)
+        with self.assertRaises(AssertionError):
+            check_runtime(expected, "aarch64", build, server)
+        with self.assertRaises(AssertionError):
+            check_runtime(expected, "x86_64", build, validator)
+        with self.assertRaises(AssertionError):
+            check_runtime({**expected, "JAVA_RUNTIME_VERSION": '"25.0.5+8-LTS"'}, "x86_64", build, server)
+
     def test_notice_staging_accepts_new_version_without_accepting_unsafe_names(self):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)
