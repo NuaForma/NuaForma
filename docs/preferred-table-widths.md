@@ -91,3 +91,12 @@ edges independently when the visible edges share one solid stroke. A table
 style supplies any edges left unspecified by the direct table properties.
 A direct absent edge can hide that side while retaining the other styled edges.
 This profile uses resolved cell margins and ordinary, unmerged cells.
+
+## Full-width text-relative table anchors
+
+A single fixed, left-aligned body table that fills the text width within a
+quarter point can use the qualified text-relative anchor with nonoverlap.
+Word places this table in body flow because there is no room beside it.
+The A4 and Letter controls place the same rows on the same pages near a
+page boundary. General floating tables that require side wrapping retain
+a source diagnostic.

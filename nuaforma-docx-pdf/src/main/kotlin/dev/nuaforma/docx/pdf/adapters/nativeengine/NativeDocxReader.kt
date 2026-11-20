@@ -827,7 +827,25 @@ internal class NativeDocxReader(
             children(table, setOf("tblPr", "tblGrid", "tr", "bookmarkEnd"))
             val properties = table.one("tblPr") ?: reject("Explicit table properties required")
             children(properties, setOf("tblStyle", "tblW", "tblInd", "jc", "tblLayout", "tblBorders", "tblCellMar", "tblLook",
-                "tblStyleRowBandSize", "tblStyleColBandSize", "shd"))
+                "tblStyleRowBandSize", "tblStyleColBandSize", "shd", "tblpPr", "tblOverlap"))
+            val position = properties.one("tblpPr")
+            val overlap = properties.one("tblOverlap")
+            if (position == null && overlap != null) {
+                source.current = overlap
+                reject("A table overlap rule requires a qualified position")
+            }
+            if (position != null) {
+                source.current = position
+                attributes(position, setOf("leftFromText", "rightFromText", "vertAnchor", "tblpY"))
+                children(position, emptySet())
+                val rule = overlap ?: reject("A full-width text-relative table needs a nonoverlap rule")
+                attributes(rule, setOf("val"))
+                children(rule, emptySet())
+                source.current = position
+                check(position.value("leftFromText") == "180" && position.value("rightFromText") == "180" &&
+                    position.value("vertAnchor") == "text" && position.value("tblpY") == "1" &&
+                    rule.value("val") == "never", "Only the qualified nonoverlapping text-relative table position is supported")
+            }
             // Word paints table shading in inter-cell spacing; this profile admits only contiguous cells.
             properties.one("shd")?.let {
                 WordThemeColors.validateTableShading(it) { origin, message -> source.current = origin; reject(message) }
@@ -1175,6 +1193,17 @@ internal class NativeDocxReader(
                 else -> 0f
             } else 0f
             val contentWidth = page.width - page.margins.left - page.margins.right
+            if (position != null) {
+                source.current = position
+                check(depth == 0 && !fields && ranges.size == 1 && table in body.elements() &&
+                    modernTableAlignment && !automaticLayout && alignment == PdfTableAlignment.LEFT && indent == 0f &&
+                    contentWidth - widths.sum() in 0f..0.25f,
+                    "Only a full-width fixed table in ordinary body flow can use the qualified text-relative anchor")
+                val floating = body.descendants().filter { it.name.namespaceURI == word && it.name.localPart == "tblpPr" }
+                val otherObjects = body.descendants().any { it.name.namespaceURI == wp && it.name.localPart == "anchor" ||
+                    it.name.namespaceURI == word && it.name.localPart == "pict" }
+                check(floating.count() == 1 && !otherObjects, "Overlapping body objects with text-relative tables are not qualified")
+            }
             val fixedOffset = when (alignment) {
                 PdfTableAlignment.LEFT -> physicalIndent
                 PdfTableAlignment.CENTER -> (contentWidth - widths.sum()) / 2 + physicalIndent
