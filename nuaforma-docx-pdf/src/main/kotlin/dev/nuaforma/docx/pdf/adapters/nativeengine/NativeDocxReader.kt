@@ -324,6 +324,7 @@ internal class NativeDocxReader(
             }
         } ?: emptyMap()
 
+        val implicitFontFamily = if (theme == null) "Times New Roman" else null
         val themeColors = WordThemeColors(theme) { node, message ->
             source.current = node
             throw source.failure(message, provenance[node] ?: activePart)
@@ -492,8 +493,8 @@ internal class NativeDocxReader(
                 reject("Active automatic hyphenation is not yet qualified")
             }
             val tableSize = tableStyles.any { it.one("rPr")?.one("sz") != null }
-            val base = (tableStyles + styleChain).fold(resolveRun(defaultRun, Face(size = 10f, openType = modernTableAlignment || formatting.openTypeFeatures,
-                paragraphBackground = geometry.background))) { result, style ->
+            val base = (tableStyles + styleChain).fold(resolveRun(defaultRun, Face(family = implicitFontFamily, size = 10f,
+                openType = modernTableAlignment || formatting.openTypeFeatures, paragraphBackground = geometry.background))) { result, style ->
                 val resolved = resolveRun(style.one("rPr"), result)
                 if (legacyTableHierarchy && tableSize && style === normalStyle && style.one("rPr")?.one("sz") != null &&
                     resolved.size in setOf(11f, 12f)) resolved.copy(size = result.size) else resolved

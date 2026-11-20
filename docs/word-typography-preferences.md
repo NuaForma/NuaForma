@@ -81,3 +81,10 @@ value takes precedence over the corresponding twip value, including a twip
 value set later in the style hierarchy. Resulting gaps follow the same
 automatic-spacing, contextual-spacing and paragraph-collapse rules as physical
 gaps.
+
+## Font family without an embedded theme
+
+Word uses Times New Roman for qualified text whose style chain supplies no font
+family when the package has no embedded document theme. Explicit font selectors
+retain precedence. The runtime resolves the resulting family through the
+configured font resources.
