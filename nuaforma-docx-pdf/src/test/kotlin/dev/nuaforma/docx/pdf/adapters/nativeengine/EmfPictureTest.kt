@@ -150,6 +150,27 @@ class EmfPictureTest {
     }
 
     @Test
+    fun `one uncovered right source column is clipped at original scale`() {
+
+        fun source(sourceWidth: Int, destinationWidth: Int, sourceHeight: Int = 1, sourceX: Int = 0): ByteArray {
+            val bitmap = EmfFixture.bitmap()
+            ByteBuffer.wrap(bitmap).order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(32, sourceX).putInt(40, sourceWidth).putInt(44, sourceHeight)
+                .putInt(72, destinationWidth).putInt(76, 1)
+            return EmfFixture.file(bitmap)
+        }
+
+        val expected = requireNotNull(decode(source(1, 1)))
+        val overhang = source(2, 2)
+        assertArrayEquals(expected, decode(overhang))
+        assertNull(decode(overhang, true))
+        for (invalid in listOf(source(3, 3), source(2, 3), source(2, 2, sourceHeight = 2), source(2, 2, sourceX = 1))) {
+            assertThrows(EmfFailure::class.java) { decode(invalid) }
+            assertThrows(EmfFailure::class.java) { decode(invalid, true) }
+        }
+    }
+
+    @Test
     fun `explicit mapping transforms and clip changes produce bounded deterministic output`() {
         val one = 1f.toRawBits(); val zero = 0f.toRawBits()
         val source = EmfFixture.file(
