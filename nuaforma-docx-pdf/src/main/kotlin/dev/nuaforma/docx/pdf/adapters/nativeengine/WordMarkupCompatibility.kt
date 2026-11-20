@@ -242,6 +242,13 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     archive.touch(part)
                     changed = true
                 }
+                if (WordCapitalization.normalizeSource(root) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }) {
+                    archive.touch(part)
+                    changed = true
+                }
                 if (WordNumericSpellings.normalizeSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)
