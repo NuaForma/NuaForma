@@ -88,3 +88,9 @@ Word uses Times New Roman for qualified text whose style chain supplies no font
 family when the package has no embedded document theme. Explicit font selectors
 retain precedence. The runtime resolves the resulting family through the
 configured font resources.
+
+## Word no-proofing language
+
+An explicit x-none value for Word's Latin proofing language clears an inherited
+language for the affected text. The PDF style uses neutral case mapping and
+omits language metadata for those runs.

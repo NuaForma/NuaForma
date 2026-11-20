@@ -1660,9 +1660,10 @@ internal class NativeDocxReader(
             attributes(it, setOf("val"))
             check(it.elements().isEmpty() && it.children.filterIsInstance<XmlText>().all { text -> text.text.isBlank() }, "Invalid run language")
             it.value("val")?.let { language ->
-                // An omitted Latin language inherits; explicit values retain shared validation.
-                PdfTextStyle("regular", 11f, languageTag = language)
-                result = result.copy(languageTag = language)
+                // Word's no-proofing marker clears the inherited language and its casing rules.
+                val resolved = language.takeUnless { it.equals("x-none", ignoreCase = true) }
+                PdfTextStyle("regular", 11f, languageTag = resolved)
+                result = result.copy(languageTag = resolved)
             }
         }
         property.one("sz")?.let { result = result.copy(size = number(it.value("val")) / 2) }
