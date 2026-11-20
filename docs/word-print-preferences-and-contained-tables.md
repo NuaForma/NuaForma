@@ -6,6 +6,10 @@ Unreleased source work #283–#287 and the #279 follow-up remain within the exis
 
 A bounded abstract-numbering `name` is a display identifier. A qualified name occurs at most once per abstract definition, is nonblank and at most 253 characters, and contains only the expected value attribute with no nested/text payload. They are checked before typed binding and omitted only from private print interpretation. Concrete numbering definitions and counters remain unchanged. Literal braces and non-Latin metadata do not become instructions or require fonts. Active LISTNUM fields and `numStyleLink` redirection retain their separate restrictions.
 
+## Table accessibility text
+
+Word table captions and descriptions in `w:tblPr` are preserved in the DOCX and have no paint effect in the untagged PDF profiles. The adapter validates each original `w:tblCaption` and `w:tblDescription` as a unique leaf with a single qualified `w:val`. The value remains literal metadata during generation and Playground cleanup. A visible caption written as an ordinary document paragraph still renders as body text. [WordprocessingML table description](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.tabledescription)
+
 ## Image save resolution and theme editing
 
 The closed `w14:defaultImageDpi` preference has a required `w14:val` positive integer up to 2,147,483,647. The adapter validates its original namespace, attributes and uniqueness, then excludes this save preference from the print copy. It does not change explicit picture extents, embedded image bytes, rendering resolution, compression policy or image budgets. Source controls cover multiple save-DPI values with body/header/footer pictures and both enabled and disabled automatic picture compression.

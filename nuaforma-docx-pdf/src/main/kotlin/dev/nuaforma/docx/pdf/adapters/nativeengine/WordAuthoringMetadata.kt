@@ -87,6 +87,7 @@ internal object WordAuthoringMetadata {
                         columns.attributes.keys.any { it.namespaceURI != W || it.localPart !in setOf("num", "space", "equalWidth") }) reject()
                     node.children.remove(columns)
                 }
+                "tblPr" -> node.children.removeAll(tableAccessibility(node) { entry -> current = entry; reject() }.toSet())
                 "p", "hyperlink" -> for (child in node.elements().filter { it.name.namespaceURI == W && it.name.localPart == "proofErr" }) {
                     current = child
                     if (child.value("type") !in setOf("spellStart", "spellEnd", "gramStart", "gramEnd") ||
@@ -99,6 +100,24 @@ internal object WordAuthoringMetadata {
                 "r" -> node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart == "lastRenderedPageBreak" }
             }
         }
+    }
+
+    fun validateTableAccessibilitySource(root: XmlElement, reject: (XmlElement) -> Nothing) {
+        for (node in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart == "tblPr" }) {
+            tableAccessibility(node, reject)
+        }
+    }
+
+    private fun tableAccessibility(properties: XmlElement, reject: (XmlElement) -> Nothing): List<XmlElement> {
+        val metadata = properties.elements().filter { it.name.localPart in setOf("tblCaption", "tblDescription") }
+        val seen = mutableSetOf<String>()
+        for (node in metadata) {
+            if (node.name.namespaceURI != W || !seen.add(node.name.localPart) || node.attributes.size != 1 ||
+                node.attribute(W, "val") == null || node.elements().isNotEmpty() ||
+                node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
+                reject(node)
+        }
+        return metadata
     }
 
     private fun styleAliases(style: XmlElement, reject: (XmlElement) -> Nothing) {

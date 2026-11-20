@@ -205,6 +205,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     throw source.failure(message, part)
                 }
+                WordAuthoringMetadata.validateTableAccessibilitySource(root) { node ->
+                    source.current = node
+                    throw source.failure("Invalid original table accessibility metadata", part)
+                }
                 WordTableBorders.validateSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)
