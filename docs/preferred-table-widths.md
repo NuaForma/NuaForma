@@ -47,3 +47,7 @@ Automatic tables can retain trailing default tabs on otherwise ordinary left-ali
 ## Table-level shading without cell spacing
 
 [Word applies table-level shading to the gaps between table cells](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/ee110ab2-af6a-4ee8-923d-9a12a2fe65ab). With contiguous cells, a qualified direct table-level clear fill is preserved in the source and contributes no PDF paint. Explicit or styled cell fills still paint their own cells. Inter-cell spacing and unqualified patterns or shapes remain source-diagnosed.
+
+## Whole-grid width protection
+
+A cell occupying a single row and spanning the full grid of a qualified top-level AutoFit table may protect its combined physical width. Where the table has a physical preference, it is raised to at least the span's preference, subject to the available page width. Column negotiation still takes place separately. Partial spans and percentage-based tables with this whole-grid toggle remain explicit source rejections.

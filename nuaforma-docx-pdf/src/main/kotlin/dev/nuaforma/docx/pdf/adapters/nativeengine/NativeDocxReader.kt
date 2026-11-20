@@ -920,6 +920,7 @@ internal class NativeDocxReader(
             val headerFlags = mutableListOf<Boolean>()
             val rowMinimums = mutableListOf<Float?>()
             val rowPaddingFrames = mutableListOf<Float>()
+            var tableWidthFloor: Float? = null
             data class CellSpec(
                 val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment,
                 val borders: PdfCellBorders?, val preferredWidth: PdfPreferredWidth?, val protectPreferredWidth: Boolean,
@@ -984,14 +985,22 @@ internal class NativeDocxReader(
                     check(!regions.active || cp.one("vMerge") == null && span == 1, "Merged conditional table regions are not qualified")
                     check(span in 1..16 && column + span <= widths.size, "Invalid grid span")
                     val cellWidth = cp.one("tcW")
-                    val preferredCellWidth = if (automaticLayout) preferredWidth(cellWidth) else null
+                    var preferredCellWidth = if (automaticLayout) preferredWidth(cellWidth) else null
                     val protectPreferredWidth = cp.one("noWrap")?.let { node ->
                         val enabled = WordTableWidths.cellToggle(node) { origin, message -> source.current = origin; reject(message) }
+                        if (!enabled || !automaticLayout) return@let false
                         source.current = node
-                        check(!enabled || !automaticLayout || depth == 0 && span == 1 && cp.one("vMerge") == null &&
-                            (preferredCellWidth?.points ?: 0f) > 0f,
-                            "Cell no-wrap in automatic tables requires a positive physical width and a single cell in a top-level table")
-                        enabled && automaticLayout
+                        val physical = preferredCellWidth?.points
+                        check(depth == 0 && cp.one("vMerge") == null && physical != null && physical > 0f,
+                            "Cell no-wrap in automatic tables requires a positive physical width and a top-level unmerged row")
+                        if (span == 1) true else {
+                            check(span == widths.size && (preferredTableWidth?.points ?: 0f) > 0f,
+                                "Spanning cell no-wrap requires the whole grid of a physically preferred table")
+                            tableWidthFloor = maxOf(tableWidthFloor ?: 0f, requireNotNull(physical))
+                            // The span protects the table as a whole; do not distribute its preference again.
+                            preferredCellWidth = null
+                            false
+                        }
                     } ?: false
                     if (naturalWidths) automaticDimension(cellWidth ?: reject("Missing cell width"))
                     else if (!automaticLayout) check(kotlin.math.abs(dimension(cellWidth ?: reject("Missing cell width")) - widths.subList(column, column + span).sum()) < 0.01f, "Inconsistent cell width")
@@ -1129,9 +1138,12 @@ internal class NativeDocxReader(
             }
             val fixedOverflow = if (depth == 0 && !fields && !automaticLayout)
                 (fixedOffset + widths.sum() - contentWidth).coerceAtLeast(0f) else 0f
+            val finalTableWidth = tableWidthFloor?.let { minimum ->
+                PdfPreferredWidth.points(maxOf(minimum, requireNotNull(resolvedTableWidth?.points)))
+            } ?: resolvedTableWidth
             return PdfTable(widths, rows, padding, border, count, physicalIndent,
                 if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else if (automaticLayout) PdfTableWidthPolicy.AUTO_FIT else PdfTableWidthPolicy.FIXED,
-                preferredWidth = resolvedTableWidth).withRightOverflow(maxOf(legacyOverflow, fixedOverflow)).withAlignment(alignment)
+                preferredWidth = finalTableWidth).withRightOverflow(maxOf(legacyOverflow, fixedOverflow)).withAlignment(alignment)
         }
 
         fun readBox(pict: XmlElement, partRelations: Map<String, String>, fields: Boolean = false): PdfTextBox {
