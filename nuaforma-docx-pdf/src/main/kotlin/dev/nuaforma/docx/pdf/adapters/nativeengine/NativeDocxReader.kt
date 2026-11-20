@@ -1124,7 +1124,8 @@ internal class NativeDocxReader(
                 if (wrapNode == null) PdfBoxWrap.NONE else PdfBoxWrap.TOP_BOTTOM)
         }
 
-        fun readDrawingBox(node: XmlElement, partRelations: Map<String, String>, fields: Boolean = false): PdfTextBox {
+        fun readDrawingBox(node: XmlElement, partRelations: Map<String, String>, fields: Boolean = false,
+            firstBodyParagraph: Boolean = false): PdfTextBox {
             source.current = node
             val wps = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
             val anchor = node.elements().singleOrNull() ?: reject("Invalid floating drawing")
@@ -1135,11 +1136,33 @@ internal class NativeDocxReader(
 
             fun numeric(value: String?) = value?.toFloatOrNull()?.takeIf { it.isFinite() } ?: reject("Invalid drawing coordinate")
 
-            fun offset(name: String): Float {
-                val position = one(anchor, wp, name)
-                check(position.attribute("", "relativeFrom") == "page" && position.elements().size == 1, "Only page-relative DrawingML frames are qualified")
-                val raw = one(position, wp, "posOffset").children.filterIsInstance<XmlText>().joinToString("") { it.text }
+            fun offset(position: XmlElement): Float {
+                val coordinate = one(position, wp, "posOffset")
+                check(coordinate.attributes.isEmpty() && coordinate.elements().isEmpty(), "Invalid frame offset structure")
+                val raw = coordinate.children.filterIsInstance<XmlText>().joinToString("") { it.text }
                 return numeric(raw) / 12700
+            }
+
+            fun horizontal(width: Float): Float {
+                val position = one(anchor, wp, "positionH")
+                source.current = position
+                val reference = position.attribute("", "relativeFrom")
+                check(position.attributes.size == 1 && position.elements().size == 1 &&
+                    reference in setOf("page", "margin", "column"), "Unsupported horizontal frame reference")
+                val origin = if (reference == "page") 0f else page.margins.left
+                val coordinate = position.elements().single()
+                if (coordinate.name.namespaceURI == wp && coordinate.name.localPart == "posOffset")
+                    return origin + offset(position)
+                check(reference in setOf("margin", "column") && coordinate.name.namespaceURI == wp &&
+                    coordinate.name.localPart == "align" && coordinate.attributes.isEmpty() && coordinate.elements().isEmpty(),
+                    "Unsupported horizontal frame alignment")
+                val remaining = page.width - page.margins.left - page.margins.right - width
+                return origin + when (coordinate.children.filterIsInstance<XmlText>().joinToString("") { it.text }) {
+                    "left" -> 0f
+                    "center" -> remaining / 2f
+                    "right" -> remaining
+                    else -> reject("Unsupported horizontal frame alignment")
+                }
             }
 
             val extent = one(anchor, wp, "extent")
@@ -1176,9 +1199,19 @@ internal class NativeDocxReader(
             val line = one(props, drawing, "ln")
             val border = WordFramePaint.stroke(line, themeColors) { origin, message -> source.current = origin; reject(message) }
             val paragraphs = content.elements().map { readParagraph(it, partRelations, fields, allowPageBreak = false) }
+            val width = numeric(extent.attribute("", "cx")) / 12700
+            val left = horizontal(width)
+            val vertical = one(anchor, wp, "positionV")
+            source.current = vertical
+            val reference = vertical.attribute("", "relativeFrom")
+            check(vertical.attributes.size == 1 && vertical.elements().size == 1 &&
+                (reference == "page" || reference == "paragraph" && firstBodyParagraph),
+                "Paragraph-relative frames require the first body paragraph of a section")
+            val top = offset(vertical)
+            val placement = if (reference == "paragraph") PdfBoxAnchor.PARAGRAPH else PdfBoxAnchor.PAGE
             source.current = node
-            return PdfTextBox(offset("positionH"), offset("positionV"), numeric(extent.attribute("", "cx")) / 12700,
-                numeric(extent.attribute("", "cy")) / 12700, paragraphs, PdfBoxAnchor.PAGE,
+            return PdfTextBox(left, top, width,
+                numeric(extent.attribute("", "cy")) / 12700, paragraphs, placement,
                 rotation,
                 PdfMargins(numeric(bodyProps.attribute("", "tIns")) / 12700, numeric(bodyProps.attribute("", "rIns")) / 12700,
                     numeric(bodyProps.attribute("", "bIns")) / 12700, numeric(bodyProps.attribute("", "lIns")) / 12700),
@@ -1266,7 +1299,7 @@ internal class NativeDocxReader(
                     number(anchor.attribute("", "distB") ?: "0") / 12700, number(anchor.attribute("", "distL") ?: "0") / 12700)).withDrawingOrder(order)
         }
 
-        fun readBlocks(root: XmlElement, partRelations: Map<String, String>, fields: Boolean): List<PdfBlock> = root.elements().filter { it.name.localPart != "sectPr" }.flatMap { block ->
+        fun readBlocks(root: XmlElement, partRelations: Map<String, String>, fields: Boolean): List<PdfBlock> = root.elements().filter { it.name.localPart != "sectPr" }.flatMapIndexed { index, block ->
             when (block.name.localPart) {
                 "p" -> {
                     val frames = block.elements().filter { it.name.localPart == "r" }.flatMap { it.elements().filter { node -> node.name.namespaceURI == word && !lineReader.isLine(node) && (node.name.localPart == "pict" || node.name.localPart == "drawing" && node.elements().any { it.name.namespaceURI == wp && it.name.localPart == "anchor" }) } }
@@ -1286,7 +1319,9 @@ internal class NativeDocxReader(
                             ?.elements()?.singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "graphicData" }?.attribute("", "uri") == picture
                     }
                     val paragraph = readParagraph(plain, partRelations, fields)
-                    boxes.map { if (it.name.localPart == "pict") readBox(it, partRelations, fields) else readDrawingBox(it, partRelations, fields) } +
+                    val firstBodyParagraph = index == 0 && !fields && images.isEmpty() && paragraph.runs.none { it is PdfPageBreak }
+                    boxes.map { if (it.name.localPart == "pict") readBox(it, partRelations, fields)
+                        else readDrawingBox(it, partRelations, fields, firstBodyParagraph) } +
                         paragraph.copy(anchoredImages = images.map { readAnchoredImage(it, partRelations, fields) })
                 }
                 "tbl" -> listOf(readTable(block, partRelations, fields))

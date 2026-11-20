@@ -27,3 +27,7 @@ Page-relative rectangular DrawingML text frames accept the opaque `black` and `w
 ## Theme-based frame paint
 
 Explicit opaque DrawingML fills and centered strokes can resolve a theme slot from the embedded document palette. The supported background/text aliases use Word's default color mapping. Luminance modulation can be followed by a luminance offset, each from 0 through 100000. The engine clamps luminance to the valid range and rounds RGB channels as in the Word export. The A4 and Letter controls cover neutral, saturated and tinted fills with explicit accent and light borders. Missing palettes, placeholder colors, transparency, other transform sequences and custom color mappings remain explicit rejections.
+
+## Frame placement within the first body paragraph
+
+Unwrapped DrawingML text frames can use an explicit horizontal offset from the page, the body margin or the single body column. The margin and column also support left, center and right alignment. The first body paragraph of a section additionally supports a vertical paragraph offset, using the flow origin before first-paragraph spacing. This scope excludes mixed floating-image or inline page-break anchors and later paragraph-relative anchors. The renderer still verifies the complete painted box against physical page boundaries.
