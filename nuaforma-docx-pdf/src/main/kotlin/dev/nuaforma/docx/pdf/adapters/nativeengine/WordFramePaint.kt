@@ -19,13 +19,19 @@ internal object WordFramePaint {
             for (shape in anchor.descendants().filter { it.name.namespaceURI == wps && it.name.localPart == "wsp" }) {
                 if (shape.elements().none { it.name.namespaceURI == wps && it.name.localPart == "txbx" }) continue
                 val properties = shape.elements().singleOrNull { it.name.namespaceURI == wps && it.name.localPart == "spPr" } ?: continue
-                fill(properties, reject)
-                properties.elements().filter { it.name.namespaceURI == drawing && it.name.localPart == "ln" }.forEach { stroke(it, reject) }
+                fillColor(properties, reject)
+                properties.elements().filter { it.name.namespaceURI == drawing && it.name.localPart == "ln" }.forEach { strokePaint(it, reject) }
             }
         }
     }
 
-    fun fill(parent: XmlElement, reject: (XmlElement, String) -> Nothing): PdfColor? {
+    fun fill(parent: XmlElement, theme: WordThemeColors, reject: (XmlElement, String) -> Nothing): PdfColor? =
+        fillColor(parent, reject)?.let { resolve(it, theme) }
+
+    fun stroke(node: XmlElement, theme: WordThemeColors, reject: (XmlElement, String) -> Nothing): PdfBorder? =
+        strokePaint(node, reject)?.let { (width, color) -> PdfBorder(width, resolve(color, theme)) }
+
+    private fun fillColor(parent: XmlElement, reject: (XmlElement, String) -> Nothing): XmlElement? {
         val fills = parent.elements().filter { it.name.namespaceURI == drawing && it.name.localPart in setOf("solidFill", "noFill") }
         if (fills.size != 1) reject(fills.getOrNull(1) ?: parent, "Explicit single frame fill required")
         val node = fills.single()
@@ -35,30 +41,53 @@ internal object WordFramePaint {
             if (node.elements().isNotEmpty()) reject(node, "Invalid frame noFill content")
             return null
         }
-        val color = node.elements().singleOrNull() ?: reject(node, "Explicit single frame RGB color required")
+        val color = node.elements().singleOrNull() ?: reject(node, "Explicit single frame color required")
         val value = color.attribute("", "val").orEmpty()
         if (color.name.namespaceURI != drawing || color.attributes.size != 1 ||
             color.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
             reject(color, "Unsupported original frame RGB color")
-        if (color.name.localPart == "prstClr") {
-            if (color.elements().isNotEmpty()) reject(color, "Frame preset color transformations are not qualified")
-            return when (value) {
-                "black" -> PdfColor(0, 0, 0)
-                "white" -> PdfColor(255, 255, 255)
-                else -> reject(color, "Unsupported original frame preset color")
+        when (color.name.localPart) {
+            "prstClr" -> {
+                if (color.elements().isNotEmpty()) reject(color, "Frame preset color transformations are not qualified")
+                if (value !in setOf("black", "white")) reject(color, "Unsupported original frame preset color")
             }
+            "schemeClr" -> validateScheme(color, value, reject)
+            "srgbClr" -> {
+                if (!value.matches(Regex("[0-9A-Fa-f]{6}"))) reject(color, "Unsupported original frame RGB color")
+                for (transform in color.elements()) {
+                    if (transform.name.namespaceURI != drawing || transform.name.localPart != "alpha" || transform.attributes.size != 1 ||
+                        transform.attribute("", "val") != "100000" || transform.elements().isNotEmpty())
+                        reject(transform, "Frame color transformations or transparency are not qualified")
+                }
+            }
+            else -> reject(color, "Unsupported original frame RGB color")
         }
-        if (color.name.localPart != "srgbClr" || !value.matches(Regex("[0-9A-Fa-f]{6}")))
-            reject(color, "Unsupported original frame RGB color")
-        for (transform in color.elements()) {
-            if (transform.name.namespaceURI != drawing || transform.name.localPart != "alpha" || transform.attributes.size != 1 ||
-                transform.attribute("", "val") != "100000" || transform.elements().isNotEmpty())
-                reject(transform, "Frame color transformations or transparency are not qualified")
-        }
-        return PdfColor(value.take(2).toInt(16), value.substring(2, 4).toInt(16), value.takeLast(2).toInt(16))
+        return color
     }
 
-    fun stroke(node: XmlElement, reject: (XmlElement, String) -> Nothing): PdfBorder? {
+    private fun validateScheme(color: XmlElement, value: String, reject: (XmlElement, String) -> Nothing) {
+        if (WordThemeColors.drawingSlot(value) == null) reject(color, "Unsupported original frame theme color")
+        val transforms = color.elements()
+        if (transforms.size > 1) reject(transforms[1], "Only one frame luminance adjustment is qualified")
+        val modulation = transforms.singleOrNull() ?: return
+        val raw = modulation.attribute("", "val").orEmpty()
+        if (modulation.name.namespaceURI != drawing || modulation.name.localPart != "lumMod" ||
+            modulation.attributes.size != 1 || !raw.matches(Regex("[0-9]{1,6}")) || raw.toInt() !in 0..100_000 ||
+            modulation.elements().isNotEmpty() || modulation.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
+            reject(modulation, "Unsupported frame theme luminance adjustment")
+    }
+
+    private fun resolve(color: XmlElement, theme: WordThemeColors): PdfColor {
+        val value = requireNotNull(color.attribute("", "val"))
+        return when (color.name.localPart) {
+            "prstClr" -> if (value == "black") PdfColor(0, 0, 0) else PdfColor(255, 255, 255)
+            "schemeClr" -> theme.drawingColor(color, requireNotNull(WordThemeColors.drawingSlot(value)),
+                color.elements().singleOrNull()?.attribute("", "val")?.toInt() ?: 100_000)
+            else -> PdfColor(value.take(2).toInt(16), value.substring(2, 4).toInt(16), value.takeLast(2).toInt(16))
+        }
+    }
+
+    private fun strokePaint(node: XmlElement, reject: (XmlElement, String) -> Nothing): Pair<Float, XmlElement>? {
         if (node.attributes.keys.any { it.namespaceURI.isNotEmpty() || it.localPart !in setOf("w", "cap", "cmpd", "algn") } ||
             node.attribute("", "cap") !in setOf(null, "flat", "rnd", "sq") || node.attribute("", "cmpd") !in setOf(null, "sng") ||
             node.attribute("", "algn") !in setOf(null, "ctr")) reject(node, "Only centered solid frame strokes are qualified")
@@ -67,10 +96,10 @@ internal object WordFramePaint {
         val width = raw?.toLongOrNull()
         if (raw != null && (!raw.matches(Regex("[0-9]{1,10}")) || width == null || width !in 0L..182_880_000L))
             reject(node, "Invalid original frame ln/@w")
-        val color = fill(node, reject) ?: return null
+        val color = fillColor(node, reject) ?: return null
         if (width == null || width !in 1270L..50_800L)
             reject(node, "Frame ln/@w exceeds the qualified border bounds")
-        return PdfBorder(width / 12700f, color)
+        return width / 12700f to color
     }
 
     private fun validateStrokeChildren(line: XmlElement, reject: (XmlElement, String) -> Nothing) {

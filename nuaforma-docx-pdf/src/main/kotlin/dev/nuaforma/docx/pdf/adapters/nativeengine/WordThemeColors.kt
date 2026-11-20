@@ -7,8 +7,9 @@ import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
-/** Resolve qualified run colors and cell fills; palette state belongs to one source read. */
+/** Resolve qualified Word and DrawingML colors; palette state belongs to one source read. */
 internal class WordThemeColors(
     private val theme: XmlElement?,
     private val reject: (XmlElement, String) -> Nothing,
@@ -35,19 +36,26 @@ internal class WordThemeColors(
         return if (node.attribute(W, "val") == "nil") null else cellFill(normalizedRunFill(node))
     }
 
+    fun drawingColor(node: XmlElement, slot: String, modulation: Int): PdfColor {
+        val original = resolved.getOrPut(slot) { palette(node, slot) }
+        if (modulation == 100_000) return original
+        return adjustLuminance(original, { it * modulation / 100_000 }, Double::roundToInt)
+    }
+
     private fun themed(node: XmlElement, role: String, tintValue: String?, shadeValue: String?): PdfColor {
-        val original = resolved.getOrPut(role) { palette(node, role) }
+        val slot = roles.getValue(role)
+        val original = resolved.getOrPut(slot) { palette(node, slot) }
         val tint = tintValue?.toInt(16)
         val shade = shadeValue?.toInt(16)
         return if (tint != null) transform(original, tint, true)
             else if (shade != null) transform(original, shade, false) else original
     }
 
-    private fun palette(source: XmlElement, role: String): PdfColor {
+    private fun palette(source: XmlElement, name: String): PdfColor {
         val root = theme ?: reject(source, "Theme color requires an embedded document theme")
         val elements = child(root, "themeElements")
         val scheme = child(elements, "clrScheme")
-        val slot = child(scheme, roles.getValue(role))
+        val slot = child(scheme, name)
         val values = slot.elements()
         if (slot.attributes.isNotEmpty() || values.size != 1 || slot.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
             reject(slot, "Invalid theme color slot")
@@ -82,13 +90,19 @@ internal class WordThemeColors(
     private fun transform(color: PdfColor, amount: Int, tint: Boolean): PdfColor {
         if (amount == 255) return color
         if (amount == 0) return if (tint) PdfColor(255, 255, 255) else PdfColor(0, 0, 0)
+        return adjustLuminance(color, { luminance ->
+            if (tint) 1 - (1 - luminance) * amount / 255 else luminance * amount / 255
+        }, { floor(it + 1e-9).toInt() })
+    }
+
+    private fun adjustLuminance(color: PdfColor, adjust: (Double) -> Double, quantize: (Double) -> Int): PdfColor {
         val red = color.red / 255.0
         val green = color.green / 255.0
         val blue = color.blue / 255.0
         val high = max(red, max(green, blue))
         val low = min(red, min(green, blue))
         val luminance = (high + low) / 2
-        val adjusted = if (tint) 1 - (1 - luminance) * amount / 255 else luminance * amount / 255
+        val adjusted = adjust(luminance)
         val difference = high - low
         val saturation = if (difference == 0.0) 0.0 else difference / (1 - abs(2 * luminance - 1))
         val hue = if (difference == 0.0) 0.0 else when (high) {
@@ -107,7 +121,7 @@ internal class WordThemeColors(
             else -> doubleArrayOf(chroma, 0.0, intermediate)
         }
         val offset = adjusted - chroma / 2
-        val rgb = channels.map { floor((it + offset) * 255 + 1e-9).toInt().coerceIn(0, 255) }
+        val rgb = channels.map { quantize((it + offset) * 255).coerceIn(0, 255) }
         return PdfColor(rgb[0], rgb[1], rgb[2])
     }
 
@@ -117,6 +131,9 @@ internal class WordThemeColors(
         private val roles = mapOf("dark1" to "dk1", "light1" to "lt1", "dark2" to "dk2", "light2" to "lt2",
             "text1" to "dk1", "background1" to "lt1", "text2" to "dk2", "background2" to "lt2",
             "hyperlink" to "hlink", "followedHyperlink" to "folHlink") + (1..6).associate { "accent$it" to "accent$it" }
+        private val drawingAliases = mapOf("bg1" to "lt1", "bg2" to "lt2", "tx1" to "dk1", "tx2" to "dk2")
+
+        fun drawingSlot(value: String): String? = drawingAliases[value] ?: value.takeIf { it in roles.values }
 
         fun validateSource(root: XmlElement, reject: (XmlElement, String) -> Nothing) {
             if (root.name.namespaceURI == A && root.name.localPart == "theme") validateThemeSource(root, reject)

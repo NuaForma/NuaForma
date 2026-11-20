@@ -1174,7 +1174,7 @@ internal class NativeDocxReader(
             val content = one(one(shape, wps, "txbx"), word, "txbxContent")
             children(content, setOf("p"))
             val line = one(props, drawing, "ln")
-            val border = WordFramePaint.stroke(line) { origin, message -> source.current = origin; reject(message) }
+            val border = WordFramePaint.stroke(line, themeColors) { origin, message -> source.current = origin; reject(message) }
             val paragraphs = content.elements().map { readParagraph(it, partRelations, fields, allowPageBreak = false) }
             source.current = node
             return PdfTextBox(offset("positionH"), offset("positionV"), numeric(extent.attribute("", "cx")) / 12700,
@@ -1182,7 +1182,7 @@ internal class NativeDocxReader(
                 rotation,
                 PdfMargins(numeric(bodyProps.attribute("", "tIns")) / 12700, numeric(bodyProps.attribute("", "rIns")) / 12700,
                     numeric(bodyProps.attribute("", "bIns")) / 12700, numeric(bodyProps.attribute("", "lIns")) / 12700),
-                WordFramePaint.fill(props) { origin, message -> source.current = origin; reject(message) }, border,
+                WordFramePaint.fill(props, themeColors) { origin, message -> source.current = origin; reject(message) }, border,
                 when (bodyProps.attribute("", "anchor")) { "t" -> PdfVerticalAlignment.TOP; "ctr" -> PdfVerticalAlignment.CENTER; "b" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported vertical alignment") }).withDrawingOrder(order)
         }
 

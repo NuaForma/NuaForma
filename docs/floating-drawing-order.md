@@ -23,3 +23,7 @@ Targeted checks pass 36 native/Word page pairs and protected initial images, wit
 ## Opaque preset frame paint
 
 Page-relative rectangular DrawingML text frames accept the opaque `black` and `white` presets in their explicit fill and centered stroke, with the same paint as the corresponding RGB values. Other presets and transforms on presets still report the original color element.
+
+## Theme-based frame paint
+
+Explicit opaque DrawingML fills and centered strokes can resolve a theme slot from the embedded document palette. The supported background/text aliases use Word's default color mapping. One luminance modulation from 0 through 100000 is supported, with RGB channels rounded as in the Word export. The controls qualify the A4 and Letter frame geometry with a neutral fill, a saturated fill and explicit accent and light borders. Missing palettes, placeholder colors, transparency, extra transforms and custom color mappings remain explicit rejections.
