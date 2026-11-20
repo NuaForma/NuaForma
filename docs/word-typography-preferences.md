@@ -61,3 +61,12 @@ An invisible legacy paragraph frame with the qualified centered, text-relative g
 ## Built-in page-number galleries
 
 Word can store visible header or footer runs inside a [built-in document-part control](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.sdtcontentdocpartobject). The top and bottom page-number galleries retain their stored paragraphs and runs, including nested controls and existing page fields. The renderer reads the stored content from the document and recomputes the page number. Other galleries, bindings and unsupported metadata keep their source diagnostics.
+
+## Formatting repeated complex page fields
+
+In a header or footer, a supported complex page-count field normally uses the
+formatting from its instruction run. With MERGEFORMAT it uses a uniform stored
+result style when present. Word can omit the cache entirely and the field still
+uses its code style and receives the calculated page number or page count.
+Uncached static, linked and cross-paragraph field constructs remain qualified
+separately.

@@ -600,14 +600,18 @@ internal class NativeDocxReader(
                         return emptyList()
                     }
                     val cached = run.elements()
-                    check(cached.isNotEmpty(), "A field needs an explicit formatting sample")
+                    val repeatedCount = fields && NativeDocxFields.isPageCount(instruction.kind)
+                    val complexCount = repeatedCount && fieldCodeStyles.containsKey(run)
+                    val useCode = complexCount && (!instruction.mergeFormat || cached.isEmpty())
+                    check(cached.isNotEmpty() || useCode, "A field needs an explicit formatting sample")
                     cached.forEach { children(it, setOf("rPr", "t")) }
-                    val cachedFace = faceFor(cached.first().one("rPr"))
-                    check(cached.all { faceFor(it.one("rPr")) == cachedFace }, "Mixed field-result formatting is not qualified")
+                    val cachedFace = cached.firstOrNull()?.let { faceFor(it.one("rPr")) }
+                    check(useCode || cached.all { faceFor(it.one("rPr")) == cachedFace }, "Mixed field-result formatting is not qualified")
                     source.current = run
                     activePart = provenance[run] ?: activePart
                     if (instruction.charFormat) check(fieldCodeStyles.containsKey(run), "CHARFORMAT requires a qualified complex sequence code")
-                    val face = if (instruction.kind == "SEQ" && !instruction.mergeFormat) faceFor(fieldCodeStyles[run]) else cachedFace
+                    val face = if (useCode || instruction.kind == "SEQ" && !instruction.mergeFormat) faceFor(fieldCodeStyles[run])
+                        else requireNotNull(cachedFace)
                     check(face.rtl != true, "Forced complex-script page fields are not qualified")
                     check(link == null, "Nested field hyperlinks are not qualified")
                     source.current = run
@@ -622,8 +626,9 @@ internal class NativeDocxReader(
                         return textRuns(PdfTextRun(value, style, navigation), face)
                     }
                     if (fields) {
-                        check(instruction.kind in setOf("PAGE", "NUMPAGES", "SECTIONPAGES"), "Only page counts in page bands are qualified")
-                        check(face.copy(languageTag = base.languageTag, rtl = base.rtl) == base, "Page-field cache formatting must match its paragraph style")
+                        check(repeatedCount, "Only page counts in page bands are qualified")
+                        check(complexCount || face.copy(languageTag = base.languageTag, rtl = base.rtl) == base,
+                            "Page-field cache formatting must match its paragraph style")
                         check(pendingDestinations.isEmpty(), "Navigation on repeated page fields is not qualified")
                         return listOf(when (instruction.kind) { "PAGE" -> PdfPageNumber(style); "NUMPAGES" -> PdfPageCount(style); else -> PdfSequencePageCount(style) })
                     }

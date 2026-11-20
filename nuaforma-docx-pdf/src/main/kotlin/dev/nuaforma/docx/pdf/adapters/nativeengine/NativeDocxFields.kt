@@ -85,6 +85,8 @@ internal object NativeDocxFields {
         return Instruction(kind, argument, linked, restart, repeat, reset, first, last, "\\u" in seen, literal, mergeFormat, charFormat)
     }
 
+    fun isPageCount(kind: String): Boolean = kind in setOf("PAGE", "NUMPAGES", "SECTIONPAGES")
+
     /** Retain original code-format validation before typed binding can erase malformed properties. */
     fun validateCodeSource(root: XmlElement, fail: (XmlElement, String) -> Nothing) {
         val flags = setOf("b", "i", "bCs", "iCs", "caps", "smallCaps", "strike", "dstrike", "outline", "shadow",
@@ -113,6 +115,8 @@ internal object NativeDocxFields {
         forms: MutableMap<XmlElement, Form> = java.util.IdentityHashMap(),
         fieldOrigin: (XmlElement, XmlElement) -> Unit = { _, _ -> },
         formatting: (XmlElement, XmlElement?) -> Unit = { _, _ -> }, focus: (XmlElement) -> Unit = {}) {
+
+        val pageBand = root.name.namespaceURI == W && root.name.localPart in setOf("hdr", "ftr")
 
         fun value(node: XmlElement, name: String) = node.attribute(W, name)
 
@@ -160,7 +164,7 @@ internal object NativeDocxFields {
             }
             val field = XmlElement(QName(W, "fldSimple", "w"), linkedMapOf(QName(W, "instr", "w") to code)).also { it.children.addAll(runs) }
             fieldOrigin(field, origin)
-            if (kind == "SEQ") formatting(field, codeProperties)
+            if (kind == "SEQ" || pageBand && isPageCount(kind)) formatting(field, codeProperties)
             if (form != null) forms[field] = form
             return if (contents) listOf(field) else bookmarks.filter { local(it, "bookmarkStart") } + field + bookmarks.filter { local(it, "bookmarkEnd") }
         }
@@ -200,7 +204,14 @@ internal object NativeDocxFields {
                             }
                             "separate" -> { if (depth == 0 || depth == 1 && separated) fail("Unmatched field separator"); if (depth == 1) separated = true }
                             "end" -> {
-                                if (depth == 0 || depth == 1 && !separated && instruction(code.toString(), fail).kind != "SET") fail("Unmatched or uncached field end")
+                                if (depth == 0) fail("Unmatched or uncached field end")
+                                if (depth == 1) {
+                                    val kind = instruction(code.toString(), fail).kind
+                                    val pageCount = pageBand && !multi && isPageCount(kind)
+                                    if (!separated && kind != "SET" && !pageCount) fail("Unmatched or uncached field end")
+                                    if (separated && pageCount && cached.none { local(it, "r") })
+                                        fail("Page-field separator requires a result sample")
+                                }
                                 depth--
                                 if (depth == 0) {
                                     val field = simple(code.toString(), cached, form, requireNotNull(fieldStart), codeProperties)
