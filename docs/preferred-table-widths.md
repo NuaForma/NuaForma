@@ -83,3 +83,11 @@ body tables with ordinary uniform borders.
 Ordinary solid table and cell borders can select a color from the embedded Word
 theme. Word uses the active palette color even when the cached RGB value differs.
 The existing physical border and conflict rules apply to the resolved color.
+
+## Independent visibility of grid edges
+
+Modern, left-aligned body tables with a flat grid can paint outside and inside
+edges independently when the visible edges share one solid stroke. A table
+style supplies any edges left unspecified by the direct table properties.
+A direct absent edge can hide that side while retaining the other styled edges.
+This profile uses resolved cell margins and ordinary, unmerged cells.

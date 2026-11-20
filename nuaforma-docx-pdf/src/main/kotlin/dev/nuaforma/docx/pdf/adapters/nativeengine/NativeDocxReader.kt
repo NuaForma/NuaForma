@@ -878,13 +878,26 @@ internal class NativeDocxReader(
             cellMargins?.let { children(it, setOf("top", "right", "bottom", "left")) }
 
             fun edge(name: String): Float = dimension(regions.margin(name) ?: reject("Missing cell margin"))
-            val borderNodes = regions.property("tblBorders")
-            borderNodes?.let { children(it, setOf("top", "left", "bottom", "right", "insideH", "insideV")) }
-            val borders = borderNodes?.elements().orEmpty().map { node ->
+            val borderNames = listOf("top", "left", "bottom", "right", "insideH", "insideV")
+            val borderLayers = regions.borderLayers()
+            val declarations = linkedMapOf<String, XmlElement>()
+            for (layer in borderLayers) {
+                children(layer, borderNames.toSet())
+                layer.elements().forEach { declarations[it.name.localPart] = it }
+            }
+            val tableBorders = declarations.mapValues { (_, node) ->
                 WordTableBorders.read(node, themeColors) { origin, message -> source.current = origin; reject(message) }
             }
-            check(borders.isEmpty() || borders.size == 6 && borders.distinct().size == 1, "Only uniform table borders are supported")
-            val border = borders.firstOrNull()
+            val borderValues = borderNames.map(tableBorders::get).distinct()
+            val sparseBorders = borderValues.size > 1
+            if (sparseBorders) {
+                source.current = borderLayers.last()
+                check(borderValues.filterNotNull().size == 1 && modernTableAlignment && depth == 0 && !fields &&
+                    cellMargins != null && !naturalWidths && preferredTableWidth?.percent == null &&
+                    regions.property("jc")?.value("val") in setOf(null, "left"),
+                    "Table edges with independent visibility require a flat modern body table with a common solid border")
+            }
+            val border = if (sparseBorders) null else borderValues.single()
             val padding = if (cellMargins == null) {
                 source.current = properties
                 check(modernTableAlignment && depth == 0 && !fields, "Explicit cell margins required for this table")
@@ -911,6 +924,15 @@ internal class NativeDocxReader(
                     ((765 - c.blue - 2 * c.green).toLong() shl 12) or (255 - c.green).toLong()
                 return PdfEdgeStroke(value, priority)
             }
+
+            val sparseStrokes by lazy { tableBorders.mapValues { (_, border) -> border?.let(::ranked) } }
+
+            fun tableCellEdges(rowIndex: Int, column: Int): PdfCellBorders = PdfCellBorders(
+                sparseStrokes[if (rowIndex == 0) "top" else "insideH"],
+                sparseStrokes[if (column == widths.lastIndex) "right" else "insideV"],
+                sparseStrokes[if (rowIndex == rowNodes.lastIndex) "bottom" else "insideH"],
+                sparseStrokes[if (column == 0) "left" else "insideV"],
+            )
 
             val fallbackStroke by lazy { border?.let(::ranked) }
             val fallbackBorders by lazy { PdfCellBorders(fallbackStroke, fallbackStroke, fallbackStroke, fallbackStroke) }
@@ -979,7 +1001,14 @@ internal class NativeDocxReader(
                     }
                     marginInputs += effectiveMargins
                     val edgePolicies = cellProperties.mapNotNull { it.one("tcBorders") }
-                    val cellBorders = if (edgePolicies.isEmpty()) null else edgePolicies.fold(fallbackBorders) { inherited, node -> readCellBorders(node, inherited) }
+                    val declaredCellBorders = if (edgePolicies.isEmpty()) null else edgePolicies.fold(fallbackBorders) { inherited, node -> readCellBorders(node, inherited) }
+                    val cellBorders = if (sparseBorders) {
+                        source.current = cell
+                        check(cp.one("gridSpan") == null && cp.one("vMerge") == null && declaredCellBorders == null &&
+                            cell.elements().none { it.name.localPart == "tbl" },
+                            "Independent table edges with merged, nested or custom-bordered cells are not qualified")
+                        tableCellEdges(rowIndex, column)
+                    } else declaredCellBorders
                     // Explicit horizontal padding cannot place text inside a visible border's inner half.
                     val leftInset = (cellBorders?.left?.border?.width ?: if (cellBorders == null) border?.width ?: 0f else 0f) / 2
                     val rightInset = (cellBorders?.right?.border?.width ?: if (cellBorders == null) border?.width ?: 0f else 0f) / 2
@@ -1130,7 +1159,7 @@ internal class NativeDocxReader(
             } ?: 0f
             // Word clamps negative indentation in nested tables without changing the source property.
             val effectiveIndent = if (depth > 0) indent.coerceAtLeast(0f) else indent
-            val halfBorder = (border?.width ?: 0f) / 2
+            val halfBorder = ((if (sparseBorders) tableBorders["left"] else border)?.width ?: 0f) / 2
             val physicalIndent = when (alignment) {
                 PdfTableAlignment.CENTER -> 0f
                 PdfTableAlignment.RIGHT -> if (depth == 0 && !modernTableAlignment) padding.right + halfBorder else 0f

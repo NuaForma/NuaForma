@@ -53,6 +53,8 @@ internal class NativeDocxTableStyles(
 
     fun property(name: String): XmlElement? = tableProperties.mapNotNull { child(it, name) }.lastOrNull()
 
+    fun borderLayers(): List<XmlElement> = tableProperties.mapNotNull { child(it, "tblBorders") }
+
     fun indentation(): XmlElement? =
         tableProperties.mapNotNull { child(it, "tblInd") }.lastOrNull { value(it, "type") != "nil" }
 
