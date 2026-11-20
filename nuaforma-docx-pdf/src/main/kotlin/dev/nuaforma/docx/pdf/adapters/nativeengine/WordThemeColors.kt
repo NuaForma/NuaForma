@@ -36,10 +36,10 @@ internal class WordThemeColors(
         return if (node.attribute(W, "val") == "nil") null else cellFill(normalizedRunFill(node))
     }
 
-    fun drawingColor(node: XmlElement, slot: String, modulation: Int): PdfColor {
+    fun drawingColor(node: XmlElement, slot: String, modulation: Int, offset: Int): PdfColor {
         val original = resolved.getOrPut(slot) { palette(node, slot) }
-        if (modulation == 100_000) return original
-        return adjustLuminance(original, { it * modulation / 100_000 }, Double::roundToInt)
+        if (modulation == 100_000 && offset == 0) return original
+        return adjustLuminance(original, { ((it * modulation + offset) / 100_000).coerceAtMost(1.0) }, Double::roundToInt)
     }
 
     private fun themed(node: XmlElement, role: String, tintValue: String?, shadeValue: String?): PdfColor {

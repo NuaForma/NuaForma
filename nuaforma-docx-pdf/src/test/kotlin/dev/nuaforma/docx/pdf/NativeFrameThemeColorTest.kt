@@ -39,14 +39,22 @@ class NativeFrameThemeColorTest {
 
         val gray = render("""<a:schemeClr val="bg1"><a:lumMod val="95000"/></a:schemeClr>""", """<a:schemeClr val="accent5"/>""")
         val purple = render("""<a:schemeClr val="accent2"><a:lumMod val="85000"/></a:schemeClr>""", """<a:schemeClr val="lt1"/>""")
+        val tintedBlue = render("""<a:schemeClr val="accent1"><a:lumMod val="20000"/><a:lumOff val="80000"/></a:schemeClr>""",
+            """<a:schemeClr val="accent5"/>""")
         assertEquals(Color(242, 242, 242).rgb, gray.getRGB(170, 190))
         assertEquals(Color(87, 43, 130).rgb, purple.getRGB(170, 190))
+        assertEquals(Color(193, 229, 245).rgb, tintedBlue.getRGB(170, 190))
         assertImagesMatch(render("""<a:srgbClr val="F2F2F2"/>""", """<a:srgbClr val="ED7D31"/>"""), gray) {
             pixelTolerance = 0.0
             allowedDifferentPixelsPercent = 0.0
             threshold = 1
         }
         assertImagesMatch(render("""<a:srgbClr val="572B82"/>""", """<a:srgbClr val="FFFFFF"/>"""), purple) {
+            pixelTolerance = 0.0
+            allowedDifferentPixelsPercent = 0.0
+            threshold = 1
+        }
+        assertImagesMatch(render("""<a:srgbClr val="C1E5F5"/>""", """<a:srgbClr val="ED7D31"/>"""), tintedBlue) {
             pixelTolerance = 0.0
             allowedDifferentPixelsPercent = 0.0
             threshold = 1
@@ -62,6 +70,8 @@ class NativeFrameThemeColorTest {
             "schemeClr" to """<a:schemeClr val="phClr"/>""",
             "lumMod" to """<a:schemeClr val="accent1"><a:lumMod val="100001"/></a:schemeClr>""",
             "lumMod" to """<a:schemeClr val="accent1"><a:lumMod val="100"/><a:lumMod val="100"/></a:schemeClr>""",
+            "lumOff" to """<a:schemeClr val="accent1"><a:lumOff val="80000"/><a:lumMod val="20000"/></a:schemeClr>""",
+            "lumOff" to """<a:schemeClr val="accent1"><a:lumMod val="20000"/><a:lumOff val="-1"/></a:schemeClr>""",
             "alpha" to """<a:schemeClr val="accent1"><a:alpha val="20000"/></a:schemeClr>""",
         )) support.rejectChanged(source, part, element) { it.replaceFirst(fillColor, color) }
     }

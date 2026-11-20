@@ -68,21 +68,29 @@ internal object WordFramePaint {
     private fun validateScheme(color: XmlElement, value: String, reject: (XmlElement, String) -> Nothing) {
         if (WordThemeColors.drawingSlot(value) == null) reject(color, "Unsupported original frame theme color")
         val transforms = color.elements()
-        if (transforms.size > 1) reject(transforms[1], "Only one frame luminance adjustment is qualified")
-        val modulation = transforms.singleOrNull() ?: return
-        val raw = modulation.attribute("", "val").orEmpty()
-        if (modulation.name.namespaceURI != drawing || modulation.name.localPart != "lumMod" ||
-            modulation.attributes.size != 1 || !raw.matches(Regex("[0-9]{1,6}")) || raw.toInt() !in 0..100_000 ||
-            modulation.elements().isNotEmpty() || modulation.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
-            reject(modulation, "Unsupported frame theme luminance adjustment")
+        if (transforms.size > 2) reject(transforms[2], "Extra frame theme color transform is not qualified")
+        transforms.getOrNull(0)?.let { validateLuminance(it, "lumMod", reject) }
+        transforms.getOrNull(1)?.let { validateLuminance(it, "lumOff", reject) }
+    }
+
+    private fun validateLuminance(node: XmlElement, name: String, reject: (XmlElement, String) -> Nothing) {
+        val raw = node.attribute("", "val").orEmpty()
+        if (node.name.namespaceURI != drawing || node.name.localPart != name ||
+            node.attributes.size != 1 || !raw.matches(Regex("[0-9]{1,6}")) || raw.toInt() !in 0..100_000 ||
+            node.elements().isNotEmpty() || node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
+            reject(node, "Unsupported frame theme luminance adjustment")
     }
 
     private fun resolve(color: XmlElement, theme: WordThemeColors): PdfColor {
         val value = requireNotNull(color.attribute("", "val"))
         return when (color.name.localPart) {
             "prstClr" -> if (value == "black") PdfColor(0, 0, 0) else PdfColor(255, 255, 255)
-            "schemeClr" -> theme.drawingColor(color, requireNotNull(WordThemeColors.drawingSlot(value)),
-                color.elements().singleOrNull()?.attribute("", "val")?.toInt() ?: 100_000)
+            "schemeClr" -> {
+                val transforms = color.elements()
+                val modulation = transforms.getOrNull(0)?.attribute("", "val")?.toInt() ?: 100_000
+                val offset = transforms.getOrNull(1)?.attribute("", "val")?.toInt() ?: 0
+                theme.drawingColor(color, requireNotNull(WordThemeColors.drawingSlot(value)), modulation, offset)
+            }
             else -> PdfColor(value.take(2).toInt(16), value.substring(2, 4).toInt(16), value.takeLast(2).toInt(16))
         }
     }
