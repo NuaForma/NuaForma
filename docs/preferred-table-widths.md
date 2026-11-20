@@ -55,3 +55,10 @@ A cell occupying a single row and spanning the full grid of a qualified top-leve
 A cell with the clear shading pattern and an explicit RGB fill paints that fill.
 The unused foreground may be automatic, absent or a valid RGB value. Patterned
 shading and unqualified foreground combinations still report a source error.
+
+## Empty zero-height paragraphs after a table
+
+An empty body paragraph immediately following a table can specify zero automatic
+line height without contributing a line to the PDF. The qualified paragraph has
+no content, paint, spacing or pagination effect. Nonempty and visibly spaced
+paragraphs retain a source diagnostic.

@@ -446,7 +446,7 @@ internal class NativeDocxReader(
             openBookmarks.remove(key)
         }
 
-        fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false, tableStyles: List<XmlElement> = emptyList(), uniformFonts: Boolean = false, allowPageBreak: Boolean = true): PdfParagraph {
+        fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false, tableStyles: List<XmlElement> = emptyList(), uniformFonts: Boolean = false, allowPageBreak: Boolean = true, measureMark: Boolean = true): PdfParagraph {
             source.current = paragraph
             context.checkActive()
             crossParagraphBookmarks += openBookmarks.mapNotNull { bookmarkNames[it] }
@@ -762,7 +762,7 @@ internal class NativeDocxReader(
                 for (key in openBookmarks) bookmarkNames[key]?.let { bookmarkRuns.getValue(it).addAll(converted) }
             } }
             check(pendingDestinations.isEmpty(), "Bookmark requires following visible paragraph text")
-            val markStyle = markFace?.takeIf { geometry.automatic != null || geometry.minimum != null || runs.isEmpty() }?.let(::textStyle)
+            val markStyle = markFace?.takeIf { measureMark && (geometry.automatic != null || geometry.minimum != null || runs.isEmpty()) }?.let(::textStyle)
             val content = runs.ifEmpty { listOf(PdfTextRun(" ", markStyle ?: textStyle(base))) }
             check(content.none { it is PdfImageRun } || content.size == 1, "Mixed image/text paragraphs are outside the proof profile")
             val label = listEntry?.let { entry ->
@@ -1389,34 +1389,58 @@ internal class NativeDocxReader(
             return true
         }
 
-        fun readBlocks(root: XmlElement, partRelations: Map<String, String>, fields: Boolean): List<PdfBlock> = root.elements().filter { it.name.localPart != "sectPr" }.flatMapIndexed { index, block ->
-            when (block.name.localPart) {
-                "p" -> {
-                    if (fields && omitEmptyLegacyBandFrame(block, partRelations)) return@flatMapIndexed emptyList()
-                    val frames = block.elements().filter { it.name.localPart == "r" }.flatMap { it.elements().filter { node -> node.name.namespaceURI == word && !lineReader.isLine(node) && (node.name.localPart == "pict" || node.name.localPart == "drawing" && node.elements().any { it.name.namespaceURI == wp && it.name.localPart == "anchor" }) } }
-                    source.current = block
-                    val plain = XmlElement(block.name, block.attributes, block.namespaces)
-                    plain.children += block.children.mapNotNull { child ->
-                        if (child is XmlElement && child.name.localPart == "pPr" && block in sectionEnds) {
-                            XmlElement(child.name, child.attributes, child.namespaces).also { copy -> copy.children += child.children.filterNot { it is XmlElement && it.name.namespaceURI == word && it.name.localPart == "sectPr" } }
-                        } else if (child is XmlElement && child.name.localPart == "r" && child.elements().any { it in frames }) {
-                            check(child.elements().all { it in frames || it.name.localPart == "rPr" }, "Mixed frame/text runs are unsupported"); null
-                        } else child
+        fun verifyEmptyTableFollower(paragraph: XmlElement, spacing: XmlElement, partRelations: Map<String, String>) {
+            val properties = requireNotNull(paragraph.one("pPr"))
+            val variant = XmlElement(paragraph.name, paragraph.attributes, paragraph.namespaces)
+            val copiedProperties = XmlElement(properties.name, properties.attributes, properties.namespaces)
+            val copiedSpacing = XmlElement(spacing.name, LinkedHashMap(spacing.attributes), spacing.namespaces)
+            copiedSpacing.attributes.keys.removeAll { it.namespaceURI == word && it.localPart in setOf("line", "lineRule") }
+            copiedSpacing.children += spacing.children
+            copiedProperties.children += properties.children.map { if (it === spacing) copiedSpacing else it }
+            variant.children += copiedProperties
+            neighbors[variant] = neighbors[paragraph] ?: (null to null)
+            val marker = readParagraph(variant, partRelations, measureMark = false)
+            source.current = spacing
+            check(unprintedBand(listOf(marker)) && marker.background == null && !marker.format.pageBreakBefore &&
+                !marker.format.keepWithNext && marker.spaceBefore == 0f && marker.spaceAfter == 0f,
+                "An empty zero-height paragraph must have no paint, leading space or pagination effect")
+        }
+
+        fun readBlocks(root: XmlElement, partRelations: Map<String, String>, fields: Boolean): List<PdfBlock> {
+            val emptyFollowers = if (fields) emptyMap() else WordZeroHeightParagraphs.tableFollowers(root)
+            return root.elements().filter { it.name.localPart != "sectPr" }.flatMapIndexed { index, block ->
+                when (block.name.localPart) {
+                    "p" -> {
+                        if (fields && omitEmptyLegacyBandFrame(block, partRelations)) return@flatMapIndexed emptyList()
+                        emptyFollowers[block]?.let { spacing ->
+                            verifyEmptyTableFollower(block, spacing, partRelations)
+                            return@flatMapIndexed emptyList()
+                        }
+                        val frames = block.elements().filter { it.name.localPart == "r" }.flatMap { it.elements().filter { node -> node.name.namespaceURI == word && !lineReader.isLine(node) && (node.name.localPart == "pict" || node.name.localPart == "drawing" && node.elements().any { it.name.namespaceURI == wp && it.name.localPart == "anchor" }) } }
+                        source.current = block
+                        val plain = XmlElement(block.name, block.attributes, block.namespaces)
+                        plain.children += block.children.mapNotNull { child ->
+                            if (child is XmlElement && child.name.localPart == "pPr" && block in sectionEnds) {
+                                XmlElement(child.name, child.attributes, child.namespaces).also { copy -> copy.children += child.children.filterNot { it is XmlElement && it.name.namespaceURI == word && it.name.localPart == "sectPr" } }
+                            } else if (child is XmlElement && child.name.localPart == "r" && child.elements().any { it in frames }) {
+                                check(child.elements().all { it in frames || it.name.localPart == "rPr" }, "Mixed frame/text runs are unsupported"); null
+                            } else child
+                        }
+                        numbering.alias(block, plain)
+                        neighbors[plain] = neighbors[block] ?: (null to null)
+                        val (images, boxes) = frames.partition { node ->
+                            node.elements().singleOrNull()?.elements()?.singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "graphic" }
+                                ?.elements()?.singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "graphicData" }?.attribute("", "uri") == picture
+                        }
+                        val paragraph = readParagraph(plain, partRelations, fields)
+                        val firstBodyParagraph = index == 0 && !fields && images.isEmpty() && paragraph.runs.none { it is PdfPageBreak }
+                        boxes.map { if (it.name.localPart == "pict") readBox(it, partRelations, fields)
+                            else readDrawingBox(it, partRelations, fields, firstBodyParagraph) } +
+                            paragraph.copy(anchoredImages = images.map { readAnchoredImage(it, partRelations, fields) })
                     }
-                    numbering.alias(block, plain)
-                    neighbors[plain] = neighbors[block] ?: (null to null)
-                    val (images, boxes) = frames.partition { node ->
-                        node.elements().singleOrNull()?.elements()?.singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "graphic" }
-                            ?.elements()?.singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "graphicData" }?.attribute("", "uri") == picture
-                    }
-                    val paragraph = readParagraph(plain, partRelations, fields)
-                    val firstBodyParagraph = index == 0 && !fields && images.isEmpty() && paragraph.runs.none { it is PdfPageBreak }
-                    boxes.map { if (it.name.localPart == "pict") readBox(it, partRelations, fields)
-                        else readDrawingBox(it, partRelations, fields, firstBodyParagraph) } +
-                        paragraph.copy(anchoredImages = images.map { readAnchoredImage(it, partRelations, fields) })
+                    "tbl" -> listOf(readTable(block, partRelations, fields))
+                    else -> reject("Unsupported block")
                 }
-                "tbl" -> listOf(readTable(block, partRelations, fields))
-                else -> reject("Unsupported block")
             }
         }
 

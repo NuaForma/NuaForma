@@ -13,6 +13,7 @@ internal object WordNumericSpellings {
     private val signedDecimal = Regex("-?[0-9]{1,6}(?:\\.[0-9]{1,18})?")
 
     fun normalizeSource(root: XmlElement, reject: (XmlElement, String) -> Nothing): Boolean {
+        val emptyLineSpacings = WordZeroHeightParagraphs.sourceSpacings(root)
         var changed = false
         for (parent in root.descendants().filter { it.name.namespaceURI == word }) {
             changed = when (parent.name.localPart) {
@@ -20,7 +21,7 @@ internal object WordNumericSpellings {
                 "tblPr" -> tableProperties(parent, reject)
                 "pPr" -> {
                     validateNegativeTabs(parent, reject)
-                    automaticSpacing(parent, reject)
+                    automaticSpacing(parent, emptyLineSpacings, reject)
                 }
                 else -> false
             } || changed
@@ -113,7 +114,7 @@ internal object WordNumericSpellings {
         }
     }
 
-    private fun automaticSpacing(parent: XmlElement, reject: (XmlElement, String) -> Nothing): Boolean {
+    private fun automaticSpacing(parent: XmlElement, emptyLineSpacings: Set<XmlElement>, reject: (XmlElement, String) -> Nothing): Boolean {
         val nodes = parent.elements().filter { it.name.localPart == "spacing" }
         if (nodes.none { it.attribute(word, "line") != null }) return false
         if (nodes.size > 1) reject(nodes[1], "Duplicate original paragraph spacing")
@@ -123,6 +124,7 @@ internal object WordNumericSpellings {
             if (node.attribute(word, "line")?.contains('.') == true) reject(node, "Fractional non-automatic line spacing is not qualified")
             return false
         }
+        if (node in emptyLineSpacings) return false
         return integer(node, "line", 1, reject)
     }
 
