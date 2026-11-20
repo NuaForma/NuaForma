@@ -51,3 +51,7 @@ Automatic tables can retain trailing default tabs on otherwise ordinary left-ali
 ## Whole-grid width protection
 
 A cell occupying a single row and spanning the full grid of a qualified top-level AutoFit table may protect its combined physical width. Where the table has a physical preference, it is raised to at least the span's preference, subject to the available page width. Column negotiation still takes place separately. Partial spans and percentage-based tables with this whole-grid toggle remain explicit source rejections.
+
+A cell with the clear shading pattern and an explicit RGB fill paints that fill.
+The unused foreground may be automatic, absent or a valid RGB value. Patterned
+shading and unqualified foreground combinations still report a source error.

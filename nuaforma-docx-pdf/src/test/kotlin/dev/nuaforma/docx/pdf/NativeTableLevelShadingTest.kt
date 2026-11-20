@@ -46,6 +46,31 @@ class NativeTableLevelShadingTest {
         }
     }
 
+    @Test
+    fun `clear cell shading keeps its explicit fill regardless of the unused foreground`() {
+        val support = NativeWordFeatureSupport(temporary)
+        val parts = PdfFixture.unzip(support.bytes(source))
+        val original = parts.getValue(part).decodeToString()
+        val xml = fixture(original, "")
+
+        fun image(cellShade: String): java.awt.image.BufferedImage {
+            val modified = xml.replace(shading("A5C6E8"), cellShade)
+            val pdf = support.generate(PdfFixture.zip(parts + (part to modified.toByteArray())), "standard")
+            return Loader.loadPDF(pdf).use { PDFRenderer(it).renderImageWithDPI(0, 96f) }
+        }
+
+        val base = image(shading("A5C6E8"))
+        for (shade in listOf("""<w:shd w:val="clear" w:fill="A5C6E8"/>""",
+            """<w:shd w:val="clear" w:color="FF00FF" w:fill="A5C6E8"/>""")) {
+            assertImagesMatch(base, image(shade)) {
+                pixelTolerance = 0.0; allowedDifferentPixelsPercent = 0.0; threshold = 1
+            }
+        }
+        support.rejectChanged(source, part, "shd") {
+            fixture(it, "").replace(shading("A5C6E8"), """<w:shd w:val="clear" w:color="invalid" w:fill="A5C6E8"/>""")
+        }
+    }
+
     private fun fixture(xml: String, tableShade: String): String {
         val table = """<w:tbl><w:tblPr><w:tblW w:type="dxa" w:w="5200"/>$tableShade<w:tblLayout w:type="fixed"/>""" +
             """<w:tblCellMar><w:top w:w="40" w:type="dxa"/><w:left w:w="80" w:type="dxa"/>""" +

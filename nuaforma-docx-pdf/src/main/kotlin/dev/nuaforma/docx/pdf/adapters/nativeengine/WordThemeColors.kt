@@ -145,7 +145,11 @@ internal class WordThemeColors(
             }
             for (properties in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart == "tcPr" }) {
                 val fills = properties.elements().filter { it.name.localPart == "shd" }
-                if (fills.none { node -> node.attributes.keys.any { it.localPart in setOf("themeFill", "themeFillTint", "themeFillShade") } }) continue
+                val qualified = fills.any { node ->
+                    node.attributes.keys.any { it.localPart in setOf("themeFill", "themeFillTint", "themeFillShade") } ||
+                        node.attribute(W, "val") == "clear" && node.attribute(W, "color") != "auto" && hasExplicitCellFill(node)
+                }
+                if (!qualified) continue
                 if (fills.size > 1) reject(fills[1], "Duplicate cell theme fill")
                 validateCellFill(fills.single(), reject)
             }
@@ -209,13 +213,18 @@ internal class WordThemeColors(
         fun validateTableShading(node: XmlElement, reject: (XmlElement, String) -> Nothing) =
             validateCellFill(node, reject, table = true)
 
+        private fun hasExplicitCellFill(node: XmlElement): Boolean =
+            node.attribute(W, "themeFill") == null && node.attribute(W, "fill")?.matches(Regex("[0-9A-Fa-f]{6}")) == true
+
         private fun validateCellFill(node: XmlElement, reject: (XmlElement, String) -> Nothing, table: Boolean = false) {
             if (node.name.namespaceURI != W || node.attributes.keys.any { it.namespaceURI != W ||
                     it.localPart !in setOf("val", "color", "fill", "themeFill", "themeFillTint", "themeFillShade") } ||
                 node.elements().isNotEmpty() || node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
                 reject(node, "Invalid cell theme fill structure")
             val foreground = node.attribute(W, "color")
-            val qualifiedForeground = foreground == "auto" || table &&
+            // A clear pattern paints only the background. Keep explicit fill separate from
+            // unqualified foreground combinations without a real color behind the cell.
+            val qualifiedForeground = foreground == "auto" || (table || hasExplicitCellFill(node)) &&
                 (foreground == null || foreground.matches(Regex("[0-9A-Fa-f]{6}")))
             if (node.attribute(W, "val") != "clear" || !qualifiedForeground)
                 reject(node, if (table) "Unsupported table shading" else "Unsupported cell shading")
