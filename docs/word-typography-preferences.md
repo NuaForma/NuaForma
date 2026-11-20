@@ -49,3 +49,7 @@ Primary references: Microsoft's [trailing underlining](https://learn.microsoft.c
 ## Display capitals
 
 Word `w:caps` changes visible text after template substitution. The source template and input data retain their original casing. Direct formatting and the effective paragraph declaration can enable or disable it. An enabled character-style declaration toggles the paragraph setting and a false character-style declaration leaves the paragraph setting in place. The qualified Latin mapping uses simple uppercase glyph equivalents, including Turkish dotted I where the run language requests it and the unchanged single-character German sharp S observed in the reference exports. The PDF search/extraction text follows the printed case. Active case changes outside this Latin profile remain explicit failures.
+
+## Zero-width text outlines
+
+A qualified [Word text outline](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-docx/5b065f17-63c7-4d54-83e3-6f3c161f3afa) with explicit zero width does not paint. Word keeps the same searchable text and emits no outline path for the black, red and unfilled zero-width controls. The A4 reference retained identical pixels. The Letter reference placed some glyphs up to 0.27 point from the control. Qualified shapes use the default or round cap, a single centered stroke, and either an empty outline or a supported fill declaration with a solid dash and bevel. Visible outlines and unsupported structure still fail with the source location.
