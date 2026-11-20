@@ -634,7 +634,7 @@ internal class NativeDocxReader(
                     }
                     return listOf(PdfReferenceField(id, kind, style, target, instruction.linked, navigation))
                 }
-                children(run, setOf("rPr", "t", "tab", "br", "cr", "drawing", "pict", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
+                children(run, setOf("rPr", "t", "tab", "br", "cr", "noBreakHyphen", "drawing", "pict", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
                 val contents = run.elements().filter { it.name.localPart != "rPr" }
                 if (contents.isEmpty()) return emptyList()
                 val face = faceFor(run.one("rPr"))
@@ -660,9 +660,14 @@ internal class NativeDocxReader(
                             PdfNoteLabel(textStyle(face), navigation)
                         }
                     }
-                    "t" -> {
-                        check(item.elements().isEmpty(), "Invalid text node")
-                        val text = WordTextWhitespace.visible(item, item.children.filterIsInstance<XmlText>().joinToString("") { it.text })
+                    "t", "noBreakHyphen" -> {
+                        val text = if (item.name.localPart == "noBreakHyphen") {
+                            // Word paints the ordinary hyphen within the nonbreaking word.
+                            "-"
+                        } else {
+                            check(item.elements().isEmpty(), "Invalid text node")
+                            WordTextWhitespace.visible(item, item.children.filterIsInstance<XmlText>().joinToString("") { it.text })
+                        }
                         if (text.isEmpty()) return@mapNotNull null
                         val hebrew = text.codePoints().anyMatch { Character.UnicodeScript.of(it) == Character.UnicodeScript.HEBREW }
                         check(face.rtl != true || hebrew, "Only Hebrew text may force complex-script reading order in this proof")
@@ -1802,7 +1807,7 @@ internal class NativeDocxReader(
             source.current = it
             reject("Unsupported document feature")
         }
-        check(node.elements().groupBy { it.name.localPart }.all { (name, values) -> name in setOf("r", "p", "style", "tbl", "tr", "tc", "tblStylePr", "fldSimple", "t", "tab", "br", "cr", "headerReference", "footerReference", "hyperlink", "bookmarkStart", "bookmarkEnd") || values.size == 1 }, "Duplicate property")
+        check(node.elements().groupBy { it.name.localPart }.all { (name, values) -> name in setOf("r", "p", "style", "tbl", "tr", "tc", "tblStylePr", "fldSimple", "t", "tab", "br", "cr", "noBreakHyphen", "headerReference", "footerReference", "hyperlink", "bookmarkStart", "bookmarkEnd") || values.size == 1 }, "Duplicate property")
     }
 
     private fun attributes(node: XmlElement, allowed: Set<String>) {
