@@ -68,3 +68,12 @@ paragraphs retain a source diagnostic.
 A nil table indentation with an explicit zero measurement leaves the indentation
 unspecified at its level. Word can use an inherited physical indent. Legacy
 Word therefore treats a nil setting differently from a physical zero indent.
+
+## Missing table-default cell margins
+
+Modern Word tables in body flow can omit their cell margins entirely. For
+uniform table borders, the supported default is zero top and bottom margin
+and a horizontal clearance of at least half a point, increased to half the
+border width when that is wider. Explicit table and cell margins continue
+to participate in the normal source hierarchy. The qualified default covers
+body tables with ordinary uniform borders.

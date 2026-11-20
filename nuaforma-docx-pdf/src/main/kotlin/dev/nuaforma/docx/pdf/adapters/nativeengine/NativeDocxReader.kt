@@ -874,12 +874,10 @@ internal class NativeDocxReader(
                 if (fixedWidth.value("type") == "auto") automaticDimension(fixedWidth)
                 else check(kotlin.math.abs(widths.sum() - dimension(fixedWidth)) < 0.01f, "Table width differs from grid")
             }
-            val cellMargins = regions.property("tblCellMar") ?: reject("Explicit cell margins required")
-            children(cellMargins, setOf("top", "right", "bottom", "left"))
+            val cellMargins = regions.property("tblCellMar")
+            cellMargins?.let { children(it, setOf("top", "right", "bottom", "left")) }
 
             fun edge(name: String): Float = dimension(regions.margin(name) ?: reject("Missing cell margin"))
-
-            val padding = PdfMargins(edge("top"), edge("right"), edge("bottom"), edge("left"))
             val borderNodes = regions.property("tblBorders")
             borderNodes?.let { children(it, setOf("top", "left", "bottom", "right", "insideH", "insideV")) }
             val borders = borderNodes?.elements().orEmpty().map { node ->
@@ -887,6 +885,12 @@ internal class NativeDocxReader(
             }
             check(borders.isEmpty() || borders.size == 6 && borders.distinct().size == 1, "Only uniform table borders are supported")
             val border = borders.firstOrNull()
+            val padding = if (cellMargins == null) {
+                source.current = properties
+                check(modernTableAlignment && depth == 0 && !fields, "Explicit cell margins required for this table")
+                val clearance = maxOf(.5f, (border?.width ?: 0f) / 2f)
+                PdfMargins(0f, clearance, 0f, clearance)
+            } else PdfMargins(edge("top"), edge("right"), edge("bottom"), edge("left"))
             val resolvedTableWidth = preferredTableWidth?.let { preference ->
                 val percent = preference.percent
                 if (percent != null && depth == 0) {
@@ -1079,6 +1083,10 @@ internal class NativeDocxReader(
             }
             bookmarksBefore()
             val customBorders = specs.any { (cells, _) -> cells.any { it.borders != null } }
+            if (cellMargins == null && customBorders) {
+                source.current = properties
+                reject("Explicit cell margins required for tables with cell borders")
+            }
             val rows = specs.mapIndexed { rowIndex, (cells, allow) ->
                 val resolved = cells.map { cell ->
                     val resolvedCell = PdfTableCell(cell.blocks, cell.background, cell.span, cell.rows, cell.alignment,
