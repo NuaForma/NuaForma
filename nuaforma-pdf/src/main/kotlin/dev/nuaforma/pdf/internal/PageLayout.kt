@@ -455,14 +455,31 @@ internal object PageLayouter {
         maximumLineWidth(words(runs, measurer, false))
 
     internal fun intrinsicWidths(paragraph: PdfParagraph, measurer: TextMeasurer): Pair<Float, Float> {
-        if (paragraph.format.tabs != null || paragraph.runs.any { it is PdfTab } || paragraph.anchoredImages.isNotEmpty())
+        if (paragraph.anchoredImages.isNotEmpty())
             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Automatic table widths with tabs or floating images are not qualified")
-        val groups = words(paragraph.runs, measurer, paragraph.format.textDirection != null)
+        val runs = if (paragraph.runs.any { it is PdfTab }) automaticTableTextRuns(paragraph) else paragraph.runs
+        val groups = words(runs, measurer, paragraph.format.textDirection != null)
         val widths = groups.map { group -> group.sumOf { it.metrics.width.toDouble() }.toFloat() }
         val minimum = groups.indices.filter { index -> groups[index].any { fragment -> fragment.text.any { it != ' ' } } }.maxOfOrNull { widths[it] } ?: 0f
         val indent = paragraph.format.leftIndent + paragraph.format.rightIndent + maxOf(0f, paragraph.format.firstLineIndent)
         val label = paragraph.listLabel?.let { measurer.measure(it.value.text, it.style).width } ?: 0f
         return maxOf(0f, minimum + indent + label) to maxOf(0f, maximumLineWidth(groups) + indent + label)
+    }
+
+    private fun automaticTableTextRuns(paragraph: PdfParagraph): List<PdfInline> {
+        val runs = paragraph.runs.dropLastWhile { it is PdfTab }
+        val lastTextIndex = runs.indexOfLast { it !is PdfTextRun || it.text.isNotBlank() }
+        val last = runs.getOrNull(lastTextIndex) as? PdfTextRun
+        val format = paragraph.format
+        // Plain terminal default tabs add no intrinsic printable content.
+        // Preserve the controls and intervening spaces for the resolved line's width check.
+        if (last == null || format.alignment != PdfAlignment.LEFT || format.textDirection != null ||
+            !format.tabs?.stops.isNullOrEmpty() || runs.any { it is PdfTab } || last.style.underline ||
+            last.style.strikethrough || last.style.background != null ||
+            runs.subList(lastTextIndex + 1, runs.size).any { (it as PdfTextRun).style != last.style } ||
+            paragraph.runs.subList(runs.size, paragraph.runs.size).any { (it as PdfTab).style != last.style })
+            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Automatic table widths support only undecorated terminal default tabs")
+        return runs
     }
 
     private fun maximumLineWidth(groups: List<List<Fragment>>): Float {

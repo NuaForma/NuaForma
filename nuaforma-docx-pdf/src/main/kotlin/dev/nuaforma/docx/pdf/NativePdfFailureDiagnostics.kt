@@ -92,6 +92,7 @@ internal object NativePdfFailureDiagnostics {
         "Archival output requires an independent validator",
         "Automatic inline image spacing is not qualified",
         "Automatic table minimum widths exceed the containing width or layout limit",
+        "Automatic table widths support only undecorated terminal default tabs",
         "Automatic table widths with tabs or floating images are not qualified",
         "Bidi contents are not qualified",
         "Bidi justification is not qualified",
