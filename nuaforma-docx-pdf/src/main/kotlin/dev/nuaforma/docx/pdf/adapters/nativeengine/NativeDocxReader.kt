@@ -918,7 +918,8 @@ internal class NativeDocxReader(
             data class CellSpec(
                 val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment,
                 val borders: PdfCellBorders?, val preferredWidth: PdfPreferredWidth?, val protectPreferredWidth: Boolean,
-                val declaredMargins: PdfMargins?, var margins: PdfMargins? = declaredMargins, var rows: Int = 1,
+                val declaredMargins: PdfMargins?, val omittedEndMark: XmlElement?,
+                var margins: PdfMargins? = declaredMargins, var rows: Int = 1,
             )
             val specs = mutableListOf<Pair<List<CellSpec>, Boolean>>()
             var previous = mapOf<Int, CellSpec>()
@@ -952,7 +953,7 @@ internal class NativeDocxReader(
                 for (cell in row.elements().filter { it.name.localPart == "tc" }) {
                     children(cell, setOf("tcPr", "p", "tbl"))
                     val cp = cell.one("tcPr") ?: reject("Explicit cell properties required")
-                    children(cp, setOf("tcW", "shd", "gridSpan", "vMerge", "vAlign", "tcBorders", "tcMar", "noWrap"))
+                    children(cp, setOf("tcW", "shd", "gridSpan", "vMerge", "vAlign", "tcBorders", "tcMar", "noWrap", "hideMark"))
                     val cellStyles = regions.layers(rowIndex, column)
                     val cellProperties = cellStyles.mapNotNull { it.one("tcPr") } + cp
                     val marginDeclarations = cellProperties.mapNotNull { it.one("tcMar") }
@@ -980,7 +981,7 @@ internal class NativeDocxReader(
                     val cellWidth = cp.one("tcW")
                     val preferredCellWidth = if (automaticLayout) preferredWidth(cellWidth) else null
                     val protectPreferredWidth = cp.one("noWrap")?.let { node ->
-                        val enabled = WordTableWidths.noWrap(node) { origin, message -> source.current = origin; reject(message) }
+                        val enabled = WordTableWidths.cellToggle(node) { origin, message -> source.current = origin; reject(message) }
                         source.current = node
                         check(!enabled || !automaticLayout || depth == 0 && span == 1 && cp.one("vMerge") == null &&
                             (preferredCellWidth?.points ?: 0f) > 0f,
@@ -990,6 +991,9 @@ internal class NativeDocxReader(
                     if (naturalWidths) automaticDimension(cellWidth ?: reject("Missing cell width"))
                     else if (!automaticLayout) check(kotlin.math.abs(dimension(cellWidth ?: reject("Missing cell width")) - widths.subList(column, column + span).sum()) < 0.01f, "Inconsistent cell width")
                     val background = cellProperties.mapNotNull { it.one("shd") }.lastOrNull()?.let(themeColors::cellFill)
+                    val hideMark = cp.one("hideMark")?.takeIf { node ->
+                        WordTableWidths.cellToggle(node) { origin, message -> source.current = origin; reject(message) }
+                    }
                     val blocks = cell.elements().filter { it.name.localPart != "tcPr" }.map { child ->
                         when (child.name.localPart) {
                             "p" -> readParagraph(child, partRelations, fields, cellStyles, allowPageBreak = false).let { paragraph ->
@@ -1009,6 +1013,16 @@ internal class NativeDocxReader(
                             last.runs.all { it is PdfTextRun && it.text.isBlank() }) content.dropLast(1) else content
                     }
                     val merge = cp.one("vMerge")?.let { attributes(it, setOf("val")); it.value("val") ?: "continue" }
+                    var omittedEndMark: XmlElement? = null
+                    val printable = if (hideMark != null) {
+                        source.current = hideMark
+                        check(depth == 0 && merge == null, "Omitting cell end marks in nested or vertically merged cells is not qualified")
+                        val end = blocks.lastOrNull() as? PdfParagraph ?: reject("Cell end marks require a final paragraph")
+                        check(end.listLabel == null && end.contents == null && end.runs.all { it is PdfTextRun || it is PdfLineBreak } &&
+                            end.runs.last() !is PdfLineBreak, "Omitting the end mark of this cell paragraph is not qualified")
+                        if (end.runs.all { it is PdfTextRun && it.text.all { c -> c == ' ' } }) omittedEndMark = hideMark
+                        blocks.dropLast(1) + end.withMinimumLineStyle(null).withParagraphMarkStyle(null)
+                    } else blocks
                     when (merge) {
                         "continue" -> {
                             val origin = previous[column] ?: reject("Vertical continuation has no origin")
@@ -1021,7 +1035,7 @@ internal class NativeDocxReader(
                             active[column] = origin
                         }
                         null, "restart" -> {
-                            val spec = CellSpec(blocks, background, span, alignment, cellBorders, preferredCellWidth, protectPreferredWidth, ownMargins)
+                            val spec = CellSpec(printable, background, span, alignment, cellBorders, preferredCellWidth, protectPreferredWidth, ownMargins, omittedEndMark)
                             cells += spec
                             if (merge == "restart") active[column] = spec
                         }
@@ -1046,9 +1060,18 @@ internal class NativeDocxReader(
             bookmarksBefore()
             val customBorders = specs.any { (cells, _) -> cells.any { it.borders != null } }
             val rows = specs.mapIndexed { rowIndex, (cells, allow) ->
-                val resolved = cells.map { PdfTableCell(it.blocks, it.background, it.span, it.rows, it.alignment,
-                    if (customBorders) it.borders ?: fallbackBorders else null, it.preferredWidth, it.margins)
-                    .withProtectedPreferredWidth(it.protectPreferredWidth) }
+                val resolved = cells.map { cell ->
+                    val resolvedCell = PdfTableCell(cell.blocks, cell.background, cell.span, cell.rows, cell.alignment,
+                        if (customBorders) cell.borders ?: fallbackBorders else null, cell.preferredWidth, cell.margins)
+                        .withProtectedPreferredWidth(cell.protectPreferredWidth)
+                    val endMark = cell.omittedEndMark ?: return@map resolvedCell
+                    try {
+                        resolvedCell.withOmittedTrailingEmptyParagraph(true)
+                    } catch (invalid: IllegalArgumentException) {
+                        source.current = endMark
+                        reject("Omitting a decorated or spaced cell end mark is not qualified")
+                    }
+                }
                 val minimum = rowMinimums[rowIndex]?.let { contentFloor ->
                     val topBorder = maxOf(border?.width ?: 0f, resolved.maxOfOrNull { it.borders?.top?.border?.width ?: 0f } ?: 0f)
                     val physical = contentFloor + rowPaddingFrames[rowIndex] + topBorder

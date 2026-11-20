@@ -52,7 +52,7 @@ internal object AutoTableWidths {
             val padding = margins.left + margins.right
             var minimum = 0f
             var maximum = 0f
-            for (block in placement.cell.blocks) {
+            for (block in placement.cell.printableBlocks) {
                 val widths = when (block) {
                     is PdfParagraph -> PageLayouter.intrinsicWidths(block, measurer)
                     is PdfTable -> {

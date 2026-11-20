@@ -35,7 +35,7 @@ internal object TableWidthResolver {
                 if (cell.columnSpan != 1 || cell.rowSpan != 1) unsupported()
                 val margins = cell.margins ?: table.cellMargins
                 var content = 0f
-                for (block in cell.blocks) {
+                for (block in cell.printableBlocks) {
                     val paragraph = block as? PdfParagraph ?: unsupported()
                     val format = paragraph.format
                     if (paragraph.listLabel != null || format.leftIndent != 0f || format.rightIndent != 0f ||

@@ -137,7 +137,8 @@ class PdfTableCell private constructor(
     val verticalAlignment: PdfVerticalAlignment, val borders: PdfCellBorders?,
     val preferredWidth: PdfPreferredWidth?, spacing: CellSpacing,
 ) {
-    private class CellSpacing(val margins: PdfMargins?, val protectPreferredWidth: Boolean = false)
+    private data class CellSpacing(val margins: PdfMargins?, val protectPreferredWidth: Boolean = false,
+        val omitTrailingEmptyParagraph: Boolean = false)
 
     @JvmOverloads constructor(blocks: List<PdfBlock>, background: PdfColor? = null, columnSpan: Int = 1, rowSpan: Int = 1,
         verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP, borders: PdfCellBorders? = null,
@@ -154,21 +155,41 @@ class PdfTableCell private constructor(
     /** Give this cell's physical preference priority when an automatic grid must shrink. */
     val protectPreferredWidth: Boolean = spacing.protectPreferredWidth
 
-    fun withProtectedPreferredWidth(enabled: Boolean): PdfTableCell = PdfTableCell(
-        blocks, background, columnSpan, rowSpan, verticalAlignment, borders, preferredWidth, CellSpacing(margins, enabled),
-    )
+    /** Exclude a trailing empty paragraph from printable cell bounds. */
+    val omitTrailingEmptyParagraph: Boolean = spacing.omitTrailingEmptyParagraph
+
+    fun withProtectedPreferredWidth(enabled: Boolean): PdfTableCell =
+        if (enabled == protectPreferredWidth) this else PdfTableCell(blocks, background, columnSpan, rowSpan, verticalAlignment,
+            borders, preferredWidth, CellSpacing(margins, enabled, omitTrailingEmptyParagraph))
+
+    fun withOmittedTrailingEmptyParagraph(enabled: Boolean): PdfTableCell =
+        if (enabled == omitTrailingEmptyParagraph) this else PdfTableCell(blocks, background, columnSpan, rowSpan, verticalAlignment,
+            borders, preferredWidth, CellSpacing(margins, protectPreferredWidth, enabled))
 
     internal fun withBlocks(blocks: List<PdfBlock>): PdfTableCell = PdfTableCell(
-        blocks, background, columnSpan, rowSpan, verticalAlignment, borders, preferredWidth, CellSpacing(margins, protectPreferredWidth),
+        blocks, background, columnSpan, rowSpan, verticalAlignment, borders, preferredWidth,
+        CellSpacing(margins, protectPreferredWidth, omitTrailingEmptyParagraph),
     )
 
     val blocks: List<PdfBlock> = Collections.unmodifiableList(ArrayList(blocks))
     val paragraphs: List<PdfParagraph> get() = blocks.filterIsInstance<PdfParagraph>()
+    internal val printableBlocks: List<PdfBlock> = if (omitTrailingEmptyParagraph && this.blocks.isNotEmpty())
+        this.blocks.subList(0, this.blocks.lastIndex) else this.blocks
     init {
         require(this.blocks.size in 1..128 && this.blocks.all { it is PdfParagraph || it is PdfTable }) { "Invalid cell blocks" }
         require(columnSpan in 1..16 && rowSpan in 1..500) { "Invalid cell span" }
         require(!protectPreferredWidth || columnSpan == 1 && rowSpan == 1 && (preferredWidth?.points ?: 0f) > 0f) {
             "Protected cell width requires a positive physical preference and a single grid cell"
+        }
+        if (omitTrailingEmptyParagraph) {
+            val end = this.blocks.lastOrNull() as? PdfParagraph
+            require(end != null && end.listLabel == null && end.contents == null && end.background == null &&
+                end.borders == null && end.lines.isEmpty() && end.anchoredImages.isEmpty() &&
+                end.spaceBefore == 0f && end.spaceAfter == 0f && !end.format.pageBreakBefore &&
+                end.runs.all { it is PdfTextRun && it.text.all { c -> c == ' ' } &&
+                    it.navigation == null && it.style.background == null && !it.style.underline && !it.style.strikethrough }) {
+                "Only a plain unspaced trailing empty table paragraph can be omitted"
+            }
         }
         require(margins == null || listOf(margins.top, margins.right, margins.bottom, margins.left).all { it <= 14_400f }) { "Cell margins exceed the layout limit" }
     }

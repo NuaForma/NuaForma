@@ -12,19 +12,19 @@ internal object WordTableWidths {
 
     fun validateSource(root: XmlElement, reject: (XmlElement, String) -> Nothing) {
         for (parent in root.descendants()) if (parent.name.namespaceURI == word && parent.name.localPart in setOf("tblPr", "tcPr")) {
-            for (name in listOf("tblW", "tcW", "tblLayout", "noWrap")) {
+            for (name in listOf("tblW", "tcW", "tblLayout", "noWrap", "hideMark")) {
                 val matches = parent.elements().filter { it.name.namespaceURI == word && it.name.localPart == name }
                 if (matches.size > 1) reject(matches[1], "Duplicate table width property")
             }
         }
-        for (node in root.descendants()) if (node.name.localPart in setOf("tblW", "tcW", "tblLayout", "noWrap")) {
+        for (node in root.descendants()) if (node.name.localPart in setOf("tblW", "tcW", "tblLayout", "noWrap", "hideMark")) {
             if (node.name.namespaceURI != word) reject(node, "Unsupported table width namespace")
             when (node.name.localPart) {
                 "tblLayout" -> {
                     validate(node, setOf("type"), reject)
                     if (node.attribute(word, "type") !in setOf("fixed", "autofit")) reject(node, "Unsupported table layout")
                 }
-                "noWrap" -> noWrap(node, reject)
+                "noWrap", "hideMark" -> cellToggle(node, reject)
                 else -> preferred(node, reject)
             }
         }
@@ -38,7 +38,7 @@ internal object WordTableWidths {
             if (node.name.namespaceURI != word) continue
             val (attribute, canonical) = when (node.name.localPart) {
                 "tblW", "tcW" -> "w" to measurement(node, reject).toString()
-                "noWrap" -> "val" to noWrap(node, reject).toString()
+                "noWrap", "hideMark" -> "val" to cellToggle(node, reject).toString()
                 else -> continue
             }
             val raw = node.attribute(word, attribute) ?: continue
@@ -61,12 +61,12 @@ internal object WordTableWidths {
         }
     }
 
-    fun noWrap(node: XmlElement, reject: (XmlElement, String) -> Nothing): Boolean {
+    fun cellToggle(node: XmlElement, reject: (XmlElement, String) -> Nothing): Boolean {
         validate(node, setOf("val"), reject)
         return when (node.attribute(word, "val")) {
             null, "true", "1", "on" -> true
             "false", "0", "off" -> false
-            else -> reject(node, "Invalid cell no-wrap toggle")
+            else -> reject(node, "Invalid Word cell toggle")
         }
     }
 

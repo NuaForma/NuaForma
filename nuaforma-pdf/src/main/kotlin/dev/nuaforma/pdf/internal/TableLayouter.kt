@@ -43,7 +43,8 @@ internal object TableLayouter {
             val pieces = mutableListOf<Piece>()
             var top = 0f
             var after = 0f
-            for ((blockIndex, block) in placement.cell.blocks.withIndex()) {
+            val blocks = placement.cell.printableBlocks
+            for ((blockIndex, block) in blocks.withIndex()) {
                 when (block) {
                     is PdfParagraph -> {
                         if (block.runs.any { it is PdfPageBreak })
@@ -51,13 +52,13 @@ internal object TableLayouter {
                         if (block.format.keepWithNext || block.format.keepLines || block.format.widowControl || block.format.pageBreakBefore) {
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph pagination rules inside table cells are not qualified")
                         }
-                        val p = FlowLayouter.paragraph(block, width, measurer, previous = placement.cell.blocks.getOrNull(blockIndex - 1) as? PdfParagraph, next = placement.cell.blocks.getOrNull(blockIndex + 1) as? PdfParagraph)
+                        val p = FlowLayouter.paragraph(block, width, measurer, previous = blocks.getOrNull(blockIndex - 1) as? PdfParagraph, next = blocks.getOrNull(blockIndex + 1) as? PdfParagraph)
                         top += ParagraphSpacing.before(block, after, blockIndex == 0)
                         for ((index, line) in p.lines.withIndex()) {
                             pieces += Piece(top, p.heights[index], line)
                             top += p.heights[index]
                         }
-                        after = ParagraphSpacing.after(block, blockIndex == placement.cell.blocks.lastIndex)
+                        after = ParagraphSpacing.after(block, blockIndex == blocks.lastIndex)
                         top += after
                     }
                     is PdfTable -> {

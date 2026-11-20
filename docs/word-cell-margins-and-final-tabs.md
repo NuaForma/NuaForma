@@ -43,3 +43,7 @@ An unadorned negative custom left stop is dormant in the qualified left-to-right
 ## Header and footer table pagination
 
 Page-band tables repeat as a whole. Their paragraphs retain text and vertical spacing while body-only grouping, keep-lines and widow/orphan controls have no effect. Explicit page breaks retain the existing rejection. This behavior applies to the shared page-band layout used by the DOCX provider and the Playground.
+
+## Cell end markers
+
+Qualified Word `w:hideMark` lets a row size to its printable content, without the final cell marker's font metrics. In a plain trailing empty paragraph there is no printed line. Earlier paragraphs, cell margins, borders and explicit minimum row heights still take up space. A disabled toggle retains the ordinary marker behavior. This qualification covers top-level cells with ordinary text and plain empty trailing paragraphs. Complex end marks, decorated or spaced empty trailing paragraphs, nested and vertically merged cells remain explicit source rejections. The shared model can express the plain trailing paragraph omission through `PdfTableCell.withOmittedTrailingEmptyParagraph(enabled)`.
