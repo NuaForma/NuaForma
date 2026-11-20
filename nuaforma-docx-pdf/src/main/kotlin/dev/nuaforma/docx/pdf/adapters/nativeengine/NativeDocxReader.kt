@@ -1116,7 +1116,7 @@ internal class NativeDocxReader(
                 "Legacy aligned percentage tables are not yet qualified")
             check(modernTableAlignment || alignment != PdfTableAlignment.RIGHT || !customBorders,
                 "Legacy right-aligned tables with custom cell borders are not yet qualified")
-            val declaredIndent = regions.property("tblInd")
+            val declaredIndent = regions.indentation()
             val indent = declaredIndent?.let { node ->
                 WordNumericSpellings.tableIndentPoints(node) { origin, message -> source.current = origin; reject(message) }
             } ?: 0f

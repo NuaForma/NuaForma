@@ -79,6 +79,10 @@ internal object WordNumericSpellings {
         var changed = false
         for (node in nodes) {
             leaf(node, setOf("w", "type"), reject)
+            if (node.attribute(word, "type") == "nil") {
+                if (node.attribute(word, "w") != "0") reject(node, "A nil table indentation must declare zero")
+                continue
+            }
             if (node.attribute(word, "type") != "dxa") reject(node, "Only physical table indentation is qualified")
             changed = integer(node, "w", -288_000, reject) || changed
         }

@@ -53,6 +53,9 @@ internal class NativeDocxTableStyles(
 
     fun property(name: String): XmlElement? = tableProperties.mapNotNull { child(it, name) }.lastOrNull()
 
+    fun indentation(): XmlElement? =
+        tableProperties.mapNotNull { child(it, "tblInd") }.lastOrNull { value(it, "type") != "nil" }
+
     fun margin(name: String): XmlElement? = tableProperties.mapNotNull { properties ->
         child(properties, "tblCellMar")?.let { margins ->
             validate(margins, emptySet(), setOf("top", "right", "bottom", "left"))

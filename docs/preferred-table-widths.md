@@ -62,3 +62,9 @@ An empty body paragraph immediately following a table can specify zero automatic
 line height without contributing a line to the PDF. The qualified paragraph has
 no content, paint, spacing or pagination effect. Nonempty and visibly spaced
 paragraphs retain a source diagnostic.
+
+## Nil table indentation
+
+A nil table indentation with an explicit zero measurement leaves the indentation
+unspecified at its level. Word can use an inherited physical indent. Legacy
+Word therefore treats a nil setting differently from a physical zero indent.
