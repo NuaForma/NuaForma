@@ -43,9 +43,8 @@ internal object DocumentTransforms {
                     blocks(block.paragraphs, key, Scope.FRAME).map { it as PdfParagraph }, block.anchor, block.rotation,
                     block.padding, block.fill, block.border, block.verticalAlignment, block.wrap, metadata(block, key, PdfSemanticRole.FRAME)).withDrawingOrder(block.drawingOrder))
                 is PdfTable -> listOf(PdfTable(block.columnWidths, block.rows.mapIndexed { rowIndex, row ->
-                    PdfTableRow(row.cells.mapIndexed { cellIndex, cell -> PdfTableCell(
-                        blocks(cell.blocks, semanticChildId(key, "r$rowIndex-c$cellIndex"), Scope.CELL), cell.background,
-                        cell.columnSpan, cell.rowSpan, cell.verticalAlignment, cell.borders, cell.preferredWidth, cell.margins)
+                    PdfTableRow(row.cells.mapIndexed { cellIndex, cell ->
+                        cell.withBlocks(blocks(cell.blocks, semanticChildId(key, "r$rowIndex-c$cellIndex"), Scope.CELL))
                     }, row.allowSplit, row.splitOversized, row.minimumHeight)
                 }, block.cellMargins, block.border, block.repeatedHeaderRows, block.leftIndent, block.widthPolicy, metadata(block, key, PdfSemanticRole.TABLE), block.preferredWidth).withRightOverflow(block.rightOverflow).withAlignment(block.alignment))
             }

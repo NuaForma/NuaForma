@@ -24,16 +24,18 @@ internal object AutoTableWidths {
         val physical = preferred(table.preferredWidth, availableWidth)
         val reference = minOf(available, physical ?: if (hasPercent) available else maximum.sum())
         val preferred = minimum.toMutableList()
+        val protected = minimum.toMutableList()
         val specified = BooleanArray(minimum.size)
         for (constraint in constraints) {
             val placement = constraint.placement
             val value = preferred(placement.cell.preferredWidth, reference) ?: continue
             satisfy(preferred, placement, value, table.columnWidths)
+            if (placement.cell.protectPreferredWidth) satisfy(protected, placement, value, table.columnWidths)
             for (column in placement.column until placement.column + placement.cell.columnSpan) specified[column] = true
         }
         for (column in preferred.indices) if (!specified[column]) preferred[column] = maximum[column]
-        val target = minOf(available, maxOf(minimum.sum(), physical ?: preferred.sum()))
-        val widths = fit(preferred, minimum, target)
+        val target = minOf(available, maxOf(protected.sum(), physical ?: preferred.sum()))
+        val widths = if (protected.sum() > target) fit(protected, minimum, target) else fit(preferred, protected, target)
         return PdfTable(widths, table.rows, table.cellMargins, table.border, table.repeatedHeaderRows,
             table.leftIndent, semantics = table.semantics, preferredWidth = table.preferredWidth).withRightOverflow(table.rightOverflow).withAlignment(table.alignment)
     }

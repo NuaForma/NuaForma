@@ -137,7 +137,7 @@ class PdfTableCell private constructor(
     val verticalAlignment: PdfVerticalAlignment, val borders: PdfCellBorders?,
     val preferredWidth: PdfPreferredWidth?, spacing: CellSpacing,
 ) {
-    private class CellSpacing(val margins: PdfMargins?)
+    private class CellSpacing(val margins: PdfMargins?, val protectPreferredWidth: Boolean = false)
 
     @JvmOverloads constructor(blocks: List<PdfBlock>, background: PdfColor? = null, columnSpan: Int = 1, rowSpan: Int = 1,
         verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP, borders: PdfCellBorders? = null,
@@ -150,11 +150,26 @@ class PdfTableCell private constructor(
     ) : this(blocks, background, columnSpan, rowSpan, verticalAlignment, borders, preferredWidth, CellSpacing(margins))
 
     val margins: PdfMargins? = spacing.margins
+
+    /** Give this cell's physical preference priority when an automatic grid must shrink. */
+    val protectPreferredWidth: Boolean = spacing.protectPreferredWidth
+
+    fun withProtectedPreferredWidth(enabled: Boolean): PdfTableCell = PdfTableCell(
+        blocks, background, columnSpan, rowSpan, verticalAlignment, borders, preferredWidth, CellSpacing(margins, enabled),
+    )
+
+    internal fun withBlocks(blocks: List<PdfBlock>): PdfTableCell = PdfTableCell(
+        blocks, background, columnSpan, rowSpan, verticalAlignment, borders, preferredWidth, CellSpacing(margins, protectPreferredWidth),
+    )
+
     val blocks: List<PdfBlock> = Collections.unmodifiableList(ArrayList(blocks))
     val paragraphs: List<PdfParagraph> get() = blocks.filterIsInstance<PdfParagraph>()
     init {
         require(this.blocks.size in 1..128 && this.blocks.all { it is PdfParagraph || it is PdfTable }) { "Invalid cell blocks" }
         require(columnSpan in 1..16 && rowSpan in 1..500) { "Invalid cell span" }
+        require(!protectPreferredWidth || columnSpan == 1 && rowSpan == 1 && (preferredWidth?.points ?: 0f) > 0f) {
+            "Protected cell width requires a positive physical preference and a single grid cell"
+        }
         require(margins == null || listOf(margins.top, margins.right, margins.bottom, margins.left).all { it <= 14_400f }) { "Cell margins exceed the layout limit" }
     }
 }

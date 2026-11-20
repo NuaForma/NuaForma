@@ -33,3 +33,9 @@ Qualified source now accepts bounded decimal `dxa` spellings, truncating positiv
 For top-level legacy Word tables, an omitted effective `tblInd` differs from explicit zero: the former places the table at the containing origin; explicit zero retains the existing cell-padding adjustment. Inherited declarations retain their meaning. Mode 15 and nested-table behavior are unchanged. Independent Word probes cover omitted/12/14/15 compatibility modes, omitted/explicit zero and A4/Letter, with complete glyph-position differences below .21 points.
 
 `NativePreferredWidthSpellingTest` retains the existing width goldens for literal percentage, integer-decimal and fractional-twip sources. `NativeImplicitTableIndentTest` owns sixteen new synthetic sources and actual Word references. These are source qualification additions, not a published release or a claim that every automatic table layout is supported. The Playground uses the same reader; no new option or dependency is introduced.
+
+## Physical AutoFit cell width protection
+
+In a top-level automatic table, an enabled [Word cell no-wrap setting](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.nowrap) protects a positive physical preference on a single, unmerged cell. Other columns first shrink toward their intrinsic minimum. The table may grow beyond its overall preference where the containing width permits. If the protected preference still cannot fit, the containing width takes priority. Text continues to wrap at its normal opportunities. For fixed layouts the toggle has no effect. Automatic cells with percentage or unspecified widths have different no-wrap semantics and remain outside this profile.
+
+The neutral model exposes this priority through immutable `PdfTableCell.withProtectedPreferredWidth(enabled)`. It applies during automatic grid sizing and does not change existing cell constructors. Playground generation and cleanup use the same reader.

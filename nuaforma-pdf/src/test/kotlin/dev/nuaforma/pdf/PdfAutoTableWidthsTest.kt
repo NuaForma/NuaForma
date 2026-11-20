@@ -43,6 +43,31 @@ class PdfAutoTableWidthsTest {
     }
 
     @Test
+    fun `protected physical preferences yield only after other cells reach their minimum`() {
+        val first = cell("FIRST", PdfPreferredWidth.points(180f)).withProtectedPreferredWidth(true)
+        val second = cell("SECOND", PdfPreferredWidth.points(160f))
+        val preferred = table(listOf(first, second), PdfPreferredWidth.points(290f))
+        val constrained = TableWidthResolver.resolve(preferred, measurer, 400f).columnWidths
+        assertEquals(180f, constrained.first(), .01f)
+        assertEquals(110f, constrained.last(), .01f)
+        val tight = table(listOf(first, second), PdfPreferredWidth.points(160f))
+        val expanded = TableWidthResolver.resolve(tight, measurer, 400f).columnWidths
+        assertEquals(180f, expanded.first(), .01f)
+        assertEquals(42f, expanded.last(), .01f)
+        val bounded = TableWidthResolver.resolve(tight, measurer, 190f).columnWidths
+        assertEquals(148f, bounded.first(), .01f)
+        assertEquals(42f, bounded.last(), .01f)
+    }
+
+    @Test
+    fun `width protection requires one cell and a positive physical preference`() {
+        for (invalid in listOf(cell("A"), cell("A", PdfPreferredWidth.percent(50f)),
+            cell("A", PdfPreferredWidth.points(0f)), cell("A", PdfPreferredWidth.points(60f), span = 2))) {
+            assertThrows(IllegalArgumentException::class.java) { invalid.withProtectedPreferredWidth(true) }
+        }
+    }
+
+    @Test
     fun `merged cell text constrains the shared columns without changing the grid`() {
         val source = PdfTable(listOf(0f, 0f), listOf(PdfTableRow(listOf(cell("A"), cell("B"))),
             PdfTableRow(listOf(cell("LONGWORD", span = 2)))), widthPolicy = PdfTableWidthPolicy.AUTO_FIT)
@@ -65,11 +90,12 @@ class PdfAutoTableWidthsTest {
 
     @Test
     fun `immutable document transformations retain both preferences`() {
-        val source = table(listOf(cell("A", PdfPreferredWidth.points(70f)), cell("B")), PdfPreferredWidth.percent(60f))
+        val source = table(listOf(cell("A", PdfPreferredWidth.points(70f)).withProtectedPreferredWidth(true), cell("B")), PdfPreferredWidth.percent(60f))
         val page = PdfPage(300f, 300f, PdfMargins(30f, 30f, 30f, 30f))
         val result = DocumentTransforms.normalized(PdfDocument(page, listOf(source), PdfFlow())).blocks.single() as PdfTable
         assertEquals(source.preferredWidth, result.preferredWidth)
         assertEquals(source.rows[0].cells[0].preferredWidth, result.rows[0].cells[0].preferredWidth)
+        assertTrue(result.rows[0].cells[0].protectPreferredWidth)
         assertEquals(PdfTableWidthPolicy.AUTO_FIT, result.widthPolicy)
     }
 

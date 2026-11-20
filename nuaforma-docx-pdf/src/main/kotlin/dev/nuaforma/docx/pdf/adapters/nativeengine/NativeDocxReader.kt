@@ -905,7 +905,11 @@ internal class NativeDocxReader(
             val headerFlags = mutableListOf<Boolean>()
             val rowMinimums = mutableListOf<Float?>()
             val rowPaddingFrames = mutableListOf<Float>()
-            data class CellSpec(val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment, val borders: PdfCellBorders?, val preferredWidth: PdfPreferredWidth?, val declaredMargins: PdfMargins?, var margins: PdfMargins? = declaredMargins, var rows: Int = 1)
+            data class CellSpec(
+                val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment,
+                val borders: PdfCellBorders?, val preferredWidth: PdfPreferredWidth?, val protectPreferredWidth: Boolean,
+                val declaredMargins: PdfMargins?, var margins: PdfMargins? = declaredMargins, var rows: Int = 1,
+            )
             val specs = mutableListOf<Pair<List<CellSpec>, Boolean>>()
             var previous = mapOf<Int, CellSpec>()
             val events = table.elements().iterator()
@@ -938,7 +942,7 @@ internal class NativeDocxReader(
                 for (cell in row.elements().filter { it.name.localPart == "tc" }) {
                     children(cell, setOf("tcPr", "p", "tbl"))
                     val cp = cell.one("tcPr") ?: reject("Explicit cell properties required")
-                    children(cp, setOf("tcW", "shd", "gridSpan", "vMerge", "vAlign", "tcBorders", "tcMar"))
+                    children(cp, setOf("tcW", "shd", "gridSpan", "vMerge", "vAlign", "tcBorders", "tcMar", "noWrap"))
                     val cellStyles = regions.layers(rowIndex, column)
                     val cellProperties = cellStyles.mapNotNull { it.one("tcPr") } + cp
                     val marginDeclarations = cellProperties.mapNotNull { it.one("tcMar") }
@@ -965,6 +969,14 @@ internal class NativeDocxReader(
                     check(span in 1..16 && column + span <= widths.size, "Invalid grid span")
                     val cellWidth = cp.one("tcW")
                     val preferredCellWidth = if (automaticLayout) preferredWidth(cellWidth) else null
+                    val protectPreferredWidth = cp.one("noWrap")?.let { node ->
+                        val enabled = WordTableWidths.noWrap(node) { origin, message -> source.current = origin; reject(message) }
+                        source.current = node
+                        check(!enabled || !automaticLayout || depth == 0 && span == 1 && cp.one("vMerge") == null &&
+                            (preferredCellWidth?.points ?: 0f) > 0f,
+                            "Cell no-wrap in automatic tables requires a positive physical width and a single cell in a top-level table")
+                        enabled && automaticLayout
+                    } ?: false
                     if (naturalWidths) automaticDimension(cellWidth ?: reject("Missing cell width"))
                     else if (!automaticLayout) check(kotlin.math.abs(dimension(cellWidth ?: reject("Missing cell width")) - widths.subList(column, column + span).sum()) < 0.01f, "Inconsistent cell width")
                     val background = cellProperties.mapNotNull { it.one("shd") }.lastOrNull()?.let(themeColors::cellFill)
@@ -999,7 +1011,7 @@ internal class NativeDocxReader(
                             active[column] = origin
                         }
                         null, "restart" -> {
-                            val spec = CellSpec(blocks, background, span, alignment, cellBorders, preferredCellWidth, ownMargins)
+                            val spec = CellSpec(blocks, background, span, alignment, cellBorders, preferredCellWidth, protectPreferredWidth, ownMargins)
                             cells += spec
                             if (merge == "restart") active[column] = spec
                         }
@@ -1025,7 +1037,8 @@ internal class NativeDocxReader(
             val customBorders = specs.any { (cells, _) -> cells.any { it.borders != null } }
             val rows = specs.mapIndexed { rowIndex, (cells, allow) ->
                 val resolved = cells.map { PdfTableCell(it.blocks, it.background, it.span, it.rows, it.alignment,
-                    if (customBorders) it.borders ?: fallbackBorders else null, it.preferredWidth, it.margins) }
+                    if (customBorders) it.borders ?: fallbackBorders else null, it.preferredWidth, it.margins)
+                    .withProtectedPreferredWidth(it.protectPreferredWidth) }
                 val minimum = rowMinimums[rowIndex]?.let { contentFloor ->
                     val topBorder = maxOf(border?.width ?: 0f, resolved.maxOfOrNull { it.borders?.top?.border?.width ?: 0f } ?: 0f)
                     val physical = contentFloor + rowPaddingFrames[rowIndex] + topBorder
