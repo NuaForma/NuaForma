@@ -23,6 +23,12 @@ internal class WordThemeColors(
         return themed(node, role, node.attribute(W, "themeTint"), node.attribute(W, "themeShade"))
     }
 
+    fun borderColor(node: XmlElement, role: String): PdfColor? {
+        if (role == "none") return null
+        if (!supportsBorderRole(role)) reject(node, "Unsupported table border theme color")
+        return themed(node, role, null, null)
+    }
+
     fun cellFill(node: XmlElement): PdfColor? {
         validateCellFill(node, reject)
         val role = node.attribute(W, "themeFill")
@@ -134,6 +140,8 @@ internal class WordThemeColors(
         private val drawingAliases = mapOf("bg1" to "lt1", "bg2" to "lt2", "tx1" to "dk1", "tx2" to "dk2")
 
         fun drawingSlot(value: String): String? = drawingAliases[value] ?: value.takeIf { it in roles.values }
+
+        fun supportsBorderRole(value: String): Boolean = value == "none" || value in roles
 
         fun validateSource(root: XmlElement, reject: (XmlElement, String) -> Nothing) {
             if (root.name.namespaceURI == A && root.name.localPart == "theme") validateThemeSource(root, reject)

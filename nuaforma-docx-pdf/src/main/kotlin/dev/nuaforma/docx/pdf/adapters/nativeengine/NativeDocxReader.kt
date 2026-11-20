@@ -881,7 +881,7 @@ internal class NativeDocxReader(
             val borderNodes = regions.property("tblBorders")
             borderNodes?.let { children(it, setOf("top", "left", "bottom", "right", "insideH", "insideV")) }
             val borders = borderNodes?.elements().orEmpty().map { node ->
-                WordTableBorders.read(node) { origin, message -> source.current = origin; reject(message) }
+                WordTableBorders.read(node, themeColors) { origin, message -> source.current = origin; reject(message) }
             }
             check(borders.isEmpty() || borders.size == 6 && borders.distinct().size == 1, "Only uniform table borders are supported")
             val border = borders.firstOrNull()
@@ -920,7 +920,7 @@ internal class NativeDocxReader(
 
                 fun stroke(name: String): PdfEdgeStroke? {
                     val edge = node.one(name) ?: return when (name) { "top" -> inherited.top; "right" -> inherited.right; "bottom" -> inherited.bottom; else -> inherited.left }
-                    val stroke = WordTableBorders.read(edge) { origin, message -> source.current = origin; reject(message) }
+                    val stroke = WordTableBorders.read(edge, themeColors) { origin, message -> source.current = origin; reject(message) }
                     return if (edge.value("val") == "none") fallbackStroke else stroke?.let(::ranked)
                 }
 

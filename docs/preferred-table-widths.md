@@ -77,3 +77,9 @@ and a horizontal clearance of at least half a point, increased to half the
 border width when that is wider. Explicit table and cell margins continue
 to participate in the normal source hierarchy. The qualified default covers
 body tables with ordinary uniform borders.
+
+## Embedded theme colors on solid borders
+
+Ordinary solid table and cell borders can select a color from the embedded Word
+theme. Word uses the active palette color even when the cached RGB value differs.
+The existing physical border and conflict rules apply to the resolved color.

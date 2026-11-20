@@ -34,6 +34,9 @@ internal object WordTableBorders {
                 reject(node, "Invalid original table border measurement")
         }
         node.attribute(word, "color")?.let { if (it != "auto" && !it.matches(Regex("[0-9A-Fa-f]{6}"))) reject(node, "Invalid table border color") }
+        if (node.attribute(word, "val") == "single") node.attribute(word, "themeColor")?.let {
+            if (!WordThemeColors.supportsBorderRole(it)) reject(node, "Unsupported original table border theme color")
+        }
         for (name in listOf("themeTint", "themeShade")) node.attribute(word, name)?.let {
             if (!it.matches(Regex("[0-9A-Fa-f]{2}"))) reject(node, "Invalid table border theme transform")
         }
@@ -42,10 +45,10 @@ internal object WordTableBorders {
         }
     }
 
-    fun read(node: XmlElement, reject: (XmlElement, String) -> Nothing): PdfBorder? {
+    fun read(node: XmlElement, theme: WordThemeColors, reject: (XmlElement, String) -> Nothing): PdfBorder? {
         if (node.name.namespaceURI != word || node.name.localPart !in edges || node.elements().isNotEmpty() ||
             node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
-            node.attributes.keys.any { it.namespaceURI != word || it.localPart !in setOf("val", "sz", "color", "space") })
+            node.attributes.keys.any { it.namespaceURI != word || it.localPart !in setOf("val", "sz", "color", "space", "themeColor") })
             reject(node, "Unsupported ordinary table border structure")
         if (node.attribute(word, "space") !in setOf(null, "0")) reject(node, "Only zero table border spacing is qualified")
         val kind = node.attribute(word, "val")
@@ -55,8 +58,14 @@ internal object WordTableBorders {
         if (raw != null && (size == null || size !in 0..32 || !raw.matches(Regex("[0-9]{1,10}")))) reject(node, "Invalid table border width")
         val color = node.attribute(word, "color")
         if (color != null && color != "auto" && !color.matches(Regex("[0-9A-Fa-f]{6}"))) reject(node, "Invalid table border color")
-        if (kind != "single") return null
+        val role = node.attribute(word, "themeColor")
+        if (kind != "single") {
+            if (role != null) reject(node, "A themed border requires a solid line")
+            return null
+        }
         if (size == null || size !in 1..32) reject(node, "Invalid solid table border width")
+        val themed = role?.let { theme.borderColor(node, it) }
+        if (themed != null) return PdfBorder(size / 8f, themed)
         if (color == null) reject(node, "Missing solid table border color")
         val rgb = if (color == "auto") 0 else color.toInt(16)
         return PdfBorder(size / 8f, PdfColor(rgb shr 16, rgb shr 8 and 255, rgb and 255))
