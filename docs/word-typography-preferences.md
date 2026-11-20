@@ -70,3 +70,14 @@ result style when present. Word can omit the cache entirely and the field still
 uses its code style and receives the calculated page number or page count.
 Uncached static, linked and cross-paragraph field constructs remain qualified
 separately.
+
+## Paragraph spacing in line units
+
+Word's [line-unit paragraph spacing](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/264a0139-8174-4574-b20d-ab778e770931)
+uses `beforeLines` and `afterLines` in hundredths of a nominal line. In the
+qualified A4 and Letter references the nominal unit is 12 points, independent of
+the adjacent text size and its line-height multiplier. A nonzero line-unit
+value takes precedence over the corresponding twip value, including a twip
+value set later in the style hierarchy. Resulting gaps follow the same
+automatic-spacing, contextual-spacing and paragraph-collapse rules as physical
+gaps.

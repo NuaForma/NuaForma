@@ -470,8 +470,8 @@ internal class NativeDocxReader(
             }
             val automaticBefore = geometry.autoBefore && !formatting.additiveParagraphSpacing
             val automaticAfter = geometry.autoAfter && !formatting.additiveParagraphSpacing
-            geometry = geometry.copy(before = if (automaticBefore) 14f else geometry.before,
-                after = if (automaticAfter) 14f else geometry.after)
+            geometry = geometry.copy(before = if (automaticBefore) 14f else geometry.beforeLines ?: geometry.before,
+                after = if (automaticAfter) 14f else geometry.afterLines ?: geometry.after)
             if (geometry.contextual) {
 
                 fun same(node: XmlElement?) = node != null && (node.one("pPr")?.one("pStyle")?.value("val") ?: normal) == (direct?.one("pStyle")?.value("val") ?: normal)
@@ -1666,7 +1666,8 @@ internal class NativeDocxReader(
         val mirror: Boolean = false,
         val background: PdfColor? = null,
         val alignment: PdfAlignment = PdfAlignment.LEFT, val left: Float = 0f, val right: Float = 0f, val first: Float = 0f,
-        val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false, val direction: PdfTextDirection? = null, val borders: PdfParagraphBorders? = null)
+        val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false, val direction: PdfTextDirection? = null, val borders: PdfParagraphBorders? = null,
+        val beforeLines: Float? = null, val afterLines: Float? = null)
 
     private fun paragraphProperties(property: XmlElement, initial: Geometry, themeColors: WordThemeColors): Geometry {
         NativeCellPagination.validateProperties(property) { node, message ->
@@ -1733,7 +1734,7 @@ internal class NativeDocxReader(
         property.one("contextualSpacing")?.let { result = result.copy(contextual = flag(it)) }
         property.one("mirrorIndents")?.let { check(it.elements().isEmpty(), "Invalid mirrored indentation"); result = result.copy(mirror = flag(it)) }
         property.one("spacing")?.let {
-            attributes(it, setOf("before", "after", "line", "lineRule", "beforeAutospacing", "afterAutospacing"))
+            attributes(it, setOf("before", "after", "line", "lineRule", "beforeAutospacing", "afterAutospacing", "beforeLines", "afterLines"))
             check(it.elements().isEmpty() && it.children.filterIsInstance<XmlText>().all { text -> text.text.isBlank() }, "Invalid paragraph spacing")
 
             fun auto(name: String, inherited: Boolean): Boolean = when (it.value(name)) {
@@ -1751,8 +1752,17 @@ internal class NativeDocxReader(
                     else -> reject("Unsupported line spacing policy")
                 }
             }
+            fun inLines(name: String, inherited: Float?): Float? {
+                val value = it.value(name) ?: return inherited
+                return WordNumericSpellings.spacingInLineUnits(it, value) { node, message ->
+                    source.current = node
+                    reject(message)
+                }.takeIf { points -> points > 0f }
+            }
+
             result = result.copy(before = it.value("before")?.let(::twips) ?: result.before,
-                after = it.value("after")?.let(::twips) ?: result.after)
+                after = it.value("after")?.let(::twips) ?: result.after,
+                beforeLines = inLines("beforeLines", result.beforeLines), afterLines = inLines("afterLines", result.afterLines))
         }
         property.one("jc")?.let { result = result.copy(alignment = when (it.value("val")) {
             "left" -> PdfAlignment.LEFT; "center" -> PdfAlignment.CENTER; "right" -> PdfAlignment.RIGHT; "both" -> PdfAlignment.JUSTIFY; else -> reject("Unsupported alignment")

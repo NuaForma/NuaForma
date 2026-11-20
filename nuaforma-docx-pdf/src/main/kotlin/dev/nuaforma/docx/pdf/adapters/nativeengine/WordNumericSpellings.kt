@@ -21,7 +21,7 @@ internal object WordNumericSpellings {
                 "tblPr" -> tableProperties(parent, reject)
                 "pPr" -> {
                     validateNegativeTabs(parent, reject)
-                    automaticSpacing(parent, emptyLineSpacings, reject)
+                    paragraphSpacing(parent, emptyLineSpacings, reject)
                 }
                 else -> false
             } || changed
@@ -114,12 +114,23 @@ internal object WordNumericSpellings {
         }
     }
 
-    private fun automaticSpacing(parent: XmlElement, emptyLineSpacings: Set<XmlElement>, reject: (XmlElement, String) -> Nothing): Boolean {
+    fun spacingInLineUnits(node: XmlElement, value: String, reject: (XmlElement, String) -> Nothing): Float {
+        val units = value.takeIf { it.matches(Regex("[0-9]{1,6}")) }?.toInt()
+            ?: reject(node, "Invalid Word paragraph spacing in line units")
+        if (units > 120_000) reject(node, "Word paragraph spacing in line units exceeds the qualified bounds")
+        // Word uses a nominal 12-point line here, independent of the line height of the adjacent text.
+        return units * 12f / 100f
+    }
+
+    private fun paragraphSpacing(parent: XmlElement, emptyLineSpacings: Set<XmlElement>, reject: (XmlElement, String) -> Nothing): Boolean {
         val nodes = parent.elements().filter { it.name.localPart == "spacing" }
-        if (nodes.none { it.attribute(word, "line") != null }) return false
+        val measurements = listOf("line", "beforeLines", "afterLines")
+        if (nodes.none { node -> measurements.any { node.attribute(word, it) != null } }) return false
         if (nodes.size > 1) reject(nodes[1], "Duplicate original paragraph spacing")
         val node = nodes.single()
-        leaf(node, setOf("before", "after", "line", "lineRule", "beforeAutospacing", "afterAutospacing"), reject)
+        leaf(node, setOf("before", "after", "line", "lineRule", "beforeAutospacing", "afterAutospacing", "beforeLines", "afterLines"), reject)
+        for (name in listOf("beforeLines", "afterLines")) node.attribute(word, name)?.let { spacingInLineUnits(node, it, reject) }
+        if (node.attribute(word, "line") == null) return false
         if (node.attribute(word, "lineRule") !in setOf(null, "auto")) {
             if (node.attribute(word, "line")?.contains('.') == true) reject(node, "Fractional non-automatic line spacing is not qualified")
             return false
