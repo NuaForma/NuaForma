@@ -486,7 +486,7 @@ internal class NativeDocxReader(
                 reject("Active automatic hyphenation is not yet qualified")
             }
             val tableSize = tableStyles.any { it.one("rPr")?.one("sz") != null }
-            val base = (tableStyles + styleChain).fold(resolveRun(defaultRun, Face(openType = modernTableAlignment || formatting.openTypeFeatures,
+            val base = (tableStyles + styleChain).fold(resolveRun(defaultRun, Face(size = 10f, openType = modernTableAlignment || formatting.openTypeFeatures,
                 paragraphBackground = geometry.background))) { result, style ->
                 val resolved = resolveRun(style.one("rPr"), result)
                 if (legacyTableHierarchy && tableSize && style === normalStyle && style.one("rPr")?.one("sz") != null &&
