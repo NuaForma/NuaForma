@@ -53,3 +53,7 @@ Word `w:caps` changes visible text after template substitution. The source templ
 ## Zero-width text outlines
 
 A qualified [Word text outline](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-docx/5b065f17-63c7-4d54-83e3-6f3c161f3afa) with explicit zero width does not paint. Word keeps the same searchable text and emits no outline path for the black, red and unfilled zero-width controls. The A4 reference retained identical pixels. The Letter reference placed some glyphs up to 0.27 point from the control. Qualified shapes use the default or round cap, a single centered stroke, and either an empty outline or a supported fill declaration with a solid dash and bevel. Visible outlines and unsupported structure still fail with the source location.
+
+## Empty legacy page-band frames
+
+An invisible legacy paragraph frame with the qualified centered, text-relative geometry occupies no flow space in the header or footer. Its original DOCX metadata is retained. Word references keep the same page pixels with an empty frame; an ordinary blank paragraph still takes up space. Frames with visible content, other geometry or page-break behavior remain qualified separately.

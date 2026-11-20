@@ -1367,9 +1367,31 @@ internal class NativeDocxReader(
                     number(anchor.attribute("", "distB") ?: "0") / 12700, number(anchor.attribute("", "distL") ?: "0") / 12700)).withDrawingOrder(order)
         }
 
+        fun omitEmptyLegacyBandFrame(paragraph: XmlElement, partRelations: Map<String, String>): Boolean {
+            val properties = paragraph.one("pPr") ?: return false
+            val frame = properties.one("framePr") ?: return false
+            val geometry = mapOf("wrap" to "around", "vAnchor" to "text", "hAnchor" to "margin", "xAlign" to "center", "y" to "1")
+            if (paragraph.elements() != listOf(properties) || frame.attributes.size != geometry.size ||
+                geometry.any { (name, value) -> frame.value(name) != value } ||
+                frame.elements().isNotEmpty() || frame.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
+                paragraph.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) return false
+
+            val projected = XmlElement(paragraph.name, paragraph.attributes, paragraph.namespaces)
+            val style = XmlElement(properties.name, properties.attributes, properties.namespaces)
+            style.children += properties.children.filterNot { it === frame }
+            projected.children += style
+            val marker = readParagraph(projected, partRelations, fields = true)
+            source.current = frame
+            check(unprintedBand(listOf(marker)) && !marker.format.pageBreakBefore && marker.background == null &&
+                marker.runs.all { (it as? PdfTextRun)?.style?.background == null },
+                "Visible or paginating legacy frames are not qualified in page bands")
+            return true
+        }
+
         fun readBlocks(root: XmlElement, partRelations: Map<String, String>, fields: Boolean): List<PdfBlock> = root.elements().filter { it.name.localPart != "sectPr" }.flatMapIndexed { index, block ->
             when (block.name.localPart) {
                 "p" -> {
+                    if (fields && omitEmptyLegacyBandFrame(block, partRelations)) return@flatMapIndexed emptyList()
                     val frames = block.elements().filter { it.name.localPart == "r" }.flatMap { it.elements().filter { node -> node.name.namespaceURI == word && !lineReader.isLine(node) && (node.name.localPart == "pict" || node.name.localPart == "drawing" && node.elements().any { it.name.namespaceURI == wp && it.name.localPart == "anchor" }) } }
                     source.current = block
                     val plain = XmlElement(block.name, block.attributes, block.namespaces)
