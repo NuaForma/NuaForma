@@ -35,3 +35,7 @@ The normal combined build passes all 1,601 tests, with zero failures, errors or 
 The final local corpus round retains nine successful documents out of 250: two of the original hundred and seven of the added 150. All source hashes remain unchanged. The thirteen previously generated pages retain exact pixels, text and page counts, with embedded fonts. No additional complete document converted in this group. Passing one feature's fixtures is not a claim of full support for arbitrary Word documents.
 
 The production and Playground providers share these improvements. There is no new endpoint, control, permissive fallback, font substitution or runtime dependency. Original local sample documents and font files are not checked into the repository. No release or site publication is part of this work.
+
+## Negative tab positions
+
+An unadorned negative custom left stop is dormant in the qualified left-to-right Word profile. The checked Word controls skip it even when text begins further into the left margin. Negative clear stops have no printable effect. Automatic tab intervals can still land before the margin when the current cursor is there, subject to the physical page bounds. Normal stop choice uses the actual rendered text after template substitution. Other negative alignment and leader combinations remain explicit source rejections.

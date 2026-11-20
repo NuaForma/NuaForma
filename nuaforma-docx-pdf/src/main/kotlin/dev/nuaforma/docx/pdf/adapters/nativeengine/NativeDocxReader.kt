@@ -1591,8 +1591,16 @@ internal class NativeDocxReader(
             val positions = mutableSetOf<Float>()
             var numTab = result.listTab
             for (tab in tabs.elements()) {
-                attributes(tab, setOf("val", "pos", "leader")); check(tab.elements().isEmpty(), "Invalid tab stop")
-                val pos = twips(tab.value("pos")); check(positions.add(pos), "Duplicate source tab position")
+                attributes(tab, setOf("val", "pos", "leader"))
+                check(tab.elements().isEmpty() && tab.children.filterIsInstance<XmlText>().all { it.text.isBlank() }, "Invalid tab stop")
+                val position = tab.value("pos")?.toIntOrNull()?.takeIf { it in -288_000..288_000 } ?: reject("Invalid tab position")
+                val pos = position / 20f
+                check(positions.add(pos), "Duplicate source tab position")
+                if (pos < 0f) {
+                    check(tab.value("val") in setOf("left", "clear") && tab.value("leader") in setOf(null, "none"),
+                        "Only negative left tab stops without leaders and negative clear stops are qualified")
+                    continue
+                }
                 if (tab.value("val") == "clear") { merged.remove(pos); if (numTab == pos) numTab = null; continue }
                 val kind = when (tab.value("val")) {
                     "left", "num" -> PdfTabAlignment.LEFT; "right" -> PdfTabAlignment.RIGHT

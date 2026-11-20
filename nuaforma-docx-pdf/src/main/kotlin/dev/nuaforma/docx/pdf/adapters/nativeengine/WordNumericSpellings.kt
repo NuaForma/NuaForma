@@ -18,7 +18,10 @@ internal object WordNumericSpellings {
             changed = when (parent.name.localPart) {
                 "tblGrid" -> grid(parent, reject)
                 "tblPr" -> tableProperties(parent, reject)
-                "pPr" -> automaticSpacing(parent, reject)
+                "pPr" -> {
+                    validateNegativeTabs(parent, reject)
+                    automaticSpacing(parent, reject)
+                }
                 else -> false
             } || changed
         }
@@ -97,6 +100,17 @@ internal object WordNumericSpellings {
             }
         }
         return changed
+    }
+
+    private fun validateNegativeTabs(parent: XmlElement, reject: (XmlElement, String) -> Nothing) {
+        for (tabs in parent.elements().filter { it.name == QName(word, "tabs") }) {
+            for (tab in tabs.elements().filter { it.attribute(word, "pos")?.startsWith('-') == true }) {
+                leaf(tab, setOf("val", "pos", "leader"), reject)
+                val position = tab.attribute(word, "pos")?.toIntOrNull()
+                if (tab.name.localPart != "tab" || position == null || position < -288_000)
+                    reject(tab, "Invalid original negative tab position")
+            }
+        }
     }
 
     private fun automaticSpacing(parent: XmlElement, reject: (XmlElement, String) -> Nothing): Boolean {

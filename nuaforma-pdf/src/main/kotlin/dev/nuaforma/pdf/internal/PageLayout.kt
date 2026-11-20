@@ -277,14 +277,17 @@ internal object PageLayouter {
                                 decimalPrefix -= fragment.text.length
                             }
                             val explicit = settings.stops.firstOrNull { it.position > cursor + .001f }
-                            val stop = explicit ?: PdfTabStop((kotlin.math.floor((cursor + .001f) / settings.defaultInterval) + 1) * settings.defaultInterval)
+                            val position = explicit?.position
+                                ?: (kotlin.math.floor((cursor + .001f) / settings.defaultInterval) + 1) * settings.defaultInterval
+                            val alignment = explicit?.alignment ?: PdfTabAlignment.LEFT
+                            val leader = explicit?.leader ?: PdfTabLeader.NONE
                             val paragraphEdge = width - format.rightIndent
                             val areaEdge = area().let { (left, span) -> minOf(width, left + span) }
-                            val useRightEdge = stop.position > width + .001f && stop.alignment != PdfTabAlignment.LEFT
+                            val useRightEdge = position > width + .001f && alignment != PdfTabAlignment.LEFT
                             val alignedStart = if (useRightEdge) {
                                 lineEdge() - payloadWidth
                             } else {
-                                stop.position - when (stop.alignment) {
+                                position - when (alignment) {
                                     PdfTabAlignment.LEFT -> 0f
                                     PdfTabAlignment.RIGHT -> payloadWidth
                                     PdfTabAlignment.CENTER -> payloadWidth / 2
@@ -295,22 +298,22 @@ internal object PageLayouter {
                             val start = maxOf(cursor, alignedStart)
                             val fieldEdge = when {
                                 useRightEdge -> lineEdge()
-                                stop.alignment == PdfTabAlignment.RIGHT && stop.position <= areaEdge + .001f ->
-                                    maxOf(paragraphEdge, stop.position)
+                                alignment == PdfTabAlignment.RIGHT && position <= areaEdge + .001f ->
+                                    maxOf(paragraphEdge, position)
                                 else -> paragraphEdge
                             }
                             if (start > fieldEdge + .001f) overflow("Tab start exceeds line boundary", start, fieldEdge)
-                            if (stop.alignment != PdfTabAlignment.LEFT && start + payloadWidth > fieldEdge + .001f)
+                            if (alignment != PdfTabAlignment.LEFT && start + payloadWidth > fieldEdge + .001f)
                                 overflow("Aligned tab content exceeds line boundary", start + payloadWidth, fieldEdge)
                             if (fieldEdge > paragraphEdge) rightTabEdge = maxOf(rightTabEdge ?: paragraphEdge, fieldEdge)
                             val gap = maxOf(0f, start - cursor)
-                            val symbol = when (stop.leader) { PdfTabLeader.NONE -> " "; PdfTabLeader.DOT -> "."; PdfTabLeader.HYPHEN -> "-"; PdfTabLeader.UNDERSCORE -> "_" }
+                            val symbol = when (leader) { PdfTabLeader.NONE -> " "; PdfTabLeader.DOT -> "."; PdfTabLeader.HYPHEN -> "-"; PdfTabLeader.UNDERSCORE -> "_" }
                             val metrics = measurer.measure(symbol, control.style)
-                            val count = if (stop.leader == PdfTabLeader.NONE) 1 else kotlin.math.floor(gap / metrics.width).toInt()
+                            val count = if (leader == PdfTabLeader.NONE) 1 else kotlin.math.floor(gap / metrics.width).toInt()
                             if (count > 4096) throw PdfRenderException(PdfFailureCode.RESOURCE_LIMIT, "Tab leader budget exceeded")
                             val text = if (count > 0) symbol.repeat(count) else " "
-                            val offset = if (stop.leader == PdfTabLeader.NONE || count == 0) 0f else (gap - count * metrics.width) / 2
-                            line += Fragment(text, control.style, metrics.copy(width = gap), paintOffset = offset, decoration = stop.leader != PdfTabLeader.NONE)
+                            val offset = if (leader == PdfTabLeader.NONE || count == 0) 0f else (gap - count * metrics.width) / 2
+                            line += Fragment(text, control.style, metrics.copy(width = gap), paintOffset = offset, decoration = leader != PdfTabLeader.NONE)
                             lineWidth += gap
                             continue
                         }
