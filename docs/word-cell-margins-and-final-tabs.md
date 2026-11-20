@@ -39,3 +39,7 @@ The production and Playground providers share these improvements. There is no ne
 ## Negative tab positions
 
 An unadorned negative custom left stop is dormant in the qualified left-to-right Word profile. The checked Word controls skip it even when text begins further into the left margin. Negative clear stops have no printable effect. Automatic tab intervals can still land before the margin when the current cursor is there, subject to the physical page bounds. Normal stop choice uses the actual rendered text after template substitution. Other negative alignment and leader combinations remain explicit source rejections.
+
+## Header and footer table pagination
+
+Page-band tables repeat as a whole. Their paragraphs retain text and vertical spacing while body-only grouping, keep-lines and widow/orphan controls have no effect. Explicit page breaks retain the existing rejection. This behavior applies to the shared page-band layout used by the DOCX provider and the Playground.

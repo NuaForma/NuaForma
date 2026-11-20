@@ -307,9 +307,26 @@ internal object FlowLayouter {
             else -> it
         } })
 
-        fun resolveTable(t: PdfTable): PdfTable = PdfTable(t.columnWidths, t.rows.map { row -> PdfTableRow(row.cells.map { cell ->
-            cell.withBlocks(cell.blocks.map { when (it) { is PdfParagraph -> resolve(it); is PdfTable -> resolveTable(it); is PdfImage -> it; is PdfTextBox -> error("Frame in table") } })
-        }, row.allowSplit, row.splitOversized, row.minimumHeight) }, t.cellMargins, t.border, t.repeatedHeaderRows, t.leftIndent, t.widthPolicy, t.semantics, t.preferredWidth).withRightOverflow(t.rightOverflow).withAlignment(t.alignment)
+        fun resolveTable(table: PdfTable): PdfTable {
+            val rows = table.rows.map { row ->
+                val cells = row.cells.map { cell ->
+                    cell.withBlocks(cell.blocks.map { block ->
+                        when (block) {
+                            // Page bands repeat as complete units, so body paragraph splitting rules do not apply.
+                            is PdfParagraph -> resolve(block).copy(format = block.format.copy(
+                                keepWithNext = false, keepLines = false, widowControl = false))
+                            is PdfTable -> resolveTable(block)
+                            is PdfImage -> block
+                            is PdfTextBox -> error("Frame in table")
+                        }
+                    })
+                }
+                PdfTableRow(cells, row.allowSplit, row.splitOversized, row.minimumHeight)
+            }
+            return PdfTable(table.columnWidths, rows, table.cellMargins, table.border, table.repeatedHeaderRows,
+                table.leftIndent, table.widthPolicy, table.semantics, table.preferredWidth)
+                .withRightOverflow(table.rightOverflow).withAlignment(table.alignment)
+        }
 
         val floatingImages = mutableListOf<Pair<PdfAnchoredImage, Float>>()
         val floatingBoxes = mutableListOf<Pair<PdfTextBox, Float>>()
