@@ -64,7 +64,7 @@ internal class NativeDocxReader(
     fun read(bytes: ByteArray, imageFonts: ((String, Boolean, Boolean) -> java.awt.Font)? = null, inspectImages: Boolean = false,
         normalizations: MutableList<WordSourceNormalization>? = null): PdfDocument {
         metafiles = dev.nuaforma.docx.pdf.adapters.nativeengine.emf.NativeEmfImages(context, imageFonts, inspectImages)
-        return try { readDocument(bytes, normalizations) }
+        return try { readDocument(bytes, normalizations, inspectImages) }
         catch (error: GenerationException) { throw locatedFontFailure(error) }
         catch (error: NativeDocxReadException) { throw error }
         catch (_: IllegalArgumentException) { throw source.failure("Unsupported combination of native document formatting", activePart) }
@@ -86,7 +86,7 @@ internal class NativeDocxReader(
         return GenerationException(diagnostics, error)
     }
 
-    private fun readDocument(bytes: ByteArray, normalizations: MutableList<WordSourceNormalization>?): PdfDocument {
+    private fun readDocument(bytes: ByteArray, normalizations: MutableList<WordSourceNormalization>?, sourceInspection: Boolean): PdfDocument {
         val parts = unpack(bytes)
         parts.filterKeys { it.endsWith(".xml") || it.endsWith(".rels") }.forEach { (name, content) -> parse(content, name) }
         normalizeReviewAnnotations()
@@ -180,6 +180,7 @@ internal class NativeDocxReader(
             provenance[copy] = provenance[original] ?: activePart; source.alias(copy, original)
         }, ::reject)
         parsed.forEach { (name, root) -> activePart = name; propertyParagraphs.normalize(root) }
+        if (sourceInspection) parsed.values.forEach(WordPageNumberControls::normalizeSource)
         val fieldCodeStyles = java.util.IdentityHashMap<XmlElement, XmlElement?>()
         val formFields = java.util.IdentityHashMap<XmlElement, NativeDocxFields.Form>()
         parsed.forEach { (name, root) ->

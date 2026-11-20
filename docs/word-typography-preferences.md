@@ -57,3 +57,7 @@ A qualified [Word text outline](https://learn.microsoft.com/en-us/openspecs/offi
 ## Empty legacy page-band frames
 
 An invisible legacy paragraph frame with the qualified centered, text-relative geometry occupies no flow space in the header or footer. Its original DOCX metadata is retained. Word references keep the same page pixels with an empty frame; an ordinary blank paragraph still takes up space. Frames with visible content, other geometry or page-break behavior remain qualified separately.
+
+## Built-in page-number galleries
+
+Word can store visible header or footer runs inside a [built-in document-part control](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.sdtcontentdocpartobject). The top and bottom page-number galleries retain their stored paragraphs and runs, including nested controls and existing page fields. The renderer reads the stored content from the document and recomputes the page number. Other galleries, bindings and unsupported metadata keep their source diagnostics.

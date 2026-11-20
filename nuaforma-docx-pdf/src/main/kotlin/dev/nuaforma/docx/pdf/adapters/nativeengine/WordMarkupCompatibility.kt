@@ -271,6 +271,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     throw source.failure(message, part)
                 }
+                if (WordPageNumberControls.normalizeSource(root)) {
+                    archive.touch(part)
+                    changed = true
+                }
             }
             return if (changed) archive.bytes() else bytes
         }
