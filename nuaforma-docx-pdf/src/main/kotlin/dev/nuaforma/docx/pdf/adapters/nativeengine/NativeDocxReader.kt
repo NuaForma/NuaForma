@@ -819,7 +819,12 @@ internal class NativeDocxReader(
             check(depth <= 1, "Only one nested table level is supported")
             children(table, setOf("tblPr", "tblGrid", "tr", "bookmarkEnd"))
             val properties = table.one("tblPr") ?: reject("Explicit table properties required")
-            children(properties, setOf("tblStyle", "tblW", "tblInd", "jc", "tblLayout", "tblBorders", "tblCellMar", "tblLook", "tblStyleRowBandSize", "tblStyleColBandSize"))
+            children(properties, setOf("tblStyle", "tblW", "tblInd", "jc", "tblLayout", "tblBorders", "tblCellMar", "tblLook",
+                "tblStyleRowBandSize", "tblStyleColBandSize", "shd"))
+            // Word paints table shading in inter-cell spacing; this profile admits only contiguous cells.
+            properties.one("shd")?.let {
+                WordThemeColors.validateTableShading(it) { origin, message -> source.current = origin; reject(message) }
+            }
             val tableStyleId = properties.one("tblStyle")?.let { it.value("val") ?: reject("Missing table style") } ?: defaultTable
             val tableStyles = tableStyleId?.let { chain(it, "table") } ?: emptyList()
             val rowNodes = table.elements().filter { it.name.localPart == "tr" }

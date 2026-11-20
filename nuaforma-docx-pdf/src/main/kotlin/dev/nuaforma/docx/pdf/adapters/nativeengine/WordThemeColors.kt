@@ -137,6 +137,12 @@ internal class WordThemeColors(
 
         fun validateSource(root: XmlElement, reject: (XmlElement, String) -> Nothing) {
             if (root.name.namespaceURI == A && root.name.localPart == "theme") validateThemeSource(root, reject)
+            for (table in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart == "tbl" }) {
+                val properties = table.elements().firstOrNull { it.name.namespaceURI == W && it.name.localPart == "tblPr" } ?: continue
+                val fills = properties.elements().filter { it.name.localPart == "shd" }
+                if (fills.size > 1) reject(fills[1], "Duplicate original table shading")
+                fills.singleOrNull()?.takeIf { it.attribute(W, "val") == "clear" }?.let { validateTableShading(it, reject) }
+            }
             for (properties in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart == "tcPr" }) {
                 val fills = properties.elements().filter { it.name.localPart == "shd" }
                 if (fills.none { node -> node.attributes.keys.any { it.localPart in setOf("themeFill", "themeFillTint", "themeFillShade") } }) continue
@@ -191,7 +197,7 @@ internal class WordThemeColors(
             if (node.attribute(W, "val") !in setOf("clear", "nil") ||
                 color != null && color != "auto" && !color.matches(Regex("[0-9A-Fa-f]{6}")))
                 reject(node, "Unsupported run shading pattern or foreground color")
-            validateCellFill(normalizedRunFill(node)) { _, message -> reject(node, message.replace("cell", "run")) }
+            validateCellFill(normalizedRunFill(node), { _, message -> reject(node, message.replace("cell", "run")) })
         }
 
         private fun normalizedRunFill(node: XmlElement): XmlElement = XmlElement(node.name, node.attributes.toMutableMap(),
@@ -200,13 +206,19 @@ internal class WordThemeColors(
             it.attributes[javax.xml.namespace.QName(W, "color")] = "auto"
         }
 
-        private fun validateCellFill(node: XmlElement, reject: (XmlElement, String) -> Nothing) {
+        fun validateTableShading(node: XmlElement, reject: (XmlElement, String) -> Nothing) =
+            validateCellFill(node, reject, table = true)
+
+        private fun validateCellFill(node: XmlElement, reject: (XmlElement, String) -> Nothing, table: Boolean = false) {
             if (node.name.namespaceURI != W || node.attributes.keys.any { it.namespaceURI != W ||
                     it.localPart !in setOf("val", "color", "fill", "themeFill", "themeFillTint", "themeFillShade") } ||
                 node.elements().isNotEmpty() || node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
                 reject(node, "Invalid cell theme fill structure")
-            if (node.attribute(W, "val") != "clear" || node.attribute(W, "color") != "auto")
-                reject(node, "Unsupported cell shading")
+            val foreground = node.attribute(W, "color")
+            val qualifiedForeground = foreground == "auto" || table &&
+                (foreground == null || foreground.matches(Regex("[0-9A-Fa-f]{6}")))
+            if (node.attribute(W, "val") != "clear" || !qualifiedForeground)
+                reject(node, if (table) "Unsupported table shading" else "Unsupported cell shading")
             val role = node.attribute(W, "themeFill")
             if (role != null && role != "none" && role !in roles) reject(node, "Unsupported cell theme fill role")
             val cached = node.attribute(W, "fill")

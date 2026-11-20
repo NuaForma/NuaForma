@@ -43,3 +43,7 @@ The neutral model exposes this priority through immutable `PdfTableCell.withProt
 ## Terminal default tabs
 
 Automatic tables can retain trailing default tabs on otherwise ordinary left-aligned text. The controls are excluded from intrinsic width measurement. Preserved spaces before a terminal tab remain in the line. The ordinary PDF layout verifies that the computed stop fits the resolved cell. The qualified case uses the preceding text's font and formatting, with no explicit stops or decoration. Interior, leader, other alignment and overflowing tab cases retain an explicit diagnostic.
+
+## Table-level shading without cell spacing
+
+[Word applies table-level shading to the gaps between table cells](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/ee110ab2-af6a-4ee8-923d-9a12a2fe65ab). With contiguous cells, a qualified direct table-level clear fill is preserved in the source and contributes no PDF paint. Explicit or styled cell fills still paint their own cells. Inter-cell spacing and unqualified patterns or shapes remain source-diagnosed.
