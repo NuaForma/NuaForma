@@ -19,3 +19,7 @@ The source adapter additionally validates false `hidden` flags, zero-valued `wp1
 `python3 tools/pdf-evaluation/create_floating_metadata_fixtures.py <fresh-directory>` builds 36 inert controls across the three object kinds and A4/Letter. Genuine Word exports prove exact pixels against each kind's control for individual settings and their combination. Native renderer qualification is recorded when its independent comparison and regression checks complete. No public-model API or resource limit is changed by these passive settings.
 
 Targeted checks pass 36 native/Word page pairs and protected initial images, with 45 regression PDFs: every source in standard PDF, plus the combined case for each object kind in all four profiles on A4. Actual Playground qualification passes 78 PDFs, including every source in standard PDF/PDF-A-3b and the combined A4 cases in PDF/A-1b/2b. Four original-source negatives include the precise unsupported extent side. The unchanged local corpus retains its 21 successes and 59 pixel-identical pages; 29 first diagnoses change. Combined normal-build qualification also passes.
+
+## Opaque preset frame paint
+
+Page-relative rectangular DrawingML text frames accept the opaque `black` and `white` presets in their explicit fill and centered stroke, with the same paint as the corresponding RGB values. Other presets and transforms on presets still report the original color element.

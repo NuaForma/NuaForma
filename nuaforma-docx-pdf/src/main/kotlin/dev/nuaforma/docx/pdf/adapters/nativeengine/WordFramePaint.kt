@@ -36,16 +36,26 @@ internal object WordFramePaint {
             return null
         }
         val color = node.elements().singleOrNull() ?: reject(node, "Explicit single frame RGB color required")
-        val hex = color.attribute("", "val").orEmpty()
-        if (color.name.namespaceURI != drawing || color.name.localPart != "srgbClr" || color.attributes.size != 1 || !hex.matches(Regex("[0-9A-Fa-f]{6}")) ||
+        val value = color.attribute("", "val").orEmpty()
+        if (color.name.namespaceURI != drawing || color.attributes.size != 1 ||
             color.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
+            reject(color, "Unsupported original frame RGB color")
+        if (color.name.localPart == "prstClr") {
+            if (color.elements().isNotEmpty()) reject(color, "Frame preset color transformations are not qualified")
+            return when (value) {
+                "black" -> PdfColor(0, 0, 0)
+                "white" -> PdfColor(255, 255, 255)
+                else -> reject(color, "Unsupported original frame preset color")
+            }
+        }
+        if (color.name.localPart != "srgbClr" || !value.matches(Regex("[0-9A-Fa-f]{6}")))
             reject(color, "Unsupported original frame RGB color")
         for (transform in color.elements()) {
             if (transform.name.namespaceURI != drawing || transform.name.localPart != "alpha" || transform.attributes.size != 1 ||
                 transform.attribute("", "val") != "100000" || transform.elements().isNotEmpty())
                 reject(transform, "Frame color transformations or transparency are not qualified")
         }
-        return PdfColor(hex.take(2).toInt(16), hex.substring(2, 4).toInt(16), hex.takeLast(2).toInt(16))
+        return PdfColor(value.take(2).toInt(16), value.substring(2, 4).toInt(16), value.takeLast(2).toInt(16))
     }
 
     fun stroke(node: XmlElement, reject: (XmlElement, String) -> Nothing): PdfBorder? {
