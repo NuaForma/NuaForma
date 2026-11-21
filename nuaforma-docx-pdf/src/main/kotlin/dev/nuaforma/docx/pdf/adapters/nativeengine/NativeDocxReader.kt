@@ -1656,6 +1656,8 @@ internal class NativeDocxReader(
             .withHorizontalScale(face.horizontalScale)
     }
 
+    private val underscoredLocale = Regex("[A-Za-z]{2,3}_[A-Za-z]{2}")
+
     private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>,
         themeColors: WordThemeColors, characterCapsBase: Boolean?): Face {
         if (property == null) return initial
@@ -1726,7 +1728,11 @@ internal class NativeDocxReader(
             check(it.elements().isEmpty() && it.children.filterIsInstance<XmlText>().all { text -> text.text.isBlank() }, "Invalid run language")
             it.value("val")?.let { language ->
                 // Word's no-proofing marker clears the inherited language and its casing rules.
-                val resolved = language.takeUnless { it.equals("x-none", ignoreCase = true) }
+                val resolved = when {
+                    language.equals("x-none", ignoreCase = true) -> null
+                    underscoredLocale.matches(language) -> language.replace('_', '-')
+                    else -> language
+                }
                 PdfTextStyle("regular", 11f, languageTag = resolved)
                 result = result.copy(languageTag = resolved)
             }

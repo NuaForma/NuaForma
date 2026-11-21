@@ -37,5 +37,11 @@ class NativeNoProofingLanguageTest {
         assertEquals("İSTANBUL İZMİR", inherited.text)
         assertNull(noProof.style.languageTag)
         assertEquals("ISTANBUL IZMIR", noProof.text)
+        val turkish = read("""<w:lang w:val="tr_TR"/>""")
+        assertEquals("tr-TR", turkish.style.languageTag)
+        assertEquals(inherited.text, turkish.text)
+        val portuguese = read("""<w:lang w:val="pt_BR"/>""")
+        assertEquals("pt-BR", portuguese.style.languageTag)
+        assertEquals("ISTANBUL IZMIR", portuguese.text)
     }
 }

@@ -116,3 +116,9 @@ layout a possible break. It produces a visible hyphen only when selected to
 end a line. Widely spaced text keeps the word joined. Automatic dictionary
 hyphenation, tab-aligned text and automatic table widths retain a diagnostic
 when they require unsupported combinations.
+
+## Language tags with a region separator
+
+Word accepts language-and-region values such as pt_BR and tr_TR. The PDF
+model uses the corresponding language tags pt-BR and tr-TR, with the same
+language-sensitive casing.
