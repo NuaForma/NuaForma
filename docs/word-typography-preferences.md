@@ -134,3 +134,12 @@ diagnostic until their glyph sizing is qualified.
 A left-aligned marker with a tab suffix can extend left of the text area when
 it fits before the paragraph indent. The first line starts at the paragraph
 indent. The marker must stay within the physical page.
+
+## Visible web addresses
+
+An HTTP or HTTPS address can wrap after an existing ASCII hyphen or fragment
+separator in its path. Each resulting piece retains its text style and
+hyperlink target. A word that fits remains intact. The PDF adapter retains
+its overflow diagnostic when there is no qualified break, and keeps the
+separate rules for tabs, lists, right-to-left text, and emergency breaks in
+table cells.

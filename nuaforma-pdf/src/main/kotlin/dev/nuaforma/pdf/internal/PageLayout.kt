@@ -301,6 +301,36 @@ internal object PageLayouter {
                         return fragments.subList(start, fragments.size).filterNot { it.discretionaryHyphen }
                     }
 
+                    fun placeWebAddress(word: List<Fragment>, wordWidth: Float, spaceWidth: Float): Boolean {
+                        if (lineWidth + spaceWidth + wordWidth <= availableWidth() + .001f ||
+                            lineArea != null || label != null || format.textDirection != null ||
+                            block.runs.any { it is PdfTab } || word.any { it.style == null ||
+                                it.style.fontFeatures.active || it.style.characterSpacing != 0f ||
+                                it.navigation?.destinations?.isNotEmpty() == true }) return false
+                        val runs = word.map { it.text to requireNotNull(it.style) }
+                        val breaks = WebAddressBreaks.of(runs, measurer) ?: return false
+                        var gap = spaceWidth
+                        while (breaks.hasMore) {
+                            val slices = breaks.take(availableWidth() - lineWidth - gap)
+                            if (slices.isEmpty()) {
+                                if (line.isEmpty())
+                                    overflow("Web address exceeds line width at a supported break", breaks.minimumWidth(), availableWidth() - gap)
+                                flush(justify = true)
+                                spaces.clear()
+                                gap = 0f
+                                continue
+                            }
+                            line += spaces
+                            spaces.clear()
+                            val parts = slices.map { slice -> word[slice.run].withSlice(slice) }
+                            line += parts
+                            lineWidth += gap + parts.sumOf { it.metrics.width.toDouble() }.toFloat()
+                            gap = 0f
+                            if (breaks.hasMore) flush(justify = true)
+                        }
+                        return true
+                    }
+
                     for ((groupIndex, originalWord) in groups.withIndex()) {
                         val word = placeSoftHyphenWord(originalWord)
                         if (word.isEmpty()) continue
@@ -381,6 +411,7 @@ internal object PageLayouter {
                         }
                         val wordWidth = word.sumOf { it.metrics.width.toDouble() }.toFloat()
                         val spaceWidth = spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
+                        if (!block.breakLongWords && placeWebAddress(word, wordWidth, spaceWidth)) continue
                         if (block.breakLongWords && wordWidth > availableWidth() + .001f) {
                             if (format.textDirection != null || word.any { it.style == null || it.text.isEmpty() })
                                 throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Long-word breaking with bidi or inline objects is not qualified")
@@ -397,11 +428,7 @@ internal object PageLayouter {
                             val breaks = LongWordBreaks(word.map { it.text to requireNotNull(it.style) }, measurer)
                             while (breaks.hasMore) {
                                 checkCancellation()
-                                val parts = breaks.next(availableWidth() - lineWidth).map { slice ->
-                                    val original = word[slice.run]
-                                    original.copy(text = original.text.substring(slice.from, slice.until), metrics = slice.metrics,
-                                        sourceStart = original.sourceStart + slice.from)
-                                }
+                                val parts = breaks.next(availableWidth() - lineWidth).map { slice -> word[slice.run].withSlice(slice) }
                                 line += parts
                                 lineWidth += parts.sumOf { it.metrics.width.toDouble() }.toFloat()
                                 if (breaks.hasMore) flush(justify = true)
@@ -557,6 +584,10 @@ internal object PageLayouter {
 
     private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null, val tab: PdfTab? = null, val paintOffset: Float = 0f, val decoration: Boolean = false, val sourceStart: Int = 0, val navigation: PdfTextNavigation? = null, val semantics: PdfSpanSemantics? = null, val vector: PdfVectorRun? = null, val lineBreak: PdfLineBreak? = null, val pageBreak: Boolean = false, val imagePadding: PdfMargins? = null, val imageClipToLine: Boolean = false) {
         val discretionaryHyphen: Boolean get() = text.length == 1 && text[0] == softHyphen
+
+        fun withSlice(slice: TextRunSlice) = copy(
+            text = text.substring(slice.from, slice.until), metrics = slice.metrics, sourceStart = sourceStart + slice.from,
+        )
     }
 
     private fun words(runs: List<PdfInline>, measurer: TextMeasurer, bidi: Boolean): List<List<Fragment>> {
