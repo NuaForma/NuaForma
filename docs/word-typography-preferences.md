@@ -108,3 +108,11 @@ source diagnostic.
 A paragraph can supply a line-spacing rule without a line measurement. Word
 retains the inherited line box, while applying any explicit paragraph spacing
 before or after the text.
+
+## Discretionary hyphens
+
+A Word soft-hyphen control in ordinary unshaped text gives the physical line
+layout a possible break. It produces a visible hyphen only when selected to
+end a line. Widely spaced text keeps the word joined. Automatic dictionary
+hyphenation, tab-aligned text and automatic table widths retain a diagnostic
+when they require unsupported combinations.

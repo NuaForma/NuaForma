@@ -39,6 +39,8 @@ internal data class MeasuredLineBox(val from: Int, val until: Int, val top: Floa
 internal data class PageLayout(val page: PdfPage, val elements: List<PositionedElement>, val lineBoxes: List<MeasuredLineBox> = emptyList())
 
 internal object PageLayouter {
+    private const val softHyphen = '\u00AD'
+    private val wordFragments = Regex(" +|$softHyphen|[^ $softHyphen]+")
     private val simpleScripts = setOf(Character.UnicodeScript.LATIN, Character.UnicodeScript.GREEK, Character.UnicodeScript.CYRILLIC, Character.UnicodeScript.COMMON)
     private val unshapedForbiddenTypes = setOf(Character.FORMAT.toInt(), Character.SURROGATE.toInt(), Character.UNASSIGNED.toInt(), Character.NON_SPACING_MARK.toInt(), Character.COMBINING_SPACING_MARK.toInt(), Character.ENCLOSING_MARK.toInt())
 
@@ -245,7 +247,54 @@ internal object PageLayouter {
                         lineIndex++
                     }
 
-                    for ((groupIndex, word) in groups.withIndex()) {
+                    fun placeSoftHyphenWord(fragments: List<Fragment>): List<Fragment> {
+                        if (fragments.none { it.discretionaryHyphen }) return fragments
+                        val lastText = fragments.indexOfLast { !it.discretionaryHyphen }
+                        var start = 0
+                        var remaining = fragments.sumOf { it.metrics.width.toDouble() }.toFloat()
+                        while (start <= lastText) {
+                            checkCancellation()
+                            val spacesWidth = spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
+                            val room = availableWidth() - lineWidth - spacesWidth
+                            if (remaining <= room + .001f) break
+                            var width = 0f
+                            var prefixWidth = 0f
+                            var selected = -1
+                            var hyphen: Fragment? = null
+                            for (index in start until lastText) {
+                                checkCancellation()
+                                val fragment = fragments[index]
+                                width += fragment.metrics.width
+                                if (width > room + .001f) break
+                                if (!fragment.discretionaryHyphen || width <= 0f) continue
+                                val paint = measurer.measure("-", requireNotNull(fragment.style))
+                                if (width + paint.width <= room + .001f) {
+                                    selected = index
+                                    prefixWidth = width
+                                    hyphen = fragment.copy(text = "-", metrics = paint)
+                                }
+                            }
+                            if (hyphen == null) {
+                                if (line.isEmpty()) break
+                                flush(justify = true)
+                                spaces.clear()
+                                continue
+                            }
+                            line += spaces
+                            spaces.clear()
+                            line += fragments.subList(start, selected).filterNot { it.discretionaryHyphen }
+                            line += hyphen
+                            lineWidth += spacesWidth + prefixWidth + hyphen.metrics.width
+                            flush(justify = true)
+                            remaining -= prefixWidth
+                            start = selected + 1
+                        }
+                        return fragments.subList(start, fragments.size).filterNot { it.discretionaryHyphen }
+                    }
+
+                    for ((groupIndex, originalWord) in groups.withIndex()) {
+                        val word = placeSoftHyphenWord(originalWord)
+                        if (word.isEmpty()) continue
                         checkCancellation()
                         val lineBreak = word.singleOrNull()?.lineBreak
                         if (lineBreak != null) {
@@ -459,6 +508,8 @@ internal object PageLayouter {
             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Automatic table widths with tabs or floating images are not qualified")
         val runs = if (paragraph.runs.any { it is PdfTab }) automaticTableTextRuns(paragraph) else paragraph.runs
         val groups = words(runs, measurer, paragraph.format.textDirection != null)
+        if (groups.any { group -> group.any { it.discretionaryHyphen } })
+            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Automatic table widths with discretionary hyphens are not qualified")
         val widths = groups.map { group -> group.sumOf { it.metrics.width.toDouble() }.toFloat() }
         val minimum = groups.indices.filter { index -> groups[index].any { fragment -> fragment.text.any { it != ' ' } } }.maxOfOrNull { widths[it] } ?: 0f
         val indent = paragraph.format.leftIndent + paragraph.format.rightIndent + maxOf(0f, paragraph.format.firstLineIndent)
@@ -495,12 +546,15 @@ internal object PageLayouter {
         return maxOf(widest, line)
     }
 
-    private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null, val tab: PdfTab? = null, val paintOffset: Float = 0f, val decoration: Boolean = false, val sourceStart: Int = 0, val navigation: PdfTextNavigation? = null, val semantics: PdfSpanSemantics? = null, val vector: PdfVectorRun? = null, val lineBreak: PdfLineBreak? = null, val pageBreak: Boolean = false, val imagePadding: PdfMargins? = null, val imageClipToLine: Boolean = false)
+    private data class Fragment(val text: String, val style: PdfTextStyle?, val metrics: TextMetrics, val image: PdfImage? = null, val tab: PdfTab? = null, val paintOffset: Float = 0f, val decoration: Boolean = false, val sourceStart: Int = 0, val navigation: PdfTextNavigation? = null, val semantics: PdfSpanSemantics? = null, val vector: PdfVectorRun? = null, val lineBreak: PdfLineBreak? = null, val pageBreak: Boolean = false, val imagePadding: PdfMargins? = null, val imageClipToLine: Boolean = false) {
+        val discretionaryHyphen: Boolean get() = text.length == 1 && text[0] == softHyphen
+    }
 
     private fun words(runs: List<PdfInline>, measurer: TextMeasurer, bidi: Boolean): List<List<Fragment>> {
         val groups = mutableListOf<MutableList<Fragment>>()
         var sourceOffset = 0
         var previousSpace: Boolean? = null
+        var sawSoftHyphen = false
         for (run in shapingRuns(runs)) {
             if (run is PdfPageField) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields require page-band resolution")
             if (run is PdfReferenceField || run is PdfSequenceField) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "References require document-wide resolution")
@@ -535,11 +589,17 @@ internal object PageLayouter {
                 continue
             }
             run as PdfTextRun
-            requireSupportedText(run.text, bidi)
-            for (match in Regex(" +|[^ ]+").findAll(run.text)) {
+            if (softHyphen in run.text && (bidi || runs.any { it is PdfTextRun && it.style.fontFeatures.active } ||
+                    runs.any { it is PdfTab } || run.navigation?.destinations?.isNotEmpty() == true))
+                throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Discretionary hyphens with bidi, tabs, shaping or destinations are not qualified")
+            requireSupportedText(if (softHyphen in run.text) run.text.replace(softHyphen.toString(), "") else run.text, bidi)
+            for (match in wordFragments.findAll(run.text)) {
                 val space = match.value[0] == ' '
                 if (space != previousSpace) groups += mutableListOf<Fragment>()
-                groups.last() += Fragment(match.value, run.style, measurer.measure(match.value, run.style), sourceStart = sourceOffset + match.range.first, navigation = run.navigation, semantics = run.semantics)
+                val discretionary = match.value.length == 1 && match.value[0] == softHyphen
+                if (discretionary) sawSoftHyphen = true
+                val metrics = if (discretionary) TextMetrics(0f, 0f, 0f) else measurer.measure(match.value, run.style)
+                groups.last() += Fragment(match.value, run.style, metrics, sourceStart = sourceOffset + match.range.first, navigation = run.navigation, semantics = run.semantics)
                 previousSpace = space
             }
             sourceOffset += run.text.length
@@ -554,7 +614,14 @@ internal object PageLayouter {
                 groups[index][0] = gap.copy(metrics = measurer.gap(previous.text, gap.text, next.text, style))
             }
         }
-        return groups
+        if (!sawSoftHyphen) return groups
+        val printable = groups.filterNot { group -> group.all { it.discretionaryHyphen } }
+        if (printable.isNotEmpty()) return printable
+
+        // A paragraph of invisible controls still contributes a blank line.
+        val first = groups.first().first()
+        val style = requireNotNull(first.style).copy(underline = false).withStrikethrough(false).withBackground(null)
+        return listOf(listOf(Fragment(" ", style, measurer.measure("", style))))
     }
 
     private fun shapingRuns(runs: List<PdfInline>): List<PdfInline> {

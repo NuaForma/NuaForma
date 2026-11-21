@@ -658,7 +658,7 @@ internal class NativeDocxReader(
                     }
                     return listOf(PdfReferenceField(id, kind, style, target, instruction.linked, navigation))
                 }
-                children(run, setOf("rPr", "t", "tab", "br", "cr", "noBreakHyphen", "drawing", "pict", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
+                children(run, setOf("rPr", "t", "tab", "br", "cr", "noBreakHyphen", "softHyphen", "drawing", "pict", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
                 val contents = run.elements().filter { it.name.localPart != "rPr" }
                 if (contents.isEmpty()) return emptyList()
                 val face = faceFor(run.one("rPr"))
@@ -684,6 +684,14 @@ internal class NativeDocxReader(
                             PdfNoteLabel(textStyle(face), navigation)
                         }
                     }
+                    "softHyphen" -> {
+                        source.current = item
+                        val style = textStyle(face)
+                        check(!fields && currentNoteKind == null && geometry.direction == null && face.rtl != true &&
+                            style.fontFeatures == PdfFontFeatures(), "Soft hyphens require qualified ordinary unshaped text")
+                        val navigation = link?.let { PdfTextNavigation(it, emptyList(), logicalLink) }
+                        PdfTextRun("\u00AD", style, navigation)
+                    }
                     "t", "noBreakHyphen" -> {
                         val text = if (item.name.localPart == "noBreakHyphen") {
                             // Word paints the ordinary hyphen within the nonbreaking word.
@@ -693,6 +701,7 @@ internal class NativeDocxReader(
                             WordTextWhitespace.visible(item, item.children.filterIsInstance<XmlText>().joinToString("") { it.text })
                         }
                         if (text.isEmpty()) return@mapNotNull null
+                        check('\u00AD' !in text, "Use a Word soft-hyphen control for discretionary hyphenation")
                         val hebrew = text.codePoints().anyMatch { Character.UnicodeScript.of(it) == Character.UnicodeScript.HEBREW }
                         check(face.rtl != true || hebrew, "Only Hebrew text may force complex-script reading order in this proof")
                         if (hebrew || face.rtl == true) check(geometry.direction == PdfTextDirection.RIGHT_TO_LEFT && face.rtl == true &&
@@ -2049,7 +2058,7 @@ internal class NativeDocxReader(
             source.current = it
             reject("Unsupported document feature")
         }
-        check(node.elements().groupBy { it.name.localPart }.all { (name, values) -> name in setOf("r", "p", "style", "tbl", "tr", "tc", "tblStylePr", "fldSimple", "t", "tab", "br", "cr", "noBreakHyphen", "headerReference", "footerReference", "hyperlink", "bookmarkStart", "bookmarkEnd") || values.size == 1 }, "Duplicate property")
+        check(node.elements().groupBy { it.name.localPart }.all { (name, values) -> name in setOf("r", "p", "style", "tbl", "tr", "tc", "tblStylePr", "fldSimple", "t", "tab", "br", "cr", "noBreakHyphen", "softHyphen", "headerReference", "footerReference", "hyperlink", "bookmarkStart", "bookmarkEnd") || values.size == 1 }, "Duplicate property")
     }
 
     private fun attributes(node: XmlElement, allowed: Set<String>) {
