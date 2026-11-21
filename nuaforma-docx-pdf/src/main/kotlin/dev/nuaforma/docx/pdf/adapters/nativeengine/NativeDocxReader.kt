@@ -928,7 +928,12 @@ internal class NativeDocxReader(
                     regions.property("jc")?.value("val") in setOf(null, "left"),
                     "Table edges with independent visibility require a flat modern body table with a common solid border")
             }
-            val border = if (sparseBorders) null else borderValues.single()
+            // Direct absent edges on every ordinary cell suppress the entire inherited grid.
+            val suppressGrid = borderValues.singleOrNull() != null && cellMargins == null && modernTableAlignment &&
+                depth == 0 && !fields && !regions.active && properties.one("tblpPr") == null &&
+                regions.property("jc")?.value("val") in setOf(null, "left") &&
+                WordTableBorders.allCellsSuppressGrid(rowNodes, context)
+            val border = if (sparseBorders || suppressGrid) null else borderValues.single()
             val padding = if (cellMargins == null) {
                 source.current = properties
                 check(modernTableAlignment && depth == 0 && !fields, "Explicit cell margins required for this table")
@@ -1039,7 +1044,10 @@ internal class NativeDocxReader(
                             cell.elements().none { it.name.localPart == "tbl" },
                             "Independent table edges with merged, nested or custom-bordered cells are not qualified")
                         tableCellEdges(rowIndex, column)
-                    } else declaredCellBorders
+                    } else declaredCellBorders?.takeUnless {
+                        cellMargins == null && it == fallbackBorders && (suppressGrid || border == null ||
+                            edgePolicies.none { policy -> policy.elements().any { it.value("val") == "none" } })
+                    }
                     // Explicit horizontal padding cannot place text inside a visible border's inner half.
                     val leftInset = (cellBorders?.left?.border?.width ?: if (cellBorders == null) border?.width ?: 0f else 0f) / 2
                     val rightInset = (cellBorders?.right?.border?.width ?: if (cellBorders == null) border?.width ?: 0f else 0f) / 2

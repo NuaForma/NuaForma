@@ -1,5 +1,6 @@
 package dev.nuaforma.docx.pdf.adapters.nativeengine
 
+import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
 import dev.nuaforma.pdf.PdfBorder
@@ -11,6 +12,25 @@ internal object WordTableBorders {
     private val edges = setOf("top", "left", "bottom", "right", "insideH", "insideV")
     private val originalEdges = edges + setOf("start", "end", "tl2br", "tr2bl")
     private val originalAttributes = setOf("val", "sz", "color", "space", "themeColor", "themeTint", "themeShade", "shadow", "frame")
+
+    /** Require all four explicit absent edges on each unmerged cell. */
+    fun allCellsSuppressGrid(rows: List<XmlElement>, context: GenerationContext): Boolean {
+        val sides = setOf("top", "right", "bottom", "left")
+        val absent = setOf("nil", "none")
+        val mergeProperties = setOf("gridSpan", "vMerge")
+        return rows.all { row ->
+            context.checkActive()
+            val cells = row.elements().filter { it.name.namespaceURI == word && it.name.localPart == "tc" }
+            cells.isNotEmpty() && cells.all { cell ->
+                val props = cell.elements().singleOrNull { it.name.namespaceURI == word && it.name.localPart == "tcPr" }
+                val borders = props?.elements()?.singleOrNull { it.name.namespaceURI == word && it.name.localPart == "tcBorders" }
+                val edges = borders?.elements().orEmpty()
+                props != null && props.elements().none { it.name.namespaceURI == word && it.name.localPart in mergeProperties } &&
+                    edges.size == sides.size && edges.map { it.name.localPart }.toSet() == sides &&
+                    edges.all { it.name.namespaceURI == word && it.attribute(word, "val") in absent }
+            }
+        }
+    }
 
     fun validateSource(root: XmlElement, reject: (XmlElement, String) -> Nothing) {
         for (parent in root.descendants()) if (parent.name.namespaceURI == word && parent.name.localPart in setOf("tblBorders", "tcBorders")) {

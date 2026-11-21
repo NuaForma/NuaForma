@@ -107,3 +107,11 @@ A qualified conditional table region can contain an empty table-property block.
 It leaves the region's paragraph, text and cell properties in effect.
 Table-wide conditional properties with attributes or content retain a source
 diagnostic.
+
+## Explicitly suppressed grids and implicit cell margins
+
+A modern, flat body table with one uniform grid stroke can override all edges
+of all cells with explicit absent strokes. Word uses the equivalent borderless
+table, including the borderless default padding and width calculation.
+Identical cell and table strokes can also share the same implicit padding.
+Other cell-border combinations retain the existing qualification.
