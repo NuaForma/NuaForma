@@ -44,6 +44,28 @@ internal object WordTableBorders {
         }
     }
 
+    fun removeInactiveDiagonals(root: XmlElement): Boolean {
+        var changed = false
+        for (properties in root.descendants().filter { it.name.namespaceURI == word && it.name.localPart == "tcPr" }) {
+            val borders = properties.elements().singleOrNull {
+                it.name.namespaceURI == word && it.name.localPart == "tcBorders"
+            } ?: continue
+            val inactive = borders.elements().filter { edge ->
+                edge.name.namespaceURI == word && edge.name.localPart in setOf("tl2br", "tr2bl") &&
+                    edge.attribute(word, "val") in setOf("none", "nil") &&
+                    edge.attribute(word, "sz") in setOf(null, "0") && edge.attribute(word, "space") in setOf(null, "0") &&
+                    edge.attribute(word, "color") in setOf(null, "auto") &&
+                    edge.attributes.keys.all { it.namespaceURI == word && it.localPart in setOf("val", "sz", "space", "color") } &&
+                    edge.elements().isEmpty() && edge.children.filterIsInstance<XmlText>().none { it.text.isNotBlank() }
+            }
+            if (inactive.isEmpty()) continue
+            borders.children.removeAll(inactive.toSet())
+            if (borders.elements().isEmpty()) properties.children.remove(borders)
+            changed = true
+        }
+        return changed
+    }
+
     private fun validateOriginal(node: XmlElement, reject: (XmlElement, String) -> Nothing) {
         if (node.name.namespaceURI != word || node.name.localPart !in originalEdges || node.elements().isNotEmpty() ||
             node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||

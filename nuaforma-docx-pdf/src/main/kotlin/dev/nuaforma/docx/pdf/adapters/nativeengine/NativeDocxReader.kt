@@ -112,6 +112,11 @@ internal class NativeDocxReader(
                 source.current = node
                 source.failure("Unsupported original Word paragraph numbering", part)
             }
+            WordTableBorders.validateSource(root) { node, message ->
+                source.current = node
+                throw source.failure(message, part)
+            }
+            WordTableBorders.removeInactiveDiagonals(root)
             WordCellMargins.normalizeSource(root) { node, message ->
                 source.current = node
                 throw source.failure(message, part)

@@ -225,6 +225,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     throw source.failure(message, part)
                 }
+                if (WordTableBorders.removeInactiveDiagonals(root)) {
+                    archive.touch(part)
+                    changed = true
+                }
                 if (WordGridHistoryMetadata.normalizeSource(root, context) { node, message ->
                     source.current = node
                     throw source.failure(message, part)
