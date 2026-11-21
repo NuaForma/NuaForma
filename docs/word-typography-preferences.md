@@ -102,3 +102,9 @@ natural-height lines of uniform text. The Word control pages agreed visually
 with the baseline sample for the uniform text. Mixed metrics, shifts and
 explicitly fixed line boxes can change the vertical placement and retain a
 source diagnostic.
+
+## A line-spacing rule without a measurement
+
+A paragraph can supply a line-spacing rule without a line measurement. Word
+retains the inherited line box, while applying any explicit paragraph spacing
+before or after the text.

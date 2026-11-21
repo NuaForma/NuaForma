@@ -1845,14 +1845,13 @@ internal class NativeDocxReader(
             }
 
             result = result.copy(autoBefore = auto("beforeAutospacing", result.autoBefore), autoAfter = auto("afterAutospacing", result.autoAfter))
-            if (it.value("line") != null || it.value("lineRule") != null) {
-                val line = it.value("line") ?: reject("Missing line spacing")
-                result = when (it.value("lineRule") ?: "auto") {
-                    "exact" -> result.copy(line = twips(line), automatic = null, minimum = null)
-                    "auto" -> result.copy(line = null, automatic = PdfAutomaticLineSpacing(number(line) / 240f), minimum = null)
-                    "atLeast" -> result.copy(line = null, automatic = null, minimum = twips(line))
-                    else -> reject("Unsupported line spacing policy")
-                }
+            val line = it.value("line")
+            // A rule without a measurement does not replace the inherited physical line box.
+            when (it.value("lineRule") ?: "auto") {
+                "exact" -> if (line != null) result = result.copy(line = twips(line), automatic = null, minimum = null)
+                "auto" -> if (line != null) result = result.copy(line = null, automatic = PdfAutomaticLineSpacing(number(line) / 240f), minimum = null)
+                "atLeast" -> if (line != null) result = result.copy(line = null, automatic = null, minimum = twips(line))
+                else -> reject("Unsupported line spacing policy")
             }
             fun inLines(name: String, inherited: Float?): Float? {
                 val value = it.value(name) ?: return inherited
