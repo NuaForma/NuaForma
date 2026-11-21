@@ -28,6 +28,16 @@ data class PdfParagraphEdge @JvmOverloads constructor(val stroke: PdfLineStroke,
     init { require(space.isFinite() && space in 0f..31f) { "Invalid paragraph border spacing" } }
 }
 
+/** Select physical pages within a page sequence, independent of their printed numbering. */
+enum class PdfPageFrameDisplay { ALL, FIRST, EXCEPT_FIRST }
+
+/** A uniform solid page frame. Offsets measure from each physical page edge to the outer ink. */
+data class PdfPageFrame @JvmOverloads constructor(
+    val offsets: PdfMargins,
+    val border: PdfBorder,
+    val display: PdfPageFrameDisplay = PdfPageFrameDisplay.ALL,
+)
+
 /** Equal borders and indents on consecutive paragraphs form one frame. */
 data class PdfParagraphBorders @JvmOverloads constructor(
     val top: PdfParagraphEdge? = null,

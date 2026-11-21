@@ -418,6 +418,20 @@ internal object PdfBoxWriter {
 
                     decoration?.paint(page, writer, layout.page.width, layout.page.height)
                     paint(layout.elements, layout.page.height, layout.page.width)
+                    layout.pageFrame?.let { frame ->
+                        val (top, right, bottom, left) = frame.offsets
+                        val (width, color) = frame.border
+                        command("BMC", COSName.ARTIFACT)
+                        command("q")
+                        command("RG", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
+                        command("w", number(width))
+                        command("j", COSInteger.ZERO)
+                        command("re", number(left + width / 2), number(bottom + width / 2),
+                            number(layout.page.width - left - right - width), number(layout.page.height - top - bottom - width))
+                        command("S")
+                        command("Q")
+                        command("EMC")
+                    }
                 }
             }
             navigation.finish()

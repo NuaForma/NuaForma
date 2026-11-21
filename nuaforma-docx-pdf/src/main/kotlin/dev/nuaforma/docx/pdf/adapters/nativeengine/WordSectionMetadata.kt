@@ -29,6 +29,7 @@ internal object WordSectionMetadata {
 
     private fun validateSection(section: XmlElement, reject: (XmlElement, String) -> Nothing) {
         validatePaperSource(section, reject)
+        WordPageBorders.validateSectionSource(section, reject)
         for (name in listOf("type", "formProt", "textDirection", "rtlGutter", "noEndnote")) {
             val settings = section.elements().filter { it.name.localPart == name }
             if (settings.size > 1) reject(settings[1], "Duplicate original section property: $name")

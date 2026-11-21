@@ -56,3 +56,14 @@ wrapper's run metadata. The flag controls spelling and grammar checking.
 The PDF adapter retains the stored paragraph, actual page fields and
 their printed formatting. Unfamiliar galleries, data bindings and
 malformed control properties retain source diagnostics.
+
+## Physical page frames
+
+A Word section can draw a solid frame in front of the page content.
+The four sides share a color and width and may use different offsets.
+An offset measures from its physical page edge to the outer edge of the
+border. The first-page and subsequent-page modes reset for each section,
+independently of displayed page numbers. A frame is a PDF artifact and
+does not reserve body or header space.
+
+[Word page-border defaults](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/5307147f-a81a-42d2-b84c-3a2b50576876)

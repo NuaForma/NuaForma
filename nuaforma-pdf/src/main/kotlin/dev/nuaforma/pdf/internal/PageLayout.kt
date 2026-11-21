@@ -37,7 +37,12 @@ internal data class PositionedRectangle(val x: Float, val top: Float, val width:
 internal data class PositionedTableBorder(val x: Float, val top: Float, val length: Float, val horizontal: Boolean, val stroke: PdfEdgeStroke, val group: Any) : PositionedElement
 internal data class PositionedBox(val box: PdfTextBox, val x: Float, val top: Float, val elements: List<PositionedElement>, val pageY: Boolean = false) : PositionedElement
 internal data class MeasuredLineBox(val from: Int, val until: Int, val top: Float, val height: Float, val pageBreakAfter: Boolean = false)
-internal data class PageLayout(val page: PdfPage, val elements: List<PositionedElement>, val lineBoxes: List<MeasuredLineBox> = emptyList())
+internal data class PageLayout(
+    val page: PdfPage,
+    val elements: List<PositionedElement>,
+    val lineBoxes: List<MeasuredLineBox> = emptyList(),
+    val pageFrame: PdfPageFrame? = null,
+)
 
 internal object PageLayouter {
     private const val softHyphen = '\u00AD'

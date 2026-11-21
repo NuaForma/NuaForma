@@ -70,6 +70,16 @@ internal object DocumentLayouter {
                 val decorated = FlowLayouter.decorate(layouts.subList(offset, offset + count), policy, start, layouts.size, measurer)
                 for ((local, layout) in decorated.withIndex()) layouts[offset + local] = layout
             }
+            sequence.pageFrame?.let { frame ->
+                for (local in 0 until count) {
+                    val applies = when (frame.display) {
+                        PdfPageFrameDisplay.ALL -> true
+                        PdfPageFrameDisplay.FIRST -> local == 0
+                        PdfPageFrameDisplay.EXCEPT_FIRST -> local > 0
+                    }
+                    if (applies) layouts[offset + local] = layouts[offset + local].copy(pageFrame = frame)
+                }
+            }
         }
         return pass.layout.copy(pages = layouts.mapIndexed { index, layout ->
             ParagraphPageOffsets.resolve(layout, index + 1).also { PhysicalTextBounds.check(it, measurer) }

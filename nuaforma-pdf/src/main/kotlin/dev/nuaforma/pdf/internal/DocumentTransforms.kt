@@ -65,6 +65,7 @@ internal object DocumentTransforms {
             val flow = sequence.flow?.let { PdfFlow(band(it.header, "$key-header"), band(it.footer, "$key-footer"), it.maxPages,
                 pair(it.firstPageBands, "$key-first"), pair(it.evenPageBands, "$key-even")) }
             PdfPageSequence(sequence.page, blocks(sequence.blocks, key, Scope.BODY), flow, sequence.numbering)
+                .withPageFrame(sequence.pageFrame)
         }, document.maxPages, document.referenceTargets, document.notes.mapIndexed { index, note ->
             PdfNote(note.id, note.kind, note.number, blocks(note.paragraphs, "note$index", Scope.NOTE).map { it as PdfParagraph }, note.separator)
         })

@@ -264,7 +264,7 @@ internal class NativeDocxReader(
         fun readGeometry(section: XmlElement): Pair<PdfPage, XmlElement> {
             source.current = section
             attributes(section, emptySet())
-            children(section, setOf("pgSz", "pgMar", "headerReference", "footerReference", "type", "titlePg", "pgNumType", "footnotePr", "endnotePr"))
+            children(section, setOf("pgSz", "pgMar", "headerReference", "footerReference", "type", "titlePg", "pgNumType", "footnotePr", "endnotePr", "pgBorders"))
             pageNumbering(section)
             section.one("titlePg")?.let(::pageToggle)
             for (kind in listOf("headerReference", "footerReference")) {
@@ -1639,7 +1639,11 @@ internal class NativeDocxReader(
                 PdfPageBands(band("header", headerReferences["even"]), band("footer", footerReferences["even"])) else null
             val flow = PdfFlow(header, footer, firstPageBands = first, evenPageBands = even)
             val numbering = pageNumbering(section)
+            val frame = section.one("pgBorders")?.let {
+                WordPageBorders.read(it, page) { origin, message -> source.current = origin; reject(message) }
+            }
             PdfPageSequence(page, blocks, flow, numbering.copy(alignParity = evenAndOddHeaders && numbering.start != null))
+                .withPageFrame(frame)
         }
         val notes = sourceNotes.readDefinitions { node, kind ->
             val name = NativeDocxNotes.kindName(kind) + "s.xml"

@@ -72,12 +72,26 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
 /** A resolved physical page policy over a content range. Every sequence starts on a fresh page.
  * Adapters resolve source section/master inheritance before constructing these immutable ranges.
  */
-class PdfPageSequence @JvmOverloads constructor(
-    val page: PdfPage, blocks: List<PdfBlock>, val flow: PdfFlow? = null,
-    val numbering: PdfPageNumbering = PdfPageNumbering(),
+class PdfPageSequence private constructor(
+    val page: PdfPage, blocks: List<PdfBlock>, val flow: PdfFlow?,
+    val numbering: PdfPageNumbering, val pageFrame: PdfPageFrame?,
 ) {
+    @JvmOverloads
+    constructor(page: PdfPage, blocks: List<PdfBlock>, flow: PdfFlow? = null,
+        numbering: PdfPageNumbering = PdfPageNumbering()) : this(page, blocks, flow, numbering, null)
+
     val blocks: List<PdfBlock> = Collections.unmodifiableList(ArrayList(blocks))
-    init { require(this.blocks.size in 1..1_000) { "A page sequence needs 1 to 1000 blocks" } }
+
+    init {
+        require(this.blocks.size in 1..1_000) { "A page sequence needs 1 to 1000 blocks" }
+        pageFrame?.let { frame ->
+            val (top, right, bottom, left) = frame.offsets
+            require(top + bottom + 2 * frame.border.width < page.height &&
+                left + right + 2 * frame.border.width < page.width) { "Page frame leaves no interior" }
+        }
+    }
+
+    fun withPageFrame(frame: PdfPageFrame?): PdfPageSequence = PdfPageSequence(page, blocks, flow, numbering, frame)
 }
 
 /** Null start continues preceding display numbers. Optional padding matches the preceding numbering parity.
