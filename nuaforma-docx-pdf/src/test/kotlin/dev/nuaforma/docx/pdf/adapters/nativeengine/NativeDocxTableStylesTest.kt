@@ -21,7 +21,7 @@ class NativeDocxTableStylesTest {
 
     @Test fun `region order is independent of XML declaration order and missing band sizes disable banding`() {
         val kinds = listOf("nwCell", "firstRow", "firstCol", "band1Vert", "band1Horz", "wholeTable")
-        val source = kinds.joinToString("") { region(it) }
+        val source = kinds.joinToString("") { region(it, "<w:tblPr/>") }
         val properties = """<w:tblLook w:val="01E0"/>"""
         val styles = resolver(source, properties)
         assertEquals(listOf("wholeTable", "firstCol", "firstRow", "nwCell"), styles.layers(0, 0).drop(1).map { it.attribute(word, "type") })
@@ -33,7 +33,8 @@ class NativeDocxTableStylesTest {
 
     @Test fun `unknown duplicate nested and malformed active table styling rejects explicitly`() {
         val cases = listOf(region("unknown"), region("firstRow") + region("firstRow"),
-            region("firstRow", "<w:tblPr/>"), region("firstRow", "<w:trPr/>"),
+            region("firstRow", "<w:tblPr><w:tblLayout/></w:tblPr>"),
+            region("firstRow", "<w:tblPr extra=\"1\"/>"), region("firstRow", "<w:trPr/>"),
             region("firstRow", "<w:tcPr><w:textDirection/></w:tcPr>"),
             region("firstRow").replace("w:type=", "extra=\"1\" w:type="),
             "<w:tblPr><w:tblStyleRowBandSize w:val=\"4\"/></w:tblPr>",

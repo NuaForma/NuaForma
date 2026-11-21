@@ -41,7 +41,8 @@ internal class NativeDocxTableStyles(
         val conditions = style.elements().filter { it.name.namespaceURI == word && it.name.localPart == "tblStylePr" }
         val seen = mutableSetOf<String>()
         conditions.map { region ->
-            validate(region, setOf("type"), setOf("pPr", "rPr", "tcPr"))
+            validate(region, setOf("type"), setOf("pPr", "rPr", "tcPr", "tblPr"))
+            child(region, "tblPr")?.let { validate(it, emptySet(), emptySet()) }
             val kind = value(region, "type")
             if (kind !in kinds || !seen.add(requireNotNull(kind))) reject(region, "Invalid or duplicate conditional table region")
             child(region, "tcPr")?.let(::validateCell)

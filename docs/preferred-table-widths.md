@@ -100,3 +100,10 @@ Word places this table in body flow because there is no room beside it.
 The A4 and Letter controls place the same rows on the same pages near a
 page boundary. General floating tables that require side wrapping retain
 a source diagnostic.
+
+## Empty table properties in conditional styles
+
+A qualified conditional table region can contain an empty table-property block.
+It leaves the region's paragraph, text and cell properties in effect.
+Table-wide conditional properties with attributes or content retain a source
+diagnostic.
