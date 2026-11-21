@@ -789,7 +789,8 @@ internal class NativeDocxReader(
             val content = runs.ifEmpty { listOf(PdfTextRun(" ", markStyle ?: textStyle(base))) }
             check(content.none { it is PdfImageRun } || content.size == 1, "Mixed image/text paragraphs are outside the proof profile")
             val label = listEntry?.let { entry ->
-                check(content.all { it is PdfTextRun || it is PdfReferenceField || it is PdfSequenceField || it is PdfLineBreak || it is PdfPageBreak || it is PdfTab }, "This inline list content is outside the qualified profile")
+                check(content.all { it is PdfTextRun || it is PdfReferenceField || it is PdfSequenceField || it is PdfLineBreak ||
+                    it is PdfPageBreak || it is PdfTab || it is PdfNoteCall }, "This inline list content is outside the qualified profile")
                 val markerFace = resolveRun(entry.level.one("rPr"), base)
                 val markerSegments = if (mixedFonts(markerFace)) WordLatinFontSelection.segments(entry.value.text, context, ::reject, ::fontRunsBound) else emptyList()
                 check(markerSegments.size <= 1, "Mixed font selection within one list label is not qualified")
