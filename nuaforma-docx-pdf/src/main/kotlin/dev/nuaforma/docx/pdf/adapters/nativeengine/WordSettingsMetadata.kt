@@ -102,7 +102,12 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
     }
 
     fun normalize(parts: Map<String, XmlElement>, failure: (String, XmlElement) -> NativeDocxReadException): Formatting {
-        for ((name, root) in parts) WordSectionMetadata.normalizeForms(root) { node, _ -> throw failure(name, node) }
+        val hasEndnotes = parts["word/endnotes.xml"]?.elements()?.any {
+            it.name.namespaceURI == word && it.name.localPart == "endnote" && it.attribute(word, "type") in setOf(null, "normal")
+        } == true || parts.values.any { root ->
+            root.descendants().any { it.name.namespaceURI == word && it.name.localPart == "endnoteReference" }
+        }
+        for ((name, root) in parts) WordSectionMetadata.normalizeForms(root, hasEndnotes) { node, _ -> throw failure(name, node) }
         normalizeGrids(parts, failure)
         normalizeRightIndents(parts, failure)
         val settings = parts[part] ?: return Formatting()

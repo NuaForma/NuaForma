@@ -41,10 +41,20 @@ Rebuild sources with `python tools/pdf-evaluation/own-engine/build_initial_secti
 
 ## Printer tray selection (source #255)
 
-Unreleased #255 qualifies the section's `w:paperSrc` printer-tray metadata. Optional `w:first` and `w:other` codes are bounded unsigned 16-bit decimal values (0–65535). A single correctly namespaced leaf is allowed per section. Invalid values, duplicate/foreign nodes, unknown attributes, children and nonblank text are rejected against the original source before DOCX serialization.
+Unreleased #255 qualifies the section's `w:paperSrc` printer-tray metadata. Optional `w:first` and `w:other` codes are bounded unsigned 16-bit decimal values (0â€“65535). A single correctly namespaced leaf is allowed per section. Invalid values, duplicate/foreign nodes, unknown attributes, children and nonblank text are rejected against the original source before DOCX serialization.
 
 Only tray selection is omitted from the private print model. Explicit physical page size, orientation, margins, section starts, headers and footers retain their normal interpretation; a tray code is never treated as a paper size. Original template and qualified cleanup bytes are preserved. Printer-metrics compatibility options retain their separate restrictions.
 
 The synthetic `printer-tray-selection/{a4,letter}` sources change only document section metadata. Independent Word exports retain the existing page pixels, and standard PDF/PDF-A-1b/2b/3b reuse existing immutable goldens. Source-shape and range boundaries are tested, including malformed originals through the provider with no partial PDF. The Playground uses the same admission and original-source diagnostics.
 
 Rebuild with `python tools/pdf-evaluation/own-engine/build_paper_source_fixture.py --base nuaforma-docx-pdf/src/test/resources --output build/printer-tray-sources`. Run `./gradlew :nuaforma-docx-pdf:test --tests 'dev.nuaforma.docx.pdf.NativePaperSourceTest'` and the normal build. Microsoft defines [paper source](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.papersource) as printer-specific tray selection.
+
+## Endnote suppression without printed endnotes
+
+A section can retain a valid endnote-suppression preference with no ordinary
+endnotes or references. Separator and continuation-separator parts are enough
+to qualify this case. An explicitly disabled preference also preserves any
+existing endnotes. Enabled suppression of real endnote content receives a
+source diagnostic, and the original DOCX retains its preference.
+
+See Microsoft's [endnote suppression property](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.noendnote?view=openxml-3.0.1).

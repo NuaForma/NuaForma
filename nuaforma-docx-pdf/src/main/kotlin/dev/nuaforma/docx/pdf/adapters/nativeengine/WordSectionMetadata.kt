@@ -14,16 +14,22 @@ internal object WordSectionMetadata {
             validateSection(section, reject)
     }
 
-    fun normalizeForms(root: XmlElement, reject: (XmlElement, String) -> Nothing) {
+    fun normalizeForms(root: XmlElement, hasEndnotes: Boolean = true, reject: (XmlElement, String) -> Nothing) {
         for (section in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart == "sectPr" }) {
             validateSection(section, reject)
+            val suppression = section.elements().singleOrNull { it.name.namespaceURI == W && it.name.localPart == "noEndnote" }
+            if (suppression != null) {
+                if (hasEndnotes && suppression.attribute(W, "val") !in setOf("0", "false", "off"))
+                    reject(suppression, "Suppressing printed endnotes is outside the qualified profile")
+                section.children.remove(suppression)
+            }
             section.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart in setOf("formProt", "paperSrc", "textDirection", "rtlGutter") }
         }
     }
 
     private fun validateSection(section: XmlElement, reject: (XmlElement, String) -> Nothing) {
         validatePaperSource(section, reject)
-        for (name in listOf("type", "formProt", "textDirection", "rtlGutter")) {
+        for (name in listOf("type", "formProt", "textDirection", "rtlGutter", "noEndnote")) {
             val settings = section.elements().filter { it.name.localPart == name }
             if (settings.size > 1) reject(settings[1], "Duplicate original section property: $name")
             for (setting in settings) {
