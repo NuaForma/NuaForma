@@ -41,6 +41,29 @@ class PdfTrailingUnderlineTest {
     }
 
     @Test
+    fun `underlined tabs paint the whole advance with leaders and at the end of a line`() {
+        for (trailing in listOf(false, true)) for (leader in listOf(PdfTabLeader.NONE, PdfTabLeader.DOT)) {
+            val plain = style.copy(underline = false)
+            val tabs = PdfTabSettings(listOf(PdfTabStop(100f, leader = leader)))
+            fun paragraph(underline: Boolean, following: Boolean): PdfParagraph {
+                val marker = PdfTab(if (underline) style else plain)
+                val runs = listOf(marker) + if (following) listOf(PdfTextRun("VALUE", plain)) else emptyList()
+                return PdfParagraph(runs, 0f, 0f, PdfParagraphFormat(exactLineHeight = 16f, tabs = tabs))
+                    .withUnderlineTrailingSpaces(trailing)
+            }
+            for (following in listOf(false, true)) {
+                val off = render(listOf(paragraph(false, following)))
+                val on = render(listOf(paragraph(true, following)))
+                assertTrue(bars(off).isEmpty())
+                val line = bars(on).single()
+                assertEquals(20f, line[0], .01f)
+                assertEquals(100f, line[2], .01f)
+                assertEquals(visiblePositions(off), visiblePositions(on))
+            }
+        }
+    }
+
+    @Test
     fun `end spaces decorate without changing aligned glyph positions and clip at the margin`() {
         for (alignment in PdfAlignment.entries) {
             val off = render(listOf(paragraph("TRAIL    ", alignment, false)))

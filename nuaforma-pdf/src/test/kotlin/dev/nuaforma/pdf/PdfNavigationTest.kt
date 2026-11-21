@@ -140,10 +140,17 @@ class PdfNavigationTest {
                 PdfEngine().render(PdfDocument(page, listOf(block), PdfFlow()), FoundationLetter.fonts())
             }.code)
         }
-        val tab = PdfParagraph(listOf(PdfTextRun("Before", style), PdfTab(style.copy(underline = true)), PdfTextRun("After", style)))
-        assertEquals(PdfFailureCode.UNSUPPORTED_TEXT, assertThrows(PdfRenderException::class.java) {
-            PdfEngine().render(PdfDocument(page, listOf(tab)), FoundationLetter.fonts())
-        }.code)
+    }
+
+    @Test fun `underlined tabs keep the following link separate from the tab gap`() {
+        val link = PdfTextNavigation(PdfLink.External("https://example.test/"))
+        val tab = PdfParagraph(listOf(PdfTextRun("Before", style), PdfTab(style.copy(underline = true)),
+            PdfTextRun("After", style, link)))
+        Loader.loadPDF(PdfEngine().render(PdfDocument(page, listOf(tab)), FoundationLetter.fonts())).use { pdf ->
+            val annotation = pdf.getPage(0).annotations.single() as PDAnnotationLink
+            assertEquals("https://example.test/", (annotation.action as PDActionURI).uri)
+            assertEquals(page.margins.left + 36f, annotation.rectangle.lowerLeftX, 0.02f)
+        }
     }
 
     @Test fun `underline metrics cannot silently paint outside the supplied font bounds`() {

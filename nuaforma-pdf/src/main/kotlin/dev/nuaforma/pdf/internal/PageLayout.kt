@@ -229,10 +229,20 @@ internal object PageLayouter {
                                 clip = if (fragment.imageClipToLine && format.exactLineHeight != null)
                                     RectangleClip(x + (fragment.imagePadding?.left ?: 0f), top,
                                         x + (fragment.imagePadding?.left ?: 0f) + fragment.image.width, top + height) else null)
-                            else elements += PositionedText(fragment.text, requireNotNull(fragment.style), x + fragment.paintOffset, baseline, fragment.decoration, fragment.navigation, block.semantics?.id, fragment.semantics,
-                                block.semantics?.takeUnless { fragment.decoration || fragment.text.isEmpty() }?.let { fragment.sourceStart + prefix },
-                                trailingDecorationWidth = if (extra > 0f) fragment.metrics.width + extra else null, requiresPhysicalBounds = deferInkBounds,
-                                background = background(requireNotNull(fragment.style), fragment.metrics.width + extra, -fragment.paintOffset))
+                            else {
+                                val style = requireNotNull(fragment.style)
+                                val tabUnderline = fragment.tab != null && style.underline
+                                val displayStyle = if (tabUnderline) style.copy(underline = false) else style
+                                elements += PositionedText(fragment.text, displayStyle, x + fragment.paintOffset, baseline,
+                                    fragment.decoration, fragment.navigation, block.semantics?.id, fragment.semantics,
+                                    block.semantics?.takeUnless { fragment.decoration || fragment.text.isEmpty() }?.let { fragment.sourceStart + prefix },
+                                    trailingDecorationWidth = if (extra > 0f) fragment.metrics.width + extra else null, requiresPhysicalBounds = deferInkBounds,
+                                    background = background(style, fragment.metrics.width + extra, -fragment.paintOffset))
+                                if (tabUnderline && fragment.metrics.width > 0f) {
+                                    elements += PositionedText("", style.withStrikethrough(false), x, baseline, decoration = true,
+                                        trailingDecorationWidth = fragment.metrics.width, requiresPhysicalBounds = deferInkBounds)
+                                }
+                            }
                             x += fragment.metrics.width + extra
                         }
                         if (block.underlineTrailingSpaces == true) {
@@ -401,7 +411,8 @@ internal object PageLayouter {
                             if (count > 4096) throw PdfRenderException(PdfFailureCode.RESOURCE_LIMIT, "Tab leader budget exceeded")
                             val text = if (count > 0) symbol.repeat(count) else " "
                             val offset = if (leader == PdfTabLeader.NONE || count == 0) 0f else (gap - count * metrics.width) / 2
-                            line += Fragment(text, control.style, metrics.copy(width = gap), paintOffset = offset, decoration = leader != PdfTabLeader.NONE)
+                            line += Fragment(text, control.style, metrics.copy(width = gap), tab = control,
+                                paintOffset = offset, decoration = leader != PdfTabLeader.NONE)
                             lineWidth += gap
                             continue
                         }
@@ -609,7 +620,6 @@ internal object PageLayouter {
                 continue
             }
             if (run is PdfTab) {
-                if (run.style.underline) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Underlined tabs are not qualified")
                 groups += mutableListOf(Fragment("\t", run.style, TextMetrics(0f, 0f, 0f), tab = run))
                 previousSpace = null
                 sourceOffset++

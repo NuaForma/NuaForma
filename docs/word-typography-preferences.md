@@ -172,3 +172,11 @@ cannot encode U+0020 directly. Layout uses the supplied font's advance.
 The PDF Unicode map keeps an ordinary space for text extraction.
 
 [OpenType character mapping tables](https://learn.microsoft.com/en-us/typography/opentype/spec/cmap)
+
+## Underlined tabs
+
+A directly underlined Word tab draws an underline across the resolved tab
+advance. The line spans the full gap when a tab has leader dots or sits at
+the end of the line. Ordinary trailing spaces still follow their own
+compatibility setting. The underline follows the tab position after
+template replacement.
