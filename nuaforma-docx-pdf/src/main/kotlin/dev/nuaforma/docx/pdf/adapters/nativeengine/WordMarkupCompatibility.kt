@@ -112,6 +112,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     throw error
                 }
                 source.index(root, part)
+                if (part == WordAuxiliaryParts.INTELLIGENCE_PART) WordAuxiliaryParts.validateEmptyIntelligence(root) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }
                 if (selection.normalize(root) { node, message -> source.current = node; source.failure(message, part) }) {
                     archive.touch(part)
                     changed = true
