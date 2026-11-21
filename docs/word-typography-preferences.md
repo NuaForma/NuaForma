@@ -161,3 +161,14 @@ the gap are each 0.75 points. The strokes run in page order from top
 to bottom or from left to right, and the layout reserves the combined
 extent. Compound
 borders between paragraphs retain a source diagnostic.
+
+## Spaces in Windows symbol fonts
+
+Legacy Windows symbol fonts can store spacing at the private-use codepoint
+U+F020. The PDF engine uses the legacy blank
+glyph only when the selected TrueType font declares the Windows Symbol
+character map, supplies that blank outline with a positive advance and
+cannot encode U+0020 directly. Layout uses the supplied font's advance.
+The PDF Unicode map keeps an ordinary space for text extraction.
+
+[OpenType character mapping tables](https://learn.microsoft.com/en-us/typography/opentype/spec/cmap)

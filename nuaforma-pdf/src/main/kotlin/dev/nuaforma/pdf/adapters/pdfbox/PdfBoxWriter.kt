@@ -65,12 +65,13 @@ internal object PdfBoxWriter {
                 val font = fonts[style.fontId] ?: fail(PdfFailureCode.FONT_UNAVAILABLE, "Referenced font is not supplied")
                 val width = try {
                     if (style.fontFeatures.active) shaper.shape(text, style).advance else {
-                        if (style.characterSpacing < 0f) text.codePoints().forEach { point ->
+                        val input = shaper.fontInput(text, style.fontId)
+                        if (style.characterSpacing < 0f) input.codePoints().forEach { point ->
                             val glyphWidth = font.getStringWidth(String(Character.toChars(point))) * style.size / 1000f * style.horizontalScale
                             if (glyphWidth + style.characterSpacing < 0f)
                                 fail(PdfFailureCode.UNSUPPORTED_TEXT, "Character spacing reverses glyph advances")
                         }
-                        font.getStringWidth(text) * style.size / 1000f * style.horizontalScale + text.codePointCount(0, text.length) * style.characterSpacing
+                        font.getStringWidth(input) * style.size / 1000f * style.horizontalScale + text.codePointCount(0, text.length) * style.characterSpacing
                     }
                 } catch (_: IllegalArgumentException) {
                     fail(PdfFailureCode.MISSING_GLYPH, "The supplied font cannot encode requested text")
@@ -103,7 +104,8 @@ internal object PdfBoxWriter {
             val layouts = composed.pages
             for (layout in layouts) for (text in DocumentLayouter.texts(layout.elements)) {
                 control.checkActive()
-                if (text.text.codePoints().anyMatch { it in 0xE000..0xF8FF }) privateGlyphFonts += text.style.fontId
+                if (text.text.codePoints().anyMatch { it in 0xE000..0xF8FF } ||
+                    shaper.fontInput(text.text, text.style.fontId) != text.text) privateGlyphFonts += text.style.fontId
             }
             watermark?.let { if (it.text.codePoints().anyMatch { point -> point in 0xE000..0xF8FF }) privateGlyphFonts += it.fontId }
 
@@ -309,7 +311,8 @@ internal object PdfBoxWriter {
                                     val color = element.style.color
                                     val font = fonts.getValue(element.style.fontId)
                                     usedFonts += element.style.fontId
-                                    if (font.willBeSubset()) element.text.codePoints().forEach { font.addToSubset(it) }
+                                    val input = shaper.fontInput(element.text, element.style.fontId)
+                                    if (font.willBeSubset()) input.codePoints().forEach { font.addToSubset(it) }
                                     if (element.style.syntheticBold) command("q")
                                     command("BT")
                                     command("Tf", page.resources.add(font), number(element.style.size))
@@ -330,7 +333,7 @@ internal object PdfBoxWriter {
                                                 number(canvasHeight - (element.baseline - element.style.baselineShift + glyph.y)))
                                             command("Tj", COSString(encoding.glyph(element.style.fontId, glyph)))
                                         }
-                                    } else command("Tj", COSString(encoding.normal(element.style.fontId, element.text)))
+                                    } else command("Tj", COSString(encoding.normal(element.style.fontId, element.text, input)))
                                     command("ET")
                                     if (element.style.syntheticBold) {
                                         command("Q")

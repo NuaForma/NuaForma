@@ -2,6 +2,7 @@ package dev.nuaforma.pdf.adapters.pdfbox
 
 import dev.nuaforma.pdf.*
 import dev.nuaforma.pdf.internal.PageLayouter
+import org.apache.fontbox.ttf.CmapTable
 import org.apache.pdfbox.pdmodel.font.PDCIDFontType2
 import org.apache.pdfbox.pdmodel.font.PDType0Font
 import java.awt.Font
@@ -21,9 +22,26 @@ internal class FontShaper(resources: List<PdfFont>, private val fonts: Map<Strin
     private val cache = linkedMapOf<Key, Shape>()
     private var cachedCharacters = 0
     private val enabledFonts = mutableSetOf<String>()
+    private val symbolSpaces = mutableMapOf<String, Boolean>()
     private val renderContext = FontRenderContext(AffineTransform(), true, true)
 
     fun enabled(fontId: String): Boolean = fontId in enabledFonts
+
+    fun fontInput(text: String, fontId: String): String =
+        if (' ' in text && symbolSpaces.getOrPut(fontId) { hasSymbolSpace(fontId) }) text.replace(' ', '\uF020') else text
+
+    private fun hasSymbolSpace(fontId: String): Boolean {
+        val font = font(fontId)
+        val ordinary = try { font.encode(" "); true } catch (_: IllegalArgumentException) { false }
+        if (ordinary) return false
+        val ttf = trueType(fontId)
+        val symbol = ttf.cmap?.getSubtable(CmapTable.PLATFORM_WINDOWS, CmapTable.ENCODING_WIN_SYMBOL) ?: return false
+        val glyph = symbol.getGlyphId(0xF020)
+        if (glyph !in 1 until ttf.numberOfGlyphs || ttf.unicodeCmapLookup.getGlyphId(0xF020) != glyph ||
+            ttf.getAdvanceWidth(glyph) <= 0) return false
+        val outlines = ttf.glyph ?: return false
+        return outlines.getGlyph(glyph)?.path?.bounds2D?.isEmpty != false
+    }
 
     /** Already-qualified bidi text follows the writer's direct encoding without optional shaping. */
     fun inkShape(text: String, style: PdfTextStyle): Shape {
@@ -107,10 +125,12 @@ internal class FontShaper(resources: List<PdfFont>, private val fonts: Map<Strin
         val kern = if (style.fontFeatures.kerning == PdfKerning.PAIRS) ttf.kerning?.horizontalKerningSubtable else null
         var x = 0f
         var previous: Int? = null
+        val input = fontInput(text, style.fontId)
+        val printed = input.codePoints().iterator()
         val glyphs = text.codePoints().toArray().map { point ->
             control.checkActive()
-            val logical = String(Character.toChars(point))
-            val gid = glyphId(font, logical)
+            val logical = Character.toString(point)
+            val gid = glyphId(font, Character.toString(printed.nextInt()))
             previous?.let { x += (kern?.getKerning(it, gid) ?: 0) * scale }
             Glyph(gid, x, 0f, logical).also { x += ttf.getAdvanceWidth(gid) * scale; previous = gid }
         }
@@ -125,7 +145,7 @@ internal class FontShaper(resources: List<PdfFont>, private val fonts: Map<Strin
         val face = base.deriveFont(mapOf(TextAttribute.SIZE to style.size,
             TextAttribute.KERNING to if (style.fontFeatures.kerning == PdfKerning.OPENTYPE) TextAttribute.KERNING_ON else 0,
             TextAttribute.LIGATURES to if (style.fontFeatures.standardLigatures) TextAttribute.LIGATURES_ON else 0))
-        val chars = text.toCharArray()
+        val chars = fontInput(text, style.fontId).toCharArray()
         val vector = face.layoutGlyphVector(renderContext, chars, 0, chars.size, Font.LAYOUT_LEFT_TO_RIGHT)
         val indices = vector.getGlyphCharIndices(0, vector.numGlyphs, null)
         if (indices.distinct().size != indices.size || indices.firstOrNull() != 0 || indices.any { it !in chars.indices } ||
