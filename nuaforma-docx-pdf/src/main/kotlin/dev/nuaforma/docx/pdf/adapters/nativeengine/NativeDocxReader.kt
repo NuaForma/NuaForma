@@ -910,6 +910,9 @@ internal class NativeDocxReader(
             val headerCount = rowNodes.takeWhile { row -> row.one("trPr")?.one("tblHeader")?.let { it.value("val") in setOf(null, "1", "true", "on") } == true }.size
             val regions = NativeDocxTableStyles(tableStyles, properties, rowNodes.size,
                 table.one("tblGrid")?.elements()?.size ?: 0, headerCount, context) { node, message -> source.current = node; reject(message) }
+            val alignment = regions.property("jc")?.let { property ->
+                WordTableAlignment.read(property) { origin, message -> source.current = origin; reject(message) }
+            } ?: PdfTableAlignment.LEFT
             val layout = regions.property("tblLayout")?.value("type")
             check(layout in setOf(null, "fixed", "autofit"), "Unsupported table layout")
             val automaticLayout = layout != "fixed"
@@ -1053,7 +1056,12 @@ internal class NativeDocxReader(
                 source.current = row
                 children(row, setOf("trPr", "tc"))
                 val rowProperties = row.one("trPr")
-                rowProperties?.let { children(it, setOf("cantSplit", "tblHeader", "trHeight")) }
+                rowProperties?.let { children(it, setOf("cantSplit", "tblHeader", "trHeight", "jc")) }
+                rowProperties?.one("jc")?.let { property ->
+                    val rowAlignment = WordTableAlignment.read(property) { origin, message -> source.current = origin; reject(message) }
+                    source.current = property
+                    check(rowAlignment == alignment, "Table row alignment differs from the effective table alignment")
+                }
                 rowMinimums += rowProperties?.one("trHeight")?.let { node ->
                     WordRowHeights.read(node) { origin, message -> source.current = origin; reject(message) }
                 }
@@ -1225,9 +1233,6 @@ internal class NativeDocxReader(
             }
             val count = headerFlags.takeWhile { it }.size
             check(headerFlags.drop(count).none { it }, "Table headers must be leading rows")
-            val alignment = regions.property("jc")?.let { property ->
-                WordTableAlignment.read(property) { origin, message -> source.current = origin; reject(message) }
-            } ?: PdfTableAlignment.LEFT
             source.current = regions.property("jc") ?: table
             check(depth == 0 || alignment == PdfTableAlignment.LEFT, "Aligned nested Word tables are not yet qualified")
             check(modernTableAlignment || alignment == PdfTableAlignment.LEFT || preferredTableWidth?.percent == null,
