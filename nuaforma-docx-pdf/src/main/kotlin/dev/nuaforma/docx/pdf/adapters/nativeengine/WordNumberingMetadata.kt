@@ -13,20 +13,29 @@ internal class WordNumberingMetadata(private val context: GenerationContext) {
     private val paragraphNumber = Regex("[+]?[0-9]{1,7}")
 
     fun validateParagraphNumberingSource(root: XmlElement, failure: (XmlElement) -> NativeDocxReadException) {
-        for (properties in root.descendants().filter { it.name == QName(word, "pPr") }) {
+        val paragraph = QName(word, "p")
+        val propertiesName = QName(word, "pPr")
+        val directProperties = root.descendants().filter { it.name == paragraph }
+            .flatMap { it.elements().asSequence().filter { property -> property.name == propertiesName } }.toSet()
+        for (properties in root.descendants().filter { it.name == propertiesName }) {
             context.checkActive()
             val declarations = properties.elements().filter { it.name.localPart == "numPr" }
             if (declarations.size > 1) throw failure(declarations[1])
-            for (declaration in declarations) validateParagraphNumbering(declaration, failure)
+            for (declaration in declarations) validateParagraphNumbering(declaration, properties in directProperties, failure)
         }
     }
 
-    private fun validateParagraphNumbering(node: XmlElement, failure: (XmlElement) -> NativeDocxReadException) {
+    private fun validateParagraphNumbering(
+        node: XmlElement, directParagraph: Boolean, failure: (XmlElement) -> NativeDocxReadException,
+    ) {
         numberingAttributes(node, emptySet(), failure)
         if (node.name != QName(word, "numPr") || node.elements().isEmpty() ||
             node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) throw failure(node)
+        val children = node.elements()
+        val disabled = directParagraph && children.singleOrNull { it.name == QName(word, "numId") }
+            ?.attribute(word, "val")?.toIntOrNull() == 0
         val seen = mutableSetOf<String>()
-        for (child in node.elements()) {
+        for (child in children) {
             context.checkActive()
             numberingAttributes(child, setOf("val"), failure)
             val value = child.attribute(word, "val")
@@ -34,7 +43,7 @@ internal class WordNumberingMetadata(private val context: GenerationContext) {
                 !seen.add(child.name.localPart) || child.elements().isNotEmpty() ||
                 child.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } || value == null ||
                 !value.matches(paragraphNumber) || value.toIntOrNull() !in
-                0..(if (child.name.localPart == "ilvl") 8 else 1_000_000)) throw failure(child)
+                0..(if (child.name.localPart == "ilvl" && !disabled) 8 else 1_000_000)) throw failure(child)
         }
     }
 

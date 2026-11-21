@@ -1,18 +1,18 @@
 # Word table placement and numbering inheritance
 
-Unreleased work #279–#282 extends the existing DOCX/PDF adapter. It adds no public API, dependency, package or fallback converter. The original template is never overwritten. The Playground uses the same provider, including strict source diagnostics and its separate cleanup operation.
+Unreleased work #279â€“#282 extends the existing DOCX/PDF adapter. It adds no public API, dependency, package or fallback converter. The original template is never overwritten. The Playground uses the same provider, including strict source diagnostics and its separate cleanup operation.
 
 ## Signed physical table indentation
 
 Direct and inherited `tblInd` in `dxa` units can be negative. Decimal spellings are bounded before truncation toward zero, matching the observed Word parser: `-100.8` becomes `-100` twips, and `-0.8` becomes an explicitly declared zero. Zero must remain a declaration because legacy layout distinguishes it from omission. Direct zero overrides an inherited negative indent.
 
-The source bound is −288,000 through +288,000 twips; the shared renderer independently checks actual physical placement and content bounds. Unsupported units, malformed numbers, foreign or duplicate properties remain errors. This does not allow arbitrary off-page tables. Cleanup reports numeric canonicalization while preserving unrelated part bytes and produces a reusable template.
+The source bound is âˆ’288,000 through +288,000 twips; the shared renderer independently checks actual physical placement and content bounds. Unsupported units, malformed numbers, foreign or duplicate properties remain errors. This does not allow arbitrary off-page tables. Cleanup reports numeric canonicalization while preserving unrelated part bytes and produces a reusable template.
 
 Twenty-eight independent fixed-width Word controls cover compatibility modes 12 and 15, direct/inherited placement, explicit zero, negative fractions and integer controls on A4 and Letter. The recorded Word parser observations accompany the fixtures. Additional automatic-width and nested-table probes are research evidence, not a universal fidelity claim. In particular, legacy 100%-wide tables that Word allows into the right margin require a separate shared-model decision. Combining splitting rows with nested tables remains outside the existing profile.
 
 ## Previous table grids
 
-A bounded `tblGridChange` describes a previous grid, not the current visible columns. It is validated before binding and omitted only from the request-local print view. The closed profile has one previous grid with 1–16 positive, bounded column widths, a nonnegative identifier and optional bounded author/date metadata. Active descendants, nested history, malformed numbers and unknown properties remain errors.
+A bounded `tblGridChange` describes a previous grid, not the current visible columns. It is validated before binding and omitted only from the request-local print view. The closed profile has one previous grid with 1â€“16 positive, bounded column widths, a nonnegative identifier and optional bounded author/date metadata. Active descendants, nested history, malformed numbers and unknown properties remain errors.
 
 Cleanup preserves the historical structure, canonicalizing qualified fractional widths when needed. Inactive author text containing a brace never becomes a template instruction. Four actual Word controls confirm that changing historical column counts or widths does not change the current table. Native tests reuse the existing preferred-width golden images without replacing them. This does not add general revision rendering or tracked-change acceptance.
 
@@ -39,3 +39,14 @@ The normal full build passes all 1,682 tests, including 763 in the DOCX/PDF adap
 The final server qualification produces 116 PDFs across standard PDF and the three B-level archival profiles. All 116 native pages match their protected or initially reviewed golden images exactly. Word text and paper geometry agree; 429 marker positions differ by at most 0.10 point. All 24 invalid HTTP requests reject with their original part/element and no published PDF. Nine actual Playground cleanup/download/idempotence/reuse routes retain identical native pixels, text and embedded fonts. Inherited numeric canonicalization updates both matching style parts when necessary.
 
 The unchanged 250-source corpus retains ten PDFs and fifteen exact native pages against the preceding run. Forty-two first diagnoses differ from the earlier baseline: 39 shifts were already present in the feature prototype; three additional changes identify invalid original numbering levels earlier. These are first-barrier changes, not 42 newly converted documents. Corpus results are regression checks rather than Word-fidelity assertions for private original documents. No private samples, fonts or generated corpus documents are distributed with this work.
+
+## Explicit cancellation of numbering
+
+A paragraph with a direct numbering instance of zero cancels list numbering.
+A decimal level stored alongside that cancellation has no effect on the printed
+paragraph. The reader retains the original property and validates its shape and
+numeric bounds. Active numbering and style declarations retain the existing
+level range. Word exports on A4 and US Letter cover both an omitted level and
+stored levels of 0, 12 and 99.
+
+See Microsoft's [numbering instance reference](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.numberingid?view=openxml-3.0.1).
