@@ -123,9 +123,14 @@ Word print rendering uses the actual table regions and look settings. Qualified
 condition flags in row, cell and paragraph properties remain in the source
 package and do not override those calculated regions in the PDF.
 
-## Keep-line flags in single-line table cells
+## Paragraph pagination inside table cells
 
-A measured cell paragraph containing at most one physical line can retain its
-keep-lines or widow-control flag without affecting pagination. Active rules for
-multiline cell paragraphs, paragraph-to-paragraph keeps and page breaks remain
-qualified separately.
+Widow control keeps at least two physical lines of a paragraph together at
+both ends of a split row. A two- or three-line paragraph stays intact. A longer
+paragraph can split where two or more lines fit on each side. The cell retains
+its measured line boxes, and the row cut must satisfy the constraints of every
+cell. Word exports on A4 and US Letter cover two- through four-line paragraphs
+in column-spanning cells.
+
+Keep-lines remains qualified on single-line paragraphs. Multiline keep-lines,
+paragraph-to-paragraph keeps and explicit page breaks retain their diagnostics.

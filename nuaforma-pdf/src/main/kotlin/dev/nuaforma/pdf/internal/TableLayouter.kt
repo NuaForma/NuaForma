@@ -4,7 +4,8 @@ import dev.nuaforma.pdf.*
 
 internal object TableLayouter {
     data class Piece(val top: Float, val height: Float, val elements: List<PositionedElement>)
-    data class Cell(val placement: TablePlacement, val pieces: List<Piece>, val contentHeight: Float, val margins: PdfMargins)
+    data class Cell(val placement: TablePlacement, val pieces: List<Piece>, val contentHeight: Float, val margins: PdfMargins,
+        val widowRanges: List<ClosedFloatingPointRange<Float>>)
     data class Measured(val table: PdfTable, val cells: List<Cell>, val heights: List<Float>, val offsets: List<Float>, val topInsets: List<Float>, val customBorders: Boolean, val consistentBorders: Boolean, val closing: Float, val borderGroup: Any = Any()) {
         val contentEnd: Float get() = offsets.last()
         val height: Float get() = contentEnd + closing
@@ -41,6 +42,7 @@ internal object TableLayouter {
             val width = table.columnWidths.subList(placement.column, placement.column + placement.cell.columnSpan).sum() - margins.left - margins.right
             if (!width.isFinite() || width <= 0f) overflow("Cell margins leave no content width")
             val pieces = mutableListOf<Piece>()
+            val widowRanges = mutableListOf<ClosedFloatingPointRange<Float>>()
             var top = 0f
             var after = 0f
             val blocks = placement.cell.printableBlocks
@@ -52,13 +54,17 @@ internal object TableLayouter {
                         if (block.format.keepWithNext || block.format.pageBreakBefore)
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph pagination rules inside table cells are not qualified")
                         val p = FlowLayouter.paragraph(block, width, measurer, previous = blocks.getOrNull(blockIndex - 1) as? PdfParagraph, next = blocks.getOrNull(blockIndex + 1) as? PdfParagraph, permitMarginMarker = true)
-                        // A paragraph with at most one physical line cannot split between its own lines.
-                        if (p.lines.size > 1 && (block.format.keepLines || block.format.widowControl))
+                        if (p.lines.size > 1 && block.format.keepLines)
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph pagination rules inside table cells are not qualified")
                         top += ParagraphSpacing.before(block, after, blockIndex == 0)
+                        val paragraphTop = top
                         for ((index, line) in p.lines.withIndex()) {
                             pieces += Piece(top, p.heights[index], line)
                             top += p.heights[index]
+                        }
+                        if (block.format.widowControl && p.lines.size > 1) {
+                            widowRanges += paragraphTop..(paragraphTop + p.heights[0] + p.heights[1])
+                            if (p.lines.size > 2) widowRanges += (top - p.heights.last() - p.heights[p.heights.lastIndex - 1])..top
                         }
                         after = ParagraphSpacing.after(block, blockIndex == blocks.lastIndex)
                         top += after
@@ -81,7 +87,7 @@ internal object TableLayouter {
             }
             val cellFrame = margins.top + margins.bottom + if (customBorders) topInsets[placement.row] else (table.border?.width ?: 0f)
             if (placement.cell.rowSpan == 1) heights[placement.row] = maxOf(heights[placement.row], top + cellFrame)
-            Cell(placement, pieces, top, margins)
+            Cell(placement, pieces, top, margins, widowRanges)
         }
         heights.indices.forEach { if (heights[it] == 0f) heights[it] = if (customBorders) table.cellMargins.top + table.cellMargins.bottom + topInsets[it] else frame }
         for (cell in cells.filter { it.placement.cell.rowSpan > 1 }) {
@@ -141,13 +147,21 @@ internal object TableLayouter {
         var end = minOf(layout.rowCells(row).maxOf { it.contentHeight }, limit)
         var remaining = 20_000
         while (remaining-- > 0) {
-            val conflict = layout.rowCells(row).asSequence().flatMap { it.pieces.asSequence() }
-                .filter { it.top < end - 0.001f && it.top + it.height > end + 0.001f }.minByOrNull { it.top }
-            if (conflict == null) return end
-            end = conflict.top
+            PageLayouter.checkCancellation()
+            val backedUp = layout.rowCells(row).minOf { cell -> safeCutBefore(cell, end) }
+            if (backedUp == end) return end
+            end = backedUp
             if (end <= from + 0.001f) return from
         }
         throw PdfRenderException(PdfFailureCode.RESOURCE_LIMIT, "Row fragmentation budget exceeded")
+    }
+
+    private fun safeCutBefore(cell: Cell, cut: Float): Float {
+        val betweenPieces = cell.pieces.asSequence()
+            .filter { it.top < cut - .001f && it.top + it.height > cut + .001f }.minOfOrNull { it.top }
+        val betweenWidows = cell.widowRanges.asSequence()
+            .filter { it.start < cut - .001f && it.endInclusive > cut + .001f }.minOfOrNull { it.start }
+        return minOf(betweenPieces ?: cut, betweenWidows ?: cut)
     }
 
     fun fragment(layout: Measured, row: Int, from: Float, until: Float, x: Float, top: Float, target: MutableList<PositionedElement>): Float {

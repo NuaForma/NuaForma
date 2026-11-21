@@ -22,11 +22,9 @@ class PdfSingleLineCellPaginationTest {
     @Test
     fun `packing several physical lines still rejects unsupported cell keeps`() {
         val runs = listOf(PdfTextRun("FIRST", font), PdfLineBreak(font), PdfTextRun("SECOND", font))
-        for ((keep, widow) in listOf(true to false, false to true)) {
-            val error = assertThrows(PdfRenderException::class.java) { render(runs, keep, widow) }
-            assertEquals(PdfFailureCode.UNSUPPORTED_TEXT, error.code)
-            assertEquals("Paragraph pagination rules inside table cells are not qualified", error.message)
-        }
+        val error = assertThrows(PdfRenderException::class.java) { render(runs, keep = true, widow = false) }
+        assertEquals(PdfFailureCode.UNSUPPORTED_TEXT, error.code)
+        assertEquals("Paragraph pagination rules inside table cells are not qualified", error.message)
     }
 
     private fun render(runs: List<PdfInline>, keep: Boolean, widow: Boolean): List<*> {
