@@ -20,7 +20,8 @@ internal data class PositionedStroke(val x: Float, val top: Float, val endX: Flo
     val pageX: Boolean = false, val pageY: Boolean = false, val layer: StrokeLayer = StrokeLayer.FLOW,
     val joinOwner: PdfParagraph? = null, val joinFollowing: PdfParagraph? = null, val pageOffset: PdfParagraphPageOffset? = null) : PositionedElement
 internal data class TextBackground(val width: Float, val ascent: Float, val height: Float, val offset: Float = 0f)
-internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false, val navigation: PdfTextNavigation? = null, val logicalOwner: String? = null, val span: PdfSpanSemantics? = null, val logicalOffset: Int? = null, val pageOffset: PdfParagraphPageOffset? = null, val trailingDecorationWidth: Float? = null, val requiresPhysicalBounds: Boolean = false, val background: TextBackground? = null) : PositionedElement
+internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false, val navigation: PdfTextNavigation? = null, val logicalOwner: String? = null, val span: PdfSpanSemantics? = null, val logicalOffset: Int? = null, val pageOffset: PdfParagraphPageOffset? = null, val trailingDecorationWidth: Float? = null, val requiresPhysicalBounds: Boolean = false, val background: TextBackground? = null,
+    val physicalLeftOverhang: Float? = null) : PositionedElement
 internal data class PositionedImage(val image: PdfImage, val x: Float, val top: Float, val foreground: Boolean = false, val pageOffset: PdfParagraphPageOffset? = null, val pageY: Boolean = false, val requiresPhysicalBounds: Boolean = false, val clip: RectangleClip? = null, val drawingOrder: PdfDrawingOrder? = null) : PositionedElement
 internal data class RectangleClip(val left: Float, val top: Float, val right: Float, val bottom: Float) {
 
@@ -44,7 +45,8 @@ internal object PageLayouter {
     private val simpleScripts = setOf(Character.UnicodeScript.LATIN, Character.UnicodeScript.GREEK, Character.UnicodeScript.CYRILLIC, Character.UnicodeScript.COMMON)
     private val unshapedForbiddenTypes = setOf(Character.FORMAT.toInt(), Character.SURROGATE.toInt(), Character.UNASSIGNED.toInt(), Character.NON_SPACING_MARK.toInt(), Character.COMBINING_SPACING_MARK.toInt(), Character.ENCLOSING_MARK.toInt())
 
-    fun layout(document: PdfDocument, measurer: TextMeasurer, lineArea: ((Int) -> Pair<Float, Float>)? = null, measurement: Boolean = false): PageLayout {
+    fun layout(document: PdfDocument, measurer: TextMeasurer, lineArea: ((Int) -> Pair<Float, Float>)? = null, measurement: Boolean = false,
+        permitMarginMarker: Boolean = false): PageLayout {
         val page = document.page
         val width = page.width - page.margins.left - page.margins.right
         val bottom = page.height - page.margins.bottom
@@ -102,12 +104,18 @@ internal object PageLayouter {
                     val markerAnchor = format.leftIndent + format.firstLineIndent
                     val markerLeft = markerAnchor - (marker?.width ?: 0f) * when (label?.alignment) { PdfAlignment.RIGHT -> 1f; PdfAlignment.CENTER -> .5f; else -> 0f }
                     val markerEnd = markerLeft + (marker?.width ?: 0f)
-                    if (label != null && markerLeft < -.001f) overflow("List marker exceeds left boundary", -markerLeft, 0f)
+                    // Flow measurement uses local coordinates. Word places a negative left-aligned marker
+                    // outside the paragraph and resumes the item at its indent when the marker fits before it.
+                    val marginMarker = permitMarginMarker && lineArea == null && format.textDirection == null &&
+                        format.alignment == PdfAlignment.LEFT && label?.alignment == PdfAlignment.LEFT &&
+                        label.suffix == PdfListSuffix.TAB && markerLeft < -.001f && markerEnd <= format.leftIndent + .001f
+                    if (label != null && markerLeft < -.001f && !marginMarker)
+                        overflow("List marker exceeds left boundary", -markerLeft, 0f)
                     if (label != null && markerEnd > width - format.rightIndent + .001f) overflow("List marker exceeds right boundary", markerEnd, width - format.rightIndent)
                     val firstTextLeft = if (label == null) format.leftIndent + format.firstLineIndent else when (label.suffix) {
                         PdfListSuffix.NOTHING -> markerEnd
                         PdfListSuffix.SPACE -> markerEnd + measurer.measure(" ", label.style).width
-                        PdfListSuffix.TAB -> label.tabStop?.takeIf { it > markerEnd + .001f }
+                        PdfListSuffix.TAB -> if (marginMarker) format.leftIndent else label.tabStop?.takeIf { it > markerEnd + .001f }
                             ?: ((kotlin.math.floor(markerEnd / label.defaultTabInterval) + 1) * label.defaultTabInterval)
                     }
                     top += ParagraphSpacing.before(block, previousAfter, top <= page.margins.top + .001f)
@@ -188,7 +196,8 @@ internal object PageLayouter {
                         if (!deferInkBounds && baseline + descent > bottom + 0.01f) overflow("Line descent exceeds space below baseline", descent, bottom - baseline)
                         val remaining = availableWidth() - lineWidth
                         val prefix = (label?.value?.text?.length ?: 0) + if (label == null || label.suffix == PdfListSuffix.NOTHING) 0 else 1
-                        if (firstLine && label != null && !deferredListLabel) elements += PositionedText(label.value.text, label.style, page.margins.left + area().first + markerLeft, baseline, logicalOwner = block.semantics?.id, span = block.semantics?.let { PdfSpanSemantics(semanticChildId(it.id, "label"), PdfSemanticRole.LABEL) }, logicalOffset = block.semantics?.let { 0 }, requiresPhysicalBounds = deferInkBounds, background = background(label.style, requireNotNull(marker).width))
+                        if (firstLine && label != null && !deferredListLabel) elements += PositionedText(label.value.text, label.style, page.margins.left + area().first + markerLeft, baseline, logicalOwner = block.semantics?.id, span = block.semantics?.let { PdfSpanSemantics(semanticChildId(it.id, "label"), PdfSemanticRole.LABEL) }, logicalOffset = block.semantics?.let { 0 }, requiresPhysicalBounds = deferInkBounds, background = background(label.style, requireNotNull(marker).width),
+                            physicalLeftOverhang = (-markerLeft).takeIf { marginMarker })
                         var x = page.margins.left + lineLeft() + when (format.alignment) {
                             PdfAlignment.LEFT, PdfAlignment.JUSTIFY -> 0f
                             PdfAlignment.CENTER -> remaining / 2

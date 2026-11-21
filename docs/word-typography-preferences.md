@@ -128,3 +128,9 @@ language-sensitive casing.
 An off setting for small caps on a text run or paragraph mark leaves the
 printed glyphs and line metrics unchanged. Active small caps retain a source
 diagnostic until their glyph sizing is qualified.
+
+## Hanging list markers left of the text area
+
+A left-aligned marker with a tab suffix can extend left of the text area when
+it fits before the paragraph indent. The first line starts at the paragraph
+indent. The marker must stay within the physical page.

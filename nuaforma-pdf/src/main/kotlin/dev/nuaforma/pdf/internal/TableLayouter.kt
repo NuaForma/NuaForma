@@ -52,7 +52,7 @@ internal object TableLayouter {
                         if (block.format.keepWithNext || block.format.keepLines || block.format.widowControl || block.format.pageBreakBefore) {
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph pagination rules inside table cells are not qualified")
                         }
-                        val p = FlowLayouter.paragraph(block, width, measurer, previous = blocks.getOrNull(blockIndex - 1) as? PdfParagraph, next = blocks.getOrNull(blockIndex + 1) as? PdfParagraph)
+                        val p = FlowLayouter.paragraph(block, width, measurer, previous = blocks.getOrNull(blockIndex - 1) as? PdfParagraph, next = blocks.getOrNull(blockIndex + 1) as? PdfParagraph, permitMarginMarker = true)
                         top += ParagraphSpacing.before(block, after, blockIndex == 0)
                         for ((index, line) in p.lines.withIndex()) {
                             pieces += Piece(top, p.heights[index], line)
