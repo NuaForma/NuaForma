@@ -338,8 +338,8 @@ internal class NativeDocxReader(
             throw source.failure(message, provenance[node] ?: activePart)
         }
 
-        fun resolveRun(property: XmlElement?, initial: Face, characterCapsBase: Boolean? = null) =
-            runProperties(property, initial, themeFonts, themeColors, characterCapsBase)
+        fun resolveRun(property: XmlElement?, initial: Face, characterBase: Face? = null) =
+            runProperties(property, initial, themeFonts, themeColors, characterBase)
 
         val neighbors = java.util.IdentityHashMap<XmlElement, Pair<XmlElement?, XmlElement?>>()
 
@@ -514,7 +514,7 @@ internal class NativeDocxReader(
                 val characterStyle = properties?.one("rStyle")?.value("val")
                 val inherited = characterStyle?.let { id ->
                     chain(id, "character").fold(initial) { acc, style ->
-                        resolveRun(style.one("rPr"), acc, characterCapsBase = initial.capitals)
+                        resolveRun(style.one("rPr"), acc, characterBase = initial)
                     }
                 } ?: initial
                 return resolveRun(properties, inherited)
@@ -537,20 +537,45 @@ internal class NativeDocxReader(
 
             fun textRuns(run: PdfTextRun, face: Face): List<PdfTextRun> {
                 val text = if (face.capitals) WordCapitalization.display(run.text, face.languageTag, ::reject) else run.text
-                val segments = if (!mixedFonts(face)) listOf(WordLatinFontSelection.Segment(text, false)) else {
+                val usesSmallCaps = face.smallCaps && !face.capitals
+                val mixed = mixedFonts(face)
+                if (!usesSmallCaps && !mixed) {
+                    fontRunsBound(++emittedTextRuns <= 1_000)
+                    return listOf(if (text == run.text) run else run.copy(text = text))
+                }
+                val segments = if (!mixed) listOf(WordLatinFontSelection.Segment(text, false)) else {
                     check(face.rtl != true, "Mixed complex-script font selection is not qualified")
                     WordLatinFontSelection.segments(text, context, ::reject, ::fontRunsBound)
                 }
-                fontRunsBound(emittedTextRuns + segments.size <= 1_000)
-                emittedTextRuns += segments.size
-                check(segments.size <= 1 || run.semantics == null, "Native text spans cannot duplicate preassigned semantic identifiers")
-                return segments.mapIndexed { index, segment ->
+                fun selectedStyle(segment: WordLatinFontSelection.Segment) =
+                    if (segment.highAnsi) textStyle(face.copy(family = face.highAnsiFamily)) else run.style
+
+                val visible = if (usesSmallCaps) buildList {
+                    for (segment in segments) {
+                        val style = selectedStyle(segment)
+                        val spans = WordCapitalization.smallCaps(segment.text, face.languageTag,
+                            1_000 - emittedTextRuns - size, context::checkActive, ::reject)
+                        for (span in spans) {
+                            val qualified = if (span.reduced) {
+                                check(style.baselineShift == 0f && !style.underline && !style.strikethrough &&
+                                    style.fontFeatures == PdfFontFeatures() && geometry.direction == null,
+                                    "Small caps with baseline shifts, line decorations, shaping or bidi are not qualified")
+                                val glyphSize = kotlin.math.round(style.size * 1.6f) / 2f
+                                check(glyphSize >= 1f, "Reduced small caps exceed the qualified font size range")
+                                style.copy(size = glyphSize).withLineMetricSize(style.size)
+                            } else style
+                            add(span.text to qualified)
+                        }
+                    }
+                } else segments.map { it.text to selectedStyle(it) }
+                fontRunsBound(emittedTextRuns + visible.size <= 1_000)
+                emittedTextRuns += visible.size
+                check(visible.size <= 1 || run.semantics == null, "Native text spans cannot duplicate preassigned semantic identifiers")
+                return visible.mapIndexed { index, segment ->
                     val navigation = if (index == 0) run.navigation else run.navigation?.takeIf { it.link != null }?.let {
                         PdfTextNavigation(it.link, emptyList(), it.logicalId)
                     }
-                    run.copy(text = segment.text,
-                        style = if (segment.highAnsi) textStyle(face.copy(family = face.highAnsiFamily)) else run.style,
-                        navigation = navigation)
+                    run.copy(text = segment.first, style = segment.second, navigation = navigation)
                 }
             }
 
@@ -652,7 +677,7 @@ internal class NativeDocxReader(
                     val target = if (kind == PdfReferenceKind.SEQUENCE_PAGES) "sequence$sequenceIndex" else instruction.argument
                     if (kind == PdfReferenceKind.TEXT) {
                         check(!mixedFonts(face), "Mixed font selection in dynamic text references is not qualified")
-                        check(!face.capitals, "Capitalization in dynamic text references is not qualified")
+                        check(!face.capitals && !face.smallCaps, "Capitalization in dynamic text references is not qualified")
                         textReferences += requireNotNull(target)
                         textReferenceSources.putIfAbsent(target, run)
                     }
@@ -795,7 +820,7 @@ internal class NativeDocxReader(
                 val markerSegments = if (mixedFonts(markerFace)) WordLatinFontSelection.segments(entry.value.text, context, ::reject, ::fontRunsBound) else emptyList()
                 check(markerSegments.size <= 1, "Mixed font selection within one list label is not qualified")
                 val selected = if (markerSegments.singleOrNull()?.highAnsi == true) markerFace.copy(family = markerFace.highAnsiFamily) else markerFace
-                check(!markerFace.capitals || entry.value.text.none(Char::isLowerCase), "Capitalized list markers are not qualified")
+                check(!(markerFace.capitals || markerFace.smallCaps) || entry.value.text.none(Char::isLowerCase), "Capitalized list markers are not qualified")
                 PdfListLabel(entry.value, textStyle(selected), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval)
             }
             val alignment = if (geometry.direction == PdfTextDirection.RIGHT_TO_LEFT) when (geometry.alignment) {
@@ -1636,7 +1661,7 @@ internal class NativeDocxReader(
         val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null, val underline: Boolean = false, val superscript: Boolean = false, val strikethrough: Boolean = false,
         val kerningThreshold: Float = 0f, val standardLigatures: Boolean = false, val openType: Boolean = false, val highAnsiFamily: String? = null, val characterSpacing: Float = 0f,
         val highlight: PdfColor? = null, val shading: PdfColor? = null, val automaticColor: Boolean = true,
-        val paragraphBackground: PdfColor? = null, val horizontalScale: Float = 1f, val capitals: Boolean = false) {
+        val paragraphBackground: PdfColor? = null, val horizontalScale: Float = 1f, val capitals: Boolean = false, val smallCaps: Boolean = false) {
 
         fun id(resolve: (String, Boolean, Boolean) -> String): String = resolve(
             requireNotNull(family) { "An explicit font family is required" }, bold, italic)
@@ -1668,7 +1693,7 @@ internal class NativeDocxReader(
     private val underscoredLocale = Regex("[A-Za-z]{2,3}_[A-Za-z]{2}")
 
     private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>,
-        themeColors: WordThemeColors, characterCapsBase: Boolean?): Face {
+        themeColors: WordThemeColors, characterBase: Face?): Face {
         if (property == null) return initial
         val word14 = "http://schemas.microsoft.com/office/word/2010/wordml"
         children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern", "spacing", "dstrike", "w", "highlight", "shd", "caps", "smallCaps"), setOf(word14 to "ligatures", WordTextOutline.NS to "textOutline"))
@@ -1756,13 +1781,12 @@ internal class NativeDocxReader(
         }
         property.one("rtl")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty(), "Invalid run direction"); result = result.copy(rtl = enabled(it)) }
         property.one("smallCaps")?.let { node ->
-            source.current = node
-            check(!WordCapitalization.enabled(node) { origin, message -> source.current = origin; reject(message) },
-                "Active small caps are not yet qualified")
+            val small = WordCapitalization.enabled(node) { origin, message -> source.current = origin; reject(message) }
+            result = result.copy(smallCaps = characterBase?.smallCaps?.xor(small) ?: small)
         }
         property.one("caps")?.let {
             val caps = WordCapitalization.enabled(it) { origin, message -> source.current = origin; reject(message) }
-            result = result.copy(capitals = characterCapsBase?.xor(caps) ?: caps)
+            result = result.copy(capitals = characterBase?.capitals?.xor(caps) ?: caps)
         }
         property.one("b")?.let { result = result.copy(bold = enabled(it)) }
         property.one("i")?.let { result = result.copy(italic = enabled(it)) }

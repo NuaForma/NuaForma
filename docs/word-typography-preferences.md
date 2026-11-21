@@ -123,11 +123,20 @@ Word accepts language-and-region values such as pt_BR and tr_TR. The PDF
 model uses the corresponding language tags pt-BR and tr-TR, with the same
 language-sensitive casing.
 
-## Explicitly disabled small caps
+## Small capitals
 
-An off setting for small caps on a text run or paragraph mark leaves the
-printed glyphs and line metrics unchanged. Active small caps retain a source
-diagnostic until their glyph sizing is qualified.
+Qualified Word small caps draw single-glyph Latin lowercase letters as
+capitals at approximately 80% of the nominal point size, rounded to a
+half point. Ordinary spaces use the reduced size. Capitals, digits and
+punctuation retain their size. Natural line metrics use the nominal font
+size so reduced text and spaces can share a line with full-height text.
+Direct and inherited Word settings determine whether this applies. Word's
+all-caps formatting takes precedence when both settings are active.
+
+The qualified scope covers ordinary single-glyph Latin case mappings.
+Nonstandard spaces, decomposed characters and unsupported combinations
+with positioning, text decorations, right-to-left layout or shaping retain
+explicit source diagnostics.
 
 ## Hanging list markers left of the text area
 

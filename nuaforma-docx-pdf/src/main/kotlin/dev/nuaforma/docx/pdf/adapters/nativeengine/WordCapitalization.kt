@@ -38,6 +38,45 @@ internal object WordCapitalization {
         }
     }
 
+    data class SmallCapSpan(val text: String, val reduced: Boolean)
+
+    fun smallCaps(text: String, language: String?, limit: Int, checkActive: () -> Unit,
+        reject: (String) -> Nothing): List<SmallCapSpan> {
+        val spans = mutableListOf<SmallCapSpan>()
+        val piece = StringBuilder()
+        var reduced = false
+
+        fun finish() {
+            if (piece.isEmpty()) return
+            if (spans.size >= limit) reject("Small caps exceed the paragraph run limit")
+            val source = piece.toString()
+            spans += SmallCapSpan(if (reduced) display(source, language, reject) else source, reduced)
+            piece.setLength(0)
+        }
+
+        val points = text.codePoints().iterator()
+        while (points.hasNext()) {
+            checkActive()
+            val point = points.nextInt()
+            val lower = Character.isLowerCase(point)
+            val category = Character.getType(point)
+            if (category == Character.NON_SPACING_MARK.toInt() || category == Character.COMBINING_SPACING_MARK.toInt() ||
+                category == Character.ENCLOSING_MARK.toInt() || (lower && Character.toUpperCase(point) == point) ||
+                (Character.isLetter(point) && Character.UnicodeScript.of(point) != Character.UnicodeScript.LATIN))
+                reject("Small caps outside the qualified single-glyph Latin case mapping")
+            if (point != ' '.code && Character.isSpaceChar(point))
+                reject("Small caps with nonstandard spaces are not qualified")
+            val reducedGlyph = lower || point == ' '.code
+            if (reduced != reducedGlyph) {
+                finish()
+                reduced = reducedGlyph
+            }
+            piece.appendCodePoint(point)
+        }
+        finish()
+        return spans
+    }
+
     fun display(text: String, language: String?, reject: (String) -> Nothing): String {
         val dottedI = language?.let(Locale::forLanguageTag)?.language == "tr"
         return buildString(text.length) {

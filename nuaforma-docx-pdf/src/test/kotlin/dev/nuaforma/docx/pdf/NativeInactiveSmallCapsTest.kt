@@ -40,9 +40,9 @@ class NativeInactiveSmallCapsTest {
     }
 
     @Test
-    fun `active and malformed small caps identify the source property`() {
+    fun `malformed small caps identify the source property`() {
         val support = NativeWordFeatureSupport(temporary)
-        for (invalid in listOf("<w:smallCaps/>", """<w:smallCaps w:val="wrong"/>""")) {
+        for (invalid in listOf("""<w:smallCaps val="1"/>""", """<w:smallCaps w:val="wrong"/>""", "<w:smallCaps/><w:smallCaps/>")) {
             support.rejectChanged(fixture, part, "smallCaps") { document(it, invalid) }
         }
     }

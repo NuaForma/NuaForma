@@ -76,11 +76,12 @@ internal object PdfBoxWriter {
                     fail(PdfFailureCode.MISSING_GLYPH, "The supplied font cannot encode requested text")
                 }
                 val box = font.fontDescriptor.fontBoundingBox
+                val metricSize = style.lineMetricSize ?: style.size
                 return TextMetrics(width, maxOf(font.fontDescriptor.ascent, box.upperRightY) * style.size / 1000f + style.baselineShift,
                     maxOf(-font.fontDescriptor.descent, -box.lowerLeftY) * style.size / 1000f - style.baselineShift,
-                    lineMetrics[style.fontId]?.get(0)?.times(style.size)?.plus(style.baselineShift) ?: Float.NaN,
-                    lineMetrics[style.fontId]?.get(1)?.times(style.size)?.minus(style.baselineShift) ?: Float.NaN,
-                    lineMetrics[style.fontId]?.get(2)?.times(style.size) ?: Float.NaN)
+                    lineMetrics[style.fontId]?.get(0)?.times(metricSize)?.plus(style.baselineShift) ?: Float.NaN,
+                    lineMetrics[style.fontId]?.get(1)?.times(metricSize)?.minus(style.baselineShift) ?: Float.NaN,
+                    lineMetrics[style.fontId]?.get(2)?.times(metricSize) ?: Float.NaN)
               }
 
               override fun ink(text: String, style: PdfTextStyle): TextMetrics {
