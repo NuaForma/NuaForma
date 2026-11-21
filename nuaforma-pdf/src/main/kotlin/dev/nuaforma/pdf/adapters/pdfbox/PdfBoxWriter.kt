@@ -224,9 +224,11 @@ internal object PdfBoxWriter {
                                 is PositionedStroke -> {
                                     val stroke = element.stroke
                                     val extent = stroke.extent / 2
-                                    val length = kotlin.math.hypot((element.endX - element.x).toDouble(), (element.endY - element.top).toDouble()).toFloat()
-                                    val bleedX = if (length == 0f) extent else kotlin.math.abs(element.endY - element.top) / length * extent
-                                    val bleedY = if (length == 0f) extent else kotlin.math.abs(element.endX - element.x) / length * extent
+                                    val horizontalDelta = element.endX - element.x
+                                    val verticalDelta = element.endY - element.top
+                                    val length = kotlin.math.hypot(horizontalDelta.toDouble(), verticalDelta.toDouble()).toFloat()
+                                    val bleedX = if (length == 0f) extent else kotlin.math.abs(verticalDelta) / length * extent
+                                    val bleedY = if (length == 0f) extent else kotlin.math.abs(horizontalDelta) / length * extent
                                     if (minOf(element.x, element.endX) < bleedX - .001f || maxOf(element.x, element.endX) > canvasWidth - bleedX + .001f ||
                                         minOf(element.top, element.endY) < bleedY - .001f || maxOf(element.top, element.endY) > canvasHeight - bleedY + .001f)
                                         fail(PdfFailureCode.CONTENT_OVERFLOW, "A vector line exceeds its physical page or frame")
@@ -237,10 +239,29 @@ internal object PdfBoxWriter {
                                     val dash = if (stroke.dashOn != null && stroke.dashOff != null) floatArrayOf(stroke.dashOn, stroke.dashOff) else
                                         when (stroke.style) { PdfLineStyle.DASHED -> floatArrayOf(3 * stroke.width, stroke.width); PdfLineStyle.DOTTED -> floatArrayOf(stroke.width, stroke.width); else -> floatArrayOf() }
                                     command("d", COSArray().also { a -> dash.forEach { a.add(number(it)) } }, number(0f))
-                                    val offsets = if (stroke.style == PdfLineStyle.DOUBLE) listOf(-stroke.width, stroke.width) else listOf(0f)
-                                    for (offset in offsets) {
-                                        val dx = if (length == 0f) 0f else -(element.endY - element.top) / length * offset
-                                        val dy = if (length == 0f) 0f else (element.endX - element.x) / length * offset
+                                    val bands = when (stroke.style) {
+                                        PdfLineStyle.DOUBLE -> listOf(-stroke.width to stroke.width, stroke.width to stroke.width)
+                                        PdfLineStyle.THIN_THICK_SMALL_GAP, PdfLineStyle.THICK_THIN_SMALL_GAP -> {
+                                            val fixed = COMPOUND_BORDER_SMALL_GAP
+                                            val variableFirst = stroke.style == PdfLineStyle.THIN_THICK_SMALL_GAP
+                                            val first = if (variableFirst) stroke.width else fixed
+                                            val second = if (variableFirst) fixed else stroke.width
+                                            // Word orders bands from top to bottom or left to right on the page.
+                                            val direction = if (kotlin.math.abs(horizontalDelta) >= kotlin.math.abs(verticalDelta))
+                                                horizontalDelta else -verticalDelta
+                                            val sign = if (direction < 0f) 1f else -1f
+                                            listOf(sign * (extent - first / 2) to first, -sign * (extent - second / 2) to second)
+                                        }
+                                        else -> listOf(0f to stroke.width)
+                                    }
+                                    var penWidth = stroke.width
+                                    for ((offset, bandWidth) in bands) {
+                                        if (bandWidth != penWidth) {
+                                            command("w", number(bandWidth))
+                                            penWidth = bandWidth
+                                        }
+                                        val dx = if (length == 0f) 0f else -verticalDelta / length * offset
+                                        val dy = if (length == 0f) 0f else horizontalDelta / length * offset
                                         command("m", number(element.x + dx), number(canvasHeight - element.top - dy))
                                         command("l", number(element.endX + dx), number(canvasHeight - element.endY - dy))
                                         command("S")

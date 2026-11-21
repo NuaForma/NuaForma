@@ -143,3 +143,12 @@ hyperlink target. A word that fits remains intact. The PDF adapter retains
 its overflow diagnostic when there is no qualified break, and keeps the
 separate rules for tabs, lists, right-to-left text, and emergency breaks in
 table cells.
+
+## Compound paragraph borders
+
+The thin-thick and thick-thin small-gap paragraph borders use two solid
+strokes. Word's stored width controls one stroke. The second stroke and
+the gap are each 0.75 points. The strokes run in page order from top
+to bottom or from left to right, and the layout reserves the combined
+extent. Compound
+borders between paragraphs retain a source diagnostic.
