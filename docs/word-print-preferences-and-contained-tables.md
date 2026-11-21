@@ -14,7 +14,7 @@ Word table captions and descriptions in `w:tblPr` are preserved in the DOCX and 
 
 The closed `w14:defaultImageDpi` preference has a required `w14:val` positive integer up to 2,147,483,647. The adapter validates its original namespace, attributes and uniqueness, then excludes this save preference from the print copy. It does not change explicit picture extents, embedded image bytes, rendering resolution, compression policy or image budgets. Source controls cover multiple save-DPI values with body/header/footer pictures and both enabled and disabled automatic picture compression.
 
-The `w:styleLockTheme` on/off flag controls theme editing. Its original leaf structure and namespace remain validated. Printed theme colors and actual font selection continue through their existing resolvers; the editing lock is omitted only from the print copy. Cleanup and the original template retain these settings unchanged.
+The `w:styleLockTheme` and `w:styleLockQFSet` on/off flags restrict theme and Quick Style set editing. Its original leaf structure and namespace remain validated. Printed theme colors and actual font selection continue through their existing resolvers; the editing lock is omitted only from the print copy. Cleanup and the original template retain these settings unchanged.
 
 Microsoft describes [default image DPI](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.office2010.word.defaultimagedpi) as a save preference, with separate `useLocalDpi` and `doNotAutoCompressPictures` precedence. The [theme lock](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.stylelockthemespart) prevents theme-part modification.
 
