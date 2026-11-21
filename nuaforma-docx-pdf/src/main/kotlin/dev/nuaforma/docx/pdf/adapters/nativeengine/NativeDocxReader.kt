@@ -192,7 +192,8 @@ internal class NativeDocxReader(
         val blockBoundaryTextRanges = mutableSetOf<String>()
         parsed.forEach { (name, root) -> activePart = name; blockBoundaryTextRanges += NativeDocxBookmarks(context).normalize(root, { source.current = it }, ::reject) }
         staticFields.index(parsed.values)
-        WordAutomaticTextSpacing(context).normalize(parsed, { field ->
+        val automaticTextSpacing = WordAutomaticTextSpacing(context)
+        automaticTextSpacing.normalize(parsed, { field ->
             source.current = field
             activePart = provenance[field] ?: activePart
             val instruction = NativeDocxFields.instruction(field.value("instr") ?: reject("Missing field instruction"), ::reject)
@@ -798,6 +799,17 @@ internal class NativeDocxReader(
             if (contents != null && geometry.background != null) {
                 source.current = direct?.one("shd") ?: paragraph
                 reject("Paragraph backgrounds on generated contents are not qualified")
+            }
+            geometry.textAlignment?.let { node ->
+                source.current = node
+                activePart = provenance[node] ?: activePart
+                val rendered = content.filterIsInstance<PdfTextRun>()
+                val styles = rendered.map { it.style } + listOfNotNull(markStyle)
+                check(geometry.line == null && geometry.direction == null && label == null && contents == null &&
+                    lineDrawings.isEmpty() && (geometry.automatic?.multiple ?: 1f) in 1f..1.5f &&
+                    rendered.size == content.size && rendered.all { automaticTextSpacing.supportsUniformAlignment(it.text) } &&
+                    styles.all { it.baselineShift == 0f } && styles.map { it.fontId to it.size }.distinct().size <= 1,
+                    "Explicit paragraph text alignment requires uniform unshifted text in natural-height lines")
             }
             return PdfParagraph(content, geometry.before, geometry.after, PdfParagraphFormat(alignment, geometry.left, geometry.right,
                 geometry.first, geometry.line, !formatting.additiveParagraphSpacing,
@@ -1735,7 +1747,7 @@ internal class NativeDocxReader(
         val background: PdfColor? = null,
         val alignment: PdfAlignment = PdfAlignment.LEFT, val left: Float = 0f, val right: Float = 0f, val first: Float = 0f,
         val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false, val direction: PdfTextDirection? = null, val borders: PdfParagraphBorders? = null,
-        val beforeLines: Float? = null, val afterLines: Float? = null)
+        val beforeLines: Float? = null, val afterLines: Float? = null, val textAlignment: XmlElement? = null)
 
     private fun paragraphProperties(property: XmlElement, initial: Geometry, themeColors: WordThemeColors): Geometry {
         NativeCellPagination.validateProperties(property) { node, message ->
@@ -1743,7 +1755,7 @@ internal class NativeDocxReader(
             activePart = provenance[node] ?: activePart
             reject(message)
         }
-        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "rPr", "mirrorIndents", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr", "overflowPunct", "suppressAutoHyphens", "shd"))
+        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "rPr", "mirrorIndents", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr", "overflowPunct", "suppressAutoHyphens", "shd", "textAlignment"))
         var result = initial
         property.one("shd")?.let { node ->
             val fill = themeColors.runFill(node)
@@ -1800,6 +1812,13 @@ internal class NativeDocxReader(
         property.one("widowControl")?.let { result = result.copy(widowControl = flag(it)) }
         property.one("pageBreakBefore")?.let { result = result.copy(pageBreakBefore = flag(it)) }
         property.one("contextualSpacing")?.let { result = result.copy(contextual = flag(it)) }
+        property.one("textAlignment")?.let { node ->
+            attributes(node, setOf("val"))
+            children(node, emptySet())
+            val value = node.value("val")
+            check(value in setOf("auto", "baseline", "top", "center", "bottom"), "Unsupported effective paragraph text alignment")
+            result = result.copy(textAlignment = node.takeUnless { value == "auto" || value == "baseline" })
+        }
         property.one("mirrorIndents")?.let { check(it.elements().isEmpty(), "Invalid mirrored indentation"); result = result.copy(mirror = flag(it)) }
         property.one("spacing")?.let {
             attributes(it, setOf("before", "after", "line", "lineRule", "beforeAutospacing", "afterAutospacing", "beforeLines", "afterLines"))

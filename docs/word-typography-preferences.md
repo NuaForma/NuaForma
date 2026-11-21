@@ -94,3 +94,11 @@ configured font resources.
 An explicit x-none value for Word's Latin proofing language clears an inherited
 language for the affected text. The PDF style uses neutral case mapping and
 omits language metadata for those runs.
+
+## Vertical alignment within text lines
+
+Top, center and bottom alignment can use the ordinary baseline for qualified
+natural-height lines of uniform text. The Word control pages agreed visually
+with the baseline sample for the uniform text. Mixed metrics, shifts and
+explicitly fixed line boxes can change the vertical placement and retain a
+source diagnostic.
