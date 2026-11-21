@@ -1774,6 +1774,7 @@ internal class NativeDocxReader(
                 // Word's no-proofing marker clears the inherited language and its casing rules.
                 val resolved = when {
                     language.equals("x-none", ignoreCase = true) -> null
+                    language.equals("es-ES_tradnl", ignoreCase = true) -> "es-ES-u-co-trad"
                     underscoredLocale.matches(language) -> language.replace('_', '-')
                     else -> language
                 }

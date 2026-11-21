@@ -43,5 +43,8 @@ class NativeNoProofingLanguageTest {
         val portuguese = read("""<w:lang w:val="pt_BR"/>""")
         assertEquals("pt-BR", portuguese.style.languageTag)
         assertEquals("ISTANBUL IZMIR", portuguese.text)
+        val traditionalSpanish = read("""<w:lang w:val="es-ES_tradnl"/>""")
+        assertEquals("es-ES-u-co-trad", traditionalSpanish.style.languageTag)
+        assertEquals(portuguese.text, traditionalSpanish.text)
     }
 }
