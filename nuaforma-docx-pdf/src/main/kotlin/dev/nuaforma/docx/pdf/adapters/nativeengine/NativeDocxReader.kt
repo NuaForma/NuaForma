@@ -1586,7 +1586,15 @@ internal class NativeDocxReader(
                 }
             }
             val range = XmlElement(body.name, body.attributes, body.namespaces).also { it.children += content }
-            val blocks = readBlocks(range, relations, false)
+            val hasEmptySectionMarkAfterTable = index < ranges.lastIndex && content.last() in sectionEnds &&
+                headerReferences.isEmpty() && footerReferences.isEmpty() &&
+                section.one("pgNumType") == null && content.getOrNull(content.lastIndex - 1)?.name?.localPart == "tbl" &&
+                content.last().elements().singleOrNull()?.name?.localPart == "pPr"
+            // Word does not create a page just for this unpainted mark at a next-page section break.
+            val blocks = readBlocks(range, relations, false).let { blocks ->
+                val terminal = blocks.lastOrNull() as? PdfParagraph
+                if (hasEmptySectionMarkAfterTable && terminal != null && isUnpaintedSectionTerminator(terminal)) blocks.dropLast(1) else blocks
+            }
             val header = band("header", headerReferences["default"])
             val footer = band("footer", footerReferences["default"])
             val first = if (section.one("titlePg")?.let(::pageToggle) == true)
@@ -1988,6 +1996,13 @@ internal class NativeDocxReader(
                     !inline.style.underline && !inline.style.strikethrough
             }
     }
+
+    private fun isUnpaintedSectionTerminator(paragraph: PdfParagraph): Boolean =
+        paragraph.format.exactLineHeight != null && !paragraph.format.pageBreakBefore && !paragraph.format.keepWithNext &&
+            !paragraph.format.keepLines && paragraph.spaceBefore == 0f && paragraph.spaceAfter == 0f &&
+            paragraph.format.leftIndent == 0f && paragraph.format.rightIndent == 0f && paragraph.format.firstLineIndent == 0f &&
+            paragraph.pageOffset == null && paragraph.background == null && unprintedBand(listOf(paragraph)) &&
+            paragraph.runs.none { (it as? PdfTextRun)?.style?.background != null }
 
     private val trashItem = Regex("\\[trash]/[0-9A-Fa-f]{4}\\.dat")
 

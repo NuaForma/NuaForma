@@ -8,6 +8,19 @@ The first section may explicitly declare `continuous`: it has no preceding secti
 
 Microsoft describes the section type as positioning the current section relative to its predecessor in the [section-type definition](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.sectiontype?view=openxml-3.0.1). The adapter admits the qualified initial marker and uses the same neutral page sequences as before; no shared model or public API is added.
 
+## Empty section mark after a table
+
+At a qualified next-page transition, an empty paragraph carrying the section
+mark immediately after a table does not consume a separate page. The PDF
+adapter validates the paragraph before omitting its layout box. This covers
+unpainted marks with exact line height and zero indentation and spacing, in
+sections without page bands or explicit page numbering.
+
+Visible text and explicit paragraph page breaks retain their page placement.
+The DOCX source and section geometry are preserved. A4 and US Letter Word
+exports cover the empty, visible and explicit-break cases with the table
+ending close to the bottom margin.
+
 ## Editing protection and source preservation
 
 The section's `formProt` flag controls editing, not printed content. Its standard boolean spellings and omitted-value default are validated and then omitted only from the private print interpretation. Global protection and section flags remain in the original template and qualified cleanup output. DOCX-to-DOCX handling keeps its existing behavior. This does not implement interactive PDF form fields or qualify unsupported Word controls.
