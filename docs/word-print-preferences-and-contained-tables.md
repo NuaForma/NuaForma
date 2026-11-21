@@ -47,3 +47,12 @@ Final real HTTP qualification produces 97 PDFs and 133 pages that match the prot
 All 250 local corpus inputs remain unchanged. Ten PDFs retain fifteen pixel-exact earlier pages; no additional complete conversion is claimed. Eight first diagnoses change: six feature-related movements and two exact per-request public-font availability movements. These corpus checks compare earlier native output, not Word fidelity. Private source documents, fonts and intermediates remain local.
 
 The optional allowance defaults to zero and preserves every earlier Java 17 public table signature; only the getter and immutable option method are added. The existing A4/Letter, nesting, splitting, font and output-profile restrictions remain authoritative. CI/Sonar, a PR, merge, artifact release and site publication are outside this local qualification.
+
+
+## Proofing settings in page-number wrappers
+
+A built-in Word page-number gallery can store a no-proofing flag on the
+wrapper's run metadata. The flag controls spelling and grammar checking.
+The PDF adapter retains the stored paragraph, actual page fields and
+their printed formatting. Unfamiliar galleries, data bindings and
+malformed control properties retain source diagnostics.

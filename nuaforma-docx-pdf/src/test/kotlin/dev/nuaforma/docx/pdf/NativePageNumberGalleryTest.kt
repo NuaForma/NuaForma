@@ -1,5 +1,8 @@
 package dev.nuaforma.docx.pdf
 
+import dev.nuaforma.contracts.GenerationContext
+import dev.nuaforma.docx.pdf.adapters.nativeengine.NativeDocxReadException
+import dev.nuaforma.docx.pdf.adapters.nativeengine.NativeDocxReader
 import dev.nuaforma.image.comparison.kotlin.assertImagesMatch
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.rendering.PDFRenderer
@@ -41,9 +44,30 @@ class NativePageNumberGalleryTest {
             changedBand(it, "ftr", "Bottom", "FOOTER_PAGE", true)
                 .replaceFirst("</w:sdtPr>", """<w:dataBinding w:xpath="/root"/></w:sdtPr>""")
         }
+        support.rejectChanged(source, "word/footer1.xml", "sdt") {
+            changedBand(it, "ftr", "Bottom", "FOOTER_PAGE", true)
+                .replaceFirst("<w:noProof/>", """<w:noProof w:val="bad"/>""")
+        }
         support.rejectChanged(source, "word/header1.xml", "sdt") {
             changedBand(it, "hdr", "Top", "HEADER_PAGE", true).replace("Page Numbers (Top of Page)", "Watermarks")
         }
+    }
+
+    @Test
+    fun `source inspection validates proofing metadata before unwrapping a page number gallery`() {
+        val support = NativeWordFeatureSupport(temporary)
+        val qualified = template(support, wrapped = true)
+        fun read(bytes: ByteArray) = NativeDocxReader(GenerationContext()) { _, _, _ -> "font" }
+            .read(bytes, inspectImages = true)
+        assertTrue(read(qualified).blocks.isNotEmpty())
+
+        val parts = PdfFixture.unzip(qualified)
+        val footer = "word/footer1.xml"
+        val malformed = parts.getValue(footer).decodeToString()
+            .replaceFirst("<w:noProof/>", """<w:noProof w:val="bad"/>""")
+        val invalid = PdfFixture.zip(parts + (footer to malformed.toByteArray()))
+        val failure = assertThrows(NativeDocxReadException::class.java) { read(invalid) }
+        assertEquals(footer, failure.part)
     }
 
     private fun template(support: NativeWordFeatureSupport, wrapped: Boolean): ByteArray {
@@ -71,9 +95,9 @@ class NativePageNumberGalleryTest {
     }
 
     private fun gallery(content: String, position: String, id: Int): String =
-        """<w:sdt><w:sdtPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:sz w:val="40"/><w:szCs w:val="40"/></w:rPr>""" +
+        """<w:sdt><w:sdtPr><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial"/><w:sz w:val="40"/><w:szCs w:val="40"/><w:noProof w:val="off"/></w:rPr>""" +
             """<w:id w:val="$id"/><w:docPartObj><w:docPartGallery w:val="Page Numbers ($position of Page)"/><w:docPartUnique/></w:docPartObj>""" +
-            "</w:sdtPr><w:sdtEndPr/><w:sdtContent>$content</w:sdtContent></w:sdt>"
+            "</w:sdtPr><w:sdtEndPr><w:rPr><w:noProof/></w:rPr></w:sdtEndPr><w:sdtContent>$content</w:sdtContent></w:sdt>"
 
     private fun paragraph(content: String): String =
         """<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="280" w:lineRule="exact"/></w:pPr>$content</w:p>"""

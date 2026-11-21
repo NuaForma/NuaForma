@@ -133,6 +133,7 @@ internal class NativeDocxReader(
                 throw source.failure(message, part)
             }
             if (observe != null) normalizations.addAll(observe())
+            if (sourceInspection) WordPageNumberControls.normalizeSource(root)
         }
         val conditionalMetadata = WordTableConditionalMetadata(context)
         parsed.forEach { (part, root) ->
@@ -187,7 +188,6 @@ internal class NativeDocxReader(
             provenance[copy] = provenance[original] ?: activePart; source.alias(copy, original)
         }, ::reject)
         parsed.forEach { (name, root) -> activePart = name; propertyParagraphs.normalize(root) }
-        if (sourceInspection) parsed.values.forEach(WordPageNumberControls::normalizeSource)
         val fieldCodeStyles = java.util.IdentityHashMap<XmlElement, XmlElement?>()
         val formFields = java.util.IdentityHashMap<XmlElement, NativeDocxFields.Form>()
         parsed.forEach { (name, root) ->

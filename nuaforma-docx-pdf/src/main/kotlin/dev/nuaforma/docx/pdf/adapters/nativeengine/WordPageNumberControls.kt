@@ -92,12 +92,16 @@ internal object WordPageNumberControls {
     }
 
     private fun runMetadata(node: XmlElement) {
-        children(node, setOf("rFonts", "rStyle", "sz", "szCs"))
+        children(node, setOf("rFonts", "rStyle", "sz", "szCs", "noProof"))
         for (property in node.elements()) when (property.name.localPart) {
             "rFonts" -> {
                 leaf(property, setOf("ascii", "hAnsi"))
                 if (property.attributes.isEmpty() || property.attributes.values.any { it.isBlank() || it.length > 128 })
                     throw Unqualified()
+            }
+            "noProof" -> {
+                leaf(property, setOf("val"))
+                if (property.attribute(WORD, "val") !in flags) throw Unqualified()
             }
             "rStyle" -> {
                 leaf(property, setOf("val"))
