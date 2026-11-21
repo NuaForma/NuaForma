@@ -245,6 +245,8 @@ internal object NativePdfFailureDiagnostics {
         "Tables require the paginated profile",
         "Tabs and non-text reference ranges are not qualified",
         "Tabs in non-final justified lines are not qualified",
+        "Right, centered or decimal tabs in non-final justified lines are not qualified",
+        "Tab paragraphs require left alignment or qualified justification",
         "Text frame exceeds its content area or physical page",
         "Text requires unsupported shaping or control handling",
         "The supplied font cannot encode requested text",

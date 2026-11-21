@@ -18,7 +18,7 @@ An oversized first data row can begin after preceding text when a legal fragment
 
 ## Final-line tabs
 
-The shared engine accepts tabs on the final line of a left-to-right justified paragraph. Tab stops and leaders retain the left-aligned geometry; earlier ordinary wrapped lines still justify. A tabbed line that itself requires justification rejects explicitly. Centered and right-aligned tab paragraphs retain their existing restriction.
+The shared engine accepts tabs on the final line of a left-to-right justified paragraph. Tab stops and leaders retain the left-aligned geometry. If the line wraps after left tabs, only the words following the final tab spread to the right margin. Earlier fields and leaders keep their resolved positions. A right, centered or decimal tab on a line that requires justification retains an explicit diagnostic. Centered and right-aligned tab paragraphs retain their existing restriction.
 
 Word's decimal tab separator follows the exporting workstation's [regional number settings](https://support.microsoft.com/en-us/word/use-decimal-tabs-to-line-up-numbers-with-decimal-points). Qualification fixtures therefore declare a comma separator matching the reference exporter. All 48 content anchors for the four stop kinds and four leaders agree within 0.091 point horizontally and 0.131 point vertically on both papers. The number of decorative leader glyphs can differ because of fractional advances: text-inventory comparison normalizes repeated leader glyphs only, while geometry and every native golden pixel still assert. Decimal tabs with a numeric suffix expose a separate existing anchor discrepancy, tracked in #272; this work does not claim that discrepancy is fixed.
 

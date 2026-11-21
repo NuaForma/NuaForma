@@ -30,11 +30,8 @@ class PdfJustificationTest {
         val result = PageLayouter.layout(PdfDocument(page, listOf(single)), measurer)
         assertEquals(listOf(0f, 10f, 15f), result.elements.filterIsInstance<PositionedText>().map { it.x })
         val tabbed = PdfParagraph(listOf(PdfTextRun("aa", style), PdfTab(style), PdfTextRun("bb cc dd", style)), format = format)
-        val failure = assertThrows(PdfRenderException::class.java) {
-            PageLayouter.layout(PdfDocument(page, listOf(tabbed)), measurer)
-        }
-        assertEquals(PdfFailureCode.UNSUPPORTED_TEXT, failure.code)
-        assertEquals("Tabs in non-final justified lines are not qualified", failure.message)
+        val tabbedResult = PageLayouter.layout(PdfDocument(page, listOf(tabbed)), measurer)
+        assertEquals(2, tabbedResult.elements.filterIsInstance<PositionedText>().map { it.baseline }.distinct().size)
         val bidi = single.copy(format = format.copy(textDirection = PdfTextDirection.RIGHT_TO_LEFT))
         assertThrows(PdfRenderException::class.java) { PageLayouter.layout(PdfDocument(page, listOf(bidi)), measurer) }
     }

@@ -155,7 +155,7 @@ internal object PageLayouter {
                     if (width - format.leftIndent - format.rightIndent <= 0) overflow("Paragraph indents leave no content width", format.leftIndent + format.rightIndent, width)
                     var line = mutableListOf<Fragment>()
                     var lineWidth = 0f
-                    var lineContainsTab = false
+                    var lineContainsAnchoredTab = false
                     val spaces = mutableListOf<Fragment>()
                     val groups = words(block.runs, measurer, format.textDirection != null)
                     val paragraphBidi = format.textDirection?.let { direction ->
@@ -166,8 +166,8 @@ internal object PageLayouter {
                     fun flush(justify: Boolean = false) {
                         if (line.isEmpty()) return
                         val deferredListLabel = label != null && line.all { it.lineBreak != null } && line.any { it.pageBreak }
-                        if (justify && lineContainsTab && format.alignment == PdfAlignment.JUSTIFY)
-                            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Tabs in non-final justified lines are not qualified")
+                        if (justify && lineContainsAnchoredTab && format.alignment == PdfAlignment.JUSTIFY)
+                            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Right, centered or decimal tabs in non-final justified lines are not qualified")
                         val automatic = if (automaticSpacing) {
                             val lineRuns = line.filter { it.lineBreak == null }.ifEmpty { line }.map { fragment ->
                                 fragment.lineBreak ?: fragment.vector ?: fragment.image?.let { image ->
@@ -208,7 +208,10 @@ internal object PageLayouter {
                             PdfAlignment.CENTER -> remaining / 2
                             PdfAlignment.RIGHT -> remaining
                         }
-                        val firstContent = line.indexOfFirst { it.lineBreak == null && it.text.any { char -> char != ' ' } }
+                        val lastTab = line.indexOfLast { it.tab != null }
+                        val firstContent = line.indices.firstOrNull { index ->
+                            index > lastTab && line[index].lineBreak == null && line[index].text.any { it != ' ' }
+                        } ?: line.size
                         val lastContent = line.indexOfLast { it.lineBreak == null && it.text.any { char -> char != ' ' } }
                         val stretch = if (justify && format.alignment == PdfAlignment.JUSTIFY && remaining > 0f)
                             line.mapIndexed { index, fragment -> if (index > firstContent && index < lastContent &&
@@ -265,7 +268,7 @@ internal object PageLayouter {
                         top += height
                         line = mutableListOf()
                         lineWidth = 0f
-                        lineContainsTab = false
+                        lineContainsAnchoredTab = false
                         rightTabEdge = null
                         firstLine = firstLine && deferredListLabel
                         lineIndex++
@@ -362,8 +365,7 @@ internal object PageLayouter {
                         val control = word.singleOrNull()?.tab
                         if (control != null) {
                             if (format.alignment !in setOf(PdfAlignment.LEFT, PdfAlignment.JUSTIFY))
-                                throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Tab paragraphs require left alignment or qualified final-line justification")
-                            lineContainsTab = true
+                                throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Tab paragraphs require left alignment or qualified justification")
                             line += spaces; lineWidth += spaces.sumOf { it.metrics.width.toDouble() }.toFloat(); spaces.clear()
                             val settings = format.tabs ?: PdfTabSettings()
                             val cursor = lineLeft() + lineWidth
@@ -383,6 +385,7 @@ internal object PageLayouter {
                             val position = explicit?.position
                                 ?: (kotlin.math.floor((cursor + .001f) / settings.defaultInterval) + 1) * settings.defaultInterval
                             val alignment = explicit?.alignment ?: PdfTabAlignment.LEFT
+                            lineContainsAnchoredTab = lineContainsAnchoredTab || alignment != PdfTabAlignment.LEFT
                             val leader = explicit?.leader ?: PdfTabLeader.NONE
                             val paragraphEdge = width - format.rightIndent
                             val areaEdge = area().let { (left, span) -> minOf(width, left + span) }
