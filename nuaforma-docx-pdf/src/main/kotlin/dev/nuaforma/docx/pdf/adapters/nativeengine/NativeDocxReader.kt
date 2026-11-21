@@ -134,6 +134,13 @@ internal class NativeDocxReader(
             }
             if (observe != null) normalizations.addAll(observe())
         }
+        val conditionalMetadata = WordTableConditionalMetadata(context)
+        parsed.forEach { (part, root) ->
+            conditionalMetadata.inspect(root, forPrint = true) { node, message ->
+                source.current = node
+                throw source.failure(message, part)
+            }
+        }
         WordAuxiliaryParts(context) { name, node, message -> source.current = node; source.failure(message, name) }.normalize(parsed, parts.keys)
         WordThumbnailMetadata(context).normalize(parsed, parts)
         WordSensitivityMetadata(context).removeFromPrintModel(parsed)

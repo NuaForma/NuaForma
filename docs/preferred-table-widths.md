@@ -115,3 +115,9 @@ of all cells with explicit absent strokes. Word uses the equivalent borderless
 table, including the borderless default padding and width calculation.
 Identical cell and table strokes can also share the same implicit padding.
 Other cell-border combinations retain the existing qualification.
+
+## Cached table condition flags
+
+Word print rendering uses the actual table regions and look settings. Qualified
+condition flags in row, cell and paragraph properties remain in the source
+package and do not override those calculated regions in the PDF.
