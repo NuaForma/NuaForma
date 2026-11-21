@@ -135,6 +135,31 @@ class WordThemeColorsTest {
     }
 
     @Test
+    fun `solid cell shading covers the cached background with the explicit foreground`() {
+        val cells = colors()
+        val blue = """<w:shd xmlns:w="$word" w:val="solid" w:color="247DA1" w:fill="E6B640"/>"""
+        val black = """<w:shd xmlns:w="$word" w:val="solid" w:color="000000" w:fill="FFFFFF"/>"""
+        assertEquals(rgb("247DA1"), cells.cellFill(root(blue)))
+        assertEquals(rgb("000000"), cells.cellFill(root(black)))
+        for (shade in listOf(blue, black)) {
+            val source = root("""<w:tcPr xmlns:w="$word">$shade</w:tcPr>""")
+            val original = xml.write(source)
+            WordThemeColors.validateSource(source) { _, message -> fail(message) }
+            assertArrayEquals(original, xml.write(source))
+        }
+        val reject: (dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement, String) -> Nothing = { _, message ->
+            throw NativeDocxReadException(message, "word/document.xml")
+        }
+        assertThrows(NativeDocxReadException::class.java) { WordThemeColors.validateTableShading(root(blue), reject) }
+        for (shade in listOf(blue.replace("247DA1", "auto"), blue.replace("E6B640", "broken"),
+            blue.replace("/>", """ w:themeFill="background1"/>"""), blue.replace("/>", "><w:b/></w:shd>"))) {
+            val source = root("""<w:tcPr xmlns:w="$word">$shade</w:tcPr>""")
+            assertThrows(NativeDocxReadException::class.java) { WordThemeColors.validateSource(source, reject) }
+            assertThrows(NativeDocxReadException::class.java) { cells.cellFill(root(shade)) }
+        }
+    }
+
+    @Test
     fun `original cell theme attributes and missing palettes reject explicitly`() {
         for (properties in listOf("w:themeFill=\"unknown\"", "w:themeFill=\"background1\" extra=\"1\"",
             "x:themeFill=\"background1\"", "w:themeFill=\"background1\" w:themeFillShade=\"GG\"",

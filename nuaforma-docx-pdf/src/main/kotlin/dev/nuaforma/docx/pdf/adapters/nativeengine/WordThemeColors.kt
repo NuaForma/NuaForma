@@ -31,6 +31,7 @@ internal class WordThemeColors(
 
     fun cellFill(node: XmlElement): PdfColor? {
         validateCellFill(node, reject)
+        if (node.attribute(W, "val") == "solid") return rgb(node, node.attribute(W, "color"))
         val role = node.attribute(W, "themeFill")
         if (role == "none") return null
         if (role == null) return node.attribute(W, "fill")?.takeUnless { it == "auto" }?.let { rgb(node, it) }
@@ -154,7 +155,8 @@ internal class WordThemeColors(
             for (properties in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart == "tcPr" }) {
                 val fills = properties.elements().filter { it.name.localPart == "shd" }
                 val qualified = fills.any { node ->
-                    node.attributes.keys.any { it.localPart in setOf("themeFill", "themeFillTint", "themeFillShade") } ||
+                    node.attribute(W, "val") == "solid" ||
+                        node.attributes.keys.any { it.localPart in setOf("themeFill", "themeFillTint", "themeFillShade") } ||
                         node.attribute(W, "val") == "clear" && node.attribute(W, "color") != "auto" && hasExplicitCellFill(node)
                 }
                 if (!qualified) continue
@@ -230,6 +232,14 @@ internal class WordThemeColors(
                 node.elements().isNotEmpty() || node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
                 reject(node, "Invalid cell theme fill structure")
             val foreground = node.attribute(W, "color")
+            if (!table && node.attribute(W, "val") == "solid") {
+                val cache = node.attribute(W, "fill")
+                if (foreground?.matches(Regex("[0-9A-Fa-f]{6}")) != true ||
+                    cache != null && cache != "auto" && !cache.matches(Regex("[0-9A-Fa-f]{6}")) ||
+                    node.attributes.keys.any { it.localPart.startsWith("theme") })
+                    reject(node, "Solid cell shading requires an explicit RGB foreground")
+                return
+            }
             // A clear pattern paints only the background. Keep explicit fill separate from
             // unqualified foreground combinations without a real color behind the cell.
             val qualifiedForeground = foreground == "auto" || (table || hasExplicitCellFill(node)) &&
