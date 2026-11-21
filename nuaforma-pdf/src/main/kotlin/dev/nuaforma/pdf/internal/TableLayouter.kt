@@ -49,10 +49,12 @@ internal object TableLayouter {
                     is PdfParagraph -> {
                         if (block.runs.any { it is PdfPageBreak })
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Inline page breaks inside table cells are not qualified")
-                        if (block.format.keepWithNext || block.format.keepLines || block.format.widowControl || block.format.pageBreakBefore) {
+                        if (block.format.keepWithNext || block.format.pageBreakBefore)
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph pagination rules inside table cells are not qualified")
-                        }
                         val p = FlowLayouter.paragraph(block, width, measurer, previous = blocks.getOrNull(blockIndex - 1) as? PdfParagraph, next = blocks.getOrNull(blockIndex + 1) as? PdfParagraph, permitMarginMarker = true)
+                        // A paragraph with at most one physical line cannot split between its own lines.
+                        if (p.lines.size > 1 && (block.format.keepLines || block.format.widowControl))
+                            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph pagination rules inside table cells are not qualified")
                         top += ParagraphSpacing.before(block, after, blockIndex == 0)
                         for ((index, line) in p.lines.withIndex()) {
                             pieces += Piece(top, p.heights[index], line)

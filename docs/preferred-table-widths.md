@@ -122,3 +122,10 @@ Other cell-border combinations retain the existing qualification.
 Word print rendering uses the actual table regions and look settings. Qualified
 condition flags in row, cell and paragraph properties remain in the source
 package and do not override those calculated regions in the PDF.
+
+## Keep-line flags in single-line table cells
+
+A measured cell paragraph containing at most one physical line can retain its
+keep-lines or widow-control flag without affecting pagination. Active rules for
+multiline cell paragraphs, paragraph-to-paragraph keeps and page breaks remain
+qualified separately.
