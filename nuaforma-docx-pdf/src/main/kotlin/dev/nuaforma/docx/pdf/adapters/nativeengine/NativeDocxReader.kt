@@ -1662,7 +1662,7 @@ internal class NativeDocxReader(
         themeColors: WordThemeColors, characterCapsBase: Boolean?): Face {
         if (property == null) return initial
         val word14 = "http://schemas.microsoft.com/office/word/2010/wordml"
-        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern", "spacing", "dstrike", "w", "highlight", "shd", "caps"), setOf(word14 to "ligatures", WordTextOutline.NS to "textOutline"))
+        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern", "spacing", "dstrike", "w", "highlight", "shd", "caps", "smallCaps"), setOf(word14 to "ligatures", WordTextOutline.NS to "textOutline"))
         property.elements().singleOrNull { it.name.namespaceURI == WordTextOutline.NS && it.name.localPart == "textOutline" }?.let {
             WordTextOutline.requireInactive(it) { origin, message -> source.current = origin; reject(message) }
         }
@@ -1746,6 +1746,11 @@ internal class NativeDocxReader(
             attributes(it, setOf("val")); children(it, emptySet()); enabled(it)
         }
         property.one("rtl")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty(), "Invalid run direction"); result = result.copy(rtl = enabled(it)) }
+        property.one("smallCaps")?.let { node ->
+            source.current = node
+            check(!WordCapitalization.enabled(node) { origin, message -> source.current = origin; reject(message) },
+                "Active small caps are not yet qualified")
+        }
         property.one("caps")?.let {
             val caps = WordCapitalization.enabled(it) { origin, message -> source.current = origin; reject(message) }
             result = result.copy(capitals = characterCapsBase?.xor(caps) ?: caps)

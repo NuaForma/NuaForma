@@ -11,21 +11,24 @@ internal object WordCapitalization {
     fun normalizeSource(root: XmlElement, reject: (XmlElement, String) -> Nothing): Boolean {
         var changed = false
         for (properties in root.descendants().filter { it.name == QName(WORD, "rPr") }) {
-            val nodes = properties.elements().filter { it.name.localPart == "caps" }
-            if (nodes.size > 1) reject(nodes[1], "Duplicate Word capitalization property")
-            val node = nodes.singleOrNull() ?: continue
-            val enabled = enabled(node, reject)
-            val raw = node.attribute(WORD, "val") ?: continue
-            if (raw != enabled.toString()) {
-                node.attributes[QName(WORD, "val")] = enabled.toString()
-                changed = true
+            for (name in listOf("caps", "smallCaps")) {
+                val nodes = properties.elements().filter { it.name.localPart == name }
+                if (nodes.size > 1) reject(nodes[1], "Duplicate Word capitalization property")
+                val node = nodes.singleOrNull() ?: continue
+                val enabled = enabled(node, reject)
+                val raw = node.attribute(WORD, "val") ?: continue
+                if (raw != enabled.toString()) {
+                    node.attributes[QName(WORD, "val")] = enabled.toString()
+                    changed = true
+                }
             }
         }
         return changed
     }
 
     fun enabled(node: XmlElement, reject: (XmlElement, String) -> Nothing): Boolean {
-        if (node.name != QName(WORD, "caps") || node.attributes.keys.any { it != QName(WORD, "val") } ||
+        if (node.name.namespaceURI != WORD || node.name.localPart !in setOf("caps", "smallCaps") ||
+            node.attributes.keys.any { it != QName(WORD, "val") } ||
             node.elements().isNotEmpty() || node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
             reject(node, "Invalid Word capitalization property")
         return when (node.attribute(WORD, "val")) {

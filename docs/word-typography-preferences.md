@@ -122,3 +122,9 @@ when they require unsupported combinations.
 Word accepts language-and-region values such as pt_BR and tr_TR. The PDF
 model uses the corresponding language tags pt-BR and tr-TR, with the same
 language-sensitive casing.
+
+## Explicitly disabled small caps
+
+An off setting for small caps on a text run or paragraph mark leaves the
+printed glyphs and line metrics unchanged. Active small caps retain a source
+diagnostic until their glyph sizing is qualified.
