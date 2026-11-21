@@ -68,7 +68,7 @@ internal object WordTableBorders {
     fun read(node: XmlElement, theme: WordThemeColors, reject: (XmlElement, String) -> Nothing): PdfBorder? {
         if (node.name.namespaceURI != word || node.name.localPart !in edges || node.elements().isNotEmpty() ||
             node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
-            node.attributes.keys.any { it.namespaceURI != word || it.localPart !in setOf("val", "sz", "color", "space", "themeColor") })
+            node.attributes.keys.any { it.namespaceURI != word || it.localPart !in setOf("val", "sz", "color", "space", "themeColor", "themeTint", "themeShade") })
             reject(node, "Unsupported ordinary table border structure")
         if (node.attribute(word, "space") !in setOf(null, "0")) reject(node, "Only zero table border spacing is qualified")
         val kind = node.attribute(word, "val")
@@ -79,6 +79,13 @@ internal object WordTableBorders {
         val color = node.attribute(word, "color")
         if (color != null && color != "auto" && !color.matches(Regex("[0-9A-Fa-f]{6}"))) reject(node, "Invalid table border color")
         val role = node.attribute(word, "themeColor")
+        val tint = node.attribute(word, "themeTint")
+        val shade = node.attribute(word, "themeShade")
+        if (tint != null || shade != null) {
+            if (kind != "single" || role == null || role == "none" || tint != null && shade != null ||
+                (tint ?: shade)?.matches(Regex("[0-9A-Fa-f]{2}")) != true)
+                reject(node, "A table border tint or shade requires one qualified theme transform")
+        }
         if (kind != "single") {
             if (role != null) reject(node, "A themed border requires a solid line")
             return null

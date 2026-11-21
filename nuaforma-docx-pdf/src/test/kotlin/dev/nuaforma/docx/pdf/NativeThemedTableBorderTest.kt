@@ -26,8 +26,11 @@ class NativeThemedTableBorderTest {
             PdfFixture.zip(parts + (part to fixture(document, table, attrs).toByteArray())), "standard",
         )).use { PDFRenderer(it).renderImageWithDPI(0, 96f) }
 
-        for (table in listOf(true, false)) {
-            assertImagesMatch(image(table, color(true)), image(table, color(false))) {
+        val borders = listOf(color(true) to color(false),
+            """w:color="547FB4"""" to """w:color="DE2222" w:themeColor="text1" w:themeTint="99"""",
+            """w:color="84A8CF"""" to """w:color="DE2222" w:themeColor="background1" w:themeShade="BF"""")
+        for (table in listOf(true, false)) for ((explicit, themed) in borders) {
+            assertImagesMatch(image(table, explicit), image(table, themed)) {
                 pixelTolerance = 0.0
                 allowedDifferentPixelsPercent = 0.0
                 threshold = 1
@@ -37,8 +40,10 @@ class NativeThemedTableBorderTest {
 
     @Test
     fun `solid table border with an invalid theme role retains a source diagnostic`() {
-        NativeWordFeatureSupport(temporary).rejectChanged(source, part, "top") {
-            fixture(it, true, """w:color="DE2222" w:themeColor="unknownRole"""")
+        val support = NativeWordFeatureSupport(temporary)
+        for (invalid in listOf("""w:themeColor="unknownRole"""", """w:themeTint="99"""",
+            """w:themeColor="text1" w:themeTint="Z9"""", """w:themeColor="text1" w:themeTint="99" w:themeShade="BF"""")) {
+            support.rejectChanged(source, part, "top") { fixture(it, true, """w:color="DE2222" $invalid""") }
         }
     }
 

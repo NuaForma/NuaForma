@@ -26,7 +26,7 @@ internal class WordThemeColors(
     fun borderColor(node: XmlElement, role: String): PdfColor? {
         if (role == "none") return null
         if (!supportsBorderRole(role)) reject(node, "Unsupported table border theme color")
-        return themed(node, role, null, null)
+        return themed(node, role, node.attribute(W, "themeTint"), node.attribute(W, "themeShade"))
     }
 
     fun cellFill(node: XmlElement): PdfColor? {

@@ -81,7 +81,8 @@ body tables with ordinary uniform borders.
 ## Embedded theme colors on solid borders
 
 Ordinary solid table and cell borders can select a color from the embedded Word
-theme. Word uses the active palette color even when the cached RGB value differs.
+theme. A qualified tint or shade adjusts the active palette color even when
+the cached RGB value differs.
 The existing physical border and conflict rules apply to the resolved color.
 
 ## Independent visibility of grid edges
