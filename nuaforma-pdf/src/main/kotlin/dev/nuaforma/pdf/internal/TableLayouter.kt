@@ -117,7 +117,7 @@ internal object TableLayouter {
                 throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Vertical alignment across page fragments is not qualified")
             }
             val spare = maxOf(0f, end - start - layout.frameFor(cell) - cell.contentHeight)
-            val shift = when (alignment) { PdfVerticalAlignment.TOP -> 0f; PdfVerticalAlignment.CENTER -> spare / 2; PdfVerticalAlignment.BOTTOM -> spare }
+            val shift = verticalShift(alignment, spare)
             val left = x + table.columnWidths.take(cell.placement.column).sum()
             val width = table.columnWidths.subList(cell.placement.column, cell.placement.column + cell.placement.cell.columnSpan).sum()
             if (layout.customBorders) {
@@ -141,9 +141,6 @@ internal object TableLayouter {
 
     fun cut(layout: Measured, row: Int, from: Float, limit: Float): Float {
         if (layout.customBorders && !layout.consistentBorders) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Conflicting borders in fragmented rows are not qualified")
-        if (layout.rowCells(row).any { it.placement.cell.verticalAlignment != PdfVerticalAlignment.TOP }) {
-            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Vertical alignment across fragmented rows is not qualified")
-        }
         var end = minOf(layout.rowCells(row).maxOf { it.contentHeight }, limit)
         var remaining = 20_000
         while (remaining-- > 0) {
@@ -174,16 +171,26 @@ internal object TableLayouter {
                 PositionedRectangle(left, top, width, height, cell.placement.cell.background, null), top + height,
                 true, true, layout.closing, target)
             else target += PositionedRectangle(left, top + layout.closing / 2, width, height, cell.placement.cell.background, table.border)
+            // Word aligns a whole cell within the first physical fragment. Split cell content remains top-aligned.
+            val spare = if (from <= .001f && cell.contentHeight <= until + .001f)
+                maxOf(0f, height - layout.frameFor(cell) - cell.contentHeight) else 0f
+            val shift = verticalShift(cell.placement.cell.verticalAlignment, spare)
             for (piece in cell.pieces) {
                 if (piece.top < from - 0.001f || piece.top + piece.height > until + 0.001f) continue
                 val inset = if (layout.customBorders) layout.topInsets[row] else layout.closing
                 target += piece.elements.map { element ->
-                    clipParagraph(translate(element, left + cell.margins.left, top + inset + cell.margins.top + piece.top - from),
+                    clipParagraph(translate(element, left + cell.margins.left, top + inset + cell.margins.top + piece.top - from + shift),
                         RectangleClip(left, top, left + width, top + height))
                 }
             }
         }
         return height
+    }
+
+    private fun verticalShift(alignment: PdfVerticalAlignment, spare: Float): Float = when (alignment) {
+        PdfVerticalAlignment.TOP -> 0f
+        PdfVerticalAlignment.CENTER -> spare / 2
+        PdfVerticalAlignment.BOTTOM -> spare
     }
 
     private fun strokeFrame(layout: Measured, cell: PdfTableCell, frame: PositionedRectangle, bottom: Float,

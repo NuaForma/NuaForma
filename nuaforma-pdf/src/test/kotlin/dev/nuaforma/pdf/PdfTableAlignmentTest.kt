@@ -13,9 +13,14 @@ class PdfTableAlignmentTest {
     private val page=PdfPage(480f,360f,PdfMargins(30f,20f,30f,20f))
     private fun p(value:String)=PdfParagraph(listOf(PdfTextRun(value,style)),0f,0f,PdfParagraphFormat(exactLineHeight=14f))
     private fun cell(value:String,alignment:PdfVerticalAlignment=PdfVerticalAlignment.TOP,span:Int=1)=PdfTableCell(listOf(p(value)),rowSpan=span,verticalAlignment=alignment)
-    private fun positions(pdf:org.apache.pdfbox.pdmodel.PDDocument):List<TextPosition> {
+    private fun positions(pdf:org.apache.pdfbox.pdmodel.PDDocument, pageNumber: Int? = null):List<TextPosition> {
         val result=mutableListOf<TextPosition>()
-        object:PDFTextStripper() {override fun processTextPosition(text:TextPosition) {result+=text;super.processTextPosition(text)}}.getText(pdf)
+        object:PDFTextStripper() {override fun processTextPosition(text:TextPosition) {result+=text;super.processTextPosition(text)}}.apply {
+            if (pageNumber != null) {
+                startPage = pageNumber
+                endPage = pageNumber
+            }
+        }.getText(pdf)
         return result
     }
     private fun row(lines:Int)=PdfTableRow(listOf(cell("A"),cell("B",PdfVerticalAlignment.CENTER),cell("C",PdfVerticalAlignment.BOTTOM),PdfTableCell(List(lines) {p("D")})))
@@ -67,12 +72,23 @@ class PdfTableAlignmentTest {
         }
     }
 
-    @Test fun `fragmented rows reject unqualified vertical alignment before publishing bytes`() {
+    @Test fun `short cells align within the first fragment while vertical spans keep their bounds`() {
         fun document(alignment:PdfVerticalAlignment)=PdfDocument(page,listOf(PdfTable(listOf(100f,200f),listOf(PdfTableRow(listOf(cell("B",alignment),PdfTableCell(List(40) {p("D")})),allowSplit=true)))),PdfFlow())
         val engine=PdfEngine();val fonts=FoundationLetter.fonts()
-        val failure=assertThrows(PdfRenderException::class.java) {engine.render(document(PdfVerticalAlignment.CENTER),fonts)}
-        assertEquals(PdfFailureCode.UNSUPPORTED_TEXT,failure.code)
-        Loader.loadPDF(engine.render(document(PdfVerticalAlignment.TOP),fonts)).use {assertTrue(it.numberOfPages>1);assertEquals(40,positions(it).count {p->p.unicode=="D"})}
+        for (alignment in PdfVerticalAlignment.entries) Loader.loadPDF(engine.render(document(alignment), fonts)).use { pdf ->
+            assertTrue(pdf.numberOfPages > 1)
+            assertEquals(40, positions(pdf).count { it.unicode == "D" })
+            val firstPage = positions(pdf, 1)
+            val lines = firstPage.filter { it.unicode == "D" }
+            val first = lines.minOf { it.yDirAdj }
+            val last = lines.maxOf { it.yDirAdj }
+            val expected = when (alignment) {
+                PdfVerticalAlignment.TOP -> first
+                PdfVerticalAlignment.CENTER -> (first + last) / 2
+                PdfVerticalAlignment.BOTTOM -> last
+            }
+            assertEquals(expected, firstPage.single { it.unicode == "B" }.yDirAdj, .001f)
+        }
         val merged=(0..2).map {index->PdfTableRow((if(index==0) listOf(cell("B",PdfVerticalAlignment.CENTER,3)) else emptyList())+PdfTableCell(List(8) {p("D")}))}
         val spanning=PdfDocument(page,listOf(PdfTable(listOf(100f,200f),merged)),PdfFlow())
         assertEquals(PdfFailureCode.UNSUPPORTED_TEXT,assertThrows(PdfRenderException::class.java) {engine.render(spanning,fonts)}.code)

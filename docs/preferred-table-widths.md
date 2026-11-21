@@ -134,3 +134,11 @@ in column-spanning cells.
 
 Keep-lines remains qualified on single-line paragraphs. Multiline keep-lines,
 paragraph-to-paragraph keeps and explicit page breaks retain their diagnostics.
+
+## Vertical cell alignment in split rows
+
+A complete cell that fits in the first physical fragment of a split row can
+use top, center or bottom alignment within that fragment. Content split across
+fragments starts at the top of each fragment. The available height includes
+the row frame, and cell content keeps its existing clipping bounds. Word
+exports on A4 and US Letter cover each alignment with a shorter sibling cell.

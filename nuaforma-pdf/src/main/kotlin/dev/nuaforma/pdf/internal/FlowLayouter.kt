@@ -192,7 +192,6 @@ internal object FlowLayouter {
                     val minimumOwnsFirstHeight = firstRow.minimumHeight?.let { it >= first - .001f } == true
                     val firstSplittable = firstRow.allowSplit && !minimumOwnsFirstHeight &&
                         measured.cells.none { it.placement.cell.rowSpan > 1 } &&
-                        measured.rowCells(index).all { it.placement.cell.verticalAlignment == PdfVerticalAlignment.TOP } &&
                         (!measured.customBorders || measured.consistentBorders)
                     val firstFits = if (firstSplittable) {
                         val capacity = bottom - top - headerHeight - measured.frameAt(index) - measured.closing
