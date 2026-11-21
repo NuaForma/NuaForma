@@ -130,6 +130,14 @@ internal object FlowLayouter {
                         if (contentHeight > freshHeight() + .001f) overflow()
                         if (!fits(before + contentHeight)) { nextPage(); before = 0f }
                     }
+                    val compactHeight = if (blockIndex > protectedThrough && exclusions[pages.lastIndex].isNullOrEmpty())
+                        naturalHeightAtPageEnd(measured) else null
+                    if (compactHeight != null && !fits(before + measured.heights.first()) && fits(before + compactHeight)) {
+                        placeLine(measured.lines.single(), page.margins.left, top + before, pages.last())
+                        top = bottom
+                        after = block.spaceAfter
+                        continue
+                    }
                     if (!fits(before + measured.heights.first())) nextPage() else top += before
                     if (!format.widowControl || format.keepLines) {
                         for ((lineIndex, line) in measured.lines.withIndex()) {
@@ -262,6 +270,17 @@ internal object FlowLayouter {
             decorated += layout.elements
             PageLayout(page, decorated.toList())
         }
+    }
+
+    /** Automatic extra leading can end at the body edge when a simple line fits in its natural box. */
+    private fun naturalHeightAtPageEnd(measured: MeasuredParagraph): Float? {
+        val paragraph = measured.paragraph
+        val multiple = paragraph.format.automaticLineSpacing?.multiple ?: return null
+        if (multiple <= 1f || measured.lines.size != 1 || paragraph.format.keepLines || paragraph.format.keepWithNext ||
+            paragraph.borders != null || paragraph.background != null || paragraph.lines.isNotEmpty() ||
+            paragraph.listLabel != null || paragraph.runs.any { it !is PdfTextRun || it.style.background != null })
+            return null
+        return measured.heights.single() / multiple
     }
 
     internal fun paragraph(p: PdfParagraph, width: Float, measurer: TextMeasurer, previous: PdfParagraph? = null, next: PdfParagraph? = null, owner: PdfParagraph = p,
