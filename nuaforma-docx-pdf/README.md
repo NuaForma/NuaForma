@@ -275,3 +275,5 @@ A complete legacy checkbox field with no form metadata or saved result remains u
 When a qualified plain typography property differs between style parts, Word's primary styles control the result. Valid primary-only style references and reciprocal character links are preserved.
 
 Saving HTML as separate files is an authoring preference and leaves PDF output unchanged.
+
+The preference to save a document preview image leaves PDF output unchanged.
