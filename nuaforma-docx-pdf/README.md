@@ -363,3 +363,5 @@ A right-aligned line with explicit center and right tab stops preserves the tab 
 A fixed, flat modern Word table can retain independent border strokes and measured cell clearances, including when a saved grid supplies omitted cell widths.
 
 A whole fixed row may continue on the next page when the adjoining strokes match the table's outside border.
+
+A word moving to a narrower continuation line is measured against that line before applying the existing word-breaking policy.
