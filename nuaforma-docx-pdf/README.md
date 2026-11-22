@@ -355,3 +355,5 @@ Qualified percentage cell shading blends the stored RGB colors into Word's PDF s
 A fixed Word grid may retain a subpoint column when its actual spanning cells all have room for their margins.
 
 A fixed text-relative table with an isolated anchor stays at its saved vertical offset while the body continues independently.
+
+A bookmark after a standalone Word page break keeps its destination on the source page.

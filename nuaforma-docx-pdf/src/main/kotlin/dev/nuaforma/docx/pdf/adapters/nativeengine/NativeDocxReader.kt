@@ -864,7 +864,7 @@ internal class NativeDocxReader(
                 } }.flatMap { inline -> if (inline is PdfTextRun) textRuns(inline, face) else listOf(inline) }
             }
 
-            val runs = paragraph.elements().flatMap { node -> when (node.name.localPart) {
+            val parsedRuns = paragraph.elements().flatMap { node -> when (node.name.localPart) {
                 "pPr" -> emptyList()
                 "bookmarkStart" -> {
                     attributes(node, setOf("id", "name")); children(node, emptySet())
@@ -914,6 +914,18 @@ internal class NativeDocxReader(
             }.also { converted ->
                 for (key in openBookmarks) bookmarkNames[key]?.let { bookmarkRuns.getValue(it).addAll(converted) }
             } }
+            // Word assigns a target at the end of a break-only paragraph to the preceding page.
+            val leadingBreak = parsedRuns.firstOrNull() as? PdfPageBreak
+            val afterBreak = parsedRuns.drop(1)
+            val runs = if (leadingBreak != null && pendingDestinations.isNotEmpty() && afterBreak.all { inline ->
+                    inline is PdfTextRun && inline.text.all { it == ' ' } && inline.navigation == null &&
+                        !inline.style.underline && !inline.style.strikethrough && inline.style.background == null
+                }) {
+                val destinations = leadingBreak.destinations + pendingDestinations
+                check(destinations.size <= 32, "Excessive adjacent bookmarks")
+                pendingDestinations.clear()
+                listOf(leadingBreak.withDestinations(destinations)) + afterBreak
+            } else parsedRuns
             val markedPageBreak = runs.filterIsInstance<PdfPageBreak>().firstOrNull { it.destinations.isNotEmpty() }
             if (firstPageBreak != null && (markedPageBreak != null || geometry.keepWithNext || geometry.keepLines)) {
                 source.current = requireNotNull(firstPageBreak)
