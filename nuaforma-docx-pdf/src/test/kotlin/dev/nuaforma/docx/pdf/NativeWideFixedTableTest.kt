@@ -101,7 +101,7 @@ class NativeWideFixedTableTest {
     }
 
     @Test
-    fun `nested cells and page bands do not inherit the body margin allowance`() {
+    fun `nested cells and legacy page bands keep their width limit`() {
         val support = NativeWordFeatureSupport(temporary)
         val parts = PdfFixture.unzip(support.bytes("/wide-fixed-tables/15-zero/a4/source.docx")).toMutableMap()
         val original = parts.getValue("word/document.xml").decodeToString()
@@ -124,8 +124,15 @@ class NativeWideFixedTableTest {
             .replace("</Types>", "<Override PartName=\"/word/header1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml\"/></Types>").toByteArray()
         val header = PdfFixture.zip(parts)
         val band = NativeDocxReader(GenerationContext(), { _, _, _ -> "fixture" }).read(header).flow!!.header!!
-        assertEquals(0f, band.blocks.filterIsInstance<PdfTable>().single().rightOverflow)
-        rejected(support, header, "Table exceeds its containing width")
+        assertTrue(band.blocks.filterIsInstance<PdfTable>().single().rightOverflow in 23f..24f)
+
+        val settings = parts.getValue("word/settings.xml").decodeToString()
+        val legacy = settings.replace("w:val=\"15\"", "w:val=\"12\"")
+        assertNotEquals(settings, legacy)
+        val legacyHeader = PdfFixture.zip(parts + ("word/settings.xml" to legacy.toByteArray()))
+        val legacyBand = NativeDocxReader(GenerationContext(), { _, _, _ -> "fixture" }).read(legacyHeader).flow!!.header!!
+        assertEquals(0f, legacyBand.blocks.filterIsInstance<PdfTable>().single().rightOverflow)
+        rejected(support, legacyHeader, "Table exceeds its containing width")
     }
 
 }

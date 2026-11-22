@@ -1552,7 +1552,9 @@ internal class NativeDocxReader(
                 PdfTableAlignment.CENTER -> (contentWidth - widths.sum()) / 2 + physicalIndent
                 PdfTableAlignment.RIGHT -> contentWidth - widths.sum() - halfBorder + physicalIndent
             }
-            val fixedOverflow = if (depth == 0 && !fields && !automaticLayout)
+            val fixedPageBandWidth = fields && modernTableAlignment && alignment == PdfTableAlignment.LEFT
+            // A fixed page-band table may enter the right margin. Physical page bounds still apply.
+            val fixedOverflow = if (depth == 0 && !automaticLayout && (!fields || fixedPageBandWidth))
                 (fixedOffset + widths.sum() - contentWidth).coerceAtLeast(0f) else 0f
             val finalTableWidth = tableWidthFloor?.let { minimum ->
                 PdfPreferredWidth.points(maxOf(minimum, requireNotNull(resolvedTableWidth?.points)))
