@@ -406,7 +406,11 @@ internal object FlowLayouter {
                     if (block.format.pageBreakBefore) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Page breaks inside page bands are unsupported")
                     if (block.runs.any { it is PdfPageBreak }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Inline page breaks inside page bands are not qualified")
                     ParagraphBounds.check(block, page)
-                    val p = paragraph(resolve(block).copy(anchoredImages = emptyList()), width, measurer, previous = band.blocks.getOrNull(blockIndex - 1) as? PdfParagraph, next = band.blocks.getOrNull(blockIndex + 1) as? PdfParagraph, owner = block)
+                    val marginAllowance = if (block.anchoredImages.isEmpty()) page.margins.right else 0f
+                    val p = paragraph(resolve(block).copy(anchoredImages = emptyList()), width, measurer,
+                        previous = band.blocks.getOrNull(blockIndex - 1) as? PdfParagraph,
+                        next = band.blocks.getOrNull(blockIndex + 1) as? PdfParagraph, owner = block,
+                        rightMarginAllowance = marginAllowance)
                     top += ParagraphSpacing.before(block, after, blockIndex == 0)
                     floatingImages += block.anchoredImages.map { it to top }
                     for ((index, line) in p.lines.withIndex()) { placeLine(line, page.margins.left, top, elements); top += p.heights[index] }

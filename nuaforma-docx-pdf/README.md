@@ -331,3 +331,5 @@ A centered or decimal-aligned field can move left to remain inside the line when
 An unresolved ordinary Word hyperlink keeps its visible text. Existing names resolve with explicit case-preserving identity.
 
 An in-bounds stop can move the field to a continuation line. A right-aligned outside stop can use the physical margin of ordinary body text.
+
+Ordinary header and footer paragraphs can keep a qualified right tab at the page-margin boundary.

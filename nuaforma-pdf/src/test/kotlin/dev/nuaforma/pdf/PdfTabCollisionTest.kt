@@ -131,4 +131,19 @@ class PdfTabCollisionTest {
             PdfParagraphFormat(exactLineHeight = 14f, tabs = tabs))
     }
 
+
+    @Test
+    fun anOrdinaryHeaderAndFooterCanUseThePhysicalRightMargin() {
+        val prefix = "A".repeat(33)
+        val band = PdfPageBand(0f, 25f, listOf(rightTabParagraph(prefix, 214.05f)))
+        val body = PdfParagraph(listOf(PdfTextRun("Body", style)), format = PdfParagraphFormat(exactLineHeight = 14f))
+        val result = ReferenceLayouter.layout(PdfDocument(page, listOf(body), PdfFlow(header = band, footer = band)),
+            measurer, PdfRenderControl())
+        val placed = result.pages.single().elements.filterIsInstance<PositionedText>()
+        val values = placed.filter { it.text == "VALUE" }
+        assertEquals(2, values.size)
+        assertTrue(values.all { kotlin.math.abs(254f - it.x) < .001f })
+        assertEquals(placed.filter { it.text == prefix }.map { it.baseline }, values.map { it.baseline })
+    }
+
 }
