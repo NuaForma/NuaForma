@@ -507,7 +507,6 @@ internal class NativeDocxReader(
             val logicalId = "source-p${paragraphCounter++}"
             val lineDrawings = mutableListOf<PdfLineDrawing>()
             var firstPageBreak: XmlElement? = null
-            var destinationsBeforePageBreak = false
             children(paragraph, setOf("pPr", "r", "fldSimple", "hyperlink", "bookmarkStart", "bookmarkEnd"))
             val direct = paragraph.one("pPr")
             val styleChain = chain(direct?.one("pStyle")?.value("val") ?: normal, "paragraph")
@@ -810,11 +809,11 @@ internal class NativeDocxReader(
                             source.current = item
                             check(allowPageBreak && !fields && currentNoteKind == null && link == null && geometry.direction == null,
                                 "Inline page breaks require ordinary body text")
-                            if (firstPageBreak == null) {
-                                firstPageBreak = item
-                                destinationsBeforePageBreak = pendingDestinations.isNotEmpty()
-                            }
-                            PdfPageBreak(textStyle(face))
+                            if (firstPageBreak == null) firstPageBreak = item
+                            val destinations = pendingDestinations.toList()
+                            pendingDestinations.clear()
+                            val pageBreak = PdfPageBreak(textStyle(face))
+                            if (destinations.isEmpty()) pageBreak else pageBreak.withDestinations(destinations)
                         } else PdfLineBreak(textStyle(face))
                     }
                     "pict", "drawing" -> {
@@ -872,12 +871,17 @@ internal class NativeDocxReader(
             }.also { converted ->
                 for (key in openBookmarks) bookmarkNames[key]?.let { bookmarkRuns.getValue(it).addAll(converted) }
             } }
-            if (firstPageBreak != null && (geometry.keepWithNext || geometry.keepLines)) {
+            val markedPageBreak = runs.filterIsInstance<PdfPageBreak>().firstOrNull { it.destinations.isNotEmpty() }
+            if (firstPageBreak != null && (markedPageBreak != null || geometry.keepWithNext || geometry.keepLines)) {
                 source.current = requireNotNull(firstPageBreak)
-                check(!destinationsBeforePageBreak && runs.firstOrNull() is PdfPageBreak && runs.size > 1 &&
+                check(runs.firstOrNull() is PdfPageBreak &&
+                    (markedPageBreak == null || markedPageBreak === runs.first() &&
+                        markedPageBreak.destinations.none { it.name == "_GoBack" }) &&
+                    (runs.size > 1 || !geometry.keepWithNext && !geometry.keepLines) &&
                     runs.drop(1).all { it is PdfTextRun || it is PdfTab || it is PdfLineBreak } &&
-                    listEntry == null && contents == null && lineDrawings.isEmpty(),
-                    "Inline page breaks with paragraph keep rules are not qualified")
+                    listEntry == null && contents == null && !geometry.mirror && lineDrawings.isEmpty(),
+                    if (markedPageBreak != null) "Bookmark destinations require an ordinary leading page break"
+                    else "Inline page breaks with paragraph keep rules are not qualified")
             }
             if (pendingDestinations.isNotEmpty()) {
                 check(pendingDestinations.none { it.name == "_GoBack" }, "Bookmark requires following visible paragraph text")

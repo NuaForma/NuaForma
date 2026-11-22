@@ -84,6 +84,8 @@ internal object NoteFlowLayouter {
             val block = item.block ?: continue
             when (block) {
                 is PdfParagraph -> {
+                    if (block.runs.filterIsInstance<PdfPageBreak>().any { it.destinations.isNotEmpty() })
+                        unsupported("Bookmark destinations at page breaks with notes are not qualified")
                     if (block.anchoredImages.any { it.wrap != PdfImageWrap.NONE }) unsupported("Image wrapping with notes is not qualified")
                     if (block.format.pageBreakBefore && bodyItems > 0) nextPage()
                     val p = paragraph(block)

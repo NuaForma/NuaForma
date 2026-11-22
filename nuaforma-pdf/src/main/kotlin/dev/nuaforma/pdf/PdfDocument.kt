@@ -43,7 +43,9 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
             is PdfTextRun -> it.navigation; is PdfReferenceField -> it.navigation; is PdfSequenceField -> it.navigation; is PdfNoteCall -> it.navigation; is PdfNoteLabel -> it.navigation; else -> null
         } }
         require(navigation.size <= 2_000) { "Navigation budget exceeded" }
-        val destinations = (navigation.flatMap { it.destinations } + paragraphs.flatMap { it.endDestinations }).map { it.name }
+        val pageBreaks = paragraphs.flatMap { it.runs.filterIsInstance<PdfPageBreak>() }
+        val destinations = (navigation.flatMap { it.destinations } + paragraphs.flatMap { it.endDestinations } +
+            pageBreaks.flatMap { it.destinations }).map { it.name }
         require(destinations.size <= 1_000 && destinations.distinct().size == destinations.size) { "Duplicate or excessive destinations" }
         val names = destinations.toSet()
         require(allowUnresolved || navigation.mapNotNull { it.link as? PdfLink.Internal }.all { it.destination in names }) { "Missing internal destination" }

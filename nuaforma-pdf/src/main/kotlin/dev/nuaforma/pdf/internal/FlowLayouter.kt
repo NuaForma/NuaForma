@@ -26,7 +26,7 @@ internal object FlowLayouter {
         fun measuredAt(index: Int) = paragraphCache.getOrPut(index) {
             val block = document.blocks[index] as PdfParagraph
             ParagraphBounds.check(block, page)
-            val content = if (block.hasLeadingPageBreakWithKeeps()) block.copy(runs = block.runs.drop(1)) else block
+            val content = if (block.hasHandledLeadingPageBreak()) block.copy(runs = block.runs.drop(1)) else block
             paragraph(content, width, measurer, previous = document.blocks.getOrNull(index - 1) as? PdfParagraph, next = document.blocks.getOrNull(index + 1) as? PdfParagraph, permitMarginMarker = true)
         }
 
@@ -90,9 +90,21 @@ internal object FlowLayouter {
                 is PdfParagraph -> {
                     if (block.runs.any { it is PdfPageField }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields are supported only in page bands")
                     val format = block.format
-                    val leadingPageBreak = block.hasLeadingPageBreakWithKeeps()
+                    val leadingPageBreak = block.hasHandledLeadingPageBreak()
+                    if (!leadingPageBreak && block.runs.filterIsInstance<PdfPageBreak>().any { it.destinations.isNotEmpty() })
+                        fail(PdfFailureCode.UNSUPPORTED_TEXT, "Bookmark destinations require an ordinary leading page break")
                     if (leadingPageBreak) {
                         if (exclusions.isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Inline page breaks with wrapped frames are not qualified")
+                        val destinations = (block.runs.first() as PdfPageBreak).destinations
+                        if (destinations.isNotEmpty()) {
+                            val spacing = ParagraphSpacing.before(block, after, top <= page.margins.top + .001f, format.pageBreakBefore)
+                            val x = page.margins.left + format.leftIndent + format.firstLineIndent
+                            pages.last() += PositionedDestination(destinations, x, minOf(bottom, top + spacing))
+                        }
+                        if (block.runs.size == 1) {
+                            if (blockIndex < document.blocks.lastIndex) nextPage()
+                            continue
+                        }
                         nextPage()
                     } else if (format.pageBreakBefore && top > page.margins.top + .001f) nextPage()
                     if (block.anchoredImages.isNotEmpty() || floating[pages.lastIndex].orEmpty().any { top < it.bottom - .001f }) {

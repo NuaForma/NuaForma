@@ -319,3 +319,5 @@ The qualified inactive punctuation overflow preference is retained for ordinary 
 A leading explicit break keeps its physical page boundary before a supported paragraph with keep rules.
 
 Explicitly positioned unwrapped pictures can fit their source aspect ratio into qualified page or margin percentages.
+
+Qualified bookmark destinations before a leading hard break retain the source page, and destinations after it follow the text.

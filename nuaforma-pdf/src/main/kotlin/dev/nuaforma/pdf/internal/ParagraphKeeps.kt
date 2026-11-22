@@ -16,7 +16,7 @@ internal object ParagraphKeeps {
             PageLayouter.checkCancellation()
             when (val block = blocks[index]) {
                 is PdfParagraph -> {
-                    if (index > start && (block.format.pageBreakBefore || block.hasLeadingPageBreakWithKeeps()))
+                    if (index > start && (block.format.pageBreakBefore || block.hasHandledLeadingPageBreak()))
                         return if (index > start + 1) Group(minimum, index - 1) else null
                     val measured = paragraph(index)
                     if (measured.breakAfter.isNotEmpty())
@@ -55,7 +55,10 @@ internal object ParagraphKeeps {
 
 
 /** A hard break at the very start puts the whole kept paragraph on the next page. */
-internal fun PdfParagraph.hasLeadingPageBreakWithKeeps(): Boolean =
-    (format.keepWithNext || format.keepLines) && runs.firstOrNull() is PdfPageBreak && runs.size > 1 &&
-        anchoredImages.isEmpty() && lines.isEmpty() && listLabel == null && contents == null &&
-        runs.drop(1).all { it is PdfTextRun || it is PdfTab || it is PdfLineBreak }
+internal fun PdfParagraph.hasHandledLeadingPageBreak(): Boolean =
+    (runs.firstOrNull() as? PdfPageBreak)?.let { first ->
+        (first.destinations.isNotEmpty() || (format.keepWithNext || format.keepLines) && runs.size > 1) &&
+            format.textDirection == null && pageOffset == null && anchoredImages.isEmpty() && lines.isEmpty() &&
+            listLabel == null && contents == null &&
+            runs.drop(1).all { it is PdfTextRun || it is PdfTab || it is PdfLineBreak }
+    } == true

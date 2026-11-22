@@ -55,6 +55,7 @@ internal object LogicalStructureBuilder {
                 }
                 is PdfImageRun -> image(run.image, semantic.id)
                 is PdfTab, is PdfLineBreak, is PdfPageBreak -> {
+                    if (run is PdfPageBreak) run.destinations.forEach { aliases[it.name] = semantic.id }
                     if (run is PdfTab && run.navigation != null) {
                         val navigation = run.navigation
                         val link = requireNotNull(navigation.link)
