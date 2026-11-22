@@ -28,6 +28,7 @@ internal object WordAuthoringMetadata {
             }
             if (node.name.namespaceURI != W) continue
             when (node.name.localPart) {
+                "document" -> clearWhitePageBackground(node)
                 "settings" -> {
                     compatibilityContainers(node) { entry -> current = entry; reject() }
                     val ignored = setOf("zoom", "rsids", "proofState", "listSeparator", "mathPr", "themeFontLang", "shapeDefaults", "hyphenationZone")
@@ -99,6 +100,15 @@ internal object WordAuthoringMetadata {
                 "lang" -> if (!complexText) node.attributes.keys.removeIf { it.namespaceURI == W && it.localPart in setOf("bidi", "eastAsia") }
                 "r" -> node.children.removeIf { it is XmlElement && it.name.namespaceURI == W && it.name.localPart == "lastRenderedPageBreak" }
             }
+        }
+    }
+
+    private fun clearWhitePageBackground(document: XmlElement) {
+        val background = document.elements().filter { it.name.namespaceURI == W && it.name.localPart == "background" }
+            .singleOrNull() ?: return
+        if (background.attributes.size == 1 && background.attribute(W, "color")?.equals("FFFFFF", ignoreCase = true) == true &&
+            background.elements().isEmpty() && background.children.filterIsInstance<XmlText>().all { it.text.isBlank() }) {
+            document.children.remove(background)
         }
     }
 

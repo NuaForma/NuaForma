@@ -301,3 +301,5 @@ A fixed left-aligned page-band table in current Word layout mode can extend into
 Qualified names can contain an ordinary colon or curly apostrophe. A closed same-paragraph bookmark can retain zero-valued column metadata.
 
 An isolated qualified two-column automatic table can fall back to its saved grid when its styled contents need word wrapping.
+
+A plain white source background without children retains the default physical page appearance.
