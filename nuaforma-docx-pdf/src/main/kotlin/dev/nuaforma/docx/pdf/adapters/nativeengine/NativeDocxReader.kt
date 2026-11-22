@@ -1140,7 +1140,11 @@ internal class NativeDocxReader(
                     children(cell, setOf("tcPr", "p", "tbl"))
                     val cp = cell.one("tcPr") ?: reject("Explicit cell properties required")
                     children(cp, setOf("tcW", "shd", "gridSpan", "vMerge", "vAlign", "tcBorders", "tcMar", "noWrap", "hideMark"))
-                    val cellStyles = regions.layers(rowIndex, column)
+                    val span = cp.one("gridSpan")?.let { attributes(it, setOf("val")); number(it.value("val")).toInt() } ?: 1
+                    check(span in 1..16 && column + span <= lastColumn, "Invalid grid span")
+                    check(!regions.active || cp.one("vMerge") == null && (span == 1 || bottomOnly && regions.supportsHorizontalSpans()),
+                        "Merged conditional table regions are not qualified")
+                    val cellStyles = regions.layers(rowIndex, column, span)
                     val cellProperties = cellStyles.mapNotNull { it.one("tcPr") } + cp
                     val marginDeclarations = cellProperties.mapNotNull { it.one("tcMar") }
                     val effectiveMargins = WordCellMargins.resolve(marginDeclarations, padding) { origin, message ->
@@ -1152,16 +1156,19 @@ internal class NativeDocxReader(
                     val declaredCellBorders = if (edgePolicies.isEmpty()) null else edgePolicies.fold(fallbackBorders) { inherited, node -> readCellBorders(node, inherited) }
                     val cellBorders = if (sparseBorders) {
                         source.current = cell
-                        val sameBottom = bottomOnly && (edgePolicies.isEmpty() || edgePolicies.all { policy ->
-                            val edge = policy.elements().singleOrNull()
-                            edge != null && edge.name.namespaceURI == word && edge.name.localPart == "bottom" &&
-                                edge.value("val") == "single"
-                        } && declaredCellBorders?.bottom?.border == tableBorders["bottom"])
+                        val horizontalEdges = bottomOnly && edgePolicies.all { policy ->
+                            policy.elements().all { edge -> edge.name.namespaceURI == word &&
+                                edge.name.localPart in setOf("top", "bottom") && edge.value("val") == "single" }
+                        } && listOfNotNull(declaredCellBorders?.top, declaredCellBorders?.bottom).all {
+                            it.border.width == tableBorders["bottom"]?.width
+                        }
                         check(cp.one("vMerge") == null && cell.elements().none { it.name.localPart == "tbl" } &&
-                            (sameBottom || cp.one("gridSpan") == null && declaredCellBorders == null),
+                            (horizontalEdges || cp.one("gridSpan") == null && declaredCellBorders == null),
                             "Independent table edges with merged, nested or custom-bordered cells are not qualified")
                         val inherited = tableCellEdges(rowIndex, column)
-                        if (sameBottom && declaredCellBorders != null) inherited.copy(bottom = declaredCellBorders.bottom) else inherited
+                        if (horizontalEdges && declaredCellBorders != null) inherited.copy(
+                            top = declaredCellBorders.top ?: inherited.top, bottom = declaredCellBorders.bottom ?: inherited.bottom,
+                        ) else inherited
                     } else declaredCellBorders?.takeUnless {
                         cellMargins == null && it == fallbackBorders && (suppressGrid || border == null ||
                             edgePolicies.none { policy -> policy.elements().any { it.value("val") == "none" } })
@@ -1177,9 +1184,6 @@ internal class NativeDocxReader(
                         attributes(node, setOf("val")); children(node, emptySet())
                         when (node.value("val")) { "top" -> PdfVerticalAlignment.TOP; "center" -> PdfVerticalAlignment.CENTER; "bottom" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported cell vertical alignment") }
                     } ?: PdfVerticalAlignment.TOP
-                    val span = cp.one("gridSpan")?.let { attributes(it, setOf("val")); number(it.value("val")).toInt() } ?: 1
-                    check(!regions.active || cp.one("vMerge") == null && span == 1, "Merged conditional table regions are not qualified")
-                    check(span in 1..16 && column + span <= lastColumn, "Invalid grid span")
                     val cellWidth = cp.one("tcW")
                     var preferredCellWidth = if (automaticLayout) preferredWidth(cellWidth) else null
                     val protectPreferredWidth = cp.one("noWrap")?.let { node ->
@@ -1199,7 +1203,16 @@ internal class NativeDocxReader(
                         }
                     } ?: false
                     if (naturalWidths) automaticDimension(cellWidth ?: reject("Missing cell width"))
-                    else if (!automaticLayout) check(kotlin.math.abs(dimension(cellWidth ?: reject("Missing cell width")) - widths.subList(column, column + span).sum()) < 0.01f, "Inconsistent cell width")
+                    else if (!automaticLayout) {
+                        val preferred = dimension(cellWidth ?: reject("Missing cell width"))
+                        val declared = widths.subList(column, column + span).sum()
+                        val difference = declared - preferred
+                        // Word retains the fixed outer edge when the last cell's preferred width is slightly smaller.
+                        val roundedFinalCell = depth == 0 && !fields && trailing == 0 &&
+                            tableWidth?.value("type") == "dxa" && column + span == widths.size &&
+                            difference > 0f && difference <= 3f / 20f + .001f
+                        check(kotlin.math.abs(difference) < .01f || roundedFinalCell, "Inconsistent cell width")
+                    }
                     val background = cellProperties.mapNotNull { it.one("shd") }.lastOrNull()?.let(themeColors::cellFill)
                     val hideMark = cp.one("hideMark")?.takeIf { node ->
                         WordTableWidths.cellToggle(node) { origin, message -> source.current = origin; reject(message) }
@@ -1313,7 +1326,8 @@ internal class NativeDocxReader(
                     rows.all { row -> row.cells.all { cell ->
                         cell.columnSpan == 1 && cell.rowSpan == 1 && cell.blocks.none { it is PdfTable }
                     } }
-                check(styles.size <= 1 || fixedRowEdges && styles.map { it.color }.distinct().size == 1,
+                val uniformWidths = bottomOnly && styles.all { it.width == tableBorders["bottom"]?.width }
+                check(styles.size <= 1 || uniformWidths || fixedRowEdges && styles.map { it.color }.distinct().size == 1,
                     "Mixed cell-border widths require a fixed flat body table with one solid color")
             }
             val count = headerFlags.takeWhile { it }.size
