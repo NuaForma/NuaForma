@@ -35,6 +35,18 @@ class NativeDocxFieldsTest {
     }
 
     @Test
+    fun `ordinary decimal picture leaves the qualified live page fields unchanged`() {
+        for (kind in listOf("PAGE", "NUMPAGES", "SECTIONPAGES")) {
+            assertEquals(parse("$kind \\* MERGEFORMAT"), parse("""$kind \# "0" \* MERGEFORMAT"""))
+            assertEquals(parse(kind), parse("$kind \\# 0"))
+        }
+        for (invalid in listOf("""PAGE \# "00"""", """PAGE \# "#,##0"""", "PAGE \\#",
+            "PAGE \\# 0 \\# 0", "PAGEREF _Here \\# 0", "SEQ Example \\# 0")) {
+            assertThrows(IllegalArgumentException::class.java) { parse(invalid) }
+        }
+    }
+
+    @Test
     fun `nonprinting literal SET fields do not require a result separator or cached sample`() {
         val content = "<w:p>${control("begin")}${instruction("SET Choice &quot;M&quot;")}${control("end")}</w:p>"
         val result = normalize(content)

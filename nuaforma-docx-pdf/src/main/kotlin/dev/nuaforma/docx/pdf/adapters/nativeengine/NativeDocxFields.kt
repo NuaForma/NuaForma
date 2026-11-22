@@ -69,6 +69,8 @@ internal object NativeDocxFields {
                 kind == "SEQ" && switch == "\\s" -> reset = next().toIntOrNull()?.takeIf { it in 1..9 }?.minus(1) ?: fail("Invalid heading reset")
                 kind == "SEQ" && switch == "\\c" -> repeat = true
                 kind == "SEQ" && switch == "\\n" -> Unit
+                isPageCount(kind) && switch == "\\#" ->
+                    if (next() != "0") fail("Only the ordinary decimal picture is qualified for page fields")
                 kind in setOf("REF", "PAGEREF", "TOC") && switch == "\\h" -> linked = true
                 kind == "TOC" && switch == "\\o" -> {
                     val range = next().split('-').map { it.toIntOrNull() ?: fail("Invalid contents levels") }

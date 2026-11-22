@@ -225,3 +225,5 @@ Embedded Office SVG pictures may use an internal SVG part with static filled pat
 In development mode, text-frame overflow diagnostics identify the affected dimension or physical edge and include the measured required and available space in points.
 
 Fixed tables can retain empty grid positions at either outer edge of a row. The declared omission must agree with the physical column widths. Only actual cells paint their content and borders.
+
+The Word numeric picture 0 is accepted on PAGE, NUMPAGES and SECTIONPAGES. These fields still resolve against the final pagination.
