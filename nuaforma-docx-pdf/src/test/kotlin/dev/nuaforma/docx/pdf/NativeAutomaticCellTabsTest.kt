@@ -17,9 +17,9 @@ class NativeAutomaticCellTabsTest {
         val support = NativeWordFeatureSupport(temporary)
         val markers = Regex("START_WIDE_FIELD|OTHER_CELL|BELOW_TABLE")
         val preservedSpaces = """<w:r><w:t xml:space="preserve">  </w:t></w:r>"""
-        for (prefix in listOf("", preservedSpaces)) {
-            val control = support.generate(template(support, prefix), "standard")
-            val changed = support.generate(template(support, prefix + terminalTab), "standard")
+        for (width in listOf(112, 240)) for (prefix in listOf("", preservedSpaces)) {
+            val control = support.generate(template(support, prefix, width), "standard")
+            val changed = support.generate(template(support, prefix + terminalTab, width), "standard")
             Loader.loadPDF(control).use { before ->
                 Loader.loadPDF(changed).use { after ->
                     val expected = support.positions(before, markers)
@@ -34,17 +34,14 @@ class NativeAutomaticCellTabsTest {
     }
 
     @Test
-    fun `visible text after a tab and overflow remain explicit render failures`() {
+    fun `visible text after a tab still fails explicitly in an automatic table`() {
         val support = NativeWordFeatureSupport(temporary)
-        val cases = listOf(
-            Triple(terminalTab + "<w:r><w:t>AFTER_TAB</w:t></w:r>", 240, "Automatic table widths support only undecorated terminal default tabs"),
-            Triple(terminalTab, 112, "Tab start exceeds line boundary"),
-        )
-        for ((suffix, width, diagnostic) in cases) {
-            val failure = assertThrows(GenerationException::class.java) { support.generate(template(support, suffix, width), "standard") }
-            val detail = failure.diagnostics.single().sourceContext?.explanation.orEmpty()
-            assertTrue(detail.contains(diagnostic), detail)
+        val suffix = terminalTab + "<w:r><w:t>AFTER_TAB</w:t></w:r>"
+        val failure = assertThrows(GenerationException::class.java) {
+            support.generate(template(support, suffix), "standard")
         }
+        val detail = failure.diagnostics.single().sourceContext?.explanation.orEmpty()
+        assertTrue(detail.contains("Automatic table widths support only undecorated terminal default tabs"), detail)
     }
 
     private fun template(support: NativeWordFeatureSupport, suffix: String, width: Int = 240): ByteArray {

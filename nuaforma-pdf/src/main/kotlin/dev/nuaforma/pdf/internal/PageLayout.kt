@@ -445,6 +445,13 @@ internal object PageLayouter {
                                 }
                             }
                             lineContainsAnchoredTab = lineContainsAnchoredTab || anchored
+                            // An unpainted final left tab beyond the text edge retains its line metrics without adding width.
+                            if (start > fieldEdge + .001f && !anchored && groupIndex == groups.lastIndex &&
+                                cursor <= fieldEdge + .001f &&
+                                leader == PdfTabLeader.NONE && control.navigation == null &&
+                                !control.style.underline && !control.style.strikethrough && control.style.background == null) {
+                                start = cursor
+                            }
                             if (start > fieldEdge + .001f) overflow("Tab start exceeds line boundary", start, fieldEdge)
                             if (alignment != PdfTabAlignment.LEFT && start + payloadWidth > fieldEdge + .001f)
                                 overflow("Aligned tab content exceeds line boundary", start + payloadWidth, fieldEdge)

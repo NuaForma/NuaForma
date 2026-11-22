@@ -146,4 +146,29 @@ class PdfTabCollisionTest {
         assertEquals(placed.filter { it.text == prefix }.map { it.baseline }, values.map { it.baseline })
     }
 
+
+    @Test
+    fun anUnpaintedFinalTabKeepsItsLineAndVisibleText() {
+        val runs = listOf(PdfTextRun("PREFIX", style), PdfTab(style))
+        fun placed(leader: PdfTabLeader): dev.nuaforma.pdf.internal.PageLayout {
+            val tabs = PdfTabSettings(listOf(PdfTabStop(260f, PdfTabAlignment.LEFT, leader)))
+            val paragraph = PdfParagraph(runs, 0f, 0f, PdfParagraphFormat(exactLineHeight = 14f, tabs = tabs))
+            return PageLayouter.layout(PdfDocument(page, listOf(paragraph)), measurer)
+        }
+        val positions = placed(PdfTabLeader.NONE).elements.filterIsInstance<PositionedText>()
+        assertEquals(56f, positions.single { it.text == "PREFIX" }.x, .001f)
+        assertEquals(positions.single { it.text == "PREFIX" }.baseline, positions.last().baseline, .001f)
+        assertTrue(positions.last().text.isBlank())
+
+        val fillingPrefix = "A".repeat(35)
+        val automatic = PdfParagraph(listOf(PdfTextRun(fillingPrefix, style), PdfTab(style)), 0f, 0f,
+            PdfParagraphFormat(exactLineHeight = 14f))
+        val autoPlaced = PageLayouter.layout(PdfDocument(page, listOf(automatic)), measurer)
+            .elements.filterIsInstance<PositionedText>()
+        assertEquals(fillingPrefix, autoPlaced.first().text)
+        assertEquals(autoPlaced.first().baseline, autoPlaced.last().baseline, .001f)
+        val painted = assertThrows(PdfRenderException::class.java) { placed(PdfTabLeader.DOT) }
+        assertEquals(PdfFailureCode.CONTENT_OVERFLOW, painted.code)
+    }
+
 }

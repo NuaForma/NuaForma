@@ -333,3 +333,5 @@ An unresolved ordinary Word hyperlink keeps its visible text. Existing names res
 An in-bounds stop can move the field to a continuation line. A right-aligned outside stop can use the physical margin of ordinary body text.
 
 Ordinary header and footer paragraphs can keep a qualified right tab at the page-margin boundary.
+
+An unpainted last left tab retains its font metrics when the requested blank advance extends past the line.
