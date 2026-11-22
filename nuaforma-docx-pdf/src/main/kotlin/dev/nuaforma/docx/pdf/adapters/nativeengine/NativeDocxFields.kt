@@ -188,11 +188,14 @@ internal object NativeDocxFields {
                 focus(paragraph)
                 val output = mutableListOf<dev.nuaforma.docx.pdf.adapters.ooxml.XmlNode>()
                 if (depth != 0) multi = true
+                var cacheOnClosingLine = false
                 for (node in paragraph.children) {
                     if (node is XmlElement) focus(node)
                     if (node !is XmlElement) { if (depth == 0) output += node; continue }
                     if (local(node, "pPr")) { output += node; continue }
                     val marker = control(node)
+                    if (depth != 0 && separated && (depth != 1 || marker?.let { value(it, "fldCharType") } != "end"))
+                        cacheOnClosingLine = true
                     if (marker != null) {
                         when (validateControl(node, marker)) {
                             "begin" -> {
@@ -251,9 +254,13 @@ internal object NativeDocxFields {
                 }
                 paragraph.children.clear(); paragraph.children.addAll(output)
                 if (multi && beginning !== paragraph) {
-                    if (paragraph.elements().any { !local(it, "pPr") }) fail("Text after multi-paragraph contents requires a separate paragraph")
-                    if (paragraph.elements().any { local(it, "pPr") && it.elements().any { p -> local(p, "sectPr") } }) fail("Contents crosses a section boundary")
-                    container.children.remove(paragraph)
+                    val tail = paragraph.elements().any { !local(it, "pPr") }
+                    if (tail && (depth != 0 || cacheOnClosingLine))
+                        fail("Text after multi-paragraph contents requires a separate paragraph")
+                    if (paragraph.elements().any { local(it, "pPr") && it.elements().any { p -> local(p, "sectPr") } })
+                        fail("Contents crosses a section boundary")
+                    // A closing field marker alone is invisible and does not own the ordinary paragraph after it.
+                    if (!tail) container.children.remove(paragraph)
                 }
                 if (depth == 0) { multi = false; beginning = null }
             }
