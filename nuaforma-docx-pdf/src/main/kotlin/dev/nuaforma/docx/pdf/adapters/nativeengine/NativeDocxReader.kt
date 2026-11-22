@@ -5,6 +5,7 @@ import dev.nuaforma.contracts.Diagnostic
 import dev.nuaforma.contracts.GenerationException
 import dev.nuaforma.contracts.LoggingMode
 import dev.nuaforma.contracts.RejectionReason
+import dev.nuaforma.docx.pdf.NativeConversionBudget
 import dev.nuaforma.docx.pdf.adapters.ooxml.ConversionXml
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
@@ -2722,7 +2723,7 @@ internal class NativeDocxReader(
                     dev.nuaforma.contracts.DocumentSourceContext(message.take(256), null, "svg", ""))
             }
             svgPictureBytes += image.size
-            budget(svgPictureBytes <= minOf(8_388_608L, context.limits.maxExpandedBytes))
+            NativeConversionBudget.SVG_IMAGES.check(context, svgPictureBytes, minOf(8_388_608L, context.limits.maxExpandedBytes))
             image
         } else if (target.endsWith(".jpg", true) || target.endsWith(".jpeg", true)) jpegs.decode(original, "word/$target") else original
         return PdfImage(pixels, width, height, PdfImageCrop(fraction("t"), fraction("r"), fraction("b"), fraction("l")))
@@ -2746,15 +2747,17 @@ internal class NativeDocxReader(
     private val trashItem = Regex("\\[trash]/[0-9A-Fa-f]{4}\\.dat")
 
     private fun unpack(bytes: ByteArray): Map<String, ByteArray> {
-        budget(bytes.size <= minOf(8_388_608L, context.limits.maxTemplateBytes))
+        NativeConversionBudget.PREPARED_PACKAGE.check(context, bytes.size.toLong(), minOf(8_388_608L, context.limits.maxTemplateBytes))
         val parts = linkedMapOf<String, ByteArray>()
         var total = 0
+        val totalLimit = minOf(8_388_608L, context.limits.maxExpandedBytes)
+        val countLimit = minOf(256, context.limits.maxArchiveEntries).toLong()
         try {
             ZipInputStream(bytes.inputStream()).use { zip ->
                 while (true) {
                     context.checkActive()
                     val entry = zip.nextEntry ?: break
-                    budget(parts.size < minOf(256, context.limits.maxArchiveEntries))
+                    NativeConversionBudget.PACKAGE_PART_COUNT.check(context, parts.size.toLong() + 1, countLimit)
                     check(entry.name !in parts && !entry.isDirectory, "Invalid or duplicate ZIP entries")
                     activePart = entry.name.take(256)
                     check(trashItem.matches(entry.name) || entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docMetadata/LabelInfo\\.xml|docProps/thumbnail\\.(?:jpeg|jpg|png|emf)|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|stylesWithEffects|intelligence2|numbering|settings|footnotes|endnotes|fontTable|webSettings|comments(?:Extended|Ids|Extensible)?|people|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|theme/_rels/theme1\\.xml\\.rels|_rels/(?:document|numbering|settings|footnotes|endnotes|fontTable|comments(?:Extended|Ids|Extensible)?|people|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|fonts/[A-Za-z0-9_.-]+\\.(?i:odttf|ttf)|media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g|svg))|(?i:customXml)/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
@@ -2765,7 +2768,8 @@ internal class NativeDocxReader(
                         val read = zip.read(buffer)
                         if (read < 0) break
                         total += read
-                        budget(total <= minOf(8_388_608L, context.limits.maxExpandedBytes) && output.size() + read <= 4_194_304)
+                        NativeConversionBudget.EXPANDED_PACKAGE.check(context, total.toLong(), totalLimit)
+                        NativeConversionBudget.PACKAGE_PART_SIZE.check(context, output.size().toLong() + read, 4_194_304L)
                         output.write(buffer, 0, read)
                     }
                     parts[entry.name] = output.toByteArray()
@@ -2853,11 +2857,6 @@ internal class NativeDocxReader(
     private fun color(value: String?): PdfColor {
         check(value != null && value.matches(Regex("[0-9A-Fa-f]{6}")), "Explicit RGB color required")
         return PdfColor(value!!.substring(0, 2).toInt(16), value.substring(2, 4).toInt(16), value.substring(4, 6).toInt(16))
-    }
-
-    private fun budget(condition: Boolean) {
-        if (!condition) throw dev.nuaforma.contracts.GenerationException(listOf(dev.nuaforma.contracts.Diagnostic(
-            dev.nuaforma.contracts.DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, dev.nuaforma.contracts.RejectionReason.PDF_CONVERSION_BYTE_BUDGET_WAS_EXCEEDED)))
     }
 
     private fun check(condition: Boolean, message: String) { if (!condition) reject(message) }

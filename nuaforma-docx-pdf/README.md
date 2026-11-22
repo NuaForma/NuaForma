@@ -415,3 +415,5 @@ Single underlines preserve explicit RGB independently of run ink, while automati
 An isolated fixed drawing frame in the first header paragraph uses the band origin before the paragraph spacing.
 
 Thick single underlines apply Word-verified line metrics within the measured 8–20 point range.
+
+Development diagnostics name the conversion stage and its specific measured byte or part budget. The production response remains redacted.

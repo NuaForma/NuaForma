@@ -115,7 +115,7 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
         if (context.logging.mode != LoggingMode.DEVELOPMENT) fail(DiagnosticCodes.UNSUPPORTED_OPTION, RejectionReason.TEMPLATE_DIAGNOSTICS_REQUIRE_DEVELOPMENT)
         if (!configuration.admission.tryAcquire()) fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.NATIVE_PDF_CAPACITY_EXHAUSTED)
         try {
-            val source = BoundedBuffer(minOf(8_388_608L, context.limits.maxTemplateBytes), context)
+            val source = BoundedBuffer(minOf(8_388_608L, context.limits.maxTemplateBytes), context, NativeConversionBudget.SOURCE_PACKAGE)
             val buffer = ByteArray(8192)
             while (true) {
                 context.checkActive()
@@ -125,7 +125,7 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
             }
             val result = dev.nuaforma.docx.pdf.adapters.nativeengine.NativeTemplateCleanup(context).clean(source.toByteArray())
             context.checkActive()
-            if (result.first.size > context.limits.maxOutputBytes) fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.PDF_CONVERSION_BYTE_BUDGET_WAS_EXCEEDED)
+            NativeConversionBudget.OUTPUT_PACKAGE.check(context, result.first.size.toLong(), context.limits.maxOutputBytes)
             dev.nuaforma.docx.DocxDocuments.open(result.first.inputStream(), context).use { context.checkActive() }
             for (change in result.second.changes) {
                 context.checkActive()
@@ -146,7 +146,7 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
 
     override fun diagnoseDocument(request: GenerationRequest, output: OutputStream, context: GenerationContext, preview: Boolean): GenerationResult {
         if (context.logging.mode != LoggingMode.DEVELOPMENT) fail(DiagnosticCodes.UNSUPPORTED_OPTION, RejectionReason.TEMPLATE_DIAGNOSTICS_REQUIRE_DEVELOPMENT)
-        val source = BoundedBuffer(context.limits.maxTemplateBytes, context)
+        val source = BoundedBuffer(context.limits.maxTemplateBytes, context, NativeConversionBudget.SOURCE_PACKAGE)
         val buffer = ByteArray(8192)
         while (true) {
             context.checkActive()
@@ -161,7 +161,7 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
         if (!preview) {
             try {
                 render(GenerationRequest(original.inputStream(), request.requirements, request.data, request.resources),
-                    BoundedBuffer(context.limits.maxOutputBytes, context), context, false, { prepared = it }, { printSource = it })
+                    BoundedBuffer(context.limits.maxOutputBytes, context, NativeConversionBudget.OUTPUT_PACKAGE), context, false, { prepared = it }, { printSource = it })
             } catch (error: GenerationException) {
                 if (error.diagnostics.any { it.code in setOf(DiagnosticCodes.CANCELLED, DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED) }) throw error
                 problem = error.diagnostics.first()
@@ -201,7 +201,7 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
             }
 
             val usedFonts = linkedMapOf<Pair<String, String>, NativePdfFont>()
-            val filled = BoundedBuffer(minOf(8_388_608L, context.limits.maxExpandedBytes), context)
+            val filled = BoundedBuffer(minOf(8_388_608L, context.limits.maxExpandedBytes), context, NativeConversionBudget.PREPARED_PACKAGE)
             val source = printSource(request, context)
             onSourcePrepared?.invoke(source)
             val intermediate = GenerationRequest(source.inputStream(), GenerationRequirements(request.requirements.input,
@@ -221,9 +221,9 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
                 val font = resolvedFont(family, bold, italic)
                 val identity = font.family.lowercase(Locale.ROOT) to font.face
                 usedFonts.putIfAbsent(identity, font)
-                if (usedFonts.size > 16 || usedFonts.values.sumOf { it.byteSize.toLong() } > minOf(33_554_432L, context.limits.maxExpandedBytes - intermediateSize)) {
-                    fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.PDF_CONVERSION_BYTE_BUDGET_WAS_EXCEEDED)
-                }
+                NativeConversionBudget.NEEDED_FONT_COUNT.check(context, usedFonts.size.toLong(), 16)
+                NativeConversionBudget.NEEDED_FONT_SIZE.check(context, usedFonts.values.sumOf { it.byteSize.toLong() },
+                    minOf(33_554_432L, context.limits.maxExpandedBytes - intermediateSize))
                 return "font${usedFonts.keys.indexOf(identity)}"
             }
 
@@ -281,7 +281,7 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
     }
 
     private fun printSource(request: GenerationRequest, context: GenerationContext): ByteArray {
-        val source = BoundedBuffer(minOf(8_388_608L, context.limits.maxTemplateBytes), context)
+        val source = BoundedBuffer(minOf(8_388_608L, context.limits.maxTemplateBytes), context, NativeConversionBudget.SOURCE_PACKAGE)
         val buffer = ByteArray(8192)
         while (true) {
             context.checkActive()
@@ -302,11 +302,12 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
         if (resources.keys != declarations.map { (it as Map<*, *>)["resource"] as String }.toSet()) {
             fail(DiagnosticCodes.INVALID_REQUEST, RejectionReason.SUPPLY_EXACTLY_THE_DECLARED_PDF_FONT_RESOURCES)
         }
-        if (declarations.size > 16) fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.PDF_CONVERSION_BYTE_BUDGET_WAS_EXCEEDED)
+        NativeConversionBudget.SUPPLIED_FONT_COUNT.check(context, declarations.size.toLong(), 16)
         var suppliedBytes = 0L
         val supplied = declarations.map { raw ->
             val declaration = raw as Map<*, *>
-            val bytes = BoundedBuffer(minOf(8_388_608L, context.limits.maxExpandedBytes - suppliedBytes, 33_554_432L - suppliedBytes), context)
+            val bytes = BoundedBuffer(minOf(8_388_608L, context.limits.maxExpandedBytes - suppliedBytes, 33_554_432L - suppliedBytes),
+                context, NativeConversionBudget.SUPPLIED_FONT_SIZE)
             resources.getValue(declaration["resource"] as String).openStream().use { input ->
                 val buffer = ByteArray(8192)
                 while (true) {
@@ -327,10 +328,11 @@ class NativeDocxPdfProvider @JvmOverloads constructor(
         return result
     }
 
-    private class BoundedBuffer(private val maximum: Long, private val context: GenerationContext) : ByteArrayOutputStream() {
+    private class BoundedBuffer(private val maximum: Long, private val context: GenerationContext,
+        private val budget: NativeConversionBudget) : ByteArrayOutputStream() {
         private fun checkWrite(length: Int) {
             context.checkActive()
-            if (length.toLong() > maximum - size()) fail(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED, RejectionReason.PDF_CONVERSION_BYTE_BUDGET_WAS_EXCEEDED)
+            budget.check(context, size().toLong() + length, maximum)
         }
         override fun write(value: Int) { checkWrite(1); super.write(value) }
         override fun write(bytes: ByteArray, offset: Int, length: Int) { checkWrite(length); super.write(bytes, offset, length) }
