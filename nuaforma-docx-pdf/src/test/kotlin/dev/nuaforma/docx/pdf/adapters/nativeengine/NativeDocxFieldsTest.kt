@@ -150,4 +150,21 @@ class NativeDocxFieldsTest {
         }
     }
 
+    @Test
+    fun `saved contents ignore only recognized control insertion and end mark formatting`() {
+        val begin = control("begin") + instruction("TOC \\o &quot;1-2&quot; \\h") + control("separate")
+        val cached = "<w:r><w:t>Cached entry</w:t></w:r>"
+        val body = "<w:p>$begin$cached</w:p><w:p>$cached${control("end")}</w:p>"
+        val gallery = """<w:id w:val="1"/><w:docPartObj><w:docPartGallery w:val="Table of Contents"/>
+            <w:docPartUnique/></w:docPartObj>"""
+        val formatting = """<w:rPr><w:rFonts w:ascii="Courier New"/><w:b w:val="0"/><w:color w:val="FF00FF"/>
+            <w:sz w:val="144"/></w:rPr>"""
+        fun wrapper(start: String, end: String) =
+            "<w:sdt><w:sdtPr>$start$gallery</w:sdtPr>$end<w:sdtContent>$body</w:sdtContent></w:sdt>"
+        assertEquals(normalize(wrapper("", "")), normalize(wrapper(formatting, "<w:sdtEndPr>$formatting</w:sdtEndPr>")))
+        val active = formatting.replace("</w:rPr>", "<w:vanish/></w:rPr>")
+        assertThrows(IllegalArgumentException::class.java) { normalize(wrapper(active, "")) }
+        assertThrows(IllegalArgumentException::class.java) { normalize(wrapper("", "<w:sdtEndPr>$active</w:sdtEndPr>")) }
+    }
+
 }

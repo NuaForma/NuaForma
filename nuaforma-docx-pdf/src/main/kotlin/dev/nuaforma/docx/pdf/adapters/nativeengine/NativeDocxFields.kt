@@ -120,6 +120,32 @@ internal object NativeDocxFields {
             listOf(start, end).all { it.elements().isEmpty() && it.children.filterIsInstance<XmlText>().all { child -> child.text.isBlank() } }
     }
 
+    // The control stores formatting for newly inserted text and its delimiting mark.
+    // The saved contents use the runs and styles already present in the body.
+    private fun savedContentsControlFont(node: XmlElement): Boolean {
+        if (node.name.namespaceURI != W || node.name.localPart != "rPr" || node.attributes.isNotEmpty() ||
+            node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) return false
+        val properties = node.elements()
+        if (properties.map { it.name }.distinct().size != properties.size) return false
+        return properties.all { property ->
+            if (property.name.namespaceURI != W || property.elements().isNotEmpty() ||
+                property.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
+                property.attributes.keys.any { it.namespaceURI != W }) return@all false
+            val names = property.attributes.keys.map { it.localPart }.toSet()
+            val value = property.attribute(W, "val")
+            when (property.name.localPart) {
+                "rFonts" -> names.all { it in setOf("ascii", "hAnsi", "eastAsia", "cs", "asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme", "hint") } &&
+                    property.attributes.values.all { it.isNotBlank() && it.length <= 253 && it.none(Char::isISOControl) }
+                "b", "bCs" -> names.all { it == "val" } && value in setOf(null, "0", "1", "false", "true", "off", "on")
+                "sz", "szCs" -> names == setOf("val") && value?.toIntOrNull()?.let { it in 2..32767 } == true
+                "color" -> names.all { it in setOf("val", "themeColor", "themeTint", "themeShade") } &&
+                    (value == "auto" || value?.matches(Regex("[0-9A-Fa-f]{6}")) == true) &&
+                    listOf("themeTint", "themeShade").all { property.attribute(W, it)?.matches(Regex("[0-9A-Fa-f]{2}")) != false }
+                else -> false
+            }
+        }
+    }
+
     /** Collapse only complete complex fields; a multi-paragraph field must be a standalone TOC. */
     fun normalize(root: XmlElement, fail: (String) -> Nothing,
         forms: MutableMap<XmlElement, Form> = java.util.IdentityHashMap(),
@@ -152,15 +178,19 @@ internal object NativeDocxFields {
             val gallery = properties?.descendants()?.singleOrNull { local(it, "docPartGallery") }?.let { value(it, "val") }
             val watermark = gallery == "Watermarks" && parent === root && local(root, "hdr")
             if (gallery != "Table of Contents" && !watermark) continue
-            val endProperties = node.elements().filter { local(it, "sdtEndPr") }
-            val emptyWatermarkEnd = watermark && endProperties.singleOrNull()?.let { end ->
-                end.attributes.isEmpty() && end.elements().isEmpty() && end.children.filterIsInstance<XmlText>().all { it.text.isBlank() }
-            } == true
-            if (properties.elements().any { !local(it, "id") && !local(it, "docPartObj") } ||
-                node.elements().any { !local(it, "sdtPr") && !local(it, "sdtContent") && !(emptyWatermarkEnd && it === endProperties.single()) })
+            val openingStyle = properties.elements().filter { local(it, "rPr") }
+            val passiveOpening = if (!watermark) openingStyle.singleOrNull()?.takeIf(::savedContentsControlFont) else null
+            val passiveEnd = node.elements().filter { local(it, "sdtEndPr") }.singleOrNull()?.takeIf { end ->
+                end.attributes.isEmpty() && end.children.filterIsInstance<XmlText>().all { it.text.isBlank() } &&
+                    (end.elements().isEmpty() || !watermark && end.elements().singleOrNull()?.let(::savedContentsControlFont) == true)
+            }
+            if (properties.elements().any { !local(it, "id") && !local(it, "docPartObj") && it !== passiveOpening } ||
+                node.elements().any { !local(it, "sdtPr") && !local(it, "sdtContent") && it !== passiveEnd })
                 fail(if (watermark) "Unsupported saved watermark control" else "Unsupported contents control")
-            if (properties.descendants().any { it.name.namespaceURI != W || it.name.localPart !in setOf("sdtPr", "id", "docPartObj", "docPartGallery", "docPartUnique") ||
-                it.attributes.keys.any { key -> key.namespaceURI != W || key.localPart != "val" } }) fail("Unsupported contents control property")
+            val ignoredStyle = passiveOpening?.descendants()?.toSet().orEmpty()
+            if (properties.descendants().filterNot { it in ignoredStyle }.any { it.name.namespaceURI != W ||
+                    it.name.localPart !in setOf("sdtPr", "id", "docPartObj", "docPartGallery", "docPartUnique") ||
+                    it.attributes.keys.any { key -> key.namespaceURI != W || key.localPart != "val" } }) fail("Unsupported contents control property")
             val content = node.elements().singleOrNull { local(it, "sdtContent") } ?: fail("Missing contents control body")
             if (watermark) {
                 val paragraph = content.elements().singleOrNull { local(it, "p") }
