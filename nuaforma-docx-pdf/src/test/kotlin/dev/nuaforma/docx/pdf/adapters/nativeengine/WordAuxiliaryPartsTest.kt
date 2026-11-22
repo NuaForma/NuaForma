@@ -142,4 +142,32 @@ class WordAuxiliaryPartsTest {
         assertThrows(NativeDocxReadException::class.java) { normalize(input) }
     }
 
+    @Test
+    fun `an ordinary-only typography style must keep its edit metadata and explicit font bounds`() {
+        val name = "word/styles.xml"
+        val original = parts()
+        val styles = original.getValue(name).decodeToString()
+        val typography = """<w:rPr><w:rFonts w:ascii="Liberation Sans" w:hAnsi="Liberation Sans"/>
+            <w:sz w:val="400"/><w:color w:val="aAbBcC"/></w:rPr>"""
+        fun qualified(ordinary: String) = normalize(original + (name to styles.replaceFirst("</w:style>",
+            ordinary + "</w:style>").toByteArray()))
+        val accepted = qualified(typography).getValue(name)
+        assertTrue(accepted.descendants().any { it.name.localPart == "sz" && it.attribute(PdfFixture.W, "val") == "400" })
+        for (bad in listOf(
+            "<w:rPr/>", typography.replace("<w:rPr>", "<w:rPr w:val=\"1\">"), typography.replace("<w:rPr>", "<w:rPr>text"),
+            typography.replace("</w:rPr>", "<w:sz w:val=\"22\"/></w:rPr>"), typography.replace("w:sz", "w:szCs"),
+            typography.replace("w:val=\"400\"", "w:val=\"401\""), typography.replace("w:val=\"400\"", "w:val=\"1\""),
+            typography.replace("w:val=\"400\"", "w:val=\"bad\""), typography.replace("w:val=\"400\"", "w:other=\"400\""),
+            typography.replace("w:hAnsi=\"Liberation Sans\"", "w:hAnsi=\"Another family\""),
+            typography.replace("Liberation Sans", "x".repeat(129)), typography.replace("Liberation Sans", " &#x9; "),
+            typography.replace("Liberation Sans", "Liberation&#x9;Sans"), typography.replace("w:hAnsi=", "w:other="),
+            typography.replace("w:val=\"aAbBcC\"", "w:val=\"auto\""), typography.replace("w:val=\"aAbBcC\"", "w:themeColor=\"accent1\""),
+            typography.replace("w:val=\"aAbBcC\"/>", "w:val=\"aAbBcC\">text</w:color>"),
+        )) {
+            val error = assertThrows(NativeDocxReadException::class.java) { qualified(bad) }
+            assertEquals("word/stylesWithEffects.xml", error.part)
+            assertEquals("Active or divergent styles-with-effects formatting is not qualified", error.message)
+        }
+    }
+
 }

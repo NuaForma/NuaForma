@@ -1,7 +1,11 @@
 package dev.nuaforma.docx.pdf
 
+import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.contracts.GenerationException
+import dev.nuaforma.docx.pdf.adapters.nativeengine.NativeDocxReadException
+import dev.nuaforma.docx.pdf.adapters.nativeengine.NativeDocxReader
 import dev.nuaforma.image.comparison.kotlin.assertImagesMatch
+import dev.nuaforma.pdf.PdfTable
 import org.apache.pdfbox.Loader
 import org.apache.pdfbox.rendering.PDFRenderer
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -48,6 +52,46 @@ class NativeFullWidthFloatingTableTest {
         val diagnostic = failure.diagnostics.single()
         assertEquals("word/document.xml", diagnostic.part)
         assertTrue(diagnostic.sourceContext?.path.orEmpty().contains("tblpPr"))
+    }
+
+    @Test
+    fun `text-relative tables preserve signed position bounds and identify incompatible overlap policies`() {
+        val support = NativeWordFeatureSupport(temporary)
+        val source = template(support, floating = true, full = true)
+        val parts = PdfFixture.unzip(source)
+        val part = "word/document.xml"
+        val xml = parts.getValue(part).decodeToString()
+        val anchor = requireNotNull(Regex("""<w:tblpPr\b[^>]*/>""").find(xml)).value
+
+        fun read(document: String) = NativeDocxReader(GenerationContext()) { _, _, _ -> "regular" }
+            .read(PdfFixture.zip(parts + (part to document.toByteArray())))
+
+        val margin = anchor.replace("w:vertAnchor=", "w:horzAnchor=\"margin\" w:vertAnchor=")
+        for ((raw, expected) in listOf("0" to 0f, "1" to 0f, "41" to 2f, "32767" to 1638.3f)) {
+            val table = read(xml.replace(anchor, margin.replace("tblpY=\"1\"", "tblpY=\"$raw\""))).blocks.filterIsInstance<PdfTable>().single()
+            assertEquals(expected, table.textRelativeTopOffset)
+        }
+        assertEquals(0f, read(xml.replace(anchor, margin).replace("<w:tblOverlap w:val=\"never\"/>", ""))
+            .blocks.filterIsInstance<PdfTable>().single().textRelativeTopOffset)
+
+        fun rejected(document: String, reason: String) {
+            val problem = assertThrows(NativeDocxReadException::class.java) { read(document) }
+            assertEquals(part, problem.part)
+            assertEquals(reason, problem.message)
+        }
+
+        for (raw in listOf("-1", "32768", "1.5", "2147483648")) {
+            rejected(xml.replace(anchor, margin.replace("tblpY=\"1\"", "tblpY=\"$raw\"")), "Invalid text-relative table top offset")
+        }
+        rejected(xml.replace(anchor, margin.replace(" w:tblpY=\"1\"", "")), "Invalid text-relative table top offset")
+        rejected(xml.replace(anchor, ""), "A table overlap rule requires a qualified position")
+        rejected(xml.replace("<w:tblOverlap w:val=\"never\"/>", ""), "A full-width text-relative table needs a nonoverlap rule")
+        rejected(xml.replace(anchor, margin).replace("w:val=\"never\"", "w:val=\"overlap\""), "Overlapping floating tables are not qualified")
+        rejected(xml.replace("w:val=\"never\"", "w:val=\"overlap\""), "Only the qualified nonoverlapping text-relative table position is supported")
+        rejected(xml.replace(anchor, margin.replace("180", "181")), "The text-relative margin anchor has unsupported side clearance")
+        rejected(xml.replace("w:rightFromText=\"180\"", "w:rightFromText=\"181\""), "Only a qualified text-relative table position is supported")
+        rejected(xml.replace("w:vertAnchor=\"text\"", "w:vertAnchor=\"page\""), "Only a qualified text-relative table position is supported")
+        rejected(xml.replace(anchor, margin.replace("horzAnchor=\"margin\"", "horzAnchor=\"page\"")), "Unsupported horizontal floating table reference")
     }
 
     private fun template(support: NativeWordFeatureSupport, floating: Boolean, full: Boolean, automatic: Boolean = false): ByteArray {

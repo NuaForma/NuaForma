@@ -167,4 +167,44 @@ class NativeDocxFieldsTest {
         assertThrows(IllegalArgumentException::class.java) { normalize(wrapper("", "<w:sdtEndPr>$active</w:sdtEndPr>")) }
     }
 
+    @Test
+    fun `saved contents control distinguishes editing proxies from unknown font properties`() {
+        val begin = control("begin") + instruction("TOC \\o &quot;1-2&quot; \\h") + control("separate")
+        val cache = "<w:r><w:t>Old page reference</w:t></w:r>"
+        val body = "<w:p>$begin$cache${control("end")}</w:p>"
+        val gallery = """<w:docPartObj><w:docPartGallery w:val="Table of Contents"/><w:docPartUnique/></w:docPartObj>"""
+        fun wrapper(open: String = "", end: String = "", contents: String = "<w:sdtContent>$body</w:sdtContent>") =
+            "<w:sdt><w:sdtPr>$open$gallery</w:sdtPr>$end$contents</w:sdt>"
+        val activeStyle = """<w:rPr><w:rFonts w:eastAsia="Liberation Sans" w:cstheme="majorBidi"/><w:bCs w:val="on"/>
+            <w:szCs w:val="2"/><w:color w:val="auto" w:themeTint="AF" w:themeShade="0b"/></w:rPr>"""
+        assertEquals(normalize(wrapper()), normalize(wrapper(activeStyle, "<w:sdtEndPr>$activeStyle</w:sdtEndPr>")))
+        val rejected = listOf(
+            "<w:rPr w:val=\"none\"/>", "<w:rPr>visible</w:rPr>",
+            "<w:rPr><w:b/><w:b/></w:rPr>", "<w:rPr><x:b xmlns:x=\"urn:foreign\"/></w:rPr>",
+            "<w:rPr><w:b>visible</w:b></w:rPr>", "<w:rPr><w:b><w:sz/></w:b></w:rPr>",
+            "<w:rPr><w:b val=\"true\"/></w:rPr>", "<w:rPr><w:b w:extra=\"true\"/></w:rPr>",
+            "<w:rPr><w:b w:val=\"bad\"/></w:rPr>", "<w:rPr><w:rFonts w:name=\"Real\"/></w:rPr>",
+            "<w:rPr><w:rFonts w:ascii=\" \"/></w:rPr>", "<w:rPr><w:rFonts w:ascii=\"${"x".repeat(254)}\"/></w:rPr>",
+            "<w:rPr><w:rFonts w:ascii=\"Normal&#x9;Font\"/></w:rPr>", "<w:rPr><w:szCs/></w:rPr>",
+            "<w:rPr><w:szCs w:val=\"bad\"/></w:rPr>", "<w:rPr><w:szCs w:val=\"32768\"/></w:rPr>",
+            "<w:rPr><w:color w:val=\"FFFF\"/></w:rPr>", "<w:rPr><w:color w:val=\"auto\" w:themeTint=\"nonhex\"/></w:rPr>",
+            "<w:rPr><w:color w:val=\"auto\" w:other=\"none\"/></w:rPr>",
+        )
+        for (formatting in rejected) assertEquals("Unsupported contents control", assertThrows(IllegalArgumentException::class.java) {
+            normalize(wrapper(formatting))
+        }.message)
+        for (end in listOf("<w:sdtEndPr w:val=\"1\"/>", "<w:sdtEndPr>text</w:sdtEndPr>",
+            "<w:sdtEndPr><w:rPr/><w:rPr/></w:sdtEndPr>", "<w:sdtEndPr/><w:sdtEndPr/>")) {
+            assertEquals("Unsupported contents control", assertThrows(IllegalArgumentException::class.java) {
+                normalize(wrapper(end = end))
+            }.message)
+        }
+        assertEquals("Missing contents control body", assertThrows(IllegalArgumentException::class.java) {
+            normalize(wrapper(contents = ""))
+        }.message)
+        assertEquals("Contents control has no contents field", assertThrows(IllegalArgumentException::class.java) {
+            normalize(wrapper(contents = "<w:sdtContent><w:p>$cache</w:p></w:sdtContent>"))
+        }.message)
+    }
+
 }

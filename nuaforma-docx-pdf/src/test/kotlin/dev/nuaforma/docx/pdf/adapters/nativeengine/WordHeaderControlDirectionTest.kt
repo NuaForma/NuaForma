@@ -75,4 +75,34 @@ class WordHeaderControlDirectionTest {
             assertArrayEquals(before, xml.write(header))
         }
     }
+
+    @Test
+    fun `mixed direction controls malformed styles and visible complex characters retain their source flags`() {
+        for (style in listOf(
+            properties.replace("<w:rPr>", "<w:rPr w:val=\"1\">"), properties.replace("<w:rPr>", "<w:rPr>text"),
+            properties.replace("<w:rtl/>", "<w:rtl/><w:b/>"), properties.replace("<w:rtl/>", "<w:sz/>"),
+            properties.replace("w:szCs", "w:i"), properties.replace("<w:sz w:val=\"22\"/>", "<w:sz/>"),
+            properties.replace("<w:sz w:val=\"22\"/>", "<w:sz w:val=\"1639\"/>"),
+            properties.replace("<w:sz w:val=\"22\"/>", "<w:sz w:val=\"22\">text</w:sz>"),
+            properties.replace("<w:szCs w:val=\"22\"/>", "<w:szCs w:val=\"22\" w:unknown=\"1\"/>"),
+            properties.replace("w:rFonts", "w:b"), properties.replace("w:ascii=\"Liberation Sans\"", "w:ascii=\" \""),
+            properties.replace("w:hAnsi=\"Liberation Sans\"", "w:hAnsi=\"Another font\""),
+            properties.replace("w:hint=\"cs\"", "w:hint=\"eastAsia\""),
+            properties.replace("w:hint=\"cs\"", "w:unknown=\"cs\""),
+            properties.replace("w:lang", "w:i"), properties.replace("w:bidi=\"ar-SA\"", "w:bidi=\"ar\""),
+            properties.replace("w:bidi=\"ar-SA\"", "w:val=\"ar-SA\""),
+            properties.replace("<w:rtl/>", "<w:rtl w:val=\"unknown\"/>"),
+            properties.replace("<w:rtl/>", "<w:rtl w:unknown=\"1\"/>"),
+        )) {
+            val root = header(style = style)
+            val before = xml.write(root)
+            WordHeaderControlDirection.normalize(mapOf("word/header1.xml" to root, "word/settings.xml" to settings()), context)
+            assertArrayEquals(before, xml.write(root))
+        }
+        for (value in listOf("A\u200fB", "A\u202eB", "AЖB", "AאB")) {
+            val root = header(value)
+            WordHeaderControlDirection.normalize(mapOf("word/header1.xml" to root, "word/settings.xml" to settings()), context)
+            assertEquals(2, activeDirections(root), value)
+        }
+    }
 }

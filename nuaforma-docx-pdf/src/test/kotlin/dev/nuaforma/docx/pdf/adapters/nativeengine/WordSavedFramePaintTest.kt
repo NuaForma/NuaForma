@@ -3,8 +3,12 @@ package dev.nuaforma.docx.pdf.adapters.nativeengine
 import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.docx.pdf.adapters.ooxml.ConversionXml
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement
+import dev.nuaforma.pdf.PdfBorder
+import dev.nuaforma.pdf.PdfColor
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class WordSavedFramePaintTest {
@@ -32,6 +36,39 @@ class WordSavedFramePaintTest {
         )
         for (properties in invalid) {
             assertThrows(IllegalArgumentException::class.java) { WordFramePaint.passivePaintMetadata(properties, ::reject) }
+        }
+    }
+
+    @Test
+    fun `rectangular strokes allow solid paint only within their physical width and outline bounds`() {
+        val theme = WordThemeColors(null, ::reject)
+        val fill = """<a:solidFill><a:srgbClr val="D52C81"/></a:solidFill>"""
+        fun stroke(attributes: String, content: String) = WordFramePaint.stroke(
+            paint("<a:ln $attributes>$content</a:ln>", "").elements().first(), theme, ::reject)
+
+        val qualified = """<a:miter lim="141422"/><a:prstDash val="solid"/><a:headEnd type="none"/><a:tailEnd/>"""
+        assertEquals(PdfBorder(.1f, PdfColor(213, 44, 129)), stroke("""w="1270" cap="sq" cmpd="sng" algn="ctr"""", fill + qualified))
+        assertEquals(PdfBorder(4f, PdfColor(213, 44, 129)), stroke("""w="50800"""", fill + "<a:miter/>"))
+        assertNull(stroke("", "<a:noFill/>"))
+        for (invalid in listOf("", "w=\"1269\"", "w=\"50801\"", "w=\"0\"")) {
+            val error = assertThrows(IllegalArgumentException::class.java) { stroke(invalid, fill) }
+            assertTrue(error.message!!.endsWith("Frame ln/@w exceeds the qualified border bounds"))
+        }
+        for (invalid in listOf("cap=\"unknown\"", "cmpd=\"dbl\"", "algn=\"in\"", "a:w=\"1270\"", "unknown=\"1\"")) {
+            val error = assertThrows(IllegalArgumentException::class.java) { stroke(invalid, fill) }
+            assertTrue(error.message!!.endsWith("Only centered solid frame strokes are qualified"))
+        }
+        for ((property, reason) in listOf("<a:miter a:lim=\"800000\"/>" to "Frame miter changes the rectangular border corners",
+            "<a:miter lim=\"141421\"/>" to "Frame miter changes the rectangular border corners",
+            "<a:miter lim=\"2147483648\"/>" to "Frame miter changes the rectangular border corners",
+            "<a:miter lim=\"NaN\"/>" to "Frame miter changes the rectangular border corners",
+            "<a:prstDash val=\"dot\"/>" to "Dashed frame strokes are not qualified",
+            "<a:prstDash val=\"solid\"><a:ln/></a:prstDash>" to "Dashed frame strokes are not qualified",
+            "<a:prstDash val=\"solid\" extra=\"1\"/>" to "Dashed frame strokes are not qualified",
+            "<a:miter/><a:miter/>" to "Unsupported or duplicate frame stroke feature",
+            "<a14:miter/>" to "Unsupported or duplicate frame stroke feature")) {
+            val error = assertThrows(IllegalArgumentException::class.java) { stroke("w=\"6350\"", fill + property) }
+            assertTrue(error.message!!.endsWith(reason))
         }
     }
 

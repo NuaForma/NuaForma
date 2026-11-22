@@ -107,4 +107,53 @@ class WordPictureMetadataTest {
         WordPictureMetadata.validateSource(theme) { _, message -> fail(message) }
     }
 
+    private val svgExtension = """<a:ext uri="{96DAC541-7B7A-43D3-8B79-37D633B846F1}"><s:svgBlip r:embed="vector"/></a:ext>"""
+
+    private fun originalBlip(extension: String = svgExtension, fallback: String = """r:embed="raster"""") =
+        ConversionXml(GenerationContext()).read("""
+            <a:blip xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+              xmlns:s="http://schemas.microsoft.com/office/drawing/2016/SVG/main"
+              xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" $fallback>
+              <a:extLst>$extension</a:extLst>
+            </a:blip>
+            """.trimIndent().toByteArray())
+
+    @Test
+    fun `SVG reference owns its exact extension without dropping sibling metadata`() {
+        val other = """<a:ext uri="unknown"/>"""
+        for (sibling in listOf("", other)) {
+            val source = originalBlip(svgExtension + sibling)
+            val reference = requireNotNull(WordPictureMetadata.svgReference(source) { _, reason -> fail(reason) })
+            assertEquals("vector", reference.relationship)
+            reference.consume(source)
+            assertEquals(if (sibling.isEmpty()) emptyList<String>() else listOf("unknown"),
+                source.elements().flatMap { it.elements() }.map { it.attribute("", "uri") })
+            assertNull(WordPictureMetadata.svgReference(source) { _, reason -> fail(reason) })
+        }
+    }
+
+    @Test
+    fun `malformed SVG extensions and invalid fallback ownership report precise causes`() {
+        fun rejected(extension: String, reason: String, fallback: String = """r:embed="raster"""") {
+            val problem = assertThrows(IllegalArgumentException::class.java) {
+                WordPictureMetadata.svgReference(originalBlip(extension, fallback)) { _, message -> throw IllegalArgumentException(message) }
+            }
+            assertEquals(reason, problem.message)
+        }
+        for (invalid in listOf(svgExtension + svgExtension, "text$svgExtension", svgExtension.replace("a:ext", "a:other"),
+            svgExtension.replace("{96DAC541-7B7A-43D3-8B79-37D633B846F1}", "unknown"),
+            svgExtension.replace("<a:ext ", "<a:ext unexpected=\"1\" "), svgExtension.replace("<s:svgBlip", "text<s:svgBlip"))) {
+            rejected(invalid, "Invalid original SVG picture extension")
+        }
+        for (invalid in listOf(svgExtension.replace("<s:svgBlip r:embed=\"vector\"/>", ""),
+            svgExtension.replace("s:svgBlip", "a:svgBlip"), svgExtension.replace("<s:svgBlip ", "<s:svgBlip other=\"1\" "),
+            svgExtension.replace("r:embed=\"vector\"/>", "r:embed=\"vector\">text</s:svgBlip>"))) {
+            rejected(invalid, "Invalid original embedded SVG reference")
+        }
+        for (invalid in listOf(svgExtension.replace("r:embed", "r:link"), svgExtension.replace("vector", " ")))
+            rejected(invalid, "An SVG picture requires an internal embedded reference")
+        for (fallback in listOf("", """r:embed=" """", """r:embed="vector""""))
+            rejected(svgExtension, "An SVG picture requires a distinct embedded raster fallback", fallback)
+    }
+
 }
