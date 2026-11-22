@@ -533,7 +533,8 @@ internal class NativeDocxReader(
             openBookmarks.remove(key)
         }
 
-        fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false, tableStyles: List<XmlElement> = emptyList(), uniformFonts: Boolean = false, allowPageBreak: Boolean = true, measureMark: Boolean = true): PdfParagraph {
+        fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false, tableStyles: List<XmlElement> = emptyList(), uniformFonts: Boolean = false, allowPageBreak: Boolean = true, measureMark: Boolean = true,
+            bodyCell: Boolean = false): PdfParagraph {
             source.current = paragraph
             context.checkActive()
             crossParagraphBookmarks += openBookmarks.mapNotNull { bookmarkNames[it] }
@@ -549,6 +550,11 @@ internal class NativeDocxReader(
                 check(sourceProperties.mapNotNull { it.one("numPr")?.one("numId")?.value("val") }.lastOrNull() == "0", "Numbering outside body paragraphs is not qualified")
             }
             val paragraphChain = listOfNotNull(defaultParagraph) + tableStyles.mapNotNull { it.one("pPr") } + listOfNotNull(listEntry?.level?.one("pPr")) + styleChain.mapNotNull { it.one("pPr") } + listOfNotNull(direct)
+            WordInlineCellFrame.validate(paragraphChain, direct, bodyCell) { origin, message ->
+                source.current = origin
+                activePart = provenance[origin] ?: activePart
+                reject(message)
+            }
             val legacyTableHierarchy = tableStyles.isNotEmpty() && !modernTableAlignment && !formatting.overrideNormalTableStyle
             val tableJustification = tableStyles.any { it.one("pPr")?.one("jc") != null }
             var geometry = paragraphChain.fold(Geometry()) { result, property ->
@@ -1598,7 +1604,7 @@ internal class NativeDocxReader(
                     val blocks = cell.elements().filter { it.name.localPart != "tcPr" }.map { child ->
                         when (child.name.localPart) {
                             "p" -> (if (fields) readBandCellParagraph(child, partRelations, cellStyles, allowCellPictures)
-                                else readParagraph(child, partRelations, false, cellStyles, allowPageBreak = false)).let { paragraph ->
+                                else readParagraph(child, partRelations, false, cellStyles, allowPageBreak = false, bodyCell = true)).let { paragraph ->
                                 val ordinaryText = cp.one("noWrap") == null && paragraph.format.textDirection == null
                                 val savedGridWrapping = automaticLayout && !fields && modernTableAlignment && rowNodes.size == 1 &&
                                     properties.one("tblInd") != null && preferredTableWidth?.points?.let {
@@ -2425,7 +2431,7 @@ internal class NativeDocxReader(
             activePart = provenance[node] ?: activePart
             reject(message)
         }
-        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "rPr", "mirrorIndents", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr", "overflowPunct", "suppressAutoHyphens", "shd", "textAlignment"))
+        children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "rPr", "mirrorIndents", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr", "overflowPunct", "suppressAutoHyphens", "shd", "textAlignment", "framePr", "suppressOverlap"))
         var result = initial
         property.one("shd")?.let { node ->
             val fill = themeColors.runFill(node)
