@@ -1403,10 +1403,16 @@ internal class NativeDocxReader(
             val rotation = (transform.attribute("", "rot")?.let(::numeric) ?: 0f) / 60000
 
             val bodyProps = one(shape, wps, "bodyPr")
-            WordFrameTextMetadata.validate(bodyProps, rotation == 0f) { origin, message -> source.current = origin; reject(message) }
-            check(bodyProps.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in setOf("rot", "vert", "wrap", "lIns", "tIns", "rIns", "bIns", "anchor", "anchorCtr", "upright") }, "Unsupported text frame policy")
-            check(bodyProps.attribute("", "rot") == "0" && bodyProps.attribute("", "vert") == "horz" && bodyProps.attribute("", "wrap") == "square", "Unsupported text direction")
-            check(bodyProps.elements().size == 1 && one(bodyProps, drawing, "noAutofit").attributes.isEmpty(), "Frame autofitting is unsupported")
+            val autoFit = WordFrameTextMetadata.validate(bodyProps, rotation == 0f) { origin, message ->
+                source.current = origin
+                reject(message)
+            }
+            if (autoFit == null) {
+                check(bodyProps.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in setOf("rot", "vert", "wrap", "lIns", "tIns", "rIns", "bIns", "anchor", "anchorCtr", "upright") }, "Unsupported text frame policy")
+                check(bodyProps.attribute("", "rot") == "0" && bodyProps.attribute("", "vert") == "horz" &&
+                    bodyProps.attribute("", "wrap") == "square", "Unsupported text direction")
+                check(bodyProps.elements().size == 1 && one(bodyProps, drawing, "noAutofit").attributes.isEmpty(), "Frame autofitting is unsupported")
+            }
             val content = one(one(shape, wps, "txbx"), word, "txbxContent")
             children(content, setOf("p"))
             val line = one(props, drawing, "ln")
@@ -1414,6 +1420,13 @@ internal class NativeDocxReader(
             val paragraphs = content.elements().map { readParagraph(it, partRelations, fields, allowPageBreak = false) }
             val width = numeric(extent.attribute("", "cx")) / 12700
             val left = horizontal(width)
+            if (autoFit == PdfTextBoxAutoFit.WIDTH_AND_HEIGHT) {
+                val coordinate = one(anchor, wp, "positionH").elements().single()
+                source.current = coordinate
+                check(coordinate.name.localPart == "posOffset" ||
+                    coordinate.children.filterIsInstance<XmlText>().joinToString("") { it.text } == "left",
+                    "Unwrapped autofit requires a fixed horizontal position")
+            }
             val vertical = one(anchor, wp, "positionV")
             source.current = vertical
             val reference = vertical.attribute("", "relativeFrom")
@@ -1429,7 +1442,7 @@ internal class NativeDocxReader(
                 PdfMargins(numeric(bodyProps.attribute("", "tIns")) / 12700, numeric(bodyProps.attribute("", "rIns")) / 12700,
                     numeric(bodyProps.attribute("", "bIns")) / 12700, numeric(bodyProps.attribute("", "lIns")) / 12700),
                 WordFramePaint.fill(props, themeColors) { origin, message -> source.current = origin; reject(message) }, border,
-                when (bodyProps.attribute("", "anchor")) { "t" -> PdfVerticalAlignment.TOP; "ctr" -> PdfVerticalAlignment.CENTER; "b" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported vertical alignment") }).withDrawingOrder(order)
+                when (bodyProps.attribute("", "anchor")) { "t" -> PdfVerticalAlignment.TOP; "ctr" -> PdfVerticalAlignment.CENTER; "b" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported vertical alignment") }).withDrawingOrder(order).withAutoFit(autoFit)
         }
 
         fun readAnchoredImage(node: XmlElement, partRelations: Map<String, String>, pageBand: Boolean = false): PdfAnchoredImage {

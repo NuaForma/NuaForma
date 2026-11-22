@@ -41,7 +41,8 @@ internal object DocumentTransforms {
                 is PdfImage -> listOf(image(block, key))
                 is PdfTextBox -> listOf(PdfTextBox(block.left, block.top, block.width, block.height,
                     blocks(block.paragraphs, key, Scope.FRAME).map { it as PdfParagraph }, block.anchor, block.rotation,
-                    block.padding, block.fill, block.border, block.verticalAlignment, block.wrap, metadata(block, key, PdfSemanticRole.FRAME)).withDrawingOrder(block.drawingOrder))
+                    block.padding, block.fill, block.border, block.verticalAlignment, block.wrap, metadata(block, key, PdfSemanticRole.FRAME))
+                    .withDrawingOrder(block.drawingOrder).withAutoFit(block.autoFit))
                 is PdfTable -> listOf(PdfTable(block.columnWidths, block.rows.mapIndexed { rowIndex, row ->
                     PdfTableRow(row.cells.mapIndexed { cellIndex, cell ->
                         cell.withBlocks(blocks(cell.blocks, semanticChildId(key, "r$rowIndex-c$cellIndex"), Scope.CELL))

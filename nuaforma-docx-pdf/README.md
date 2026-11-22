@@ -211,3 +211,7 @@ Selected 0.5.0-alpha.4 [wide fixed-table qualification](../docs/wide-fixed-table
 Selected 0.5.0-alpha.4 [long-word wrapping](../docs/long-word-breaking.md) preserves fixed body-table columns while breaking oversized unshaped words at grapheme boundaries. Automatic widths, nested cells and page bands retain their existing policies.
 
 Selected 0.5.0-alpha.4 [font family identity qualification](../docs/font-family-identities.md) is shared by DOCX and native PDF. Extended Light, Display and similar designs retain their precise family names rather than impersonating their base family; ordinary four-face style linking remains supported.
+
+## Additional native layout support
+
+Unrotated DrawingML text boxes can use Word shape autofit. Wrapped text adjusts the height while retaining the specified width. Unwrapped text adjusts both dimensions. The final shape and contents must fit on the physical page.

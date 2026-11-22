@@ -354,7 +354,7 @@ internal object FlowLayouter {
             when (block) {
                 is PdfTextBox -> {
                     val resolved = PdfTextBox(block.left, block.top, block.width, block.height, block.paragraphs.map(::resolve),
-                        block.anchor, block.rotation, block.padding, block.fill, block.border, block.verticalAlignment, block.wrap, block.semantics).withDrawingOrder(block.drawingOrder)
+                        block.anchor, block.rotation, block.padding, block.fill, block.border, block.verticalAlignment, block.wrap, block.semantics).withDrawingOrder(block.drawingOrder).withAutoFit(block.autoFit)
                     floatingBoxes += resolved to top
                 }
                 is PdfParagraph -> {

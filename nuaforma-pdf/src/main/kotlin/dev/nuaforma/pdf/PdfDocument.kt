@@ -291,6 +291,9 @@ sealed interface PdfBlock { val semantics: PdfBlockSemantics? get() = null }
 
 enum class PdfBoxAnchor { PAGE, PARAGRAPH }
 enum class PdfBoxWrap { NONE, TOP_BOTTOM }
+
+/** Size an unrotated, nonwrapping frame after template evaluation. */
+enum class PdfTextBoxAutoFit { HEIGHT, WIDTH_AND_HEIGHT }
 enum class PdfVerticalAlignment { TOP, CENTER, BOTTOM }
 
 /** Positioned on the anchor's page; clockwise rotation is around the frame center. */
@@ -303,6 +306,7 @@ class PdfTextBox private constructor(
     val wrap: PdfBoxWrap,
     override val semantics: PdfBlockSemantics?,
     val drawingOrder: PdfDrawingOrder?,
+    val autoFit: PdfTextBoxAutoFit?,
 ) : PdfBlock {
 
     @JvmOverloads constructor(left: Float, top: Float, width: Float, height: Float,
@@ -311,10 +315,16 @@ class PdfTextBox private constructor(
         fill: PdfColor? = null, border: PdfBorder? = null,
         verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP, wrap: PdfBoxWrap = PdfBoxWrap.NONE,
         semantics: PdfBlockSemantics? = null,
-    ) : this(left, top, width, height, paragraphs, anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, null)
+    ) : this(left, top, width, height, paragraphs, anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, null, null)
 
     fun withDrawingOrder(order: PdfDrawingOrder?): PdfTextBox = PdfTextBox(left, top, width, height, paragraphs,
-        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, order)
+        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, order, autoFit)
+
+    fun withAutoFit(mode: PdfTextBoxAutoFit?): PdfTextBox = PdfTextBox(left, top, width, height, paragraphs,
+        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, mode)
+
+    internal fun resolvedSize(width: Float, height: Float): PdfTextBox = PdfTextBox(left, top, width, height, paragraphs,
+        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, null)
 
     val paragraphs: List<PdfParagraph> = Collections.unmodifiableList(ArrayList(paragraphs))
     init {
@@ -323,6 +333,7 @@ class PdfTextBox private constructor(
         require(padding.left + padding.right < width && padding.top + padding.bottom < height) { "Frame padding leaves no content area" }
         require(this.paragraphs.size in 1..128) { "Invalid frame paragraph count" }
         require(wrap == PdfBoxWrap.NONE || rotation == 0f && top >= 0) { "Unsupported frame wrapping policy" }
+        require(autoFit == null || wrap == PdfBoxWrap.NONE && rotation == 0f) { "Unsupported frame autofit geometry" }
     }
 }
 
