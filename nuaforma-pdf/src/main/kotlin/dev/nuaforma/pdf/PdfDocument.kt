@@ -294,6 +294,17 @@ enum class PdfBoxWrap { NONE, TOP_BOTTOM }
 
 /** Size an unrotated, nonwrapping frame after template evaluation. */
 enum class PdfTextBoxAutoFit { HEIGHT, WIDTH_AND_HEIGHT }
+
+/** Optional alignment to a physical page edge after the frame dimensions are known. */
+data class PdfTextBoxPageAlignment(
+    val horizontal: PdfAlignment?,
+    val vertical: PdfVerticalAlignment?,
+) {
+    init {
+        require(horizontal != null || vertical != null) { "Select a page alignment axis" }
+        require(horizontal != PdfAlignment.JUSTIFY) { "Physical horizontal alignment cannot be justified" }
+    }
+}
 enum class PdfVerticalAlignment { TOP, CENTER, BOTTOM }
 
 /** Positioned on the anchor's page; clockwise rotation is around the frame center. */
@@ -307,6 +318,7 @@ class PdfTextBox private constructor(
     override val semantics: PdfBlockSemantics?,
     val drawingOrder: PdfDrawingOrder?,
     val autoFit: PdfTextBoxAutoFit?,
+    val pageAlignment: PdfTextBoxPageAlignment?,
 ) : PdfBlock {
 
     @JvmOverloads constructor(left: Float, top: Float, width: Float, height: Float,
@@ -315,16 +327,19 @@ class PdfTextBox private constructor(
         fill: PdfColor? = null, border: PdfBorder? = null,
         verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP, wrap: PdfBoxWrap = PdfBoxWrap.NONE,
         semantics: PdfBlockSemantics? = null,
-    ) : this(left, top, width, height, paragraphs, anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, null, null)
+    ) : this(left, top, width, height, paragraphs, anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, null, null, null)
 
     fun withDrawingOrder(order: PdfDrawingOrder?): PdfTextBox = PdfTextBox(left, top, width, height, paragraphs,
-        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, order, autoFit)
+        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, order, autoFit, pageAlignment)
 
     fun withAutoFit(mode: PdfTextBoxAutoFit?): PdfTextBox = PdfTextBox(left, top, width, height, paragraphs,
-        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, mode)
+        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, mode, pageAlignment)
+
+    fun withPageAlignment(alignment: PdfTextBoxPageAlignment?): PdfTextBox = PdfTextBox(left, top, width, height, paragraphs,
+        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, autoFit, alignment)
 
     internal fun resolvedSize(width: Float, height: Float): PdfTextBox = PdfTextBox(left, top, width, height, paragraphs,
-        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, null)
+        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, null, pageAlignment)
 
     val paragraphs: List<PdfParagraph> = Collections.unmodifiableList(ArrayList(paragraphs))
     init {
@@ -334,6 +349,9 @@ class PdfTextBox private constructor(
         require(this.paragraphs.size in 1..128) { "Invalid frame paragraph count" }
         require(wrap == PdfBoxWrap.NONE || rotation == 0f && top >= 0) { "Unsupported frame wrapping policy" }
         require(autoFit == null || wrap == PdfBoxWrap.NONE && rotation == 0f) { "Unsupported frame autofit geometry" }
+        require(pageAlignment == null || anchor == PdfBoxAnchor.PAGE && wrap == PdfBoxWrap.NONE && rotation == 0f) {
+            "Physical page alignment requires an unrotated page frame"
+        }
     }
 }
 

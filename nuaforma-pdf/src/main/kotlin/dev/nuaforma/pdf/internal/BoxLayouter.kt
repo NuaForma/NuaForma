@@ -8,10 +8,8 @@ internal object BoxLayouter {
     fun layout(box: PdfTextBox, page: PdfPage, paragraphTop: Float, measurer: TextMeasurer): PositionedBox {
         if (box.paragraphs.any { p -> p.runs.filterIsInstance<PdfTextRun>().any { it.navigation != null } })
             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Navigation in text frames is not qualified")
-        val x = box.left
-        val y = box.top + if (box.anchor == PdfBoxAnchor.PARAGRAPH) paragraphTop else 0f
         val halfStroke = (box.border?.width ?: 0f) / 2
-        if (box.autoFit == null) checkPageBounds(box, page, x, y, halfStroke)
+        val fixedPosition = if (box.autoFit == null) locate(box, page, paragraphTop, halfStroke) else null
         val padding = if (box.autoFit == null) box.padding else box.padding.let {
             PdfMargins(it.top + halfStroke, it.right + halfStroke, it.bottom + halfStroke, it.left + halfStroke)
         }
@@ -35,7 +33,7 @@ internal object BoxLayouter {
             if (fitHeight > page.height || fitWidth > page.width) overflow()
             box.resolvedSize(fitWidth, fitHeight)
         }
-        if (box.autoFit != null) checkPageBounds(resolved, page, x, y, halfStroke)
+        val (x, y) = fixedPosition ?: locate(resolved, page, paragraphTop, halfStroke)
         val available = resolved.height - padding.top - padding.bottom
         if (used > available + .001f) overflow()
         val extra = when (resolved.verticalAlignment) {
@@ -49,12 +47,32 @@ internal object BoxLayouter {
         return PositionedBox(resolved, x, y, elements)
     }
 
-    private fun checkPageBounds(box: PdfTextBox, page: PdfPage, x: Float, y: Float, halfStroke: Float) {
+    private fun locate(box: PdfTextBox, page: PdfPage, paragraphTop: Float, halfStroke: Float): Pair<Float, Float> {
+        val horizontal = box.pageAlignment?.horizontal
+        val vertical = box.pageAlignment?.vertical
+        val x = when (horizontal) {
+            PdfAlignment.LEFT -> 0f
+            PdfAlignment.CENTER -> (page.width - box.width) / 2
+            PdfAlignment.RIGHT -> page.width - box.width
+            else -> box.left
+        }
+        val y = when (vertical) {
+            PdfVerticalAlignment.TOP -> 0f
+            PdfVerticalAlignment.CENTER -> (page.height - box.height) / 2
+            PdfVerticalAlignment.BOTTOM -> page.height - box.height
+            null -> box.top + if (box.anchor == PdfBoxAnchor.PARAGRAPH) paragraphTop else 0f
+        }
         val angle = Math.toRadians(box.rotation.toDouble())
         val dx = (abs(cos(angle)) * box.width + abs(sin(angle)) * box.height) / 2
         val dy = (abs(sin(angle)) * box.width + abs(cos(angle)) * box.height) / 2
-        if (x + box.width / 2 - dx < halfStroke - .001 || y + box.height / 2 - dy < halfStroke - .001 ||
-            x + box.width / 2 + dx > page.width - halfStroke + .001 || y + box.height / 2 + dy > page.height - halfStroke + .001) overflow()
+        // The physical page clips the outward half of a stroke explicitly aligned to that edge.
+        val minX = if (horizontal == PdfAlignment.LEFT) 0f else halfStroke
+        val maxX = page.width - if (horizontal == PdfAlignment.RIGHT) 0f else halfStroke
+        val minY = if (vertical == PdfVerticalAlignment.TOP) 0f else halfStroke
+        val maxY = page.height - if (vertical == PdfVerticalAlignment.BOTTOM) 0f else halfStroke
+        if (x + box.width / 2 - dx < minX - .001 || y + box.height / 2 - dy < minY - .001 ||
+            x + box.width / 2 + dx > maxX + .001 || y + box.height / 2 + dy > maxY + .001) overflow()
+        return x to y
     }
 
     private fun naturalWidth(box: PdfTextBox, measurer: TextMeasurer): Float {

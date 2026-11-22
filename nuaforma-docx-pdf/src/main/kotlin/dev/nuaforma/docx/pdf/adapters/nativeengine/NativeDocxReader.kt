@@ -1356,7 +1356,7 @@ internal class NativeDocxReader(
                 return numeric(raw) / 12700
             }
 
-            fun horizontal(width: Float): Float {
+            fun horizontal(width: Float): Pair<Float, PdfAlignment?> {
                 val position = one(anchor, wp, "positionH")
                 source.current = position
                 val reference = position.attribute("", "relativeFrom")
@@ -1365,17 +1365,23 @@ internal class NativeDocxReader(
                 val origin = if (reference == "page") 0f else page.margins.left
                 val coordinate = position.elements().single()
                 if (coordinate.name.namespaceURI == wp && coordinate.name.localPart == "posOffset")
-                    return origin + offset(position)
-                check(reference in setOf("margin", "column") && coordinate.name.namespaceURI == wp &&
-                    coordinate.name.localPart == "align" && coordinate.attributes.isEmpty() && coordinate.elements().isEmpty(),
-                    "Unsupported horizontal frame alignment")
-                val remaining = page.width - page.margins.left - page.margins.right - width
-                return origin + when (coordinate.children.filterIsInstance<XmlText>().joinToString("") { it.text }) {
-                    "left" -> 0f
-                    "center" -> remaining / 2f
-                    "right" -> remaining
+                    return (origin + offset(position)) to null
+                check(coordinate.name.namespaceURI == wp && coordinate.name.localPart == "align" &&
+                    coordinate.attributes.isEmpty() && coordinate.elements().isEmpty(), "Unsupported horizontal frame alignment")
+                val alignment = when (coordinate.children.filterIsInstance<XmlText>().joinToString("") { it.text }) {
+                    "left" -> PdfAlignment.LEFT
+                    "center" -> PdfAlignment.CENTER
+                    "right" -> PdfAlignment.RIGHT
                     else -> reject("Unsupported horizontal frame alignment")
                 }
+                if (reference == "page") return 0f to alignment
+                val remaining = page.width - page.margins.left - page.margins.right - width
+                val shift = when (alignment) {
+                    PdfAlignment.CENTER -> remaining / 2f
+                    PdfAlignment.RIGHT -> remaining
+                    else -> 0f
+                }
+                return (origin + shift) to null
             }
 
             val extent = one(anchor, wp, "extent")
@@ -1419,8 +1425,8 @@ internal class NativeDocxReader(
             val border = WordFramePaint.stroke(line, themeColors) { origin, message -> source.current = origin; reject(message) }
             val paragraphs = content.elements().map { readParagraph(it, partRelations, fields, allowPageBreak = false) }
             val width = numeric(extent.attribute("", "cx")) / 12700
-            val left = horizontal(width)
-            if (autoFit == PdfTextBoxAutoFit.WIDTH_AND_HEIGHT) {
+            val (left, horizontalPageAlignment) = horizontal(width)
+            if (autoFit == PdfTextBoxAutoFit.WIDTH_AND_HEIGHT && horizontalPageAlignment == null) {
                 val coordinate = one(anchor, wp, "positionH").elements().single()
                 source.current = coordinate
                 check(coordinate.name.localPart == "posOffset" ||
@@ -1433,8 +1439,22 @@ internal class NativeDocxReader(
             check(vertical.attributes.size == 1 && vertical.elements().size == 1 &&
                 (reference == "page" || reference == "paragraph" && firstBodyParagraph),
                 "Paragraph-relative frames require the first body paragraph of a section")
-            val top = offset(vertical)
+            val verticalCoordinate = vertical.elements().single()
+            val verticalPageAlignment = if (reference == "page" && verticalCoordinate.name.namespaceURI == wp &&
+                verticalCoordinate.name.localPart == "align" && verticalCoordinate.attributes.isEmpty() && verticalCoordinate.elements().isEmpty()) {
+                when (verticalCoordinate.children.filterIsInstance<XmlText>().joinToString("") { it.text }) {
+                    "top" -> PdfVerticalAlignment.TOP
+                    "center" -> PdfVerticalAlignment.CENTER
+                    "bottom" -> PdfVerticalAlignment.BOTTOM
+                    else -> reject("Unsupported vertical frame alignment")
+                }
+            } else null
+            val top = if (verticalPageAlignment == null) offset(vertical) else 0f
             val placement = if (reference == "paragraph") PdfBoxAnchor.PARAGRAPH else PdfBoxAnchor.PAGE
+            val pageAlignment = if (horizontalPageAlignment != null || verticalPageAlignment != null) {
+                check(reference == "page" && rotation == 0f, "Physical page alignment requires an unrotated page frame")
+                PdfTextBoxPageAlignment(horizontalPageAlignment, verticalPageAlignment)
+            } else null
             source.current = node
             return PdfTextBox(left, top, width,
                 numeric(extent.attribute("", "cy")) / 12700, paragraphs, placement,
@@ -1442,7 +1462,7 @@ internal class NativeDocxReader(
                 PdfMargins(numeric(bodyProps.attribute("", "tIns")) / 12700, numeric(bodyProps.attribute("", "rIns")) / 12700,
                     numeric(bodyProps.attribute("", "bIns")) / 12700, numeric(bodyProps.attribute("", "lIns")) / 12700),
                 WordFramePaint.fill(props, themeColors) { origin, message -> source.current = origin; reject(message) }, border,
-                when (bodyProps.attribute("", "anchor")) { "t" -> PdfVerticalAlignment.TOP; "ctr" -> PdfVerticalAlignment.CENTER; "b" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported vertical alignment") }).withDrawingOrder(order).withAutoFit(autoFit)
+                when (bodyProps.attribute("", "anchor")) { "t" -> PdfVerticalAlignment.TOP; "ctr" -> PdfVerticalAlignment.CENTER; "b" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported vertical alignment") }).withDrawingOrder(order).withAutoFit(autoFit).withPageAlignment(pageAlignment)
         }
 
         fun readAnchoredImage(node: XmlElement, partRelations: Map<String, String>, pageBand: Boolean = false): PdfAnchoredImage {
