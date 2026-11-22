@@ -369,3 +369,5 @@ A word moving to a narrower continuation line is measured against that line befo
 Consecutive undecorated terminal tabs can occupy blank continuation lines when their default or ordinary left stops exceed the text area.
 
 A row can split at ordinary line boundaries when its own sides and surrounding joins match the fixed table outline.
+
+A visible run without a resolved font family reports the missing declaration at its source location.

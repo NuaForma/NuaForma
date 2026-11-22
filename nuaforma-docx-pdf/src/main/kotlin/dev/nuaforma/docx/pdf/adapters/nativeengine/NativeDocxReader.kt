@@ -2220,12 +2220,7 @@ internal class NativeDocxReader(
         val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null, val underline: Boolean = false, val superscript: Boolean = false, val strikethrough: Boolean = false,
         val kerningThreshold: Float = 0f, val standardLigatures: Boolean = false, val openType: Boolean = false, val highAnsiFamily: String? = null, val characterSpacing: Float = 0f,
         val highlight: PdfColor? = null, val shading: PdfColor? = null, val automaticColor: Boolean = true,
-        val paragraphBackground: PdfColor? = null, val horizontalScale: Float = 1f, val capitals: Boolean = false, val smallCaps: Boolean = false) {
-
-        fun id(resolve: (String, Boolean, Boolean) -> String): String = resolve(
-            requireNotNull(family) { "An explicit font family is required" }, bold, italic)
-
-    }
+        val paragraphBackground: PdfColor? = null, val horizontalScale: Float = 1f, val capitals: Boolean = false, val smallCaps: Boolean = false)
 
     private fun externalHyperlink(address: String, anchor: String?): PdfLink.External {
         if (anchor.isNullOrEmpty() || '#' in address) return PdfLink.External(address)
@@ -2244,15 +2239,16 @@ internal class NativeDocxReader(
 
     private fun textStyle(face: Face): PdfTextStyle {
         val nominal = face.size ?: reject("Missing font size")
+        val family = face.family ?: reject("Text requires a font family from its run, style or document defaults")
         val size = if (face.superscript) kotlin.math.round(nominal * 1.3f) / 2 else nominal
         val kern = if (face.kerningThreshold > 0 && size >= face.kerningThreshold)
             if (face.openType) PdfKerning.OPENTYPE else PdfKerning.PAIRS else PdfKerning.NONE
         val background = face.highlight ?: face.shading
         // Word's automatic ink follows shading, even when a highlight visually overrides that shading.
         val color = if (face.automaticColor) WordRunBackground.automaticForeground(face.shading ?: face.paragraphBackground) else face.color
-        return PdfTextStyle(face.id(fontId), size, color, face.languageTag, face.underline, if (face.superscript) nominal - size else 0f, face.strikethrough)
+        return PdfTextStyle(fontId(family, face.bold, face.italic), size, color, face.languageTag, face.underline, if (face.superscript) nominal - size else 0f, face.strikethrough)
             .withFontFeatures(PdfFontFeatures(kern, face.standardLigatures && face.openType))
-            .withSyntheticBold(syntheticBold(requireNotNull(face.family), face.bold, face.italic))
+            .withSyntheticBold(syntheticBold(family, face.bold, face.italic))
             .withCharacterSpacing(face.characterSpacing)
             .withBackground(background)
             .withHorizontalScale(face.horizontalScale)

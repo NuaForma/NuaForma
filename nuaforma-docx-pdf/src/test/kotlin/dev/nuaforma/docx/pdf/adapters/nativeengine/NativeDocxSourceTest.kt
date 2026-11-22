@@ -1,6 +1,7 @@
 package dev.nuaforma.docx.pdf.adapters.nativeengine
 
 import dev.nuaforma.contracts.GenerationContext
+import dev.nuaforma.docx.pdf.PdfFixture
 import dev.nuaforma.docx.pdf.adapters.ooxml.ConversionXml
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -77,6 +78,35 @@ class NativeDocxSourceTest {
         assertNull(error.documentLocation)
         assertNull(error.location)
         assertEquals("", error.sourceContext.excerpt)
+    }
+
+    @Test
+    fun `absent font family identifies the source run before looking up a font`() {
+        val parts = PdfFixture.parts()
+        val styles = "word/styles.xml"
+        val xml = parts.getValue(styles).decodeToString()
+        val withoutFamily = xml.replace(Regex("""<w:rFonts\b[^>]*/>"""), "")
+        assertNotEquals(xml, withoutFamily)
+        parts[styles] = withoutFamily.toByteArray()
+        val theme = "word/theme/theme1.xml"
+        val template = requireNotNull(javaClass.getResourceAsStream("/theme-colors/a4/source.docx")).use { it.readBytes() }
+        parts[theme] = PdfFixture.unzip(template).getValue(theme)
+        val types = "[Content_Types].xml"
+        val type = """<Override PartName="/$theme" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>"""
+        parts[types] = parts.getValue(types).decodeToString().replace("</Types>", "$type</Types>").toByteArray()
+        val relationships = "word/_rels/document.xml.rels"
+        val link = """<Relationship Id="theme" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>"""
+        parts[relationships] = parts.getValue(relationships).decodeToString()
+            .replace("</Relationships>", "$link</Relationships>").toByteArray()
+        val context = GenerationContext(dev.nuaforma.contracts.GenerationLogging(dev.nuaforma.contracts.LoggingMode.DEVELOPMENT))
+        val error = assertThrows(NativeDocxReadException::class.java) {
+            NativeDocxReader(context) { _, _, _ -> fail("There is no source family to resolve") }
+                .read(PdfFixture.zip(parts))
+        }
+        assertEquals("Text requires a font family from its run, style or document defaults", error.message)
+        assertEquals("word/document.xml", error.part)
+        assertEquals("paragraph:1", error.documentLocation)
+        assertEquals("w:r", error.sourceContext.construct)
     }
 
 }
