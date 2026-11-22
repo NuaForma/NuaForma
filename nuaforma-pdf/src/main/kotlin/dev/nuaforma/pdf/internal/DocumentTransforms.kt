@@ -44,12 +44,17 @@ internal object DocumentTransforms {
                     block.padding, block.fill, block.border, block.verticalAlignment, block.wrap, metadata(block, key, PdfSemanticRole.FRAME))
                     .withDrawingOrder(block.drawingOrder).withAutoFit(block.autoFit).withPageAlignment(block.pageAlignment)
                     .withVisibleTextOverflow(block.visibleTextOverflow).withInlineParagraph(block.inlineParagraph, block.inlinePadding))
-                is PdfTable -> listOf(PdfTable(block.columnWidths, block.rows.mapIndexed { rowIndex, row ->
+                is PdfTable -> {
+                    if (block.textRelativeTopOffset != null && (scope != Scope.BODY || document.flow == null))
+                        unsupported("Floating tables require the main body flow")
+                    listOf(PdfTable(block.columnWidths, block.rows.mapIndexed { rowIndex, row ->
                     PdfTableRow(row.cells.mapIndexed { cellIndex, cell ->
                         cell.withBlocks(blocks(cell.blocks, semanticChildId(key, "r$rowIndex-c$cellIndex"), Scope.CELL))
                     }, row.allowSplit, row.splitOversized, row.minimumHeight)
                         .withOmittedColumns(row.omittedLeadingColumns, row.omittedTrailingColumns)
-                }, block.cellMargins, block.border, block.repeatedHeaderRows, block.leftIndent, block.widthPolicy, metadata(block, key, PdfSemanticRole.TABLE), block.preferredWidth).withRightOverflow(block.rightOverflow).withAlignment(block.alignment))
+                }, block.cellMargins, block.border, block.repeatedHeaderRows, block.leftIndent, block.widthPolicy, metadata(block, key, PdfSemanticRole.TABLE), block.preferredWidth).withRightOverflow(block.rightOverflow).withAlignment(block.alignment)
+                    .withTextRelativeTopOffset(block.textRelativeTopOffset))
+                }
             }
         }
 

@@ -161,6 +161,7 @@ internal object NoteFlowLayouter {
                     pages.last() += placed
                 }
                 is PdfTable -> {
+                    if (block.textRelativeTopOffset != null) unsupported("Floating tables with notes are not qualified")
                     val table = TableLayouter.measure(block, measurer, width)
                     TableLayouter.checkWidth(table.table, width, page.margins.left, page.width - page.margins.left)
                     val left = page.margins.left + table.table.leftIndent

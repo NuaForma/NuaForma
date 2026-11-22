@@ -1223,17 +1223,33 @@ internal class NativeDocxReader(
                 source.current = overlap
                 reject("A table overlap rule requires a qualified position")
             }
-            if (position != null) {
-                source.current = position
-                attributes(position, setOf("leftFromText", "rightFromText", "vertAnchor", "tblpY"))
-                children(position, emptySet())
-                val rule = overlap ?: reject("A full-width text-relative table needs a nonoverlap rule")
-                attributes(rule, setOf("val"))
-                children(rule, emptySet())
-                source.current = position
-                check(position.value("leftFromText") == "180" && position.value("rightFromText") == "180" &&
-                    position.value("vertAnchor") == "text" && position.value("tblpY") == "1" &&
-                    rule.value("val") == "never", "Only the qualified nonoverlapping text-relative table position is supported")
+            val floatingOffset = position?.let { anchor ->
+                source.current = anchor
+                attributes(anchor, setOf("leftFromText", "rightFromText", "vertAnchor", "horzAnchor", "tblpY"))
+                children(anchor, emptySet())
+                overlap?.let { rule ->
+                    attributes(rule, setOf("val"))
+                    children(rule, emptySet())
+                }
+                source.current = anchor
+                check(anchor.value("leftFromText") == "180" && anchor.value("rightFromText") == "180" &&
+                    anchor.value("vertAnchor") == "text", "Only a qualified text-relative table position is supported")
+                when (anchor.value("horzAnchor")) {
+                    "margin" -> {
+                        check(overlap == null || overlap.value("val") == "never", "Overlapping floating tables are not qualified")
+                        val saved = anchor.value("tblpY")?.toIntOrNull()?.takeIf { it in 0..32767 }
+                            ?: reject("Invalid text-relative table top offset")
+                        // Word stores the compatibility distance one twentieth of a point above the displayed offset.
+                        (saved - 1).coerceAtLeast(0) / 20f
+                    }
+                    null -> {
+                        val rule = overlap ?: reject("A full-width text-relative table needs a nonoverlap rule")
+                        check(anchor.value("tblpY") == "1" && rule.value("val") == "never",
+                            "Only the qualified nonoverlapping text-relative table position is supported")
+                        null
+                    }
+                    else -> reject("Unsupported horizontal floating table reference")
+                }
             }
             // Word paints table shading in inter-cell spacing; this profile admits only contiguous cells.
             properties.one("shd")?.let {
@@ -1694,13 +1710,16 @@ internal class NativeDocxReader(
             val contentWidth = page.width - page.margins.left - page.margins.right
             if (position != null) {
                 source.current = position
-                check(depth == 0 && !fields && ranges.size == 1 && table in body.elements() &&
-                    modernTableAlignment && !automaticLayout && alignment == PdfTableAlignment.LEFT && indent == 0f &&
-                    contentWidth - widths.sum() in 0f..0.25f,
-                    "Only a full-width fixed table in ordinary body flow can use the qualified text-relative anchor")
+                val spareWidth = contentWidth - widths.sum()
+                val fixedBody = depth == 0 && !fields && ranges.size == 1 && table in body.elements() &&
+                    modernTableAlignment && !automaticLayout && alignment == PdfTableAlignment.LEFT && indent == 0f
+                check(fixedBody && (if (floatingOffset == null) spareWidth in 0f..0.25f else spareWidth >= 0f),
+                    if (floatingOffset == null) "Only a full-width fixed table in ordinary body flow can use the qualified text-relative anchor"
+                    else "Text-relative tables require a fixed left-aligned table inside ordinary body flow")
                 val floating = body.descendants().filter { it.name.namespaceURI == word && it.name.localPart == "tblpPr" }
-                val otherObjects = body.descendants().any { it.name.namespaceURI == wp && it.name.localPart == "anchor" ||
-                    it.name.namespaceURI == word && it.name.localPart == "pict" }
+                val otherObjects = floatingOffset == null && body.descendants().any {
+                    it.name.namespaceURI == wp && it.name.localPart == "anchor" || it.name.namespaceURI == word && it.name.localPart == "pict"
+                }
                 check(floating.count() == 1 && !otherObjects, "Overlapping body objects with text-relative tables are not qualified")
             }
             val fixedOffset = when (alignment) {
@@ -1722,6 +1741,7 @@ internal class NativeDocxReader(
                     else -> PdfTableWidthPolicy.FIXED
                 },
                 preferredWidth = finalTableWidth).withRightOverflow(maxOf(legacyOverflow, fixedOverflow)).withAlignment(alignment)
+                    .withTextRelativeTopOffset(floatingOffset)
         }
 
         fun readBox(pict: XmlElement, partRelations: Map<String, String>, fields: Boolean = false): PdfTextBox {

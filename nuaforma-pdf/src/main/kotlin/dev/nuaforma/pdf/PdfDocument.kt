@@ -245,7 +245,8 @@ class PdfTable private constructor(
     val widthPolicy: PdfTableWidthPolicy, override val semantics: PdfBlockSemantics?,
     val preferredWidth: PdfPreferredWidth?, overflow: TableOptions,
 ) : PdfBlock {
-    private class TableOptions(val right: Float, val alignment: PdfTableAlignment = PdfTableAlignment.LEFT)
+    private class TableOptions(val right: Float, val alignment: PdfTableAlignment = PdfTableAlignment.LEFT,
+        val textRelativeTopOffset: Float? = null)
 
     @JvmOverloads constructor(
         columnWidths: List<Float>, rows: List<PdfTableRow>,
@@ -260,13 +261,21 @@ class PdfTable private constructor(
     /** Additional right-margin space in points; physical page and parent-cell bounds still apply. */
     val rightOverflow: Float = overflow.right
     val alignment: PdfTableAlignment = overflow.alignment
+    /** Physical top offset in points for a fixed table positioned independently of ordinary body flow. */
+    val textRelativeTopOffset: Float? = overflow.textRelativeTopOffset
 
     /** Alignment is resolved after width negotiation; leftIndent remains an offset from that origin. */
     fun withAlignment(value: PdfTableAlignment): PdfTable = PdfTable(columnWidths, rows, cellMargins, border,
-        repeatedHeaderRows, leftIndent, widthPolicy, semantics, preferredWidth, TableOptions(rightOverflow, value))
+        repeatedHeaderRows, leftIndent, widthPolicy, semantics, preferredWidth, TableOptions(rightOverflow, value, textRelativeTopOffset))
 
     fun withRightOverflow(points: Float): PdfTable = PdfTable(columnWidths, rows, cellMargins, border,
-        repeatedHeaderRows, leftIndent, widthPolicy, semantics, preferredWidth, TableOptions(points, alignment))
+        repeatedHeaderRows, leftIndent, widthPolicy, semantics, preferredWidth, TableOptions(points, alignment, textRelativeTopOffset))
+
+    fun withTextRelativeTopOffset(points: Float?): PdfTable {
+        if (points == textRelativeTopOffset) return this
+        return PdfTable(columnWidths, rows, cellMargins, border, repeatedHeaderRows, leftIndent, widthPolicy,
+            semantics, preferredWidth, TableOptions(rightOverflow, alignment, points))
+    }
 
     val columnWidths: List<Float> = Collections.unmodifiableList(ArrayList(columnWidths))
     val rows: List<PdfTableRow> = Collections.unmodifiableList(ArrayList(rows))
@@ -283,6 +292,8 @@ class PdfTable private constructor(
         require(repeatedHeaderRows in 0..minOf(4, this.rows.size - 1)) { "Invalid repeated table headers" }
         require(leftIndent.isFinite() && leftIndent in -14_400f..14_400f) { "Invalid table indentation" }
         require(rightOverflow.isFinite() && rightOverflow in 0f..14_400f) { "Invalid right table overflow" }
+        require(textRelativeTopOffset == null || textRelativeTopOffset.isFinite() && textRelativeTopOffset in 0f..14_400f &&
+            widthPolicy == PdfTableWidthPolicy.FIXED && alignment == PdfTableAlignment.LEFT) { "Invalid text-relative table position" }
         val grid = placements()
         val horizontalMargins = cellMargins.left + cellMargins.right
         if (widthPolicy == PdfTableWidthPolicy.FIXED && !variedMargins && this.columnWidths.any { it <= horizontalMargins }) {

@@ -22,6 +22,24 @@ internal object FlowLayouter {
         val exclusions = mutableMapOf<Int, MutableList<Pair<Float, Float>>>()
         val paragraphCache = mutableMapOf<Int, MeasuredParagraph>()
         val floating = mutableMapOf<Int, MutableList<ImageFlow.Exclusion>>()
+        val floatingTables = mutableMapOf<Int, ClosedFloatingPointRange<Float>>()
+
+        fun checkFloatingTableOverlap(y: Float, height: Float) {
+            val active = floatingTables[pages.lastIndex] ?: return
+            if (y < active.endInclusive - .001f && y + height > active.start + .001f)
+                fail(PdfFailureCode.UNSUPPORTED_TEXT, "Body content beside a floating table requires text wrapping")
+        }
+
+        fun placeBodyLine(line: List<PositionedElement>, y: Float, height: Float) {
+            if (pages.lastIndex in floatingTables && line.any { item ->
+                    when (item) {
+                        is PositionedText -> item.text.isNotBlank() || item.style.background != null || item.style.underline || item.style.strikethrough
+                        is PositionedDestination -> false
+                        else -> true
+                    }
+                }) checkFloatingTableOverlap(y, height)
+            placeLine(line, page.margins.left, y, pages.last())
+        }
 
         fun measuredAt(index: Int) = paragraphCache.getOrPut(index) {
             val block = document.blocks[index] as PdfParagraph
@@ -74,6 +92,7 @@ internal object FlowLayouter {
                         }
                         top += before
                         val atLine = block.positionedInline(line.left, top + line.top)
+                        checkFloatingTableOverlap(top, line.height)
                         pages.last() += BoxLayouter.layout(atLine, page, top, measurer)
                         after = inline.spaceAfter
                         top += line.height + after
@@ -86,6 +105,9 @@ internal object FlowLayouter {
                         } else if (block.top < top - .001f || block.top + block.height > bottom) overflow()
                     }
                     val placed = BoxLayouter.layout(block, page, top, measurer)
+                    if (block.rotation != 0f && pages.lastIndex in floatingTables)
+                        fail(PdfFailureCode.UNSUPPORTED_TEXT, "Rotated frames beside floating tables are not qualified")
+                    checkFloatingTableOverlap(placed.top, maxOf(block.height, placed.contentHeight))
                     pages.last() += placed
                     if (block.wrap == PdfBoxWrap.TOP_BOTTOM) exclusions.getOrPut(pages.lastIndex) { mutableListOf() } += placed.top to placed.top + block.height
                 }
@@ -110,6 +132,8 @@ internal object FlowLayouter {
                         nextPage()
                     } else if (format.pageBreakBefore && top > page.margins.top + .001f) nextPage()
                     if (block.anchoredImages.isNotEmpty() || floating[pages.lastIndex].orEmpty().any { top < it.bottom - .001f }) {
+                        if (pages.lastIndex in floatingTables)
+                            fail(PdfFailureCode.UNSUPPORTED_TEXT, "Images beside floating tables are not qualified")
                         if (exclusions[pages.lastIndex].orEmpty().isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Combining image and text-frame wrapping is not qualified")
                         val result = ImageFlow.paragraph(block, page, pages, top, after, floating, measurer, minOf(policy.maxPages, pageBudget))
                         top = result
@@ -143,7 +167,7 @@ internal object FlowLayouter {
                                 }
                                 repeat(count) {
                                     PageLayouter.checkCancellation()
-                                    placeLine(measured.lines[consumed], page.margins.left, top, pages.last())
+                                    placeBodyLine(measured.lines[consumed], top, measured.heights[consumed])
                                     top += measured.heights[consumed++]
                                 }
                                 if (consumed < boundary) nextPage()
@@ -173,7 +197,7 @@ internal object FlowLayouter {
                     val compactHeight = if (blockIndex > protectedThrough && exclusions[pages.lastIndex].isNullOrEmpty())
                         naturalHeightAtPageEnd(measured) else null
                     if (compactHeight != null && !fits(before + measured.heights.first()) && fits(before + compactHeight)) {
-                        placeLine(measured.lines.single(), page.margins.left, top + before, pages.last())
+                        placeBodyLine(measured.lines.single(), top + before, compactHeight)
                         top = bottom
                         after = block.spaceAfter
                         continue
@@ -184,7 +208,7 @@ internal object FlowLayouter {
                             val lineHeight = measured.heights[lineIndex]
                             if (lineHeight > freshHeight()) overflow()
                             avoid(lineHeight)
-                            placeLine(line, page.margins.left, top, pages.last())
+                            placeBodyLine(line, top, lineHeight)
                             top += lineHeight
                         }
                     } else {
@@ -200,7 +224,7 @@ internal object FlowLayouter {
                                 nextPage(); continue
                             }
                             repeat(count) {
-                                placeLine(measured.lines[consumed], page.margins.left, top, pages.last())
+                                placeBodyLine(measured.lines[consumed], top, measured.heights[consumed])
                                 top += measured.heights[consumed++]
                             }
                             if (consumed < measured.lines.size) nextPage()
@@ -214,6 +238,7 @@ internal object FlowLayouter {
                     if (block.width > width || block.height > freshHeight()) overflow()
                     avoid(block.height)
                     if (!fits(block.height)) nextPage()
+                    checkFloatingTableOverlap(top, block.height)
                     pages.last() += PositionedImage(block, page.margins.left, top)
                     top += block.height
                     after = 0f
@@ -223,6 +248,22 @@ internal object FlowLayouter {
                     if (exclusions.isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Combining wrapped frames with body tables is not qualified")
                     val measured = TableLayouter.measure(block, measurer, width)
                     TableLayouter.checkWidth(measured.table, width, page.margins.left, page.width - page.margins.left)
+                    val offset = block.textRelativeTopOffset
+                    if (offset != null) {
+                        val start = top + offset
+                        val height = measured.contentEnd + measured.closing
+                        val available = bottom - start
+                        if (height > available + .001f)
+                            fail(PdfFailureCode.CONTENT_OVERFLOW, "Floating table exceeds its anchor page; required=$height pt; available=$available pt")
+                        if (pages.lastIndex in floatingTables || pages.last().filterIsInstance<PositionedBox>().any {
+                                it.top < start + height && it.top + maxOf(it.box.height, it.contentHeight) > start
+                            }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Overlapping floating body objects are not qualified")
+                        TableLayouter.slice(measured, 0f, measured.contentEnd, page.margins.left + measured.table.leftIndent, start, pages.last())
+                        floatingTables[pages.lastIndex] = start..start + height
+                        continue
+                    }
+
+                    checkFloatingTableOverlap(top, measured.contentEnd + measured.closing)
                     val headerHeight = measured.offsets[block.repeatedHeaderRows]
                     val freshData = freshHeight() - headerHeight
                     if (freshData <= measured.frame + measured.closing) overflow()

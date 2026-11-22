@@ -25,6 +25,7 @@ internal object NativePdfFailureDiagnostics {
 
     // Only owned reasons plus numeric measurements cross the diagnostic boundary; no arbitrary text.
     private val overflowReasons = setOf(
+        "Floating table exceeds its anchor page",
         "Inline image exceeds physical left boundary",
         "Inline text frame exceeds the line width",
         "Inline image exceeds physical right boundary",
@@ -209,6 +210,12 @@ internal object NativePdfFailureDiagnostics {
         "Only PNG images are supported",
         "Only one nested table level is supported",
         "Only standalone TrueType outlines are supported",
+        "Body content beside a floating table requires text wrapping",
+        "Floating tables require the main body flow",
+        "Floating tables with notes are not qualified",
+        "Images beside floating tables are not qualified",
+        "Overlapping floating body objects are not qualified",
+        "Rotated frames beside floating tables are not qualified",
         "Overlapping floating image layers are not qualified",
         "Overlapping floating page-band objects are not qualified",
         "Oversized non-splitting custom-border rows are not qualified",

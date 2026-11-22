@@ -22,6 +22,8 @@ internal object TableLayouter {
 
     fun measure(source: PdfTable, measurer: TextMeasurer, availableWidth: Float, depth: Int = 0, band: Boolean = false): Measured {
         require(depth <= 1) { "Only one nested table level is supported" }
+        if (source.textRelativeTopOffset != null && (depth > 0 || band))
+            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Floating tables require the main body flow")
         if (depth > 0 && source.widthPolicy == PdfTableWidthPolicy.FIT_CONTENTS) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Natural widths in nested tables are not qualified")
         val table = TableWidthResolver.resolve(source, measurer, availableWidth)
         val customBorders = table.rows.any { row -> row.cells.any { it.borders != null } }
