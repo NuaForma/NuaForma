@@ -97,6 +97,23 @@ class NativeDocxFieldsTest {
             assertThrows(IllegalArgumentException::class.java) { normalize("<w:p>$invalid</w:p>") }
     }
 
+    @Test
+    fun aPlainTitleRemainsSeparateWhenCachedContentsStartInTheNextParagraph() {
+        val title = "<w:r><w:rPr><w:b/></w:rPr><w:t>Contents title</w:t></w:r>"
+        val begin = control("begin") + instruction("TOC \\o &quot;1-2&quot; \\h") + control("separate")
+        val cached = "<w:r><w:t>Cached entry</w:t></w:r>"
+        val isolatedOpening = normalize("<w:p>$title$begin</w:p><w:p>$cached${control("end")}</w:p>")
+        assertEquals(2, Regex("<w:p>").findAll(isolatedOpening).count())
+        val paragraphs = ConversionXml(GenerationContext()).read(isolatedOpening.toByteArray()).elements()
+        assertEquals(listOf("r"), paragraphs[0].elements().map { it.name.localPart })
+        assertEquals(listOf("fldSimple"), paragraphs[1].elements().map { it.name.localPart })
+        assertTrue(isolatedOpening.contains("Contents title"))
+        assertFalse(isolatedOpening.contains("fldChar"))
+        val mixed = "<w:p>$title$begin$cached</w:p><w:p>$cached${control("end")}</w:p>"
+        assertEquals("Contents must occupy standalone paragraphs",
+            assertThrows(IllegalArgumentException::class.java) { normalize(mixed) }.message)
+    }
+
     @Test fun `only identified standalone contents may replace a multi paragraph field cache`() {
         val begin = control("begin") + instruction("TOC \\o &quot;1-2&quot; \\h") + control("separate")
         val cache = "<w:r><w:t>outdated</w:t></w:r>"

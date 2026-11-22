@@ -200,6 +200,7 @@ internal object NativeDocxFields {
             var fieldStart: XmlElement? = null
             var codeProperties: XmlElement? = null
             var codeStyleSelected = false
+            var openingHasCachedContent = false
             for (paragraph in container.elements().toList()) {
                 if (!local(paragraph, "p")) { if (depth != 0) fail("Field crosses a structural boundary"); continue }
                 focus(paragraph)
@@ -211,15 +212,17 @@ internal object NativeDocxFields {
                     if (node !is XmlElement) { if (depth == 0) output += node; continue }
                     if (local(node, "pPr")) { output += node; continue }
                     val marker = control(node)
-                    if (depth != 0 && separated && (depth != 1 || marker?.let { value(it, "fldCharType") } != "end"))
+                    if (depth != 0 && separated && (depth != 1 || marker?.let { value(it, "fldCharType") } != "end")) {
                         cacheOnClosingLine = true
+                        if (beginning === paragraph) openingHasCachedContent = true
+                    }
                     if (marker != null) {
                         when (validateControl(node, marker)) {
                             "begin" -> {
                                 if (depth == 0) {
                                     beginning = paragraph; code.setLength(0); cached.clear(); separated = false; multi = false
                                     fieldStart = marker
-                                    codeProperties = null; codeStyleSelected = false
+                                    codeProperties = null; codeStyleSelected = false; openingHasCachedContent = false
                                     form = marker.elements().singleOrNull()?.let { data -> Form(data, node.elements().singleOrNull { local(it, "rPr") }) }
                                 }
                                 else if (!separated || instruction(code.toString(), fail).kind != "TOC") fail("Nested fields are outside this profile")
@@ -242,8 +245,23 @@ internal object NativeDocxFields {
                                     if (multi) {
                                         if (instruction(code.toString(), fail).kind != "TOC") fail("Only contents fields may span paragraphs")
                                         val start = requireNotNull(beginning)
-                                        if (start.elements().any { !local(it, "pPr") && !local(it, "fldSimple") }) fail("Contents must occupy standalone paragraphs")
-                                        start.children += field
+                                        val opening = start.elements().filterNot { local(it, "pPr") }
+                                        val target = if (opening.all { local(it, "fldSimple") }) start else {
+                                            val plainPrefix = opening.all { run ->
+                                                local(run, "r") && run.elements().all { local(it, "rPr") || local(it, "t") }
+                                            } && opening.flatMap { it.elements() }.filter { local(it, "t") }.any { text ->
+                                                text.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }
+                                            }
+                                            if (openingHasCachedContent || !plainPrefix || start.elements().any {
+                                                    local(it, "pPr") && it.elements().any { property -> local(property, "sectPr") }
+                                                }) fail("Contents must occupy standalone paragraphs")
+                                            // Word keeps the preceding ordinary paragraph if the saved contents begin on the next one.
+                                            XmlElement(QName(W, "p", "w")).also { contentsParagraph ->
+                                                fieldOrigin(contentsParagraph, start)
+                                                container.children.add(container.children.indexOf(start) + 1, contentsParagraph)
+                                            }
+                                        }
+                                        target.children += field
                                     } else output.addAll(field)
                                 }
                             }
