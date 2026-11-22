@@ -313,3 +313,5 @@ Existing hyperlink relationship diagnostics report their source part and relatio
 Dedicated fixed horizontal inline text frames can retain their visible rectangle and body-line metrics.
 
 Square-wrapped ordinary pictures retain Word's foreground layering and saved drawing order.
+
+The qualified inactive punctuation overflow preference is retained for ordinary text. Active East Asian punctuation geometry remains separate.

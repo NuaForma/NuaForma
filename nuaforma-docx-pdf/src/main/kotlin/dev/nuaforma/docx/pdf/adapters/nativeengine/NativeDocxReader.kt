@@ -177,6 +177,17 @@ internal class NativeDocxReader(
         if (compatibilityModes.size > 1) throw NativeDocxReadException("Ambiguous document compatibility mode", "word/settings.xml")
         val modernTableAlignment = compatibilityModes.singleOrNull()?.value("val") == "15"
         val complexText = WordAuthoringMetadata.containsComplexText(parsed.values)
+        val eastAsianPunctuationLanguages = setOf("ja", "zh", "ko", "yue", "wuu", "nan", "hak", "cmn")
+        fun usesEastAsianPunctuation(language: String?): Boolean =
+            language?.substringBefore('-')?.lowercase() in eastAsianPunctuationLanguages
+
+        val hasEastAsianPunctuationLanguage = parsed.values.any { root ->
+            root.descendants().any { node ->
+                context.checkActive()
+                node.name.namespaceURI == word && node.name.localPart == "lang" &&
+                    usesEastAsianPunctuation(node.attribute(word, "eastAsia"))
+            }
+        }
         parsed.forEach { (name, root) -> WordAuthoringMetadata.normalize(root, name, complexText) { node ->
             source.current = node
             source.failure("Unsupported Word authoring or compatibility settings", name)
@@ -477,6 +488,9 @@ internal class NativeDocxReader(
         var linkCounter = 0
         var sequenceIndex = 0
 
+        fun supportsOrdinaryPunctuation(text: String, language: String?): Boolean =
+            !usesEastAsianPunctuation(language) && automaticTextSpacing.supportsUniformAlignment(text)
+
         fun finishBookmark(node: XmlElement, tableEnding: Boolean = false) {
             source.current = node
             attributes(node, setOf("id")); children(node, emptySet())
@@ -520,12 +534,6 @@ internal class NativeDocxReader(
                 geometry = geometry.copy(before = if (same(previous)) 0f else geometry.before, after = if (same(next)) 0f else geometry.after)
             }
             check(listEntry != null || geometry.listTab == null, "List tab without numbering")
-            if (geometry.overflowPunctuation == true) {
-                val property = paragraphChain.mapNotNull { it.one("overflowPunct") }.last()
-                source.current = property
-                activePart = provenance[property] ?: activePart
-                reject("Active punctuation overflow is not yet qualified")
-            }
             if (formatting.automaticHyphenation && !geometry.suppressAutoHyphens) {
                 source.current = requireNotNull(automaticHyphenationSource)
                 activePart = "word/settings.xml"
@@ -880,6 +888,23 @@ internal class NativeDocxReader(
                     "A highlighted space suffix with centered or right-aligned numbering is not qualified")
                 PdfListLabel(entry.value, textStyle(selected), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval,
                     highlightSuffix = markerFace.highlight != null)
+            }
+            if (geometry.overflowPunctuation == true) {
+                val normalText = content.all {
+                    when (it) {
+                        is PdfTextRun -> supportsOrdinaryPunctuation(it.text, it.style.languageTag)
+                        is PdfLineBreak, is PdfTab, is PdfPageBreak, is PdfImageRun, is PdfVectorRun -> true
+                        else -> false
+                    }
+                }
+                val normalLabel = label == null || supportsOrdinaryPunctuation(label.value.text, label.style.languageTag)
+                if (hasEastAsianPunctuationLanguage || !normalText || contents != null ||
+                    geometry.direction == PdfTextDirection.RIGHT_TO_LEFT || !normalLabel) {
+                    val property = paragraphChain.mapNotNull { it.one("overflowPunct") }.last()
+                    source.current = property
+                    activePart = provenance[property] ?: activePart
+                    reject("Active punctuation overflow is not yet qualified for this text")
+                }
             }
             val alignment = if (geometry.direction == PdfTextDirection.RIGHT_TO_LEFT) when (geometry.alignment) {
                 PdfAlignment.LEFT -> PdfAlignment.RIGHT; PdfAlignment.RIGHT -> PdfAlignment.LEFT; PdfAlignment.CENTER -> PdfAlignment.CENTER; PdfAlignment.JUSTIFY -> PdfAlignment.JUSTIFY
