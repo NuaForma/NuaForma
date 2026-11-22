@@ -9,6 +9,8 @@ import dev.nuaforma.pdf.PdfDrawingOrder
 /** Resolve print order separately from editing identifiers and anchor geometry. */
 internal object WordDrawingOrder {
     private const val wp = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+    private const val drawing = "http://schemas.openxmlformats.org/drawingml/2006/main"
+    private const val picture = "http://schemas.openxmlformats.org/drawingml/2006/picture"
     private const val wp14 = "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
     private val flags = setOf("simplePos", "behindDoc", "locked", "layoutInCell", "allowOverlap")
     private val distances = setOf("distT", "distB", "distL", "distR")
@@ -56,13 +58,18 @@ internal object WordDrawingOrder {
     }
 
     private fun validateRelativeSizes(anchor: XmlElement, reject: (XmlElement, String) -> Nothing) {
+        val graphic = anchor.elements().singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "graphic" }
+        val data = graphic?.elements()?.singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "graphicData" }
+        val rasterPicture = data?.attribute("", "uri") == picture &&
+            data.elements().singleOrNull()?.let { it.name.namespaceURI == picture && it.name.localPart == "pic" } == true
         val seen = mutableSetOf<javax.xml.namespace.QName>()
         for (node in anchor.elements()) {
             if (node.name.localPart in setOf("sizeRelH", "sizeRelV") && node.name.namespaceURI != wp14)
                 reject(node, "Invalid original relative-size namespace")
             if (node.name.namespaceURI == wp14) {
                 if (!seen.add(node.name)) reject(node, "Duplicate original relative-size metadata")
-                WordAnchorMetadata.validate(node) { message -> reject(node, message) }
+                val relative = WordAnchorMetadata.read(node) { message -> reject(node, message) }
+                if (relative != null && !rasterPicture) reject(node, "Nonzero relative sizing is only qualified for embedded pictures")
             }
         }
     }

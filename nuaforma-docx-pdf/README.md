@@ -317,3 +317,5 @@ Square-wrapped ordinary pictures retain Word's foreground layering and saved dra
 The qualified inactive punctuation overflow preference is retained for ordinary text. Active East Asian punctuation geometry remains separate.
 
 A leading explicit break keeps its physical page boundary before a supported paragraph with keep rules.
+
+Explicitly positioned unwrapped pictures can fit their source aspect ratio into qualified page or margin percentages.

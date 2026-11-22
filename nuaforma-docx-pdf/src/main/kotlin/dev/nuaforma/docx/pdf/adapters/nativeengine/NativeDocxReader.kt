@@ -980,7 +980,38 @@ internal class NativeDocxReader(
 
             val sourceOrder = WordDrawingOrder.read(anchor) { origin, message -> source.current = origin; reject(message) }
             val extent = one("extent")
-            val imageWidth = number(extent.attribute("", "cx")) / 12700
+            val declaredWidth = number(extent.attribute("", "cx")) / 12700
+            val declaredHeight = number(extent.attribute("", "cy")) / 12700
+            val relativeElements = anchor.elements().filter {
+                it.name.namespaceURI == wp14 && it.name.localPart in setOf("sizeRelH", "sizeRelV")
+            }
+            check(relativeElements.map { it.name }.distinct().size == relativeElements.size, "Duplicate relative image size")
+            val relativeSizes = relativeElements.mapNotNull {
+                source.current = it
+                WordAnchorMetadata.read(it, ::reject)
+            }
+            val renderedSize = if (relativeSizes.isEmpty()) null else {
+                val vertical = one("positionV")
+                source.current = relativeElements.first()
+                check(!cellRelative && one("positionH").elements().singleOrNull()?.name?.localPart == "posOffset" &&
+                    vertical.attribute("", "relativeFrom") == "page" &&
+                    vertical.elements().singleOrNull()?.name?.localPart == "posOffset" &&
+                    anchor.elements().count { it.name.namespaceURI == wp && it.name.localPart == "wrapNone" } == 1,
+                    "Relative image sizing requires a page-fixed unwrapped picture with explicit offsets")
+                check(declaredWidth > 0f && declaredHeight > 0f, "Invalid nominal relative picture extent")
+                val horizontal = relativeSizes.singleOrNull { it.horizontal }
+                val verticalSize = relativeSizes.singleOrNull { !it.horizontal }
+                val widthLimit = horizontal?.let {
+                    (if (it.reference == "page") page.width else page.width - page.margins.left - page.margins.right) * it.fraction
+                } ?: declaredWidth.toDouble()
+                val heightLimit = verticalSize?.let {
+                    (if (it.reference == "page") page.height else page.height - page.margins.top - page.margins.bottom) * it.fraction
+                } ?: declaredHeight.toDouble()
+                // Word fits the picture in both available dimensions while keeping its stored aspect ratio.
+                val scale = minOf(widthLimit / declaredWidth, heightLimit / declaredHeight)
+                (declaredWidth * scale).toFloat() to (declaredHeight * scale).toFloat()
+            }
+            val imageWidth = renderedSize?.first ?: declaredWidth
 
             fun offset(name: String, horizontal: Boolean): Pair<Float, PdfBoxAnchor> {
                 val position = one(name)
@@ -1042,10 +1073,9 @@ internal class NativeDocxReader(
             }
             val allowed = setOf("simplePos", "positionH", "positionV", "extent", "effectExtent", "docPr", "cNvGraphicFramePr", wrap.name.localPart)
             val extras = anchor.elements().filterNot { it.name.namespaceURI == wp && it.name.localPart in allowed || it.name.namespaceURI == drawing && it.name.localPart == "graphic" }
-            check(extras.map { it.name }.distinct().size == extras.size, "Duplicate relative image size")
-            for (extra in extras) {
-                source.current = extra
-                WordAnchorMetadata.validate(extra, ::reject)
+            extras.firstOrNull { it !in relativeElements }?.let {
+                source.current = it
+                reject("Unsupported anchored image child: ${it.name.localPart.take(64)}")
             }
             source.current = node
             anchor.elements().filter { it.name.namespaceURI == wp && it.name.localPart == "effectExtent" }.forEach { effect ->
@@ -1082,7 +1112,7 @@ internal class NativeDocxReader(
                 inline.children += visible
             }
             val container = XmlElement(node.name).also { it.children += inline }
-            val converted = image(container, partRelations, parts, uniformCellPictureExtent = cellRelative)
+            val converted = image(container, partRelations, parts, uniformCellPictureExtent = cellRelative, renderedSize = renderedSize)
             if (cellRelative) {
                 source.current = anchor
                 check(pageBand && policy == PdfImageWrap.NONE && link == null && !headerContour,
@@ -2347,7 +2377,7 @@ internal class NativeDocxReader(
     }
 
     private fun image(node: XmlElement, relations: Map<String, String>, parts: Map<String, ByteArray>,
-                      uniformCellPictureExtent: Boolean = false): PdfImage {
+                      uniformCellPictureExtent: Boolean = false, renderedSize: Pair<Float, Float>? = null): PdfImage {
         source.current = node
 
         fun at(element: XmlElement, condition: Boolean, message: String) {
@@ -2437,8 +2467,8 @@ internal class NativeDocxReader(
         }
 
         source.current = extent
-        val width = number(extent.attribute("", "cx")) / 12700
-        val height = number(extent.attribute("", "cy")) / 12700
+        val width = renderedSize?.first ?: number(extent.attribute("", "cx")) / 12700
+        val height = renderedSize?.second ?: number(extent.attribute("", "cy")) / 12700
         source.current = blip
         val original = parts["word/$target"] ?: reject("Missing image bytes")
         val pixels = if (target.endsWith(".emf", true)) try { metafiles.decode(original, width, height) }

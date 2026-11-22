@@ -497,7 +497,7 @@ class WordFloatingBandsTest {
     @Test
     fun `relative sizing and wrapping do not silently broaden the image profile`() {
         for ((old, replacement) in listOf(
-            "<wp14:pctWidth>0</wp14:pctWidth>" to "<wp14:pctWidth>100000</wp14:pctWidth>",
+            "<wp14:pctWidth>0</wp14:pctWidth>" to "<wp14:pctWidth>100001</wp14:pctWidth>",
             "<wp14:pctHeight>0</wp14:pctHeight>" to "<wp14:pctHeight>-1</wp14:pctHeight>",
             "relativeFrom=\"margin\"><wp14:pctWidth>" to "relativeFrom=\"unknown\"><wp14:pctWidth>",
             "<wp:wrapNone/>" to "<wp:wrapSquare wrapText=\"bothSides\"/>")) {
