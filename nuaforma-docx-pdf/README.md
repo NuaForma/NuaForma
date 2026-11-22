@@ -299,3 +299,5 @@ A qualified picture can keep tiny proportional discrepancy between its stored in
 A fixed left-aligned page-band table in current Word layout mode can extend into the saved right margin while staying within the page.
 
 Qualified names can contain an ordinary colon or curly apostrophe. A closed same-paragraph bookmark can retain zero-valued column metadata.
+
+An isolated qualified two-column automatic table can fall back to its saved grid when its styled contents need word wrapping.

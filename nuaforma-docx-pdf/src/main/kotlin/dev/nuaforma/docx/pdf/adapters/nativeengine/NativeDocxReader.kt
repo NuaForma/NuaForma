@@ -1396,8 +1396,13 @@ internal class NativeDocxReader(
                         when (child.name.localPart) {
                             "p" -> (if (fields) readBandCellParagraph(child, partRelations, cellStyles, allowCellPictures)
                                 else readParagraph(child, partRelations, false, cellStyles, allowPageBreak = false)).let { paragraph ->
-                                val pageBandWrapping = fields && cp.one("noWrap") == null && paragraph.format.textDirection == null
-                                val resolved = paragraph.withLongWordBreaking(depth == 0 && !automaticLayout && (!fields || pageBandWrapping))
+                                val ordinaryText = cp.one("noWrap") == null && paragraph.format.textDirection == null
+                                val savedGridWrapping = automaticLayout && !fields && modernTableAlignment && rowNodes.size == 1 &&
+                                    properties.one("tblInd") != null && preferredTableWidth?.points?.let {
+                                        kotlin.math.abs(it - widths.sum()) <= 2f
+                                    } == true && span == 1 && cp.one("vMerge") == null && ordinaryText
+                                val fixedWrapping = !automaticLayout && (!fields || ordinaryText)
+                                val resolved = paragraph.withLongWordBreaking(depth == 0 && (fixedWrapping || savedGridWrapping))
                                 if (depth == 0 && !fields && span == 1 && cp.one("vMerge") == null)
                                     resolved.copy(format = resolved.format.copy(keepLines = false, widowControl = false))
                                 else resolved
