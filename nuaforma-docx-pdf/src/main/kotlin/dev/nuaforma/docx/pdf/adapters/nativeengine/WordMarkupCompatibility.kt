@@ -120,6 +120,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     archive.touch(part)
                     changed = true
                 }
+                if (part == "word/webSettings.xml") WordWebSettings(context).validateSeparateFilesSource(root) { node ->
+                    source.current = node
+                    source.failure("Invalid original Word web export preference", part)
+                }
                 if (part == "word/settings.xml") WordAuthoringMetadata.validateCompatibilitySource(root) { node ->
                     source.current = node
                     source.failure("Unsupported original Word compatibility structure", part)

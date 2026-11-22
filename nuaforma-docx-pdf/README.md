@@ -273,3 +273,5 @@ Validated saved fill, line and effects metadata leaves a frame's explicit unpain
 A complete legacy checkbox field with no form metadata or saved result remains unprinted.
 
 When a qualified plain typography property differs between style parts, Word's primary styles control the result. Valid primary-only style references and reciprocal character links are preserved.
+
+Saving HTML as separate files is an authoring preference and leaves PDF output unchanged.
