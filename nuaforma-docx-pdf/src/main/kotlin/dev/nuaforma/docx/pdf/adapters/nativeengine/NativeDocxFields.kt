@@ -257,5 +257,21 @@ internal object NativeDocxFields {
             }
             if (depth != 0) fail("Unclosed complex field")
         }
+        // Complex PAGEREF runs that survive TOC cache removal can belong to one owning hyperlink.
+        for (link in root.descendants().filter { local(it, "hyperlink") }.toList()) {
+            if (link.elements().none { control(it) != null }) continue
+            focus(link)
+            if (link.elements().any { !local(it, "r") } ||
+                link.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
+                fail("Complex page references in hyperlinks require ordinary runs")
+            val paragraph = XmlElement(QName(W, "p", "w")).also { it.children.addAll(link.children) }
+            val body = XmlElement(QName(W, "body", "w")).also { it.children += paragraph }
+            normalize(body, fail, forms, fieldOrigin, formatting, focus)
+            val fields = paragraph.elements().filter { local(it, "fldSimple") }
+            if (fields.isEmpty() || fields.any { instruction(value(it, "instr") ?: fail("Missing hyperlink field instruction"), fail).kind != "PAGEREF" })
+                fail("Only page-reference fields inside hyperlinks are qualified")
+            link.children.clear()
+            link.children.addAll(paragraph.children)
+        }
     }
 }

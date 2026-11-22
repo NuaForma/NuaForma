@@ -671,7 +671,9 @@ internal class NativeDocxReader(
                     val face = if (useCode || instruction.kind == "SEQ" && !instruction.mergeFormat) faceFor(fieldCodeStyles[run])
                         else requireNotNull(cachedFace)
                     check(face.rtl != true, "Forced complex-script page fields are not qualified")
-                    check(link == null, "Nested field hyperlinks are not qualified")
+                    check(link == null || !fields && instruction.kind == "PAGEREF" &&
+                        link is PdfLink.Internal && link.destination == instruction.argument,
+                        "A page-reference field and its surrounding hyperlink must target the same bookmark")
                     source.current = run
                     activePart = provenance[run] ?: activePart
                     val staticValue = staticFields.resolve(instruction)
@@ -690,7 +692,9 @@ internal class NativeDocxReader(
                         check(pendingDestinations.isEmpty(), "Navigation on repeated page fields is not qualified")
                         return listOf(when (instruction.kind) { "PAGE" -> PdfPageNumber(style); "NUMPAGES" -> PdfPageCount(style); else -> PdfSequencePageCount(style) })
                     }
-                    val navigation = pendingDestinations.takeIf { it.isNotEmpty() }?.let { PdfTextNavigation(destinations = it.toList()) }.also { pendingDestinations.clear() }
+                    val navigation = if (link != null || pendingDestinations.isNotEmpty())
+                        PdfTextNavigation(link, pendingDestinations.toList()) else null
+                    pendingDestinations.clear()
                     val id = "source-field${fieldCounter++}"
                     if (instruction.kind == "SEQ") return listOf(PdfSequenceField(id, requireNotNull(instruction.argument).lowercase(java.util.Locale.ROOT), style,
                         instruction.restart, instruction.repeat, instruction.headingReset, navigation))
@@ -705,7 +709,7 @@ internal class NativeDocxReader(
                         textReferences += requireNotNull(target)
                         textReferenceSources.putIfAbsent(target, run)
                     }
-                    return listOf(PdfReferenceField(id, kind, style, target, instruction.linked, navigation))
+                    return listOf(PdfReferenceField(id, kind, style, target, instruction.linked || link != null, navigation))
                 }
                 children(run, setOf("rPr", "t", "tab", "br", "cr", "noBreakHyphen", "softHyphen", "drawing", "pict", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
                 val contents = run.elements().filter { it.name.localPart != "rPr" }
@@ -826,7 +830,7 @@ internal class NativeDocxReader(
                 "hyperlink" -> {
                     check(node.attributes.keys.all { it.namespaceURI == rel && it.localPart == "id" || it.namespaceURI == word && it.localPart in setOf("anchor", "history") }, "Unsupported hyperlink attribute")
                     node.value("history")?.let { check(it in setOf("0", "1", "true", "false", "on", "off"), "Invalid hyperlink history") }
-                    children(node, setOf("r"))
+                    children(node, setOf("r", "fldSimple"))
                     val id = node.attribute(rel, "id")
                     val anchor = node.value("anchor")
                     check((id == null) != (anchor == null), "Hyperlinks require one target")

@@ -247,3 +247,5 @@ Hyperlinks can retain the clickable area of tab runs, including the full gap for
 Fixed body frames can share a page with footnotes when their painted bounds leave the actual footnote region clear. Intersections remain explicit layout errors.
 
 Saved DrawingML outline properties can accompany an explicitly invisible frame outline. The stored properties are validated and the visible frame remains transparent.
+
+A qualified Word page reference within its own internal hyperlink resolves to the actual page of the common target.
