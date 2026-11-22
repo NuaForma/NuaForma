@@ -40,7 +40,7 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
     internal fun validateNavigation(allowUnresolved: Boolean = false) {
         val paragraphs = allParagraphs()
         val navigation = paragraphs.flatMap { it.runs }.mapNotNull { when (it) {
-            is PdfTextRun -> it.navigation; is PdfReferenceField -> it.navigation; is PdfSequenceField -> it.navigation; is PdfNoteCall -> it.navigation; is PdfNoteLabel -> it.navigation; else -> null
+            is PdfTextRun -> it.navigation; is PdfTab -> it.navigation; is PdfReferenceField -> it.navigation; is PdfSequenceField -> it.navigation; is PdfNoteCall -> it.navigation; is PdfNoteLabel -> it.navigation; else -> null
         } }
         require(navigation.size <= 2_000) { "Navigation budget exceeded" }
         val destinations = (navigation.flatMap { it.destinations } + paragraphs.flatMap { it.endDestinations }).map { it.name }

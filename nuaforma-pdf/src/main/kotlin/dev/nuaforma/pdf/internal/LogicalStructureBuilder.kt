@@ -55,6 +55,16 @@ internal object LogicalStructureBuilder {
                 }
                 is PdfImageRun -> image(run.image, semantic.id)
                 is PdfTab, is PdfLineBreak, is PdfPageBreak -> {
+                    if (run is PdfTab && run.navigation != null) {
+                        val navigation = run.navigation
+                        val link = requireNotNull(navigation.link)
+                        val id = navigation.logicalId ?: semanticChildId(semantic.id, "link$index")
+                        val internal = (link as? PdfLink.Internal)?.destination
+                        val external = (link as? PdfLink.External)?.uri
+                        span(id, PdfSemanticRole.LINK, semantic.id, "\t", internal ?: external)
+                        if (external != null) pendingTargets.remove(id)
+                        continue
+                    }
                     val before = p.runs.getOrNull(index - 1) as? PdfTextRun
                     val after = p.runs.getOrNull(index + 1) as? PdfTextRun
                     if (before?.semantics?.id != null && before.semantics.id == after?.semantics?.id) {

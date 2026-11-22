@@ -106,8 +106,13 @@ internal object ReferenceLayouter {
             }
         }
         val required = fields.filter { it.linked }.mapNotNull { it.target }.toMutableSet()
-        resolved.allParagraphs().flatMap { it.runs.filterIsInstance<PdfTextRun>() }.forEach { run ->
-            (run.navigation?.link as? PdfLink.Internal)?.let { required += it.destination }
+        resolved.allParagraphs().flatMap { it.runs }.forEach { run ->
+            val navigation = when (run) {
+                is PdfTextRun -> run.navigation
+                is PdfTab -> run.navigation
+                else -> null
+            }
+            (navigation?.link as? PdfLink.Internal)?.let { required += it.destination }
         }
         val hasContents = resolved.allParagraphs().any { it.contents != null }
         if (hasContents) {

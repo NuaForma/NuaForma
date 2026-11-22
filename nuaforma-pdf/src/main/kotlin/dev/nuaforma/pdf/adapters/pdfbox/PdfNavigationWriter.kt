@@ -33,14 +33,16 @@ internal class PdfNavigationWriter(private val pdf: PDDocument) {
         if (text.text.isNotBlank()) navigation.destinations.forEach { addDestination(it, page, text.x, top) }
         val link = navigation.link ?: return
         if (++annotations > 4_000) throw PdfRenderException(PdfFailureCode.RESOURCE_LIMIT, "Link annotation budget exceeded")
-        val left = maxOf(0f, text.x)
-        val right = minOf(page.mediaBox.width, text.x + metrics.width)
+        val linkArea = text.tabLinkArea
+        val start = text.x + (linkArea?.offset ?: 0f)
+        val left = maxOf(0f, start)
+        val right = minOf(page.mediaBox.width, start + (linkArea?.width ?: metrics.width))
         if (right <= left || top <= bottom) return
         page.annotations.add(PDAnnotationLink().apply {
             rectangle = PDRectangle(left, bottom, right - left, top - bottom)
             border = COSArray().apply { repeat(3) { add(COSInteger.ZERO) } }
             isPrinted = true
-            contents = text.text.take(256)
+            if (linkArea == null) contents = text.text.take(256)
             this.page = page
             when (link) {
                 is PdfLink.External -> action = PDActionURI().apply { uri = link.encodedUri }

@@ -764,7 +764,13 @@ internal class NativeDocxReader(
                         val navigation = if (link != null || destinations.isNotEmpty()) PdfTextNavigation(link, destinations, logicalLink) else null
                         PdfTextRun(text, textStyle(face), navigation)
                     }
-                    "tab" -> { check(link == null, "Linked tabs are not qualified"); attributes(item, emptySet()); check(item.elements().isEmpty(), "Invalid tab control"); PdfTab(textStyle(face)) }
+                    "tab" -> {
+                        attributes(item, emptySet())
+                        check(item.elements().isEmpty(), "Invalid tab control")
+                        check(link == null || !fields && currentNoteKind == null && geometry.direction == null,
+                            "Linked tabs require ordinary left-to-right body text")
+                        PdfTab(textStyle(face)).withNavigation(link?.let { PdfTextNavigation(it, emptyList(), logicalLink) })
+                    }
                     "br", "cr" -> {
                         attributes(item, if (item.name.localPart == "br") setOf("type", "clear") else emptySet())
                         check(item.elements().isEmpty() && item.children.filterIsInstance<XmlText>().all { it.text.isBlank() }, "Invalid line break control")

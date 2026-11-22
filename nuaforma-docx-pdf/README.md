@@ -241,3 +241,5 @@ Word paragraph styles can reset an inherited outline level to body text. Direct 
 Generated contents require a style for each requested outline level used by a heading in the document. Unused requested levels can omit their styles.
 
 Separately positioned page-fixed footer rectangles can retain Word's non-overlap flag when their physical boxes are disjoint. An explicit offset can start from the right margin.
+
+Hyperlinks can retain the clickable area of tab runs, including the full gap for tabs without visible leaders. Existing navigation target validation applies.

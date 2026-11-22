@@ -21,9 +21,10 @@ internal enum class StrokeLayer { FLOW, BACKGROUND, FOREGROUND }
 internal data class PositionedStroke(val x: Float, val top: Float, val endX: Float, val endY: Float, val stroke: PdfLineStroke,
     val pageX: Boolean = false, val pageY: Boolean = false, val layer: StrokeLayer = StrokeLayer.FLOW,
     val joinOwner: PdfParagraph? = null, val joinFollowing: PdfParagraph? = null, val pageOffset: PdfParagraphPageOffset? = null) : PositionedElement
+internal data class TabLinkArea(val offset: Float, val width: Float)
 internal data class TextBackground(val width: Float, val ascent: Float, val height: Float, val offset: Float = 0f)
 internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false, val navigation: PdfTextNavigation? = null, val logicalOwner: String? = null, val span: PdfSpanSemantics? = null, val logicalOffset: Int? = null, val pageOffset: PdfParagraphPageOffset? = null, val trailingDecorationWidth: Float? = null, val requiresPhysicalBounds: Boolean = false, val background: TextBackground? = null,
-    val physicalLeftOverhang: Float? = null) : PositionedElement
+    val physicalLeftOverhang: Float? = null, val tabLinkArea: TabLinkArea? = null) : PositionedElement
 internal data class PositionedImage(val image: PdfImage, val x: Float, val top: Float, val foreground: Boolean = false, val pageOffset: PdfParagraphPageOffset? = null, val pageY: Boolean = false, val requiresPhysicalBounds: Boolean = false, val clip: RectangleClip? = null, val drawingOrder: PdfDrawingOrder? = null) : PositionedElement
 internal data class RectangleClip(val left: Float, val top: Float, val right: Float, val bottom: Float) {
 
@@ -249,7 +250,8 @@ internal object PageLayouter {
                                     fragment.decoration, fragment.navigation, block.semantics?.id, fragment.semantics,
                                     block.semantics?.takeUnless { fragment.decoration || fragment.text.isEmpty() }?.let { fragment.sourceStart + prefix },
                                     trailingDecorationWidth = if (extra > 0f) fragment.metrics.width + extra else null, requiresPhysicalBounds = deferInkBounds,
-                                    background = background(style, fragment.metrics.width + extra, -fragment.paintOffset))
+                                    background = background(style, fragment.metrics.width + extra, -fragment.paintOffset),
+                                    tabLinkArea = fragment.tab?.navigation?.let { TabLinkArea(-fragment.paintOffset, fragment.metrics.width) })
                                 if (tabUnderline && fragment.metrics.width > 0f) {
                                     elements += PositionedText("", style.withStrikethrough(false), x, baseline, decoration = true,
                                         trailingDecorationWidth = fragment.metrics.width, requiresPhysicalBounds = deferInkBounds)
@@ -428,7 +430,7 @@ internal object PageLayouter {
                             val text = if (count > 0) symbol.repeat(count) else " "
                             val offset = if (leader == PdfTabLeader.NONE || count == 0) 0f else (gap - count * metrics.width) / 2
                             line += Fragment(text, control.style, metrics.copy(width = gap), tab = control,
-                                paintOffset = offset, decoration = leader != PdfTabLeader.NONE)
+                                navigation = control.navigation, paintOffset = offset, decoration = leader != PdfTabLeader.NONE)
                             lineWidth += gap
                             continue
                         }
