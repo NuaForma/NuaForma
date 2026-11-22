@@ -325,3 +325,5 @@ Qualified bookmark destinations before a leading hard break retain the source pa
 An ordinary paragraph after a standalone contents end marker retains its text, formatting and links.
 
 Supported fixed, unwrapped rectangular frames resolve their relative width and height independently.
+
+A centered or decimal-aligned field can move left to remain inside the line when the full field fits after the preceding text.

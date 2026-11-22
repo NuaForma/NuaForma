@@ -410,14 +410,20 @@ internal object PageLayouter {
                                     PdfTabAlignment.DECIMAL -> decimalWidth
                                 }
                             }
-                            // A reached alignment anchor cannot move text back over the preceding content.
-                            val start = maxOf(cursor, alignedStart)
                             val fieldEdge = when {
                                 useRightEdge -> lineEdge()
                                 alignment == PdfTabAlignment.RIGHT && position <= areaEdge + .001f ->
                                     maxOf(paragraphEdge, position)
                                 else -> paragraphEdge
                             }
+                            // Word shifts a centered or decimal field left when its full text fits between the cursor and the edge.
+                            // Keep preceding content and continue to reject fields that cannot fit in the available interval.
+                            val lastStart = fieldEdge - payloadWidth
+                            val start = if (format.alignment == PdfAlignment.LEFT &&
+                                alignment in setOf(PdfTabAlignment.CENTER, PdfTabAlignment.DECIMAL) &&
+                                lastStart >= cursor - .001f) {
+                                maxOf(cursor, minOf(alignedStart, lastStart))
+                            } else maxOf(cursor, alignedStart)
                             if (start > fieldEdge + .001f) overflow("Tab start exceeds line boundary", start, fieldEdge)
                             if (alignment != PdfTabAlignment.LEFT && start + payloadWidth > fieldEdge + .001f)
                                 overflow("Aligned tab content exceeds line boundary", start + payloadWidth, fieldEdge)

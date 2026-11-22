@@ -2,6 +2,7 @@ package dev.nuaforma.pdf
 
 import dev.nuaforma.pdf.internal.PageLayouter
 import dev.nuaforma.pdf.internal.PositionedText
+import dev.nuaforma.pdf.internal.ReferenceLayouter
 import dev.nuaforma.pdf.internal.TextMeasurer
 import dev.nuaforma.pdf.internal.TextMetrics
 import org.junit.jupiter.api.Assertions.*
@@ -84,6 +85,22 @@ class PdfTabCollisionTest {
     fun `zero collision keeps ordinary field alignment instead of adding an artificial space`() {
         val positions = layout("ABCD", "ABCD", listOf(PdfTabStop(48f, PdfTabAlignment.RIGHT)))
         assertEquals(listOf(56f, 80f), positions.filter { it.text == "ABCD" }.map { it.x })
+    }
+
+
+    @Test
+    fun centeredAndDecimalFieldsFitTheRightEdgeWithoutMovingEarlierText() {
+        for ((alignment, payload, expectedX) in listOf(
+            Triple(PdfTabAlignment.CENTER, "VALUE", 233.88f),
+            Triple(PdfTabAlignment.DECIMAL, "1234.56", 228f),
+        )) {
+            val positions = layout("PREFIX", payload, listOf(PdfTabStop(210f, alignment)))
+            val prefix = positions.single { it.text == "PREFIX" }
+            val value = positions.single { it.text == payload }
+            assertEquals(56f, prefix.x, .001f)
+            assertEquals(expectedX, value.x, .001f)
+            assertEquals(prefix.baseline, value.baseline, .001f)
+        }
     }
 
 }

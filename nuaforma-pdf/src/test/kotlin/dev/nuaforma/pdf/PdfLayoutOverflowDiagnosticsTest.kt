@@ -63,7 +63,8 @@ class PdfLayoutOverflowDiagnosticsTest {
 
         assertDoesNotThrow { layout(tab("aa", 11f, PdfTabAlignment.RIGHT, "a")) }
         failure("Tab start exceeds line boundary", 81f, 80f) { layout(tab("a", 81f, PdfTabAlignment.LEFT)) }
-        failure("Aligned tab content exceeds line boundary", 85f, 80f) { layout(tab("aa", 75f, PdfTabAlignment.CENTER)) }
+        assertDoesNotThrow { layout(tab("aa", 75f, PdfTabAlignment.CENTER)) }
+        failure("Aligned tab content exceeds line boundary", 90f, 80f) { layout(tab("a".repeat(9), 40f, PdfTabAlignment.CENTER)) }
     }
 
     @Test
