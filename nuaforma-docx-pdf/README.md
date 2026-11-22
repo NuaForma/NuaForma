@@ -257,3 +257,5 @@ A background header picture can retain a closed tight wrapping contour that sits
 Qualified fixed table cells can suppress the end mark while retaining visible text and ordinary tab layout.
 
 Existing external-link targets can remain clickable inside a fixed unrotated text frame. Annotations use translated physical page coordinates.
+
+When a hidden ordinary cell mark follows a trailing soft line break, the final unprinted line is omitted while earlier lines remain intact.
