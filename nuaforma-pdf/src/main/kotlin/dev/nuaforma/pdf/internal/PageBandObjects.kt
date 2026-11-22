@@ -9,7 +9,8 @@ import kotlin.math.sin
 internal object PageBandObjects {
 
     fun place(images: List<Pair<PdfAnchoredImage, Float>>, boxes: List<Pair<PdfTextBox, Float>>,
-              origin: Float, page: PdfPage, measurer: TextMeasurer, foreground: Boolean = false): List<PositionedElement> {
+              origin: Float, page: PdfPage, measurer: TextMeasurer, foreground: Boolean = false,
+              header: Boolean = false): List<PositionedElement> {
         val result = mutableListOf<PositionedElement>()
         for ((image, paragraphTop) in images) {
             PageLayouter.checkCancellation()
@@ -23,18 +24,24 @@ internal object PageBandObjects {
             if (box.wrap != PdfBoxWrap.NONE) unsupported("Wrapped text frames in page bands are not qualified")
             result += BoxLayouter.layout(box, page, origin + paragraphTop, measurer).copy(pageY = true)
         }
+        // In Word a full-page header picture stays within its story's stack, underneath body content.
+        val cover = if (header && boxes.isEmpty() && images.all { (image, _) ->
+            image.anchor == PdfBoxAnchor.PAGE && image.drawingOrder != null
+        }) result.filterIsInstance<PositionedImage>().singleOrNull { pageCover(it, page) } else null
         val bounds = result.map(::bounds)
         for (index in bounds.indices) for (other in 0 until index) {
             val a = bounds[index]; val b = bounds[other]
+            if (cover != null && (result[index] === cover || result[other] === cover)) continue
             if (a[0] < b[2] - .001f && a[2] > b[0] + .001f && a[1] < b[3] - .001f && a[3] > b[1] + .001f)
                 unsupported("Overlapping floating page-band objects are not qualified")
         }
-        return result
+        return if (cover == null) result else result.map { (it as PositionedImage).copy(headerUnderlay = true) }
     }
 
     fun occupied(band: PdfPageBand, footer: Boolean, page: PdfPage, content: Pair<List<PositionedElement>, Float>): Float {
         var required = band.offset + content.second
         for (element in content.first) {
+            if (element is PositionedImage && element.headerUnderlay && pageCover(element, page)) continue
             if (element is PositionedImage && element.pageY || element is PositionedBox && element.pageY) {
                 val bounds = bounds(element)
                 required = maxOf(required, if (footer) page.height - bounds[1] else bounds[3])
@@ -42,6 +49,10 @@ internal object PageBandObjects {
         }
         return required
     }
+
+    private fun pageCover(image: PositionedImage, page: PdfPage): Boolean =
+        image.link == null && image.x <= 2f && image.top <= 2f &&
+            image.x + image.image.width >= page.width - 2f && image.top + image.image.height >= page.height - 2f
 
     private fun bounds(element: PositionedElement): FloatArray = when (element) {
         is PositionedImage -> floatArrayOf(element.x, element.top, element.x + element.image.width, element.top + element.image.height)

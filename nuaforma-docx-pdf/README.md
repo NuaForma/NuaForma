@@ -287,3 +287,5 @@ A bounded final EMF object deletion can immediately precede a valid end record w
 Fixed unwrapped page-band pictures may retain their visible portion when a physical page edge clips the source crop.
 
 A terminal cell preference within the qualified downward rounding tolerance retains the saved fixed-table grid.
+
+A fixed full-page header picture can layer behind body text while retaining the order of smaller header objects.

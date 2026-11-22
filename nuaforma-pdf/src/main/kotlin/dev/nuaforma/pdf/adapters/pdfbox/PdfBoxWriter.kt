@@ -165,12 +165,17 @@ internal object PdfBoxWriter {
                             else -> null
                         }
 
-                        fun layer(element: PositionedElement): Int = drawingOrder(element)?.let {
-                            if (it.layer == PdfDrawingLayer.BACKGROUND) -2 else 2
-                        } ?: when {
-                            element is PositionedStroke -> when (element.layer) { StrokeLayer.FLOW -> 0; StrokeLayer.BACKGROUND -> -1; StrokeLayer.FOREGROUND -> 1 }
-                            element is PositionedImage && element.foreground -> 1
-                            else -> 0
+                        fun layer(element: PositionedElement): Int = when {
+                            element is PositionedImage && element.headerUnderlay -> {
+                                if (element.drawingOrder?.layer == PdfDrawingLayer.BACKGROUND) -4 else -3
+                            }
+                            else -> drawingOrder(element)?.let {
+                                if (it.layer == PdfDrawingLayer.BACKGROUND) -2 else 2
+                            } ?: when {
+                                element is PositionedStroke -> when (element.layer) { StrokeLayer.FLOW -> 0; StrokeLayer.BACKGROUND -> -1; StrokeLayer.FOREGROUND -> 1 }
+                                element is PositionedImage && element.foreground -> 1
+                                else -> 0
+                            }
                         }
 
                         val ordered = elements.sortedWith(compareBy<PositionedElement>(::layer)

@@ -25,7 +25,7 @@ internal data class TabLinkArea(val offset: Float, val width: Float)
 internal data class TextBackground(val width: Float, val ascent: Float, val height: Float, val offset: Float = 0f)
 internal data class PositionedText(val text: String, val style: PdfTextStyle, val x: Float, val baseline: Float, val decoration: Boolean = false, val navigation: PdfTextNavigation? = null, val logicalOwner: String? = null, val span: PdfSpanSemantics? = null, val logicalOffset: Int? = null, val pageOffset: PdfParagraphPageOffset? = null, val trailingDecorationWidth: Float? = null, val requiresPhysicalBounds: Boolean = false, val background: TextBackground? = null,
     val physicalLeftOverhang: Float? = null, val tabLinkArea: TabLinkArea? = null) : PositionedElement
-internal data class PositionedImage(val image: PdfImage, val x: Float, val top: Float, val foreground: Boolean = false, val pageOffset: PdfParagraphPageOffset? = null, val pageY: Boolean = false, val requiresPhysicalBounds: Boolean = false, val clip: RectangleClip? = null, val drawingOrder: PdfDrawingOrder? = null, val link: PdfLink.External? = null) : PositionedElement
+internal data class PositionedImage(val image: PdfImage, val x: Float, val top: Float, val foreground: Boolean = false, val pageOffset: PdfParagraphPageOffset? = null, val pageY: Boolean = false, val requiresPhysicalBounds: Boolean = false, val clip: RectangleClip? = null, val drawingOrder: PdfDrawingOrder? = null, val link: PdfLink.External? = null, val headerUnderlay: Boolean = false) : PositionedElement
 internal data class RectangleClip(val left: Float, val top: Float, val right: Float, val bottom: Float) {
 
     fun translated(x: Float, y: Float) = RectangleClip(left + x, top + y, right + x, bottom + y)
