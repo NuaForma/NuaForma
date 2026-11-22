@@ -1286,7 +1286,13 @@ internal class NativeDocxReader(
             }
             if (customBorders) {
                 val styles = rows.flatMap { it.cells }.flatMap { cell -> cell.borders!!.let { listOfNotNull(it.top, it.right, it.bottom, it.left) } }.map { it.border }.distinct()
-                check(styles.size <= 1, "Conflicting cell-border colors and widths are not qualified")
+                // The shared border resolver can choose a winner for competing collinear strokes.
+                val fixedRowEdges = depth == 0 && !fields && !automaticLayout && !naturalWidths &&
+                    rows.all { row -> row.cells.all { cell ->
+                        cell.columnSpan == 1 && cell.rowSpan == 1 && cell.blocks.none { it is PdfTable }
+                    } }
+                check(styles.size <= 1 || fixedRowEdges && styles.map { it.color }.distinct().size == 1,
+                    "Mixed cell-border widths require a fixed flat body table with one solid color")
             }
             val count = headerFlags.takeWhile { it }.size
             check(headerFlags.drop(count).none { it }, "Table headers must be leading rows")

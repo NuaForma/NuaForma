@@ -249,3 +249,5 @@ Fixed body frames can share a page with footnotes when their painted bounds leav
 Saved DrawingML outline properties can accompany an explicitly invisible frame outline. The stored properties are validated and the visible frame remains transparent.
 
 A qualified Word page reference within its own internal hyperlink resolves to the actual page of the common target.
+
+Fixed flat body tables with one solid color can use different qualified direct cell-border widths.

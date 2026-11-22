@@ -49,7 +49,6 @@ class OwnEngineCellBordersTest {
             "<w:tcBorders><w:top w:val=\"single\" w:sz=\"4\" w:color=\"auto\"/>",
             "<w:tcBorders><w:tl2br w:val=\"single\" w:sz=\"4\" w:color=\"00999F\"/>",
             "<w:tcBorders><w:top w:val=\"nil\" w:sz=\"NaN\"/>",
-            "<w:tcBorders><w:top w:val=\"single\" w:sz=\"8\" w:color=\"00999F\"/>",
             "<w:tcBorders><w:top w:val=\"single\" w:sz=\"4\" w:color=\"7A3040\"/>",
         )) {
             val changed=edit(original) {it.replaceFirst(anchor,replacement)}
@@ -61,7 +60,23 @@ class OwnEngineCellBordersTest {
     fun `unqualified conflicting corner profiles reject rather than claiming Word fidelity`(profile:String) {
         val source=resource("/own-engine-border-conflicts/$profile/source.docx")
         val failure=assertThrows(IllegalArgumentException::class.java) {OwnEngineDocxReader().read(source)}
-        assertTrue(failure.message!!.contains("Conflicting cell-border"))
+        assertEquals("Mixed cell-border widths require a fixed flat body table with one solid color", failure.message)
+    }
+
+    @Test
+    fun oneColorCanRetainMixedStrokeWidthsInAFixedFlatTable() {
+        val unchanged = source("colors")
+        val thin = """<w:tcBorders><w:top w:val="single" w:sz="4" w:color="00999F"/>"""
+        val thick = thin.replace("w:sz=\"4\"", "w:sz=\"8\"")
+        val document = OwnEngineDocxReader().read(edit(unchanged) { it.replaceFirst(thin, thick) })
+        val table = document.blocks.filterIsInstance<PdfTable>().first()
+        assertEquals(1f, table.rows.first().cells.first().borders?.top?.border?.width)
+        assertTrue(table.rows.first().cells.drop(1).any { it.borders?.top?.border?.width == .5f })
+        Loader.loadPDF(PdfEngine().render(document, fonts())).use { output ->
+            assertEquals(1, output.numberOfPages)
+            val rendered = PDFTextStripper().getText(output)
+            assertEquals(36, Regex("\\bB[0-9]{2}C[1-3]\\b").findAll(rendered).count())
+        }
     }
 
     private fun edit(source:ByteArray,transform:(String)->String):ByteArray {
