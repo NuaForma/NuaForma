@@ -38,11 +38,12 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
     }
 
     internal fun validateNavigation(allowUnresolved: Boolean = false) {
-        val navigation = allParagraphs().flatMap { it.runs }.mapNotNull { when (it) {
+        val paragraphs = allParagraphs()
+        val navigation = paragraphs.flatMap { it.runs }.mapNotNull { when (it) {
             is PdfTextRun -> it.navigation; is PdfReferenceField -> it.navigation; is PdfSequenceField -> it.navigation; is PdfNoteCall -> it.navigation; is PdfNoteLabel -> it.navigation; else -> null
         } }
         require(navigation.size <= 2_000) { "Navigation budget exceeded" }
-        val destinations = navigation.flatMap { it.destinations }.map { it.name }
+        val destinations = (navigation.flatMap { it.destinations } + paragraphs.flatMap { it.endDestinations }).map { it.name }
         require(destinations.size <= 1_000 && destinations.distinct().size == destinations.size) { "Duplicate or excessive destinations" }
         val names = destinations.toSet()
         require(allowUnresolved || navigation.mapNotNull { it.link as? PdfLink.Internal }.all { it.destination in names }) { "Missing internal destination" }
@@ -455,7 +456,8 @@ class PdfParagraph private constructor(
         val spacing: PdfParagraphSpacing = PdfParagraphSpacing(), val pageOffset: PdfParagraphPageOffset? = null,
         val minimumLineStyle: PdfTextStyle? = null, val minimumLineHeight: Float? = null,
         val underlineTrailingSpaces: Boolean? = null, val paragraphMarkStyle: PdfTextStyle? = null,
-        val breakLongWords: Boolean = false, val background: PdfColor? = null)
+        val breakLongWords: Boolean = false, val background: PdfColor? = null,
+        val endDestinations: List<PdfDestination> = emptyList())
     /** Original constructors and Kotlin default-argument bridge remain binary compatible. */
     @JvmOverloads constructor(runs: List<PdfInline>, spaceBefore: Float = 0f, spaceAfter: Float = 8f,
         format: PdfParagraphFormat = PdfParagraphFormat(), listLabel: PdfListLabel? = null,
@@ -482,27 +484,27 @@ class PdfParagraph private constructor(
 
     fun withBackground(color: PdfColor?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
         format, listLabel, anchoredImages, semantics, contents,
-        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces, paragraphMarkStyle, breakLongWords, color))
+        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces, paragraphMarkStyle, breakLongWords, color, endDestinations))
 
     /** Break an oversized unshaped word at grapheme boundaries after ordinary wrapping. */
     fun withLongWordBreaking(enabled: Boolean): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
         format, listLabel, anchoredImages, semantics, contents,
-        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces, paragraphMarkStyle, enabled, background))
+        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces, paragraphMarkStyle, enabled, background, endDestinations))
 
     /** Font metrics for an implicit empty final line following a line break. */
     fun withParagraphMarkStyle(style: PdfTextStyle?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
         format, listLabel, anchoredImages, semantics, contents,
-        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces, style, breakLongWords, background))
+        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces, style, breakLongWords, background, endDestinations))
 
     /** Explicit trailing-space decoration; null preserves the original paragraph behavior. */
     fun withUnderlineTrailingSpaces(enabled: Boolean?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
         format, listLabel, anchoredImages, semantics, contents,
-        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, enabled, paragraphMarkStyle, breakLongWords, background))
+        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, enabled, paragraphMarkStyle, breakLongWords, background, endDestinations))
 
     /** Minimum natural line height in points; null retains the original line-spacing policy. */
     fun withMinimumLineHeight(points: Float?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
         format, listLabel, anchoredImages, semantics, contents,
-        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, points, underlineTrailingSpaces, paragraphMarkStyle, breakLongWords, background))
+        Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, points, underlineTrailingSpaces, paragraphMarkStyle, breakLongWords, background, endDestinations))
 
     /** Additive immutable policy; existing public constructors retain their binary descriptors. */
     fun withSpacing(spacing: PdfParagraphSpacing): PdfParagraph = copy(spacing = spacing)
@@ -511,7 +513,7 @@ class PdfParagraph private constructor(
 
     /** Nonprinting font metrics can establish a minimum automatic line box without styling the text. */
     fun withMinimumLineStyle(style: PdfTextStyle?): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter,
-        format, listLabel, anchoredImages, semantics, contents, Decoration(borders, lines, spacing, pageOffset, style, minimumLineHeight, underlineTrailingSpaces, paragraphMarkStyle, breakLongWords, background))
+        format, listLabel, anchoredImages, semantics, contents, Decoration(borders, lines, spacing, pageOffset, style, minimumLineHeight, underlineTrailingSpaces, paragraphMarkStyle, breakLongWords, background, endDestinations))
 
     fun copy(runs: List<PdfInline> = this.runs, spaceBefore: Float = this.spaceBefore, spaceAfter: Float = this.spaceAfter,
         format: PdfParagraphFormat = this.format, listLabel: PdfListLabel? = this.listLabel,
@@ -519,12 +521,26 @@ class PdfParagraph private constructor(
         contents: PdfContents? = this.contents, borders: PdfParagraphBorders? = this.borders, lines: List<PdfLineDrawing> = this.lines,
         spacing: PdfParagraphSpacing = this.spacing, pageOffset: PdfParagraphPageOffset? = this.pageOffset,
     ): PdfParagraph = PdfParagraph(runs, spaceBefore, spaceAfter, format, listLabel, anchoredImages,
-        semantics, contents, Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces, paragraphMarkStyle, breakLongWords, background))
+        semantics, contents, Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight, underlineTrailingSpaces, paragraphMarkStyle, breakLongWords, background, endDestinations))
+
+    /** Anchors names at the end of the final laid-out line without adding visible content. */
+    val endDestinations: List<PdfDestination> = Collections.unmodifiableList(ArrayList(decoration.endDestinations))
+
+    fun withEndDestinations(destinations: List<PdfDestination>): PdfParagraph =
+        PdfParagraph(runs, spaceBefore, spaceAfter, format, listLabel, anchoredImages, semantics, contents,
+            Decoration(borders, lines, spacing, pageOffset, minimumLineStyle, minimumLineHeight,
+                underlineTrailingSpaces, paragraphMarkStyle, breakLongWords, background, destinations))
 
     val runs: List<PdfInline> = Collections.unmodifiableList(ArrayList(runs))
     val anchoredImages: List<PdfAnchoredImage> = Collections.unmodifiableList(ArrayList(anchoredImages))
     val lines: List<PdfLineDrawing> = Collections.unmodifiableList(ArrayList(decoration.lines))
     init {
+        require(endDestinations.size <= 32 && endDestinations.map { it.name }.distinct().size == endDestinations.size) {
+            "Invalid paragraph-end navigation anchors"
+        }
+        require(endDestinations.isEmpty() || contents == null && format.textDirection == null) {
+            "Paragraph-end navigation requires ordinary left-to-right text"
+        }
         require(minimumLineHeight == null || minimumLineHeight.isFinite() && minimumLineHeight in 0f..14_400f) { "Invalid minimum line height" }
         require(minimumLineHeight == null || format.exactLineHeight == null && format.automaticLineSpacing == null) { "Conflicting minimum line policy" }
         require(pageOffset == null || format.leftIndent + pageOffset.x >= 0 && format.rightIndent - pageOffset.x >= 0 &&

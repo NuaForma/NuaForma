@@ -37,6 +37,7 @@ internal object LogicalStructureBuilder {
             val text = paragraphText(p)
             add(PdfSemanticNode(semantic.id, semantic.role, parent, semantic.level, text = text))
             semantic.captionTargetId?.let { captions[semantic.id] = it }
+            p.endDestinations.forEach { aliases[it.name] = semantic.id }
             p.listLabel?.let { span(semanticChildId(semantic.id, "label"), PdfSemanticRole.LABEL, semantic.id, it.value.text) }
             for ((index, run) in p.runs.withIndex()) when (run) {
                 is PdfTextRun -> {

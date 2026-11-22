@@ -30,24 +30,7 @@ internal class PdfNavigationWriter(private val pdf: PDDocument) {
         val height = page.mediaBox.height
         val bottom = maxOf(0f, height - text.baseline - metrics.descent)
         val top = minOf(height, height - text.baseline + metrics.ascent)
-        if (text.text.isNotBlank()) for (destination in navigation.destinations) {
-            if (destination.name in destinations) continue
-            val target = PDPageXYZDestination().apply {
-                this.page = page
-                left = kotlin.math.floor(text.x.coerceIn(0f, page.mediaBox.width)).toInt()
-                this.top = kotlin.math.ceil(top).toInt()
-                zoom = 0f
-            }
-            destinations[destination.name] = target
-            destination.title?.let { title ->
-                while (outlineParents.lastOrNull()?.first?.let { it >= destination.level } == true) outlineParents.removeAt(outlineParents.lastIndex)
-                val item = PDOutlineItem().apply { this.title = title; this.destination = target }
-                val parent = outlineParents.lastOrNull()?.second
-                if (parent == null) outline.addLast(item) else parent.addLast(item)
-                outlineParents += destination.level to item
-                hasOutline = true
-            }
-        }
+        if (text.text.isNotBlank()) navigation.destinations.forEach { addDestination(it, page, text.x, top) }
         val link = navigation.link ?: return
         if (++annotations > 4_000) throw PdfRenderException(PdfFailureCode.RESOURCE_LIMIT, "Link annotation budget exceeded")
         val left = maxOf(0f, text.x)
@@ -64,6 +47,25 @@ internal class PdfNavigationWriter(private val pdf: PDDocument) {
                 is PdfLink.Internal -> destination = PDNamedDestination(link.destination)
             }
         })
+    }
+
+    fun addDestination(destination: PdfDestination, page: PDPage, x: Float, top: Float) {
+        if (destination.name in destinations) return
+        val target = PDPageXYZDestination().apply {
+            this.page = page
+            left = kotlin.math.floor(x.coerceIn(0f, page.mediaBox.width)).toInt()
+            this.top = kotlin.math.ceil(top.coerceIn(0f, page.mediaBox.height)).toInt()
+            zoom = 0f
+        }
+        destinations[destination.name] = target
+        destination.title?.let { title ->
+            while (outlineParents.lastOrNull()?.first?.let { it >= destination.level } == true) outlineParents.removeAt(outlineParents.lastIndex)
+            val item = PDOutlineItem().apply { this.title = title; this.destination = target }
+            val parent = outlineParents.lastOrNull()?.second
+            if (parent == null) outline.addLast(item) else parent.addLast(item)
+            outlineParents += destination.level to item
+            hasOutline = true
+        }
     }
 
     fun finish() {

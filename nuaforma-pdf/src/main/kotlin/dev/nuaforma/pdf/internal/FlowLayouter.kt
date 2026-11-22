@@ -394,6 +394,7 @@ internal object FlowLayouter {
     }
 
     internal fun translate(element: PositionedElement, x: Float, y: Float): PositionedElement = when (element) {
+        is PositionedDestination -> element.copy(x = element.x + x, top = element.top + y)
         is PositionedVector -> element.copy(x = element.x + x, top = element.top + y)
         is PositionedStroke -> element.copy(x = element.x + if (element.pageX) 0f else x, endX = element.endX + if (element.pageX) 0f else x,
             top = element.top + if (element.pageY) 0f else y, endY = element.endY + if (element.pageY) 0f else y)

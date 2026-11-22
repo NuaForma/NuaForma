@@ -302,6 +302,9 @@ internal object PdfBoxWriter {
                                     command("Q")
                                 }
                                 is PositionedTableBorder -> Unit
+                                is PositionedDestination -> element.targets.forEach { target ->
+                                    navigation.addDestination(target, page, element.x, canvasHeight - element.top)
+                                }
                                 is PositionedText -> {
                                     if (element.navigation != null) navigation.add(element, page, measurer.measure(element.text, element.style))
                                     if (element.decoration) command("BMC", COSName.ARTIFACT)

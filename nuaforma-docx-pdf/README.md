@@ -231,3 +231,5 @@ The Word numeric picture 0 is accepted on PAGE, NUMPAGES and SECTIONPAGES. These
 Ordinary unrotated fixed DrawingML text boxes in the main story can keep their original rectangle while longer text continues below it. The frame and text remain within the physical page.
 
 In a merged table, permission for an ordinary row to split is accepted when the resolved table can keep the relevant row whole. The current restrictions for fragmenting merged cells still apply.
+
+A qualified left-to-right paragraph can retain a bookmark at the end of its last physical line or at the start of an empty line. Links resolve to this anchor without adding printable characters.

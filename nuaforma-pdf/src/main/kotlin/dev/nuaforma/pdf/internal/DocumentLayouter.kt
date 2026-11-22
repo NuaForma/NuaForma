@@ -92,17 +92,29 @@ internal object DocumentLayouter {
 
     fun placedTargets(layout: DocumentLayout): Map<String, Int> {
         val result = linkedMapOf<String, Int>()
-        for ((index, page) in layout.pages.withIndex()) for (text in texts(page.elements)) if (text.text.isNotBlank()) {
-            text.logicalOwner?.let { result.putIfAbsent(it, layout.displayNumbers[index]) }
-            text.span?.let { result.putIfAbsent(it.id, layout.displayNumbers[index]) }
-            text.navigation?.destinations?.forEach { result.putIfAbsent(it.name, layout.displayNumbers[index]) }
+        for ((index, page) in layout.pages.withIndex()) {
+            val number = layout.displayNumbers[index]
+            for (text in texts(page.elements)) if (text.text.isNotBlank()) {
+                text.logicalOwner?.let { result.putIfAbsent(it, number) }
+                text.span?.let { result.putIfAbsent(it.id, number) }
+                text.navigation?.destinations?.forEach { result.putIfAbsent(it.name, number) }
+            }
+            for (anchor in page.elements.filterIsInstance<PositionedDestination>())
+                anchor.targets.forEach { result.putIfAbsent(it.name, number) }
         }
         return result
     }
 
     fun validatePlacedLinks(layout: DocumentLayout) {
-        val destinations = layout.pages.flatMap { texts(it.elements).toList() }.filter { it.text.isNotBlank() }
-            .flatMap { it.navigation?.destinations.orEmpty() }.map { it.name }.toSet()
+        val destinations = buildSet {
+            for (page in layout.pages) {
+                texts(page.elements).filter { it.text.isNotBlank() }.forEach { text ->
+                    text.navigation?.destinations?.forEach { add(it.name) }
+                }
+                for (anchor in page.elements.filterIsInstance<PositionedDestination>())
+                    anchor.targets.forEach { add(it.name) }
+            }
+        }
         for (page in layout.pages) for (text in texts(page.elements)) {
             val target = (text.navigation?.link as? PdfLink.Internal)?.destination ?: continue
             if (target !in destinations) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Internal navigation target is not placed")

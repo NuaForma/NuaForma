@@ -222,6 +222,7 @@ internal object TableLayouter {
     }
 
     private fun translate(element: PositionedElement, x: Float, y: Float): PositionedElement = when (element) {
+        is PositionedDestination -> element.copy(x = element.x + x, top = element.top + y)
         is PositionedVector -> element.copy(x = element.x + x, top = element.top + y)
         is PositionedStroke -> FlowLayouter.translate(element, x, y)
         is PositionedText -> element.copy(x = element.x + x, baseline = element.baseline + y)

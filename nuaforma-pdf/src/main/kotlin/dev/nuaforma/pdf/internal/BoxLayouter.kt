@@ -6,7 +6,7 @@ import kotlin.math.*
 internal object BoxLayouter {
 
     fun layout(box: PdfTextBox, page: PdfPage, paragraphTop: Float, measurer: TextMeasurer): PositionedBox {
-        if (box.paragraphs.any { p -> p.runs.filterIsInstance<PdfTextRun>().any { it.navigation != null } })
+        if (box.paragraphs.any { p -> p.endDestinations.isNotEmpty() || p.runs.filterIsInstance<PdfTextRun>().any { it.navigation != null } })
             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Navigation in text frames is not qualified")
         val halfStroke = (box.border?.width ?: 0f) / 2
         val fixedPosition = if (box.autoFit == null) locate(box, page, paragraphTop, halfStroke) else null

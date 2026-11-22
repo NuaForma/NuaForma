@@ -13,6 +13,8 @@ internal fun interface TextMeasurer {
 
 }
 internal sealed interface PositionedElement
+internal data class PositionedDestination(val targets: List<PdfDestination>, val x: Float, val top: Float,
+    val pageOffset: PdfParagraphPageOffset? = null) : PositionedElement
 internal data class PositionedVector(val run: PdfVectorRun, val x: Float, val top: Float,
     val pageOffset: PdfParagraphPageOffset? = null) : PositionedElement
 internal enum class StrokeLayer { FLOW, BACKGROUND, FOREGROUND }
@@ -164,7 +166,7 @@ internal object PageLayouter {
                         java.text.Bidi(text, if (direction == PdfTextDirection.RIGHT_TO_LEFT) java.text.Bidi.DIRECTION_RIGHT_TO_LEFT else java.text.Bidi.DIRECTION_LEFT_TO_RIGHT)
                     }
 
-                    fun flush(justify: Boolean = false) {
+                    fun flush(justify: Boolean = false, terminal: Boolean = false) {
                         if (line.isEmpty()) return
                         val deferredListLabel = label != null && line.all { it.lineBreak != null } && line.any { it.pageBreak }
                         if (justify && lineContainsAnchoredTab && format.alignment == PdfAlignment.JUSTIFY)
@@ -209,6 +211,7 @@ internal object PageLayouter {
                             PdfAlignment.CENTER -> remaining / 2
                             PdfAlignment.RIGHT -> remaining
                         }
+                        val lineStartX = x
                         val lastTab = line.indexOfLast { it.tab != null }
                         val firstContent = line.indices.firstOrNull { index ->
                             index > lastTab && line[index].lineBreak == null && line[index].text.any { it != ' ' }
@@ -253,6 +256,10 @@ internal object PageLayouter {
                                 }
                             }
                             x += fragment.metrics.width + extra
+                        }
+                        if (terminal && block.endDestinations.isNotEmpty()) {
+                            val blank = line.all { it.text.isBlank() && it.tab == null && it.image == null && it.vector == null }
+                            elements += PositionedDestination(block.endDestinations, if (blank) lineStartX else x, top)
                         }
                         if (block.underlineTrailingSpaces == true) {
                             if (paragraphBidi != null && spaces.any { it.style?.let { style -> style.underline || style.strikethrough } == true })
@@ -483,7 +490,7 @@ internal object PageLayouter {
                                 metrics = space.metrics.copy(width = 0f)) }
                         }
                     }
-                    flush()
+                    flush(terminal = true)
                     val strokes = mutableListOf<PositionedElement>()
                     ParagraphLines.strokes(block, frame, width, paragraphTop, top - paragraphTop, true, true, strokes)
                     val decorations = strokes.map { FlowLayouter.translate(it, page.margins.left, 0f) }

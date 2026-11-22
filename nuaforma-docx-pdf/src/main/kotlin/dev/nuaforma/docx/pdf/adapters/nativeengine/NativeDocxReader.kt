@@ -827,7 +827,12 @@ internal class NativeDocxReader(
             }.also { converted ->
                 for (key in openBookmarks) bookmarkNames[key]?.let { bookmarkRuns.getValue(it).addAll(converted) }
             } }
-            check(pendingDestinations.isEmpty(), "Bookmark requires following visible paragraph text")
+            if (pendingDestinations.isNotEmpty()) {
+                check(pendingDestinations.none { it.name == "_GoBack" }, "Bookmark requires following visible paragraph text")
+                check(!fields && currentNoteKind == null && geometry.direction == null &&
+                    runs.all { it is PdfTextRun || it is PdfTab || it is PdfLineBreak },
+                    "Paragraph-end bookmarks require ordinary body text")
+            }
             val markStyle = markFace?.takeIf { measureMark && (geometry.automatic != null || geometry.minimum != null || runs.isEmpty()) }?.let(::textStyle)
             val content = runs.ifEmpty { listOf(PdfTextRun(" ", markStyle ?: textStyle(base))) }
             check(content.none { it is PdfImageRun } || content.size == 1, "Mixed image/text paragraphs are outside the proof profile")
@@ -891,6 +896,7 @@ internal class NativeDocxReader(
                 .withParagraphMarkStyle(if ((geometry.automatic != null || geometry.minimum != null) && content.any { it is PdfLineBreak })
                     markStyle ?: textStyle(base) else null)
                 .withBackground(geometry.background)
+                .withEndDestinations(pendingDestinations)
         }
 
         fun readTable(table: XmlElement, partRelations: Map<String, String>, fields: Boolean, depth: Int = 0): PdfTable {
