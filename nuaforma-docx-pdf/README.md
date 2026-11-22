@@ -339,3 +339,5 @@ An unpainted last left tab retains its font metrics when the requested blank adv
 Qualified horizontal bands retain ordinary row lines without adding an interior vertical stroke to an outside-only table outline.
 
 Separately stored Word hyperlink fragments retain the complete external destination and visible label.
+
+An ordinary row with no owning note can stay whole in note-aware layout. A required physical row split retains an explicit diagnostic.

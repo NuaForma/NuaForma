@@ -164,9 +164,9 @@ internal object NoteFlowLayouter {
                     val table = TableLayouter.measure(block, measurer, width)
                     TableLayouter.checkWidth(table.table, width, page.margins.left, page.width - page.margins.left)
                     val left = page.margins.left + table.table.leftIndent
-                    if (block.rows.any { it.allowSplit }) unsupported("Splitting table rows with notes is not qualified")
                     val complex = block.rows.any { row -> row.cells.any { it.rowSpan > 1 || it.blocks.any { value -> value is PdfTable } } }
                     if (complex) {
+                        if (block.rows.any { it.allowSplit }) unsupported("Splitting complex table rows with notes is not qualified")
                         val elements = mutableListOf<PositionedElement>()
                         val height = table.offsets.last() + table.closing
                         TableLayouter.slice(table, 0f, table.offsets.last(), left, top, elements)
@@ -184,7 +184,17 @@ internal object NoteFlowLayouter {
                                 closeStart = index > block.repeatedHeaderRows, closeEnd = index < block.rows.lastIndex)
                             val height = table.heights[index]
                             val calls = NoteResolver.callIds(row)
+                            val sourceRow = block.rows[index]
+                            if (sourceRow.allowSplit && calls.isNotEmpty())
+                                unsupported("Splittable table rows owning notes are not qualified")
                             while (!notes.accept(top + height + table.closing + if (needHeader) headerHeight else 0f, calls)) {
+                                val minimumOwnsHeight = sourceRow.minimumHeight?.let { it >= height - .001f } == true
+                                if (sourceRow.allowSplit && !minimumOwnsHeight) {
+                                    val headerSpace = if (needHeader) headerHeight else 0f
+                                    val available = notes.bodyBottom - top - headerSpace - table.frameAt(index) - table.closing
+                                    if (available > .001f && TableLayouter.cut(table, index, 0f, available) > .001f)
+                                        unsupported("Splitting a table row across pages with notes is not qualified")
+                                }
                                 if (bodyItems == 0 && !notes.hasPending) overflow()
                                 nextPage(); needHeader = true
                             }

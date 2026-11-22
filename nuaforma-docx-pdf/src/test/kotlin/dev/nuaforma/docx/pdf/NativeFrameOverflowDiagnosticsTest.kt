@@ -12,12 +12,24 @@ class NativeFrameOverflowDiagnosticsTest {
     fun frameOverflowMeasurementsAreVisibleOnlyInDevelopment() {
         for (label in listOf("Text exceeds frame content height", "Text frame crosses a physical page side",
             "Auto-fitted text frame exceeds page width", "Auto-fitted text frame exceeds page height",
+            "Web address exceeds line width at a supported break",
             "Text frame crosses the physical page top or bottom")) {
             val measured = "$label; required=134.546875 pt; available=121.6 pt"
             val exception = PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, measured)
             val preview = NativePdfFailureDiagnostics.diagnostic(exception, LoggingMode.DEVELOPMENT)
             assertEquals(RejectionReason.NATIVE_PDF_RENDER_REJECTED, preview.rejectionReason)
             assertEquals("CONTENT_OVERFLOW: $measured", preview.sourceContext?.explanation)
+            assertNull(NativePdfFailureDiagnostics.diagnostic(exception, LoggingMode.PRODUCTION).sourceContext)
+        }
+    }
+
+    @Test
+    fun unsupportedNoteTableExplanationsAreVisibleOnlyInDevelopment() {
+        for (reason in listOf("Splittable table rows owning notes are not qualified",
+            "Splitting a table row across pages with notes is not qualified", "Splitting complex table rows with notes is not qualified")) {
+            val exception = PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, reason)
+            assertEquals("UNSUPPORTED_TEXT: $reason",
+                NativePdfFailureDiagnostics.diagnostic(exception, LoggingMode.DEVELOPMENT).sourceContext?.explanation)
             assertNull(NativePdfFailureDiagnostics.diagnostic(exception, LoggingMode.PRODUCTION).sourceContext)
         }
     }
