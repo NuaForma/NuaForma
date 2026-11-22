@@ -18,17 +18,19 @@ class NativeFullWidthFloatingTableTest {
     @Test
     fun `the qualified full width text-relative table follows body flow`() {
         val support = NativeWordFeatureSupport(temporary)
-        val inline = support.generate(template(support, floating = false, full = true), "standard")
-        val positioned = support.generate(template(support, floating = true, full = true), "standard")
-        Loader.loadPDF(inline).use { expected ->
-            Loader.loadPDF(positioned).use { actual ->
-                assertEquals(expected.numberOfPages, actual.numberOfPages)
-                for (page in 0 until expected.numberOfPages) {
-                    assertImagesMatch(PDFRenderer(expected).renderImageWithDPI(page, 96f),
-                        PDFRenderer(actual).renderImageWithDPI(page, 96f)) {
-                        pixelTolerance = 0.0
-                        allowedDifferentPixelsPercent = 0.0
-                        threshold = 1
+        for (automatic in listOf(false, true)) {
+            val inline = support.generate(template(support, floating = false, full = true, automatic = automatic), "standard")
+            val positioned = support.generate(template(support, floating = true, full = true, automatic = automatic), "standard")
+            Loader.loadPDF(inline).use { expected ->
+                Loader.loadPDF(positioned).use { actual ->
+                    assertEquals(expected.numberOfPages, actual.numberOfPages)
+                    for (page in 0 until expected.numberOfPages) {
+                        assertImagesMatch(PDFRenderer(expected).renderImageWithDPI(page, 96f),
+                            PDFRenderer(actual).renderImageWithDPI(page, 96f)) {
+                            pixelTolerance = 0.0
+                            allowedDifferentPixelsPercent = 0.0
+                            threshold = 1
+                        }
                     }
                 }
             }
@@ -48,7 +50,7 @@ class NativeFullWidthFloatingTableTest {
         assertTrue(diagnostic.sourceContext?.path.orEmpty().contains("tblpPr"))
     }
 
-    private fun template(support: NativeWordFeatureSupport, floating: Boolean, full: Boolean): ByteArray {
+    private fun template(support: NativeWordFeatureSupport, floating: Boolean, full: Boolean, automatic: Boolean = false): ByteArray {
         val parts = PdfFixture.unzip(support.bytes(source)).toMutableMap()
         val part = "word/document.xml"
         val document = parts.getValue(part).decodeToString()
@@ -59,14 +61,18 @@ class NativeFullWidthFloatingTableTest {
             return value.toInt()
         }
 
-        val width = if (full) metric("pgSz", "w") - metric("pgMar", "left") - metric("pgMar", "right") - 4 else 5200
+        val area = metric("pgSz", "w") - metric("pgMar", "left") - metric("pgMar", "right")
+        val width = if (full) area - if (automatic) 20 else 4 else 5200
         val left = width / 2
         val right = width - left
+        val clearance = if (automatic) 187 else 180
         val anchor = if (floating) {
-            """<w:tblpPr w:leftFromText="180" w:rightFromText="180" w:vertAnchor="text" w:tblpY="1"/><w:tblOverlap w:val="never"/>"""
+            """<w:tblpPr w:leftFromText="$clearance" w:rightFromText="$clearance" w:vertAnchor="text" w:tblpY="1"/><w:tblOverlap w:val="never"/>"""
         } else ""
-        val structure = """<w:tbl><w:tblPr>$anchor<w:tblW w:w="$width" w:type="dxa"/><w:tblInd w:w="0" w:type="dxa"/>""" +
-            """<w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/>""" +
+        val preferred = if (automatic) """<w:tblW w:w="5000" w:type="pct"/>""" else """<w:tblW w:w="$width" w:type="dxa"/>"""
+        val layout = if (automatic) "autofit" else "fixed"
+        val structure = """<w:tbl><w:tblPr>$anchor$preferred<w:tblInd w:w="0" w:type="dxa"/>""" +
+            """<w:tblLayout w:type="$layout"/><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="108" w:type="dxa"/>""" +
             """<w:bottom w:w="0" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr>""" +
             """<w:tblGrid><w:gridCol w:w="$left"/><w:gridCol w:w="$right"/></w:tblGrid><w:tr>""" +
             cell(left, "FIRST_CELL") + cell(right, "SECOND_CELL") + "</w:tr></w:tbl>"

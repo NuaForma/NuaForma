@@ -1248,10 +1248,14 @@ internal class NativeDocxReader(
                     children(rule, emptySet())
                 }
                 source.current = anchor
-                check(anchor.value("leftFromText") == "180" && anchor.value("rightFromText") == "180" &&
-                    anchor.value("vertAnchor") == "text", "Only a qualified text-relative table position is supported")
+                val leftClearance = anchor.value("leftFromText")?.toIntOrNull()
+                val rightClearance = anchor.value("rightFromText")?.toIntOrNull()
+                val symmetric = leftClearance == rightClearance && leftClearance in 0..1440
+                check(symmetric && anchor.value("vertAnchor") == "text",
+                    "Only a qualified text-relative table position is supported")
                 when (anchor.value("horzAnchor")) {
                     "margin" -> {
+                        check(leftClearance == 180, "The text-relative margin anchor has unsupported side clearance")
                         check(overlap == null || overlap.value("val") == "never", "Overlapping floating tables are not qualified")
                         val saved = anchor.value("tblpY")?.toIntOrNull()?.takeIf { it in 0..32767 }
                             ?: reject("Invalid text-relative table top offset")
@@ -1751,10 +1755,17 @@ internal class NativeDocxReader(
             if (position != null) {
                 source.current = position
                 val spareWidth = contentWidth - widths.sum()
-                val fixedBody = depth == 0 && !fields && ranges.size == 1 && table in body.elements() &&
-                    modernTableAlignment && !automaticLayout && alignment == PdfTableAlignment.LEFT && indent == 0f
-                check(fixedBody && (if (floatingOffset == null) spareWidth in 0f..0.25f else spareWidth >= 0f),
-                    if (floatingOffset == null) "Only a full-width fixed table in ordinary body flow can use the qualified text-relative anchor"
+                val ordinaryBody = depth == 0 && !fields && ranges.size == 1 && table in body.elements() &&
+                    modernTableAlignment && alignment == PdfTableAlignment.LEFT && indent == 0f
+                val fixedWidth = !automaticLayout && position.value("leftFromText") == "180" &&
+                    (if (floatingOffset == null) spareWidth in 0f..0.25f else spareWidth >= 0f)
+                // No text can flow beside a nonoverlapping table that fills the column.
+                val exactPercentage = automaticLayout && floatingOffset == null && preferredTableWidth?.percent == 100f &&
+                    spareWidth in 0f..1.001f && rows.all { row -> row.cells.all { cell ->
+                        cell.columnSpan == 1 && cell.rowSpan == 1 && cell.blocks.none { it is PdfTable }
+                    } }
+                check(ordinaryBody && (fixedWidth || exactPercentage),
+                    if (floatingOffset == null) "Only a full-width table in ordinary body flow can use the qualified text-relative anchor"
                     else "Text-relative tables require a fixed left-aligned table inside ordinary body flow")
                 val floating = body.descendants().filter { it.name.namespaceURI == word && it.name.localPart == "tblpPr" }
                 val otherObjects = floatingOffset == null && body.descendants().any {

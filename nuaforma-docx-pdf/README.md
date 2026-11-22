@@ -395,3 +395,5 @@ A valid bookmark ending before a cell's first paragraph keeps its original text 
 Validated internal PNG definitions for unused Word picture bullets leave printed numbering unchanged. Visible picture bullets remain outside the qualified profile.
 
 Modern fixed and automatic flat tables can retain distinct border colors when the strokes share one width.
+
+An isolated nonoverlapping table with a qualified text-relative anchor can keep ordinary full-width flow with a 100% automatic width.
