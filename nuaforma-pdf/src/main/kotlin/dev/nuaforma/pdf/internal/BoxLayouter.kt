@@ -6,8 +6,18 @@ import kotlin.math.*
 internal object BoxLayouter {
 
     fun layout(box: PdfTextBox, page: PdfPage, paragraphTop: Float, measurer: TextMeasurer): PositionedBox {
-        if (box.paragraphs.any { p -> p.endDestinations.isNotEmpty() || p.runs.filterIsInstance<PdfTextRun>().any { it.navigation != null } })
-            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Navigation in text frames is not qualified")
+        if (box.paragraphs.any { paragraph ->
+                paragraph.endDestinations.isNotEmpty() || paragraph.runs.any { run ->
+                    when (run) {
+                        is PdfTextRun -> run.navigation?.let { link ->
+                            box.rotation != 0f || box.anchor != PdfBoxAnchor.PAGE ||
+                                link.link !is PdfLink.External || link.destinations.isNotEmpty()
+                        } ?: false
+                        is PdfTab -> run.navigation != null
+                        else -> false
+                    }
+                }
+            }) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Navigation in text frames is not qualified")
         val halfStroke = (box.border?.width ?: 0f) / 2
         val fixedPosition = if (box.autoFit == null) locate(box, page, paragraphTop, halfStroke) else null
         val padding = if (box.autoFit == null) box.padding else box.padding.let {

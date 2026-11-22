@@ -255,3 +255,5 @@ Fixed flat body tables with one solid color can use different qualified direct c
 A background header picture can retain a closed tight wrapping contour that sits wholly above the body. Other kinds of shaped wrapping require separate qualification.
 
 Qualified fixed table cells can suppress the end mark while retaining visible text and ordinary tab layout.
+
+Existing external-link targets can remain clickable inside a fixed unrotated text frame. Annotations use translated physical page coordinates.

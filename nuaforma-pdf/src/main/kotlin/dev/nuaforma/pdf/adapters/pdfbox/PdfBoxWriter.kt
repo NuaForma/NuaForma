@@ -157,7 +157,7 @@ internal object PdfBoxWriter {
 
                     fun number(value: Float) = COSFloat(value)
 
-                    fun paint(elements: List<PositionedElement>, canvasHeight: Float, canvasWidth: Float) {
+                    fun paint(elements: List<PositionedElement>, canvasHeight: Float, canvasWidth: Float, originX: Float = 0f, originTop: Float = 0f) {
 
                         fun drawingOrder(element: PositionedElement): PdfDrawingOrder? = when (element) {
                             is PositionedBox -> element.box.drawingOrder
@@ -190,14 +190,14 @@ internal object PdfBoxWriter {
                                     val clipped = ParagraphBackgrounds.clipped(fill) ?: continue
                                     ParagraphBackgrounds.validate(clipped, canvasWidth, canvasHeight)
                                     command("BMC", COSName.ARTIFACT)
-                                    paint(listOf(clipped.copy(paragraph = null)), canvasHeight, canvasWidth)
+                                    paint(listOf(clipped.copy(paragraph = null)), canvasHeight, canvasWidth, originX, originTop)
                                     command("EMC")
                                 }
                                 for (text in group.filterIsInstance<PositionedText>()) {
                                     control.checkActive()
                                     val background = TextBackgrounds.rectangle(text, canvasWidth, canvasHeight) ?: continue
                                     command("BMC", COSName.ARTIFACT)
-                                    paint(listOf(background), canvasHeight, canvasWidth)
+                                    paint(listOf(background), canvasHeight, canvasWidth, originX, originTop)
                                     command("EMC")
                                 }
                             }
@@ -282,7 +282,8 @@ internal object PdfBoxWriter {
                                     command("cm", number(c), number(-s), number(s), number(c),
                                         number(element.x + cx - c * cx - s * cy),
                                         number(canvasHeight - element.top - cy + s * cx - c * cy - extension))
-                                    paint(element.elements, element.contentHeight, element.box.width)
+                                    paint(element.elements, element.contentHeight, element.box.width,
+                                        originX + element.x, originTop + element.top)
                                     command("Q")
                                 }
                                 is PositionedRectangle -> {
@@ -306,7 +307,11 @@ internal object PdfBoxWriter {
                                     navigation.addDestination(target, page, element.x, canvasHeight - element.top)
                                 }
                                 is PositionedText -> {
-                                    if (element.navigation != null) navigation.add(element, page, measurer.measure(element.text, element.style))
+                                    if (element.navigation != null) {
+                                        val physical = if (originX == 0f && originTop == 0f) element
+                                            else element.copy(x = element.x + originX, baseline = element.baseline + originTop)
+                                        navigation.add(physical, page, measurer.measure(element.text, element.style))
+                                    }
                                     if (element.decoration) command("BMC", COSName.ARTIFACT)
                                     element.style.languageTag?.let { language ->
                                         val properties = COSDictionary().apply { setString(COSName.LANG, language) }
@@ -417,7 +422,7 @@ internal object PdfBoxWriter {
                             }
                         }
                         val tableBorders = TableBorderLayouter.rectangles(elements, canvasWidth, canvasHeight)
-                        if (tableBorders.isNotEmpty()) paint(tableBorders, canvasHeight, canvasWidth)
+                        if (tableBorders.isNotEmpty()) paint(tableBorders, canvasHeight, canvasWidth, originX, originTop)
                     }
 
                     decoration?.paint(page, writer, layout.page.width, layout.page.height)
