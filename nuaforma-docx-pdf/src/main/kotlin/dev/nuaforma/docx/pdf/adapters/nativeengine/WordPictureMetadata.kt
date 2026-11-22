@@ -13,6 +13,8 @@ internal object WordPictureMetadata {
     private const val WP = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
     private const val DECORATIVE = "http://schemas.microsoft.com/office/drawing/2017/decorative"
     private const val DECORATIVE_URI = "{C183D7F6-B498-43B3-948B-1728B52AA6E4}"
+    private const val SVG = "http://schemas.microsoft.com/office/drawing/2016/SVG/main"
+    private const val SVG_URI = "{96DAC541-7B7A-43D3-8B79-37D633B846F1}"
     private val locks = setOf("noGrp", "noSelect", "noRot", "noChangeAspect", "noMove", "noResize", "noEditPoints",
         "noAdjustHandles", "noChangeArrowheads", "noChangeShapeType", "noCrop")
     private val booleans = setOf("0", "1", "false", "true")
@@ -32,6 +34,7 @@ internal object WordPictureMetadata {
                 name.namespaceURI == R && name.localPart == "embed" || compressionState(name, value)
             }
             if (!valid) reject(node, "Unsupported original embedded image attribute or compression state")
+            svgReference(node, reject)
         }
     }
 
@@ -101,6 +104,38 @@ internal object WordPictureMetadata {
         "cmpd" -> value in setOf("sng", "dbl", "thickThin", "thinThick", "tri")
         "algn" -> value in setOf("ctr", "in")
         else -> false
+    }
+
+    data class SvgReference(val relationship: String, private val list: XmlElement, private val extension: XmlElement) {
+        fun consume(blip: XmlElement) {
+            list.children.remove(extension)
+            if (list.elements().isEmpty()) blip.children.remove(list)
+        }
+    }
+
+    fun svgReference(blip: XmlElement, reject: (XmlElement, String) -> Nothing): SvgReference? {
+        val lists = blip.elements().filter { it.isName(A, "extLst") }
+        val extensions = lists.flatMap { list -> list.elements().map { list to it } }.filter { (_, entry) ->
+            entry.attribute("", "uri")?.equals(SVG_URI, ignoreCase = true) == true ||
+                entry.elements().any { it.isName(SVG, "svgBlip") }
+        }
+        if (extensions.isEmpty()) return null
+        val (list, extension) = extensions.first()
+        if (extensions.size != 1 || lists.size != 1 || list.attributes.isNotEmpty() ||
+            list.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
+            !extension.isName(A, "ext") || extension.attributes.size != 1 ||
+            extension.attribute("", "uri")?.equals(SVG_URI, ignoreCase = true) != true ||
+            extension.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
+            reject(extension, "Invalid original SVG picture extension")
+        val svg = extension.elements().singleOrNull()
+        if (svg == null || !svg.isName(SVG, "svgBlip") || svg.attributes.size != 1 || !empty(svg))
+            reject(svg ?: extension, "Invalid original embedded SVG reference")
+        val relationship = svg.attribute(R, "embed")?.takeIf { it.isNotBlank() }
+            ?: reject(svg, "An SVG picture requires an internal embedded reference")
+        val fallback = blip.attribute(R, "embed")
+        if (fallback.isNullOrBlank() || fallback == relationship)
+            reject(blip, "An SVG picture requires a distinct embedded raster fallback")
+        return SvgReference(relationship, list, extension)
     }
 
     private fun localDpi(parent: XmlElement, reject: (XmlElement, String) -> Nothing) {

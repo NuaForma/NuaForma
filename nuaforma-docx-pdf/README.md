@@ -219,3 +219,5 @@ Unrotated DrawingML text boxes can use Word shape autofit. Wrapped text adjusts 
 A narrow profile admits direction properties on ordinary nonprinting header tabs and paragraph marks when the ordinary and complex-script faces and sizes match. The check runs after template evaluation. Visible text still follows the native script and direction checks.
 
 A qualified page-relative text box can align to the left, center or right and to the top, center or bottom of the physical page. Alignment uses the finished frame size. A stroke on an expressly aligned page edge follows the physical page crop.
+
+Embedded Office SVG pictures may use an internal SVG part with static filled paths and a distinct embedded raster fallback. The renderer uses the SVG for qualified inputs with the existing picture placement. External references, scripts, complex styling and effects remain outside this profile.

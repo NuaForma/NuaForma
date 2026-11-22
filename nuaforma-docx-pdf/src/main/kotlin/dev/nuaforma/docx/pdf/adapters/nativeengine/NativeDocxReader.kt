@@ -36,6 +36,8 @@ internal class NativeDocxReader(
     private val source = NativeDocxSource(context)
     private val parsed = linkedMapOf<String, XmlElement>()
     private val jpegs = NativeJpegImages(context)
+    private val svgPictures = mutableMapOf<String, ByteArray>()
+    private var svgPictureBytes = 0L
     private var metafiles = dev.nuaforma.docx.pdf.adapters.nativeengine.emf.NativeEmfImages(context, null, false)
     private val lineReader = NativeDocxLines({ node -> source.current = node; activePart = provenance[node] ?: activePart }, ::reject)
     private val vectorReader = NativeDocxVectors({ node -> source.current = node; activePart = provenance[node] ?: activePart }, ::reject)
@@ -238,6 +240,17 @@ internal class NativeDocxReader(
             it.attribute("", "Type") == "http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" && it.attribute("", "Target") == "docProps/core.xml" }, "Unsupported package metadata relationship")
         val types = part("[Content_Types].xml")
         check(types.descendants().none { it.attributes.values.any { value -> value.contains("macroEnabled", true) } }, "Macros are unsupported")
+        if (parts.keys.any { it.endsWith(".svg", true) }) {
+            val declarations = types.elements().filter { it.attribute("", "Extension")?.equals("svg", true) == true }
+            val type = declarations.singleOrNull()
+            val namespace = "http://schemas.openxmlformats.org/package/2006/content-types"
+            check(type?.name?.namespaceURI == namespace && type.name.localPart == "Default" &&
+                type.attribute("", "ContentType") == "image/svg+xml" && type.attributes.size == 2 &&
+                type.elements().isEmpty() && type.children.filterIsInstance<XmlText>().none { it.text.isNotBlank() },
+                "An embedded SVG requires its standard content type")
+            check(types.elements().none { it.attribute("", "PartName")?.endsWith(".svg", true) == true },
+                "SVG picture content-type overrides are not qualified")
+        }
         val document = part("word/document.xml")
         check(document.name.namespaceURI == word && document.name.localPart == "document", "Unsupported DOCX root")
         children(document, setOf("body"))
@@ -309,7 +322,7 @@ internal class NativeDocxReader(
                 PdfLink.External(target)
                 return@associate id to target
             }
-            check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g)|styles\\.xml|numbering\\.xml|settings\\.xml|footnotes\\.xml|endnotes\\.xml|fontTable\\.xml|webSettings\\.xml|theme/theme1\\.xml|(?:header|footer)[1-9][0-9]?\\.xml)")), "Unsupported relationship target")
+            check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g|svg)|styles\\.xml|numbering\\.xml|settings\\.xml|footnotes\\.xml|endnotes\\.xml|fontTable\\.xml|webSettings\\.xml|theme/theme1\\.xml|(?:header|footer)[1-9][0-9]?\\.xml)")), "Unsupported relationship target")
             val type = element.attribute("", "Type")
             check(type == "$rel/image" && target.startsWith("media/") || type == "$rel/styles" && target == "styles.xml" || type == "$rel/numbering" && target == "numbering.xml" || type == "$rel/settings" && target == "settings.xml" ||
                 type == "$rel/footnotes" && target == "footnotes.xml" || type == "$rel/endnotes" && target == "endnotes.xml" ||
@@ -2002,6 +2015,19 @@ internal class NativeDocxReader(
         val inline = node.elements().single()
         check(inline.name.namespaceURI == wp && inline.name.localPart == "inline", "Only inline images are supported")
         imageAttributes(inline) { name, value -> name.namespaceURI.isEmpty() && name.localPart in setOf("distT", "distB", "distL", "distR") && value == "0" }
+        val preferredSvg = inline.descendants().singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "blip" }?.let { element ->
+            val reference = WordPictureMetadata.svgReference(element) { invalid, message -> source.current = invalid; reject(message) }
+                ?: return@let null
+            source.current = element
+            val fallback = relations[element.attribute(rel, "embed")]
+            check(fallback != null && fallback.startsWith("media/") && !fallback.endsWith(".svg", true) &&
+                "word/$fallback" in parts, "Missing raster fallback for embedded SVG")
+            val target = relations[reference.relationship]
+            check(target != null && target.startsWith("media/") && target.endsWith(".svg", true) &&
+                "word/$target" in parts, "Missing embedded SVG picture")
+            reference.consume(element)
+            requireNotNull(target)
+        }
         WordPictureMetadata.normalize(inline) { invalid, message -> source.current = invalid; reject(message) }
         val allowed = mapOf(wp to setOf("inline", "extent", "effectExtent", "docPr", "cNvGraphicFramePr"), drawing to setOf("graphic", "graphicData", "graphicFrameLocks", "blip", "srcRect", "stretch", "fillRect", "xfrm", "off", "ext", "prstGeom", "avLst"),
             picture to setOf("pic", "nvPicPr", "cNvPr", "cNvPicPr", "blipFill", "spPr"))
@@ -2024,7 +2050,7 @@ internal class NativeDocxReader(
             name.namespaceURI == rel && name.localPart == "embed" || WordPictureMetadata.compressionState(name, value)
         }
         source.current = blip
-        val target = relations[blip.attribute(rel, "embed")] ?: reject("Missing embedded image")
+        val target = preferredSvg ?: relations[blip.attribute(rel, "embed")] ?: reject("Missing embedded image")
         at(blip, target.startsWith("media/"), "Invalid image relationship")
         val transform = inline.descendants().singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "xfrm" } ?: reject("Missing image transform")
         imageAttributes(transform) { _, _ -> false }
@@ -2058,6 +2084,14 @@ internal class NativeDocxReader(
         catch (error: dev.nuaforma.docx.pdf.adapters.nativeengine.emf.EmfFailure) {
             throw NativeDocxReadException(error.message ?: "Unsupported EMF image", "word/$target",
                 dev.nuaforma.contracts.DocumentSourceContext((error.message ?: "Unsupported EMF image").take(256), null, "emf", ""))
+        } else if (target.endsWith(".svg", true)) svgPictures.getOrPut(target) {
+            val image = WordSvgPicture.rasterize(original, context) { message ->
+                throw NativeDocxReadException(message, "word/$target",
+                    dev.nuaforma.contracts.DocumentSourceContext(message.take(256), null, "svg", ""))
+            }
+            svgPictureBytes += image.size
+            budget(svgPictureBytes <= minOf(8_388_608L, context.limits.maxExpandedBytes))
+            image
         } else if (target.endsWith(".jpg", true) || target.endsWith(".jpeg", true)) jpegs.decode(original, "word/$target") else original
         return PdfImage(pixels, width, height, PdfImageCrop(fraction("t"), fraction("r"), fraction("b"), fraction("l")))
     }
@@ -2091,7 +2125,7 @@ internal class NativeDocxReader(
                     budget(parts.size < minOf(256, context.limits.maxArchiveEntries))
                     check(entry.name !in parts && !entry.isDirectory, "Invalid or duplicate ZIP entries")
                     activePart = entry.name.take(256)
-                    check(trashItem.matches(entry.name) || entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docMetadata/LabelInfo\\.xml|docProps/thumbnail\\.(?:jpeg|jpg|png|emf)|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|stylesWithEffects|intelligence2|numbering|settings|footnotes|endnotes|fontTable|webSettings|comments(?:Extended|Ids|Extensible)?|people|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|theme/_rels/theme1\\.xml\\.rels|_rels/(?:document|settings|footnotes|endnotes|fontTable|comments(?:Extended|Ids|Extensible)?|people|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|fonts/[A-Za-z0-9_.-]+\\.(?i:odttf|ttf)|media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g))|(?i:customXml)/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
+                    check(trashItem.matches(entry.name) || entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docMetadata/LabelInfo\\.xml|docProps/thumbnail\\.(?:jpeg|jpg|png|emf)|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|stylesWithEffects|intelligence2|numbering|settings|footnotes|endnotes|fontTable|webSettings|comments(?:Extended|Ids|Extensible)?|people|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|theme/_rels/theme1\\.xml\\.rels|_rels/(?:document|settings|footnotes|endnotes|fontTable|comments(?:Extended|Ids|Extensible)?|people|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|fonts/[A-Za-z0-9_.-]+\\.(?i:odttf|ttf)|media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g|svg))|(?i:customXml)/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(8192)
                     while (true) {
