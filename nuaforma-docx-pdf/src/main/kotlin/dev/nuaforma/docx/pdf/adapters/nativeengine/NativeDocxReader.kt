@@ -491,7 +491,7 @@ internal class NativeDocxReader(
             val legacyTableHierarchy = tableStyles.isNotEmpty() && !modernTableAlignment && !formatting.overrideNormalTableStyle
             val tableJustification = tableStyles.any { it.one("pPr")?.one("jc") != null }
             var geometry = paragraphChain.fold(Geometry()) { result, property ->
-                val resolved = paragraphProperties(property, result, themeColors)
+                val resolved = paragraphProperties(property, result, themeColors, property !== direct && property in sourceProperties)
                 if (legacyTableHierarchy && tableJustification && property === normalStyle?.one("pPr") &&
                     property.one("jc")?.value("val") == "left") resolved.copy(alignment = result.alignment) else resolved
             }
@@ -1242,6 +1242,8 @@ internal class NativeDocxReader(
                 source.current = properties
                 reject("Explicit cell margins required for tables with cell borders")
             }
+            // Word moves these rows as units. The PDF engine does not fragment vertical merges.
+            val hasVerticalMerges = specs.any { (cells, _) -> cells.any { it.rows > 1 } }
             val rows = specs.mapIndexed { rowIndex, (cells, allow) ->
                 val resolved = cells.map { cell ->
                     val resolvedCell = PdfTableCell(cell.blocks, cell.background, cell.span, cell.rows, cell.alignment,
@@ -1263,7 +1265,7 @@ internal class NativeDocxReader(
                     physical
                 }
                 val (leading, trailing) = omissions[rowIndex]
-                PdfTableRow(resolved, allow, splitOversized = true, minimumHeight = minimum)
+                PdfTableRow(resolved, allow && !hasVerticalMerges, splitOversized = true, minimumHeight = minimum)
                     .withOmittedColumns(leading, trailing)
             }
             if (customBorders) {
@@ -1905,7 +1907,7 @@ internal class NativeDocxReader(
         val keepWithNext: Boolean = false, val keepLines: Boolean = false, val widowControl: Boolean = true, val pageBreakBefore: Boolean = false, val outline: Int? = null, val listTab: Float? = null, val tabStops: List<PdfTabStop> = emptyList(), val automatic: PdfAutomaticLineSpacing? = PdfAutomaticLineSpacing(), val contextual: Boolean = false, val direction: PdfTextDirection? = null, val borders: PdfParagraphBorders? = null,
         val beforeLines: Float? = null, val afterLines: Float? = null, val textAlignment: XmlElement? = null)
 
-    private fun paragraphProperties(property: XmlElement, initial: Geometry, themeColors: WordThemeColors): Geometry {
+    private fun paragraphProperties(property: XmlElement, initial: Geometry, themeColors: WordThemeColors, styleMetadata: Boolean): Geometry {
         NativeCellPagination.validateProperties(property) { node, message ->
             source.current = node
             activePart = provenance[node] ?: activePart
@@ -1931,7 +1933,13 @@ internal class NativeDocxReader(
             val enabled = flag(it)
             result = if (name == "overflowPunct") result.copy(overflowPunctuation = enabled) else result.copy(suppressAutoHyphens = enabled)
         }
-        property.one("outlineLvl")?.let { attributes(it, setOf("val")); val level = number(it.value("val")).toInt(); check(level in 0..8, "Unsupported outline level"); result = result.copy(outline = level) }
+        property.one("outlineLvl")?.let {
+            attributes(it, setOf("val"))
+            children(it, emptySet())
+            val level = it.value("val")?.toIntOrNull()?.takeIf { raw -> raw in 0..9 } ?: reject("Unsupported outline level")
+            if (level == 9 && !styleMetadata) reject("Direct body outline overrides are not qualified")
+            result = result.copy(outline = level.takeUnless { raw -> raw == 9 })
+        }
         property.one("tabs")?.let { tabs ->
             children(tabs, setOf("tab"))
             val merged = result.tabStops.associateBy { it.position }.toMutableMap()

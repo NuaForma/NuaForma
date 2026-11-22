@@ -235,3 +235,5 @@ In a merged table, permission for an ordinary row to split is accepted when the 
 A qualified left-to-right paragraph can retain a bookmark at the end of its last physical line or at the start of an empty line. Links resolve to this anchor without adding printable characters.
 
 Standalone text frames with omitted fill and outline declarations can retain their transparent paint. Explicit colors still follow the qualified frame paint profile.
+
+Word paragraph styles can reset an inherited outline level to body text. Direct body-level overrides on heading paragraphs require additional qualification.
