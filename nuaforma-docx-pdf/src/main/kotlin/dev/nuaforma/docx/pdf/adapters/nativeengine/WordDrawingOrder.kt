@@ -11,6 +11,7 @@ internal object WordDrawingOrder {
     private const val wp = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
     private const val drawing = "http://schemas.openxmlformats.org/drawingml/2006/main"
     private const val picture = "http://schemas.openxmlformats.org/drawingml/2006/picture"
+    private const val shape = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
     private const val wp14 = "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
     private val flags = setOf("simplePos", "behindDoc", "locked", "layoutInCell", "allowOverlap")
     private val distances = setOf("distT", "distB", "distL", "distR")
@@ -60,8 +61,13 @@ internal object WordDrawingOrder {
     private fun validateRelativeSizes(anchor: XmlElement, reject: (XmlElement, String) -> Nothing) {
         val graphic = anchor.elements().singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "graphic" }
         val data = graphic?.elements()?.singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "graphicData" }
-        val rasterPicture = data?.attribute("", "uri") == picture &&
-            data.elements().singleOrNull()?.let { it.name.namespaceURI == picture && it.name.localPart == "pic" } == true
+        val graphicObject = data?.elements()?.singleOrNull()
+        val sizedObject = when (data?.attribute("", "uri")) {
+            picture -> graphicObject?.name?.namespaceURI == picture && graphicObject.name.localPart == "pic"
+            shape -> graphicObject?.name?.namespaceURI == shape && graphicObject.name.localPart == "wsp" &&
+                graphicObject.elements().count { it.name.namespaceURI == shape && it.name.localPart == "txbx" } == 1
+            else -> false
+        }
         val seen = mutableSetOf<javax.xml.namespace.QName>()
         for (node in anchor.elements()) {
             if (node.name.localPart in setOf("sizeRelH", "sizeRelV") && node.name.namespaceURI != wp14)
@@ -69,7 +75,7 @@ internal object WordDrawingOrder {
             if (node.name.namespaceURI == wp14) {
                 if (!seen.add(node.name)) reject(node, "Duplicate original relative-size metadata")
                 val relative = WordAnchorMetadata.read(node) { message -> reject(node, message) }
-                if (relative != null && !rasterPicture) reject(node, "Nonzero relative sizing is only qualified for embedded pictures")
+                if (relative != null && !sizedObject) reject(node, "Nonzero relative sizing requires an embedded picture or text frame")
             }
         }
     }

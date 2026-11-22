@@ -2,12 +2,22 @@ package dev.nuaforma.docx.pdf.adapters.nativeengine
 
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
+import dev.nuaforma.pdf.PdfPage
 
 /** Relative-size limits are percentages of a physical page or margin rectangle. */
 internal object WordAnchorMetadata {
     private const val WP14 = "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
 
-    data class RelativeSize(val horizontal: Boolean, val reference: String, val fraction: Double)
+    data class RelativeSize(val horizontal: Boolean, val reference: String, val fraction: Double) {
+        fun limit(page: PdfPage): Double {
+            val span = if (horizontal) {
+                if (reference == "page") page.width else page.width - page.margins.left - page.margins.right
+            } else {
+                if (reference == "page") page.height else page.height - page.margins.top - page.margins.bottom
+            }
+            return span * fraction
+        }
+    }
 
     fun read(node: XmlElement, reject: (String) -> Nothing): RelativeSize? {
         val horizontal = node.name.localPart == "sizeRelH"

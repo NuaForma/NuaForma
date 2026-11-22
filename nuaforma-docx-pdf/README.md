@@ -323,3 +323,5 @@ Explicitly positioned unwrapped pictures can fit their source aspect ratio into 
 Qualified bookmark destinations before a leading hard break retain the source page, and destinations after it follow the text.
 
 An ordinary paragraph after a standalone contents end marker retains its text, formatting and links.
+
+Supported fixed, unwrapped rectangular frames resolve their relative width and height independently.

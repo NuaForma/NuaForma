@@ -1005,12 +1005,8 @@ internal class NativeDocxReader(
                 check(declaredWidth > 0f && declaredHeight > 0f, "Invalid nominal relative picture extent")
                 val horizontal = relativeSizes.singleOrNull { it.horizontal }
                 val verticalSize = relativeSizes.singleOrNull { !it.horizontal }
-                val widthLimit = horizontal?.let {
-                    (if (it.reference == "page") page.width else page.width - page.margins.left - page.margins.right) * it.fraction
-                } ?: declaredWidth.toDouble()
-                val heightLimit = verticalSize?.let {
-                    (if (it.reference == "page") page.height else page.height - page.margins.top - page.margins.bottom) * it.fraction
-                } ?: declaredHeight.toDouble()
+                val widthLimit = horizontal?.limit(page) ?: declaredWidth.toDouble()
+                val heightLimit = verticalSize?.limit(page) ?: declaredHeight.toDouble()
                 // Word fits the picture in both available dimensions while keeping its stored aspect ratio.
                 val scale = minOf(widthLimit / declaredWidth, heightLimit / declaredHeight)
                 (declaredWidth * scale).toFloat() to (declaredHeight * scale).toFloat()
@@ -1820,10 +1816,27 @@ internal class NativeDocxReader(
                 WordFramePaint.stroke(line, themeColors) { origin, message -> source.current = origin; reject(message) }
             }
             val paragraphs = content.elements().map { readParagraph(it, partRelations, fields, allowPageBreak = false) }
-            val width = numeric(extent.attribute("", "cx")) / 12700
+            val relativeSizes = anchor.elements().filter { it.name.namespaceURI == wp14 }.mapNotNull { element ->
+                source.current = element
+                WordAnchorMetadata.read(element, ::reject)
+            }
+            if (relativeSizes.isNotEmpty()) {
+                source.current = anchor
+                val positionH = one(anchor, wp, "positionH")
+                val positionV = one(anchor, wp, "positionV")
+                check(!inline && autoFit == null && rotation == 0f &&
+                    positionH.elements().singleOrNull()?.name?.localPart == "posOffset" &&
+                    positionV.attribute("", "relativeFrom") == "page" &&
+                    positionV.elements().singleOrNull()?.name?.localPart == "posOffset",
+                    "Relative frame sizing requires an unrotated fixed page frame with explicit offsets")
+            }
+            val storedWidth = numeric(extent.attribute("", "cx")) / 12700
+            val storedHeight = numeric(extent.attribute("", "cy")) / 12700
+            val width = relativeSizes.singleOrNull { it.horizontal }?.limit(page)?.toFloat() ?: storedWidth
+            val height = relativeSizes.singleOrNull { !it.horizontal }?.limit(page)?.toFloat() ?: storedHeight
+
             fun frame(left: Float, top: Float, placement: PdfBoxAnchor): PdfTextBox {
                 source.current = node
-                val height = numeric(extent.attribute("", "cy")) / 12700
                 val padding = PdfMargins(numeric(bodyProps.attribute("", "tIns")) / 12700, numeric(bodyProps.attribute("", "rIns")) / 12700,
                     numeric(bodyProps.attribute("", "bIns")) / 12700, numeric(bodyProps.attribute("", "lIns")) / 12700)
                 val vertical = when (bodyProps.attribute("", "anchor")) {
