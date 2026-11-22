@@ -385,3 +385,5 @@ Fixed nested tables with complete direct margins can keep their saved grid and a
 Blank endnote separator policies can remain in documents that contain no numbered endnotes. Existing footnote layout is preserved.
 
 Word paragraph shading retains the explicit solid color or measured percentage blend, including through style inheritance.
+
+Word run shading uses its own measured solid or percentage color while retaining paragraph backgrounds and text styling.

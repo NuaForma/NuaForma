@@ -45,12 +45,10 @@ internal class WordThemeColors(
         return themed(node, role, node.attribute(W, "themeFillTint"), node.attribute(W, "themeFillShade"))
     }
 
-    fun paragraphFill(node: XmlElement): PdfColor? =
-        if (isPaintedPattern(node)) cellFill(node) else runFill(node)
-
     fun runFill(node: XmlElement): PdfColor? {
         validateRunFill(node, reject)
-        return if (node.attribute(W, "val") == "nil") null else cellFill(normalizedRunFill(node))
+        if (node.attribute(W, "val") == "nil") return null
+        return cellFill(if (isPaintedPattern(node)) node else normalizedRunFill(node))
     }
 
     fun drawingColor(node: XmlElement, slot: String, modulation: Int, offset: Int): PdfColor {
@@ -221,13 +219,14 @@ internal class WordThemeColors(
             node.attribute(W, "val").let { it == "solid" || it in cellPercentages }
 
         fun validateParagraphFill(node: XmlElement, reject: (XmlElement, String) -> Nothing) {
-            val validate = { origin: XmlElement, message: String ->
-                reject(origin, message.replace("cell", "paragraph").replace("run shading", "paragraph shading"))
-            }
-            if (isPaintedPattern(node)) validateCellFill(node, validate) else validateRunFill(node, validate)
+            validateRunFill(node) { origin, message -> reject(origin, message.replace("run shading", "paragraph shading")) }
         }
 
         fun validateRunFill(node: XmlElement, reject: (XmlElement, String) -> Nothing) {
+            if (isPaintedPattern(node)) {
+                validateCellFill(node, { origin, message -> reject(origin, message.replace("cell", "run")) })
+                return
+            }
             val color = node.attribute(W, "color")
             if (node.attribute(W, "val") !in setOf("clear", "nil") ||
                 color != null && color != "auto" && !color.matches(Regex("[0-9A-Fa-f]{6}")))

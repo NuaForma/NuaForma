@@ -199,7 +199,7 @@ class WordThemeColorsTest {
 
 
     @Test
-    fun `paragraph shading preserves RGB foregrounds and measured percentage blends`() {
+    fun `paragraph and run shading preserve RGB foregrounds and measured percentage blends`() {
         val colors = colors()
         fun shading(kind: String, foreground: String = "auto", background: String = "auto", extra: String = "") =
             """<w:shd w:val="$kind" w:color="$foreground" w:fill="$background" $extra/>"""
@@ -214,10 +214,10 @@ class WordThemeColorsTest {
         for ((shade, color) in samples) {
             val paragraph = root("""<w:pPr xmlns:w="$word">$shade</w:pPr>""")
             WordRunBackground.validateSource(paragraph, GenerationContext(), reject)
-            assertEquals(color, colors.paragraphFill(paragraph.elements().single()))
-            assertThrows(NativeDocxReadException::class.java) {
-                WordRunBackground.validateSource(root("""<w:rPr xmlns:w="$word">$shade</w:rPr>"""), GenerationContext(), reject)
-            }
+            assertEquals(color, colors.runFill(paragraph.elements().single()))
+            val run = root("""<w:rPr xmlns:w="$word">$shade</w:rPr>""")
+            WordRunBackground.validateSource(run, GenerationContext(), reject)
+            assertEquals(color, colors.runFill(run.elements().single()))
         }
         for (shade in listOf(shading("pct99"), shading("solid"), shading("pct20", extra = "w:themeFill=\"background1\""))) {
             val paragraph = root("""<w:pPr xmlns:w="$word">$shade</w:pPr>""")

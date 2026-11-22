@@ -2412,7 +2412,7 @@ internal class NativeDocxReader(
         children(property, setOf("pStyle", "bidi", "contextualSpacing", "spacing", "jc", "ind", "rPr", "mirrorIndents", "widowControl", "keepNext", "keepLines", "pageBreakBefore", "numPr", "outlineLvl", "tabs", "pBdr", "overflowPunct", "suppressAutoHyphens", "shd", "textAlignment"))
         var result = initial
         property.one("shd")?.let { node ->
-            val fill = themeColors.paragraphFill(node)
+            val fill = themeColors.runFill(node)
             if (node.value("val") != "nil") result = result.copy(background = fill)
         }
         property.one("pBdr")?.let { result = result.copy(borders = lineReader.borders(it, result.borders)) }
