@@ -26,6 +26,9 @@ internal class NativeDocxNotes(
             val ids = mutableSetOf<String>()
             val specialIds = mutableSetOf<String>()
             val policies = mutableSetOf<String>()
+            val hasOnlyEndnotePolicies = kind == PdfNoteKind.ENDNOTE && root.elements().all {
+                it.attribute(W, "type") in setOf("separator", "continuationSeparator", "continuationNotice")
+            }
             for (node in root.elements()) {
                 focus(node)
                 if (node.name.namespaceURI != W || node.name.localPart != name || node.attributes.keys.any { it.namespaceURI != W || it.localPart !in setOf("id", "type") }) fail("Invalid note definition")
@@ -40,12 +43,14 @@ internal class NativeDocxNotes(
                     "separator", "continuationSeparator" -> {
                         specialIds += raw
                         if (!policies.add(type)) fail("Duplicate note separator")
-                        validateSeparator(node, type, fail)
+                        if (!hasOnlyEndnotePolicies || !isBlankEndnotePolicy(node, type, fail))
+                            validateSeparator(node, type, fail)
                         separators[kind] = PdfNoteSeparator()
                     }
                     "continuationNotice" -> {
                         specialIds += raw
-                        if (node.descendants().any { it.name.namespaceURI != W || it.name.localPart !in setOf(name, "p", "pPr", "r", "rPr", "t") ||
+                        if ((!hasOnlyEndnotePolicies || !isBlankEndnotePolicy(node, type, fail)) &&
+                            node.descendants().any { it.name.namespaceURI != W || it.name.localPart !in setOf(name, "p", "pPr", "r", "rPr", "t") ||
                                 it.children.filterIsInstance<XmlText>().any { text -> text.text.isNotBlank() } }) fail("Visible note continuation notices are not qualified")
                     }
                     else -> fail("Unsupported note type")
@@ -163,6 +168,34 @@ internal class NativeDocxNotes(
                     else -> fail("Unsupported note separator control property")
                 }
             }
+        }
+
+        // Blank endnote policies never participate in layout when the package declares no numbered endnotes.
+        private fun isBlankEndnotePolicy(node: XmlElement, type: String, fail: (String) -> Nothing): Boolean {
+            fun plain(element: XmlElement, name: String) = element.name.namespaceURI == W &&
+                element.name.localPart == name && element.attributes.isEmpty() &&
+                element.children.filterIsInstance<XmlText>().all { it.text.isBlank() }
+
+            val paragraph = node.elements().singleOrNull()?.takeIf { plain(it, "p") } ?: return false
+            val content = paragraph.elements().singleOrNull() ?: return false
+            if (type == "separator") {
+                if (!plain(content, "pPr")) return false
+                val (spacing, markerProperties) = content.elements().takeIf { it.size == 2 } ?: return false
+                if (spacing.name.namespaceURI != W || spacing.name.localPart != "spacing" || spacing.children.isNotEmpty() ||
+                    spacing.attributes.size != 2 || spacing.attribute(W, "line") != "20" ||
+                    spacing.attribute(W, "lineRule") != "exact" || !plain(markerProperties, "rPr")) return false
+                separatorRunProperties(markerProperties, fail, allowStyle = false)
+                return true
+            }
+            if (!plain(content, "r")) return false
+            val (properties, whitespace) = content.elements().takeIf { it.size == 2 } ?: return false
+            if (!plain(properties, "rPr") || whitespace.name.namespaceURI != W || whitespace.name.localPart != "t" ||
+                whitespace.elements().isNotEmpty() || whitespace.children.filterIsInstance<XmlText>().any { !it.text.isBlank() } ||
+                whitespace.attributes.any { (name, value) ->
+                    name.namespaceURI != "http://www.w3.org/XML/1998/namespace" || name.localPart != "space" || value != "preserve"
+                }) return false
+            separatorRunProperties(properties, fail, allowStyle = false)
+            return true
         }
 
         private fun validateSeparator(node: XmlElement, type: String, fail: (String) -> Nothing) {

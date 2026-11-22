@@ -381,3 +381,5 @@ A saved table of contents keeps its document styles when Word stores separate fo
 Modern body tables with complete explicit margins in every cell retain their spacing and borders when the table does not declare default cell margins.
 
 Fixed nested tables with complete direct margins can keep their saved grid and alignment inside non-splitting parent rows.
+
+Blank endnote separator policies can remain in documents that contain no numbered endnotes. Existing footnote layout is preserved.
