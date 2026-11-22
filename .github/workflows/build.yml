@@ -85,7 +85,7 @@ jobs:
       - name: Build and test all modules
         if: steps.reuse.outputs.reuse != 'true' && matrix.java == '25'
         run: |
-          ./gradlew --no-daemon build coverageReport -Pcoverage=true --warning-mode=fail
+          ./gradlew --no-daemon build coverageReport -Pcoverage=true -Pkotlin.daemon.jvmargs=-Xmx2g --warning-mode=fail
           python3 tools/quality/check_coverage.py
 
       - name: Check dependency-free Playground request composition
