@@ -263,3 +263,5 @@ When a hidden ordinary cell mark follows a trailing soft line break, the final u
 Isolated fixed unrotated footer frames can continue visible text below the nominal rectangle. The actual ink remains within the page and clear of other footer objects.
 
 Numbered paragraph marks can retain their highlight on the label and supported separator.
+
+Validated absent or nil text-run borders leave normal text drawing unchanged.

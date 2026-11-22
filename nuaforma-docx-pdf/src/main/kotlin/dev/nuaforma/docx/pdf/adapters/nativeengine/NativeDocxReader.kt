@@ -1890,11 +1890,14 @@ internal class NativeDocxReader(
         themeColors: WordThemeColors, characterBase: Face?): Face {
         if (property == null) return initial
         val word14 = "http://schemas.microsoft.com/office/word/2010/wordml"
-        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern", "spacing", "dstrike", "w", "highlight", "shd", "caps", "smallCaps"), setOf(word14 to "ligatures", WordTextOutline.NS to "textOutline"))
+        children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern", "spacing", "dstrike", "w", "highlight", "shd", "caps", "smallCaps", "bdr"), setOf(word14 to "ligatures", WordTextOutline.NS to "textOutline"))
         property.elements().singleOrNull { it.name.namespaceURI == WordTextOutline.NS && it.name.localPart == "textOutline" }?.let {
             WordTextOutline.requireInactive(it) { origin, message -> source.current = origin; reject(message) }
         }
         var result = initial
+        property.one("bdr")?.let { node ->
+            WordInactiveRunProperties.requireInvisibleBorder(node) { origin, message -> source.current = origin; reject(message) }
+        }
         property.one("highlight")?.let { node ->
             result = result.copy(highlight = WordRunBackground.highlight(node) { origin, message -> source.current = origin; reject(message) })
         }

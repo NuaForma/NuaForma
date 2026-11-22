@@ -74,6 +74,23 @@ internal object WordInactiveRunProperties {
         }
     }
 
+    fun requireInvisibleBorder(node: XmlElement, reject: (XmlElement, String) -> Nothing) {
+        if (node.name != QName(word, "bdr") || node.attributes.keys.any {
+                it.namespaceURI != word || it.localPart !in setOf("val", "color", "sz", "space", "frame", "shadow")
+            } || node.elements().isNotEmpty() || node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
+            reject(node, "Unsupported run border properties")
+        if (node.attribute(word, "val") !in setOf("none", "nil"))
+            reject(node, "Visible run borders are not qualified")
+        val size = node.attribute(word, "sz")
+        val space = node.attribute(word, "space")
+        val color = node.attribute(word, "color")
+        if ((size != null && size.toIntOrNull() !in 0..96) ||
+            (space != null && space.toIntOrNull() !in 0..31) ||
+            (color != null && color != "auto" && !color.matches(Regex("[0-9A-Fa-f]{6}"))) ||
+            listOf("frame", "shadow").any { node.attribute(word, it) !in setOf(null, "0", "1", "false", "true") })
+            reject(node, "Invalid invisible run border attributes")
+    }
+
     fun horizontalScale(node: XmlElement, reject: (XmlElement, String) -> Nothing): Float {
         validateShape(node, reject)
         val value = node.attribute(word, "val")?.toIntOrNull()
