@@ -49,7 +49,8 @@ internal class NativeDocxNotes(
                     }
                     "continuationNotice" -> {
                         specialIds += raw
-                        if ((!hasOnlyEndnotePolicies || !isBlankEndnotePolicy(node, type, fail)) &&
+                        if (!isSpacelessContinuationNotice(node) &&
+                            (!hasOnlyEndnotePolicies || !isBlankEndnotePolicy(node, type, fail)) &&
                             node.descendants().any { it.name.namespaceURI != W || it.name.localPart !in setOf(name, "p", "pPr", "r", "rPr", "t") ||
                                 it.children.filterIsInstance<XmlText>().any { text -> text.text.isNotBlank() } }) fail("Visible note continuation notices are not qualified")
                     }
@@ -170,26 +171,34 @@ internal class NativeDocxNotes(
             }
         }
 
+        private fun plainPolicyElement(element: XmlElement, name: String) = element.name.namespaceURI == W &&
+            element.name.localPart == name && element.attributes.isEmpty() &&
+            element.children.filterIsInstance<XmlText>().all { it.text.isBlank() }
+
+        private fun isSpacelessContinuationNotice(node: XmlElement): Boolean {
+            val paragraph = node.elements().singleOrNull()?.takeIf { plainPolicyElement(it, "p") } ?: return false
+            val properties = paragraph.elements().singleOrNull()?.takeIf { plainPolicyElement(it, "pPr") } ?: return false
+            val spacing = properties.elements().singleOrNull() ?: return false
+            return spacing.name.namespaceURI == W && spacing.name.localPart == "spacing" && spacing.children.isEmpty() &&
+                spacing.attributes.size == 2 && spacing.attribute(W, "before") == "0" && spacing.attribute(W, "after") == "0"
+        }
+
         // Blank endnote policies never participate in layout when the package declares no numbered endnotes.
         private fun isBlankEndnotePolicy(node: XmlElement, type: String, fail: (String) -> Nothing): Boolean {
-            fun plain(element: XmlElement, name: String) = element.name.namespaceURI == W &&
-                element.name.localPart == name && element.attributes.isEmpty() &&
-                element.children.filterIsInstance<XmlText>().all { it.text.isBlank() }
-
-            val paragraph = node.elements().singleOrNull()?.takeIf { plain(it, "p") } ?: return false
+            val paragraph = node.elements().singleOrNull()?.takeIf { plainPolicyElement(it, "p") } ?: return false
             val content = paragraph.elements().singleOrNull() ?: return false
             if (type == "separator") {
-                if (!plain(content, "pPr")) return false
+                if (!plainPolicyElement(content, "pPr")) return false
                 val (spacing, markerProperties) = content.elements().takeIf { it.size == 2 } ?: return false
                 if (spacing.name.namespaceURI != W || spacing.name.localPart != "spacing" || spacing.children.isNotEmpty() ||
                     spacing.attributes.size != 2 || spacing.attribute(W, "line") != "20" ||
-                    spacing.attribute(W, "lineRule") != "exact" || !plain(markerProperties, "rPr")) return false
+                    spacing.attribute(W, "lineRule") != "exact" || !plainPolicyElement(markerProperties, "rPr")) return false
                 separatorRunProperties(markerProperties, fail, allowStyle = false)
                 return true
             }
-            if (!plain(content, "r")) return false
+            if (!plainPolicyElement(content, "r")) return false
             val (properties, whitespace) = content.elements().takeIf { it.size == 2 } ?: return false
-            if (!plain(properties, "rPr") || whitespace.name.namespaceURI != W || whitespace.name.localPart != "t" ||
+            if (!plainPolicyElement(properties, "rPr") || whitespace.name.namespaceURI != W || whitespace.name.localPart != "t" ||
                 whitespace.elements().isNotEmpty() || whitespace.children.filterIsInstance<XmlText>().any { !it.text.isBlank() } ||
                 whitespace.attributes.any { (name, value) ->
                     name.namespaceURI != "http://www.w3.org/XML/1998/namespace" || name.localPart != "space" || value != "preserve"

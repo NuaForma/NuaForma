@@ -129,4 +129,17 @@ class NativeDocxNotesTest {
             continuation + """<w:endnote w:id="2"><w:p/></w:endnote>""",
         )) assertThrows(IllegalArgumentException::class.java) { read(separator + invalid + notice) }
     }
+
+    @Test
+    fun `empty continuation notices may declare zero clearance while active ones still fail`() {
+        val policy = properties("""<w:footnote w:id="-19"/>""")
+        val blank = """<w:footnote w:id="-19" w:type="continuationNotice"><w:p><w:pPr>
+            <w:spacing w:before="0" w:after="0"/></w:pPr></w:p></w:footnote>"""
+        assertNotNull(notes(blank + """<w:footnote w:id="2"><w:p/></w:footnote>""", policy))
+        for (invalid in listOf(blank.replace("before=\"0\"", "before=\"60\""),
+            blank.replace("after=\"0\"", "after=\"60\""),
+            blank.replace("</w:p>", "<w:r><w:t>Notice</w:t></w:r></w:p>"))) {
+            assertThrows(IllegalArgumentException::class.java) { notes(invalid, policy) }
+        }
+    }
 }

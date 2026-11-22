@@ -387,3 +387,5 @@ Blank endnote separator policies can remain in documents that contain no numbere
 Word paragraph shading retains the explicit solid color or measured percentage blend, including through style inheritance.
 
 Word run shading uses its own measured solid or percentage color while retaining paragraph backgrounds and text styling.
+
+An empty footnote or endnote continuation notice with explicit zero paragraph spacing leaves note pagination intact.
