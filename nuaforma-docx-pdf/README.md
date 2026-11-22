@@ -411,3 +411,5 @@ Automatic and percentage cell widths preserve a qualified unbroken line when Wor
 A hidden, undecorated empty cell marker contributes neither its final line nor its paragraph spacing.
 
 Single underlines preserve explicit RGB independently of run ink, while automatic color follows that ink.
+
+An isolated fixed drawing frame in the first header paragraph uses the band origin before the paragraph spacing.

@@ -1886,7 +1886,7 @@ internal class NativeDocxReader(
 
         fun readDrawingBox(node: XmlElement, partRelations: Map<String, String>, fields: Boolean = false,
             firstBodyParagraph: Boolean = false, isolatedFooterFrames: Boolean = false,
-            inlineHost: PdfParagraph? = null, isolatedBodyFrame: Boolean = false): PdfTextBox {
+            inlineHost: PdfParagraph? = null, isolatedBodyFrame: Boolean = false, firstHeaderFrame: Boolean = false): PdfTextBox {
             source.current = node
             val wps = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
             val anchor = node.elements().singleOrNull() ?: reject("Invalid floating drawing")
@@ -2063,8 +2063,9 @@ internal class NativeDocxReader(
             source.current = vertical
             val reference = vertical.attribute("", "relativeFrom")
             check(vertical.attributes.size == 1 && vertical.elements().size == 1 &&
-                (reference == "page" || reference == "paragraph" && (firstBodyParagraph || square != null)),
-                "Paragraph-relative frames require the first body paragraph of a section")
+                (reference == "page" || reference == "paragraph" && (firstBodyParagraph || square != null ||
+                    firstHeaderFrame && rotation == 0f && autoFit == null && relativeSizes.isEmpty())),
+                "Paragraph-relative frames require the first body paragraph or one fixed frame in the first header paragraph")
             val verticalCoordinate = vertical.elements().single()
             val verticalPageAlignment = if (reference == "page" && verticalCoordinate.name.namespaceURI == wp &&
                 verticalCoordinate.name.localPart == "align" && verticalCoordinate.attributes.isEmpty() && verticalCoordinate.elements().isEmpty()) {
@@ -2187,6 +2188,9 @@ internal class NativeDocxReader(
                         }
                         val paragraph = readParagraph(plain, partRelations, fields)
                         val firstBodyParagraph = index == 0 && !fields && images.isEmpty() && paragraph.runs.none { it is PdfPageBreak }
+                        val firstHeaderFrame = fields && root.name.localPart == "hdr" && index == 0 &&
+                            frames.size == 1 && boxes.size == 1 && boxes.single().name.localPart == "drawing" &&
+                            paragraph.background == null && paragraph.borders == null && paragraph.lines.isEmpty()
                         val isolatedHeaderPicture = fields && root.name.localPart == "hdr" && root.elements().size == 1 &&
                             frames.size == 1 && images.size == 1 && unprintedBand(listOf(paragraph)) &&
                             paragraph.background == null && paragraph.lines.isEmpty() && paragraph.borders == null
@@ -2197,7 +2201,8 @@ internal class NativeDocxReader(
                         boxes.map { if (it.name.localPart == "pict") readBox(it, partRelations, fields)
                             else readDrawingBox(it, partRelations, fields, firstBodyParagraph, isolatedFooterFrames,
                                 isolatedBodyFrame = !fields && frames.size == 1 && images.isEmpty() && paragraph.spaceBefore == 0f &&
-                                    paragraph.runs.none { it is PdfPageBreak } && !paragraph.format.pageBreakBefore) } +
+                                    paragraph.runs.none { it is PdfPageBreak } && !paragraph.format.pageBreakBefore,
+                                firstHeaderFrame = firstHeaderFrame) } +
                             paragraph.copy(anchoredImages = images.map {
                                 readAnchoredImage(it, partRelations, fields, isolatedHeaderPicture)
                             })
