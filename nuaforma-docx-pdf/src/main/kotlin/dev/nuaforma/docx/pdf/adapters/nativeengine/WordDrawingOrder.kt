@@ -80,9 +80,9 @@ internal object WordDrawingOrder {
         }
     }
 
-    fun read(anchor: XmlElement, reject: (XmlElement, String) -> Nothing): PdfDrawingOrder {
+    fun read(anchor: XmlElement, separatedFooter: Boolean = false, reject: (XmlElement, String) -> Nothing): PdfDrawingOrder {
         validate(anchor, reject)
-        if (anchor.attribute("", "simplePos") !in setOf("0", "false") || anchor.attribute("", "allowOverlap") !in setOf("1", "true"))
+        if (anchor.attribute("", "simplePos") !in setOf("0", "false") || !separatedFooter && anchor.attribute("", "allowOverlap") !in setOf("1", "true"))
             reject(anchor, "Automatic floating anchor relocation is not qualified")
         val properties = anchor.elements().single { it.name.namespaceURI == wp && it.name.localPart == "docPr" }
         val layer = if (anchor.attribute("", "behindDoc") in setOf("1", "true")) PdfDrawingLayer.BACKGROUND else PdfDrawingLayer.FOREGROUND

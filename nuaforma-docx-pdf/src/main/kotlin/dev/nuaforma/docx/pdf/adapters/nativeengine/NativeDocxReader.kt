@@ -1385,7 +1385,12 @@ internal class NativeDocxReader(
             val wps = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
             val anchor = node.elements().singleOrNull() ?: reject("Invalid floating drawing")
             check(anchor.name.namespaceURI == wp && anchor.name.localPart == "anchor", "Floating anchor required")
-            val order = WordDrawingOrder.read(anchor) { origin, message -> source.current = origin; reject(message) }
+            val footer = fields && provenance[node]?.matches(Regex("word/footer[0-9]+[.]xml")) == true
+            val leavesOtherObjects = anchor.attribute("", "allowOverlap") in setOf("0", "false")
+            val order = WordDrawingOrder.read(anchor, separatedFooter = footer) { origin, message ->
+                source.current = origin
+                reject(message)
+            }
 
             fun one(parent: XmlElement, ns: String, name: String) = parent.elements().singleOrNull { it.name.namespaceURI == ns && it.name.localPart == name } ?: reject("Missing or duplicate drawing property")
 
@@ -1403,11 +1408,17 @@ internal class NativeDocxReader(
                 source.current = position
                 val reference = position.attribute("", "relativeFrom")
                 check(position.attributes.size == 1 && position.elements().size == 1 &&
-                    reference in setOf("page", "margin", "column"), "Unsupported horizontal frame reference")
-                val origin = if (reference == "page") 0f else page.margins.left
+                    (reference in setOf("page", "margin", "column") || footer && reference == "rightMargin"),
+                    "Unsupported horizontal frame reference")
+                val origin = when (reference) {
+                    "page" -> 0f
+                    "rightMargin" -> page.width - page.margins.right
+                    else -> page.margins.left
+                }
                 val coordinate = position.elements().single()
                 if (coordinate.name.namespaceURI == wp && coordinate.name.localPart == "posOffset")
                     return (origin + offset(position)) to null
+                check(reference != "rightMargin", "Right margin frame placement requires an explicit offset")
                 check(coordinate.name.namespaceURI == wp && coordinate.name.localPart == "align" &&
                     coordinate.attributes.isEmpty() && coordinate.elements().isEmpty(), "Unsupported horizontal frame alignment")
                 val alignment = when (coordinate.children.filterIsInstance<XmlText>().joinToString("") { it.text }) {
@@ -1495,6 +1506,13 @@ internal class NativeDocxReader(
                     else -> reject("Unsupported vertical frame alignment")
                 }
             } else null
+            if (leavesOtherObjects) {
+                // The page-band layouter rejects overlap after resolving all of the footer objects.
+                check(footer && autoFit == null && rotation == 0f && reference == "page" &&
+                    verticalCoordinate.name.localPart == "posOffset" &&
+                    one(anchor, wp, "positionH").elements().single().name.localPart == "posOffset",
+                    "A no-overlap footer frame requires fixed physical coordinates")
+            }
             val top = if (verticalPageAlignment == null) offset(vertical) else 0f
             val placement = if (reference == "paragraph") PdfBoxAnchor.PARAGRAPH else PdfBoxAnchor.PAGE
             val pageAlignment = if (horizontalPageAlignment != null || verticalPageAlignment != null) {
