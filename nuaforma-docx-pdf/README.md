@@ -297,3 +297,5 @@ A fixed unwrapped image in the first cell of an isolated one-row page-band table
 A qualified picture can keep tiny proportional discrepancy between its stored internal and outer extents. Fixed page-band table text can wrap an oversized word within its column.
 
 A fixed left-aligned page-band table in current Word layout mode can extend into the saved right margin while staying within the page.
+
+Qualified names can contain an ordinary colon or curly apostrophe. A closed same-paragraph bookmark can retain zero-valued column metadata.

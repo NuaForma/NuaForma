@@ -6,6 +6,7 @@ import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
 
 /** Canonicalize nonprinting block boundaries without introducing layout paragraphs. */
 internal class NativeDocxBookmarks(private val context: GenerationContext) {
+    private val columnFields = setOf("colFirst", "colLast")
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
     /** Check original table-ending and editing ranges before the DOCX binder can discard malformed marker properties. */
@@ -22,6 +23,11 @@ internal class NativeDocxBookmarks(private val context: GenerationContext) {
 
     /** Omit only unused Word editing selections; keep every visible node and referenced bookmark. */
     fun normalizeEditing(roots: Collection<XmlElement>, focus: (XmlElement) -> Unit, reject: (String) -> Nothing) {
+        for (root in roots) {
+            for (node in bodyColumnMarkers(root)) {
+                node.attributes.keys.removeIf { it.namespaceURI == word && it.localPart in columnFields }
+            }
+        }
         val starts = roots.flatMap { root -> root.descendants().filter { isWord(it, "bookmarkStart") && it.attribute(word, "name") == "_GoBack" }.toList() }
         if (starts.isEmpty()) return
         if (starts.size > 1) { focus(starts[1]); reject("Duplicate editing bookmark name") }
@@ -71,11 +77,16 @@ internal class NativeDocxBookmarks(private val context: GenerationContext) {
     private fun validate(root: XmlElement, focus: (XmlElement) -> Unit, reject: (String) -> Nothing) {
         val starts = mutableMapOf<String, XmlElement>()
         val open = mutableSetOf<String>()
+        val passiveColumns = bodyColumnMarkers(root)
         for (node in root.descendants().filter(::bookmark)) {
             context.checkActive()
             focus(node)
             val start = isWord(node, "bookmarkStart")
-            val allowed = if (start) setOf("id", "name") else setOf("id")
+            val allowed = when {
+                node in passiveColumns -> setOf("id", "name") + columnFields
+                start -> setOf("id", "name")
+                else -> setOf("id")
+            }
             if (node.attributes.keys.any { it.namespaceURI != word || it.localPart !in allowed } ||
                 node.elements().isNotEmpty() || node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject("Invalid bookmark boundary")
             val id = node.attribute(word, "id")?.takeIf { it.matches(Regex("[0-9]{1,9}")) } ?: reject("Invalid bookmark ID")
@@ -85,6 +96,27 @@ internal class NativeDocxBookmarks(private val context: GenerationContext) {
             } else if (!open.remove(id)) reject("Unmatched bookmark end")
         }
         if (open.isNotEmpty()) { focus(starts.getValue(open.first())); reject("Unclosed bookmarks") }
+    }
+
+    // Outside a table, these two zero indexes cannot select any table columns.
+    private fun bodyColumnMarkers(root: XmlElement): Set<XmlElement> {
+        if (!isWord(root, "document")) return emptySet()
+        val body = root.elements().singleOrNull { isWord(it, "body") } ?: return emptySet()
+        val result = mutableSetOf<XmlElement>()
+        for (paragraph in body.elements().filter { isWord(it, "p") }) {
+            context.checkActive()
+            val ends = mutableMapOf<String, Int>()
+            for (node in paragraph.elements().asReversed()) {
+                if (!bookmark(node)) continue
+                val id = node.attribute(word, "id") ?: continue
+                if (isWord(node, "bookmarkEnd")) {
+                    ends[id] = (ends[id] ?: 0) + 1
+                } else if (ends[id] == 1 && columnFields.all { node.attribute(word, it) == "0" }) {
+                    result += node
+                }
+            }
+        }
+        return result
     }
 
     private fun normalizeBody(body: XmlElement, focus: (XmlElement) -> Unit, reject: (String) -> Nothing) {
