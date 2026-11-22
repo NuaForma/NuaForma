@@ -1213,8 +1213,10 @@ internal class NativeDocxReader(
                         source.current = hideMark
                         check(depth == 0 && merge == null, "Omitting cell end marks in nested or vertically merged cells is not qualified")
                         val end = blocks.lastOrNull() as? PdfParagraph ?: reject("Cell end marks require a final paragraph")
-                        check(end.listLabel == null && end.contents == null && end.runs.all { it is PdfTextRun || it is PdfLineBreak } &&
-                            end.runs.last() !is PdfLineBreak, "Omitting the end mark of this cell paragraph is not qualified")
+                        val visible = end.runs.any { it is PdfTextRun && it.text.isNotBlank() }
+                        check(end.listLabel == null && end.contents == null && end.runs.all {
+                            it is PdfTextRun || it is PdfLineBreak || it is PdfTab && visible && it.navigation == null
+                        } && end.runs.last() !is PdfLineBreak, "Omitting the end mark of this cell paragraph is not qualified")
                         if (end.runs.all { it is PdfTextRun && it.text.all { c -> c == ' ' } }) omittedEndMark = hideMark
                         blocks.dropLast(1) + end.withMinimumLineStyle(null).withParagraphMarkStyle(null)
                     } else blocks

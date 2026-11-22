@@ -253,3 +253,5 @@ A qualified Word page reference within its own internal hyperlink resolves to th
 Fixed flat body tables with one solid color can use different qualified direct cell-border widths.
 
 A background header picture can retain a closed tight wrapping contour that sits wholly above the body. Other kinds of shaped wrapping require separate qualification.
+
+Qualified fixed table cells can suppress the end mark while retaining visible text and ordinary tab layout.
