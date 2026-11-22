@@ -11,6 +11,8 @@ internal object WordFramePaint {
     private const val wp = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
     private const val wps = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
     private const val drawing = "http://schemas.openxmlformats.org/drawingml/2006/main"
+    private const val drawing2010 = "http://schemas.microsoft.com/office/drawing/2010/main"
+    private const val hiddenLineExtension = "{91240B29-F687-4F45-9708-019B960494DF}"
 
     fun validateSource(root: XmlElement, context: GenerationContext, reject: (XmlElement, String) -> Nothing) {
         for (anchor in root.descendants()) {
@@ -20,9 +22,34 @@ internal object WordFramePaint {
                 if (shape.elements().none { it.name.namespaceURI == wps && it.name.localPart == "txbx" }) continue
                 val properties = shape.elements().singleOrNull { it.name.namespaceURI == wps && it.name.localPart == "spPr" } ?: continue
                 fillColor(properties, reject, allowAbsent = true)
+                hiddenOutline(properties, reject)
                 properties.elements().filter { it.name.namespaceURI == drawing && it.name.localPart == "ln" }.forEach { strokePaint(it, reject) }
             }
         }
+    }
+
+    fun hiddenOutline(parent: XmlElement, reject: (XmlElement, String) -> Nothing): XmlElement? {
+        val lists = parent.elements().filter { it.name.namespaceURI == drawing && it.name.localPart == "extLst" }
+        val known = lists.flatMap { list -> list.elements().map { list to it } }.filter { (_, node) ->
+            node.attribute("", "uri")?.equals(hiddenLineExtension, ignoreCase = true) == true ||
+                node.elements().any { it.name.namespaceURI == drawing2010 && it.name.localPart == "hiddenLine" }
+        }
+        if (known.isEmpty()) return null
+        val (list, entry) = known.first()
+        if (known.size != 1 || lists.size != 1 || list.elements().size != 1 || list.attributes.isNotEmpty() ||
+            list.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
+            entry.name.namespaceURI != drawing || entry.name.localPart != "ext" || entry.attributes.size != 1 ||
+            entry.attribute("", "uri")?.equals(hiddenLineExtension, ignoreCase = true) != true ||
+            entry.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
+            reject(entry, "Invalid hidden frame outline extension")
+        val hidden = entry.elements().singleOrNull()
+        if (hidden == null || hidden.name.namespaceURI != drawing2010 || hidden.name.localPart != "hiddenLine")
+            reject(entry, "Invalid hidden frame outline properties")
+        val visible = parent.elements().singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "ln" }
+        if (visible == null || strokePaint(visible, reject) != null)
+            reject(entry, "Hidden frame outline requires an explicit invisible outline")
+        if (strokePaint(hidden, reject) == null) reject(hidden, "Hidden frame outline requires qualified stored line properties")
+        return list
     }
 
     fun fill(parent: XmlElement, theme: WordThemeColors, reject: (XmlElement, String) -> Nothing): PdfColor? =

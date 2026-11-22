@@ -245,3 +245,5 @@ Separately positioned page-fixed footer rectangles can retain Word's non-overlap
 Hyperlinks can retain the clickable area of tab runs, including the full gap for tabs without visible leaders. Existing navigation target validation applies.
 
 Fixed body frames can share a page with footnotes when their painted bounds leave the actual footnote region clear. Intersections remain explicit layout errors.
+
+Saved DrawingML outline properties can accompany an explicitly invisible frame outline. The stored properties are validated and the visible frame remains transparent.

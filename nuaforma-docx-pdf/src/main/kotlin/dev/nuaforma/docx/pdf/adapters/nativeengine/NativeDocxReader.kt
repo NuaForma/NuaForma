@@ -1455,7 +1455,9 @@ internal class NativeDocxReader(
             check(shape.elements().size == 4 && shape.elements().all { it.name.namespaceURI == wps && it.name.localPart in setOf("cNvSpPr", "spPr", "txbx", "bodyPr") }, "Unsupported shape content")
             check(one(shape, wps, "cNvSpPr").attribute("", "txBox") in setOf("1", "true"), "Text frame required")
             val props = one(shape, wps, "spPr")
-            props.elements().firstOrNull { it.name.namespaceURI != drawing || it.name.localPart !in setOf("xfrm", "prstGeom", "solidFill", "noFill", "ln") }?.let { unsupported ->
+            val hiddenOutline = WordFramePaint.hiddenOutline(props) { origin, message -> source.current = origin; reject(message) }
+            props.elements().firstOrNull { it !== hiddenOutline &&
+                (it.name.namespaceURI != drawing || it.name.localPart !in setOf("xfrm", "prstGeom", "solidFill", "noFill", "ln")) }?.let { unsupported ->
                 source.current = unsupported
                 reject("Unsupported shape effect or geometry: ${unsupported.name.localPart.take(64)}")
             }
