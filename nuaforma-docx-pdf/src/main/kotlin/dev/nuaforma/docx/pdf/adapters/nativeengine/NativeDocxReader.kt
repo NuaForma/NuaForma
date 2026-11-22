@@ -1314,7 +1314,19 @@ internal class NativeDocxReader(
                 else check(kotlin.math.abs(widths.sum() - dimension(fixedWidth)) < 0.01f, "Table width differs from grid")
             }
             val cellMargins = regions.property("tblCellMar")
-            cellMargins?.let { children(it, setOf("top", "right", "bottom", "left")) }
+            val marginSides = setOf("top", "right", "bottom", "left")
+            cellMargins?.let { children(it, marginSides) }
+            val completeDirectMargins by lazy {
+                rowNodes.all { row -> row.elements().filter { it.name.localPart == "tc" }.all { cell ->
+                    cell.one("tcPr")?.one("tcMar")?.elements()?.map { it.name.localPart }?.toSet() == marginSides
+                } }
+            }
+            val fixedNestedMargins = depth == 1 && modernTableAlignment && !fields && !automaticLayout && position == null &&
+                tableWidth?.value("type") == "dxa" && properties.one("tblInd") == null && completeDirectMargins &&
+                rowNodes.all { row -> row.elements().filter { it.name.localPart == "tc" }.all { cell ->
+                    val formatting = cell.one("tcPr")
+                    formatting?.one("gridSpan") == null && formatting?.one("vMerge") == null
+                } }
 
             fun edge(name: String): Float = dimension(regions.margin(name) ?: reject("Missing cell margin"))
             val borderNames = listOf("top", "left", "bottom", "right", "insideH", "insideV")
@@ -1357,7 +1369,7 @@ internal class NativeDocxReader(
             val border = if (sparseBorders || suppressGrid) null else borderValues.single()
             val padding = if (cellMargins == null) {
                 source.current = properties
-                check(modernTableAlignment && depth == 0 && !fields || singleBandRule, "Explicit cell margins required for this table")
+                check(modernTableAlignment && depth == 0 && !fields || singleBandRule || fixedNestedMargins, "Explicit cell margins required for this table")
                 val clearance = if (singleBandRule) 5.4f else maxOf(.5f, (border?.width ?: 0f) / 2f)
                 PdfMargins(0f, clearance, 0f, clearance)
             } else PdfMargins(edge("top"), edge("right"), edge("bottom"), edge("left"))
@@ -1559,7 +1571,7 @@ internal class NativeDocxReader(
                         }
                     } ?: false
                     if (naturalWidths) automaticDimension(cellWidth ?: reject("Missing cell width"))
-                    else if (!automaticLayout && (cellWidth != null || !independentFixedEdges)) {
+                    else if (!automaticLayout && (cellWidth != null || !independentFixedEdges && !fixedNestedMargins)) {
                         val preferred = dimension(cellWidth ?: reject("Missing cell width"))
                         val declared = widths.subList(column, column + span).sum()
                         val difference = declared - preferred
@@ -1656,12 +1668,8 @@ internal class NativeDocxReader(
             val customBorders = specs.any { (cells, _) -> cells.any { it.borders != null } }
             if (cellMargins == null && customBorders && !independentFixedEdges) {
                 source.current = properties
-                val allSides = setOf("top", "right", "bottom", "left")
-                val completeCellMargins = modernTableAlignment && !fields && depth == 0 && position == null &&
-                    rowNodes.all { row -> row.elements().filter { it.name.localPart == "tc" }.all { cell ->
-                        cell.one("tcPr")?.one("tcMar")?.elements()?.map { it.name.localPart }?.toSet() == allSides
-                    } }
-                check(completeCellMargins, "Explicit cell margins required for tables with cell borders")
+                val completeBodyMargins = modernTableAlignment && !fields && depth == 0 && position == null && completeDirectMargins
+                check(completeBodyMargins || fixedNestedMargins, "Explicit cell margins required for tables with cell borders")
             }
             // Word moves these rows as units. The PDF engine does not fragment vertical merges.
             val hasVerticalMerges = specs.any { (cells, _) -> cells.any { it.rows > 1 } }
@@ -1689,6 +1697,11 @@ internal class NativeDocxReader(
                 PdfTableRow(resolved, allow && !hasVerticalMerges, splitOversized = true, minimumHeight = minimum)
                     .withOmittedColumns(leading, trailing)
             }
+            val firstSplittableRow = rows.indexOfFirst { it.allowSplit }
+            if (firstSplittableRow >= 0 && rows.any { row -> row.cells.any { cell -> cell.blocks.any { it is PdfTable } } }) {
+                source.current = rowNodes[firstSplittableRow]
+                reject("Nested tables require every row of the parent table to stay together")
+            }
             if (customBorders) {
                 val styles = rows.flatMap { it.cells }.flatMap { cell -> cell.borders!!.let { listOfNotNull(it.top, it.right, it.bottom, it.left) } }.map { it.border }.distinct()
                 // The shared border resolver can choose a winner for competing collinear strokes.
@@ -1704,7 +1717,7 @@ internal class NativeDocxReader(
             val count = headerFlags.takeWhile { it }.size
             check(headerFlags.drop(count).none { it }, "Table headers must be leading rows")
             source.current = regions.property("jc") ?: table
-            check(depth == 0 || alignment == PdfTableAlignment.LEFT, "Aligned nested Word tables are not yet qualified")
+            check(depth == 0 || alignment == PdfTableAlignment.LEFT || fixedNestedMargins, "Aligned nested Word tables are not yet qualified")
             check(modernTableAlignment || alignment == PdfTableAlignment.LEFT || preferredTableWidth?.percent == null,
                 "Legacy aligned percentage tables are not yet qualified")
             check(modernTableAlignment || alignment != PdfTableAlignment.RIGHT || !customBorders,

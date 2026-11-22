@@ -379,3 +379,5 @@ A Word Watermarks gallery wrapper can retain its ordinary saved header drawing, 
 A saved table of contents keeps its document styles when Word stores separate font properties for insertion and the control end mark.
 
 Modern body tables with complete explicit margins in every cell retain their spacing and borders when the table does not declare default cell margins.
+
+Fixed nested tables with complete direct margins can keep their saved grid and alignment inside non-splitting parent rows.
