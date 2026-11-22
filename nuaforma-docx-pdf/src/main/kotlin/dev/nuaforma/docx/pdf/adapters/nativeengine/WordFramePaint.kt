@@ -19,20 +19,21 @@ internal object WordFramePaint {
             for (shape in anchor.descendants().filter { it.name.namespaceURI == wps && it.name.localPart == "wsp" }) {
                 if (shape.elements().none { it.name.namespaceURI == wps && it.name.localPart == "txbx" }) continue
                 val properties = shape.elements().singleOrNull { it.name.namespaceURI == wps && it.name.localPart == "spPr" } ?: continue
-                fillColor(properties, reject)
+                fillColor(properties, reject, allowAbsent = true)
                 properties.elements().filter { it.name.namespaceURI == drawing && it.name.localPart == "ln" }.forEach { strokePaint(it, reject) }
             }
         }
     }
 
     fun fill(parent: XmlElement, theme: WordThemeColors, reject: (XmlElement, String) -> Nothing): PdfColor? =
-        fillColor(parent, reject)?.let { resolve(it, theme) }
+        fillColor(parent, reject, allowAbsent = true)?.let { resolve(it, theme) }
 
     fun stroke(node: XmlElement, theme: WordThemeColors, reject: (XmlElement, String) -> Nothing): PdfBorder? =
         strokePaint(node, reject)?.let { (width, color) -> PdfBorder(width, resolve(color, theme)) }
 
-    private fun fillColor(parent: XmlElement, reject: (XmlElement, String) -> Nothing): XmlElement? {
+    private fun fillColor(parent: XmlElement, reject: (XmlElement, String) -> Nothing, allowAbsent: Boolean = false): XmlElement? {
         val fills = parent.elements().filter { it.name.namespaceURI == drawing && it.name.localPart in setOf("solidFill", "noFill") }
+        if (fills.isEmpty() && allowAbsent) return null
         if (fills.size != 1) reject(fills.getOrNull(1) ?: parent, "Explicit single frame fill required")
         val node = fills.single()
         if (node.attributes.isNotEmpty() || node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })

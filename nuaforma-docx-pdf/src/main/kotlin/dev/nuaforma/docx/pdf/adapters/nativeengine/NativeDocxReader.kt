@@ -1242,8 +1242,6 @@ internal class NativeDocxReader(
                 source.current = properties
                 reject("Explicit cell margins required for tables with cell borders")
             }
-            // Word moves these rows as units. The PDF engine does not fragment vertical merges.
-            val hasVerticalMerges = specs.any { (cells, _) -> cells.any { it.rows > 1 } }
             val rows = specs.mapIndexed { rowIndex, (cells, allow) ->
                 val resolved = cells.map { cell ->
                     val resolvedCell = PdfTableCell(cell.blocks, cell.background, cell.span, cell.rows, cell.alignment,
@@ -1265,7 +1263,7 @@ internal class NativeDocxReader(
                     physical
                 }
                 val (leading, trailing) = omissions[rowIndex]
-                PdfTableRow(resolved, allow && !hasVerticalMerges, splitOversized = true, minimumHeight = minimum)
+                PdfTableRow(resolved, allow, splitOversized = true, minimumHeight = minimum)
                     .withOmittedColumns(leading, trailing)
             }
             if (customBorders) {
@@ -1458,8 +1456,11 @@ internal class NativeDocxReader(
             }
             val content = one(one(shape, wps, "txbx"), word, "txbxContent")
             children(content, setOf("p"))
-            val line = one(props, drawing, "ln")
-            val border = WordFramePaint.stroke(line, themeColors) { origin, message -> source.current = origin; reject(message) }
+            val strokes = props.elements().filter { it.name.namespaceURI == drawing && it.name.localPart == "ln" }
+            check(strokes.size <= 1, "Duplicate shape border")
+            val border = strokes.singleOrNull()?.let { line ->
+                WordFramePaint.stroke(line, themeColors) { origin, message -> source.current = origin; reject(message) }
+            }
             val paragraphs = content.elements().map { readParagraph(it, partRelations, fields, allowPageBreak = false) }
             val width = numeric(extent.attribute("", "cx")) / 12700
             val (left, horizontalPageAlignment) = horizontal(width)

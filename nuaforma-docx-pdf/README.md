@@ -233,3 +233,5 @@ Ordinary unrotated fixed DrawingML text boxes in the main story can keep their o
 In a merged table, permission for an ordinary row to split is accepted when the resolved table can keep the relevant row whole. The current restrictions for fragmenting merged cells still apply.
 
 A qualified left-to-right paragraph can retain a bookmark at the end of its last physical line or at the start of an empty line. Links resolve to this anchor without adding printable characters.
+
+Standalone text frames with omitted fill and outline declarations can retain their transparent paint. Explicit colors still follow the qualified frame paint profile.
