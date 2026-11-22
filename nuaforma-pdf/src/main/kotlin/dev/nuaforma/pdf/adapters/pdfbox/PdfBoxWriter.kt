@@ -278,10 +278,11 @@ internal object PdfBoxWriter {
                                     val cx = element.box.width / 2
                                     val cy = element.box.height / 2
                                     command("q")
+                                    val extension = element.contentHeight - element.box.height
                                     command("cm", number(c), number(-s), number(s), number(c),
                                         number(element.x + cx - c * cx - s * cy),
-                                        number(canvasHeight - element.top - cy + s * cx - c * cy))
-                                    paint(element.elements, element.box.height, element.box.width)
+                                        number(canvasHeight - element.top - cy + s * cx - c * cy - extension))
+                                    paint(element.elements, element.contentHeight, element.box.width)
                                     command("Q")
                                 }
                                 is PositionedRectangle -> {

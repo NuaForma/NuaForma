@@ -227,3 +227,5 @@ In development mode, text-frame overflow diagnostics identify the affected dimen
 Fixed tables can retain empty grid positions at either outer edge of a row. The declared omission must agree with the physical column widths. Only actual cells paint their content and borders.
 
 The Word numeric picture 0 is accepted on PAGE, NUMPAGES and SECTIONPAGES. These fields still resolve against the final pagination.
+
+Ordinary unrotated fixed DrawingML text boxes in the main story can keep their original rectangle while longer text continues below it. The frame and text remain within the physical page.

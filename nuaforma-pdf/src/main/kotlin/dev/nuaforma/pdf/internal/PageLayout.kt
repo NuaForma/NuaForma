@@ -35,7 +35,8 @@ internal data class PositionedRectangle(val x: Float, val top: Float, val width:
     val paragraph: PdfParagraph? = null, val first: Boolean = false, val following: PdfParagraph? = null,
     val pageOffset: PdfParagraphPageOffset? = null, val clip: RectangleClip? = null) : PositionedElement
 internal data class PositionedTableBorder(val x: Float, val top: Float, val length: Float, val horizontal: Boolean, val stroke: PdfEdgeStroke, val group: Any) : PositionedElement
-internal data class PositionedBox(val box: PdfTextBox, val x: Float, val top: Float, val elements: List<PositionedElement>, val pageY: Boolean = false) : PositionedElement
+internal data class PositionedBox(val box: PdfTextBox, val x: Float, val top: Float, val elements: List<PositionedElement>, val pageY: Boolean = false,
+    val contentHeight: Float = box.height) : PositionedElement
 internal data class MeasuredLineBox(val from: Int, val until: Int, val top: Float, val height: Float, val pageBreakAfter: Boolean = false)
 internal data class PageLayout(
     val page: PdfPage,

@@ -50,6 +50,7 @@ internal object NativePdfFailureDiagnostics {
         "Auto-fitted text frame exceeds page width",
         "Auto-fitted text frame exceeds page height",
         "Text exceeds frame content height",
+        "Text below the frame exceeds the physical page",
         "Text frame crosses a physical page side",
         "Text frame crosses the physical page top or bottom",
         "Line box exceeds remaining area height",

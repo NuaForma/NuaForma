@@ -41,16 +41,20 @@ internal object BoxLayouter {
         }
         val (x, y) = fixedPosition ?: locate(resolved, page, paragraphTop, halfStroke)
         val available = resolved.height - padding.top - padding.bottom
-        if (used > available + .001f) overflow("Text exceeds frame content height", used, available)
-        val extra = when (resolved.verticalAlignment) {
+        val excess = used > available + .001f
+        if (excess && !resolved.visibleTextOverflow) overflow("Text exceeds frame content height", used, available)
+        val layoutHeight = if (excess) padding.top + used else resolved.height
+        if (excess && y + layoutHeight > page.height + .001f)
+            overflow("Text below the frame exceeds the physical page", layoutHeight, page.height - y)
+        val extra = if (excess) 0f else when (resolved.verticalAlignment) {
             PdfVerticalAlignment.TOP -> 0f
             PdfVerticalAlignment.CENTER -> (available - used) / 2
             PdfVerticalAlignment.BOTTOM -> available - used
         }
-        val local = PageLayouter.layout(PdfDocument(PdfPage(resolved.width, resolved.height,
+        val local = PageLayouter.layout(PdfDocument(PdfPage(resolved.width, layoutHeight,
             padding.copy(top = padding.top + extra, bottom = 0f)), resolved.paragraphs), measurer)
         val elements = listOf(PositionedRectangle(0f, 0f, resolved.width, resolved.height, resolved.fill, resolved.border)) + local.elements
-        return PositionedBox(resolved, x, y, elements)
+        return PositionedBox(resolved, x, y, elements, contentHeight = layoutHeight)
     }
 
     private fun locate(box: PdfTextBox, page: PdfPage, paragraphTop: Float, halfStroke: Float): Pair<Float, Float> {

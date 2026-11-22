@@ -1442,9 +1442,10 @@ internal class NativeDocxReader(
                 reject(message)
             }
             if (autoFit == null) {
-                check(bodyProps.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in setOf("rot", "vert", "wrap", "lIns", "tIns", "rIns", "bIns", "anchor", "anchorCtr", "upright") }, "Unsupported text frame policy")
+                check(bodyProps.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in setOf("rot", "vert", "wrap", "lIns", "tIns", "rIns", "bIns", "anchor", "anchorCtr", "upright", "vertOverflow") }, "Unsupported text frame policy")
                 check(bodyProps.attribute("", "rot") == "0" && bodyProps.attribute("", "vert") == "horz" &&
                     bodyProps.attribute("", "wrap") == "square", "Unsupported text direction")
+                check(bodyProps.attribute("", "vertOverflow") in setOf(null, "overflow"), "Unsupported fixed frame overflow policy")
                 check(bodyProps.elements().size == 1 && one(bodyProps, drawing, "noAutofit").attributes.isEmpty(), "Frame autofitting is unsupported")
             }
             val content = one(one(shape, wps, "txbx"), word, "txbxContent")
@@ -1491,6 +1492,8 @@ internal class NativeDocxReader(
                     numeric(bodyProps.attribute("", "bIns")) / 12700, numeric(bodyProps.attribute("", "lIns")) / 12700),
                 WordFramePaint.fill(props, themeColors) { origin, message -> source.current = origin; reject(message) }, border,
                 when (bodyProps.attribute("", "anchor")) { "t" -> PdfVerticalAlignment.TOP; "ctr" -> PdfVerticalAlignment.CENTER; "b" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported vertical alignment") }).withDrawingOrder(order).withAutoFit(autoFit).withPageAlignment(pageAlignment)
+                .withVisibleTextOverflow(!fields && autoFit == null && rotation == 0f &&
+                    bodyProps.attribute("", "anchorCtr") in setOf(null, "0", "false"))
         }
 
         fun readAnchoredImage(node: XmlElement, partRelations: Map<String, String>, pageBand: Boolean = false): PdfAnchoredImage {
