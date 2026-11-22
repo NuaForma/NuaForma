@@ -6,7 +6,7 @@ The maintainer approved reusing merge qualification on 2026-10-30. A release bui
 
 ## Qualify changed inputs once
 
-The Java 17/25 and native AMD64/ARM64 jobs retain small full-qualification receipts only after their actual tests finish successfully. Each receipt identifies its workflow run/attempt, source commit, tested checkout, lane and input fingerprint. Java reuse also requires the real SonarCloud Code Analysis check from `sonarqubecloud` to have passed on that original source. A scanner upload or generic status is insufficient.
+The Java 25 job runs the full product suite and coverage once. The Java 17 job verifies independent consumers and dependency rejection. Native AMD64/ARM64 jobs assemble the images and test the shipped runtime, including endpoints, fonts, validators and extension loading. Each job retains a small qualification receipt after its checks succeed. The receipt identifies its workflow run/attempt, source commit, tested checkout, lane and input fingerprint. Java reuse requires both Java jobs and the real SonarCloud Code Analysis check from `sonarqubecloud` on the original source.
 
 On a later PR or develop/main push, the same required check names either run full qualification or validate a matching complete earlier qualification. Reused jobs link the original run in their summary; they do not upload new full receipts or claim a new Sonar analysis. Branch protections remain in place. The signed merge/source still identifies the delivered revision.
 

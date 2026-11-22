@@ -22,9 +22,13 @@ JaCoCo measures JVM execution in those Gradle test processes, not browser JavaSc
 
 ## GitHub Actions
 
-Pull requests targeting `develop`/`main` run the Java 17/25 matrix. Push builds are restricted to those two integration/release branches, so feature updates do not run the same matrix twice via both push and PR events. Merged changes still receive a branch build and branch analysis; manual dispatch remains available. Both product branches require `Build (Java 17)` and `Build (Java 25)`, with `Release promotion` additionally required on main. The separate native AMD64/ARM64 checks and other protection rules are unchanged.
+Pull requests targeting `develop`/`main` run the required `Build (Java 25)` and `Build (Java 17)` checks. Push builds are restricted to the two integration/release branches. Identical qualified inputs can reuse green results, and manual dispatch runs the checks again. Main also requires `Release promotion`.
 
-The existing Build workflow keeps its Java 17/25 matrix. Only the Java 25 build records and verifies the aggregate report; analysis runs after successful checks. The scanner step explicitly excludes test execution and report regeneration (`-x test -x coverageReport`), consuming the report verified in the preceding build rather than rerunning tests with the token present. Checkout retains full Git history without persisted credentials. Sonar receives public project source and analysis metadata; never run it on customer templates, private extensions or production data.
+A newer pull request run cancels the older job for each Java version. Push and manual runs retain the per-branch queue so successive develop snapshots publish in order.
+
+The Java 25 job runs the complete suite once with the module toolchains and verifies the aggregate coverage report. The Java 17 job checks independent Maven and Gradle consumers and dependency rejection under Java 17. Native AMD64 and ARM64 jobs assemble the applications and test the actual images. The scanner consumes the verified report and excludes test execution and report regeneration (`-x test -x coverageReport`). Checkout retains full Git history without persisted credentials. Sonar receives public project source and analysis metadata; never run it on customer templates, private extensions or production data.
+
+Gradle can run up to three DOCX-to-PDF test classes at a time in separate JVMs. This keeps JVM-wide settings isolated and leaves methods within each class sequential. All classes still count toward the same coverage report.
 
 The scanner runs for pushes/manual runs on `develop` or `main`, and for opened/reopened/updated PRs targeting those branches when both repositories are `NuaForma/NuaForma`. Fork and Dependabot PRs still build/test but skip authenticated analysis. The workflow never uses `pull_request_target` or privileged artifact handoffs. `SONAR_TOKEN` is provided only to the scanner step, not to compilation/tests; eligible analysis fails clearly if it is absent. Same-repository code and workflow changes remain trusted maintainer input and can execute during Gradle scanning; review them accordingly.
 

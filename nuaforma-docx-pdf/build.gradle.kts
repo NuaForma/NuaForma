@@ -34,6 +34,8 @@ dependencies {
 }
 
 tasks.test {
+    // Separate JVMs isolate tests that change system properties.
+    maxParallelForks = 3
     dependsOn(":nuaforma-pdf:prepareOwnEngineValidation")
     inputs.files(fileTree(project(":nuaforma-pdf").layout.buildDirectory.dir("pdfa-validation")) { include("*.jar") })
         .withPropertyName("validatorRuntimeJars").withPathSensitivity(PathSensitivity.RELATIVE)
