@@ -221,3 +221,5 @@ A narrow profile admits direction properties on ordinary nonprinting header tabs
 A qualified page-relative text box can align to the left, center or right and to the top, center or bottom of the physical page. Alignment uses the finished frame size. A stroke on an expressly aligned page edge follows the physical page crop.
 
 Embedded Office SVG pictures may use an internal SVG part with static filled paths and a distinct embedded raster fallback. The renderer uses the SVG for qualified inputs with the existing picture placement. External references, scripts, complex styling and effects remain outside this profile.
+
+In development mode, text-frame overflow diagnostics identify the affected dimension or physical edge and include the measured required and available space in points.

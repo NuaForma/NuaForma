@@ -15,7 +15,12 @@ internal object BoxLayouter {
         }
         val width = if (box.autoFit == PdfTextBoxAutoFit.WIDTH_AND_HEIGHT) naturalWidth(box, measurer)
             else box.width - padding.left - padding.right
-        if (box.autoFit != null && (width < .001f || width + padding.left + padding.right > page.width + .001f)) overflow()
+        if (box.autoFit != null) {
+            val minimum = padding.left + padding.right + .001f
+            if (width < .001f) overflow("Text frame padding leaves no usable width", minimum, box.width)
+            val required = width + padding.left + padding.right
+            if (required > page.width + .001f) overflow("Auto-fitted text frame exceeds page width", required, page.width)
+        }
         var used = 0f
         var after = 0f
         for ((index, p) in box.paragraphs.withIndex()) {
@@ -30,12 +35,13 @@ internal object BoxLayouter {
         val resolved = if (box.autoFit == null) box else {
             val fitWidth = maxOf(1f, width + padding.left + padding.right)
             val fitHeight = maxOf(1f, used + padding.top + padding.bottom + .001f)
-            if (fitHeight > page.height || fitWidth > page.width) overflow()
+            if (fitHeight > page.height) overflow("Auto-fitted text frame exceeds page height", fitHeight, page.height)
+            if (fitWidth > page.width) overflow("Auto-fitted text frame exceeds page width", fitWidth, page.width)
             box.resolvedSize(fitWidth, fitHeight)
         }
         val (x, y) = fixedPosition ?: locate(resolved, page, paragraphTop, halfStroke)
         val available = resolved.height - padding.top - padding.bottom
-        if (used > available + .001f) overflow()
+        if (used > available + .001f) overflow("Text exceeds frame content height", used, available)
         val extra = when (resolved.verticalAlignment) {
             PdfVerticalAlignment.TOP -> 0f
             PdfVerticalAlignment.CENTER -> (available - used) / 2
@@ -70,8 +76,12 @@ internal object BoxLayouter {
         val maxX = page.width - if (horizontal == PdfAlignment.RIGHT) 0f else halfStroke
         val minY = if (vertical == PdfVerticalAlignment.TOP) 0f else halfStroke
         val maxY = page.height - if (vertical == PdfVerticalAlignment.BOTTOM) 0f else halfStroke
-        if (x + box.width / 2 - dx < minX - .001 || y + box.height / 2 - dy < minY - .001 ||
-            x + box.width / 2 + dx > maxX + .001 || y + box.height / 2 + dy > maxY + .001) overflow()
+        val midX = x + box.width / 2
+        val midY = y + box.height / 2
+        if (midX - dx < minX - .001 || midX + dx > maxX + .001)
+            overflow("Text frame crosses a physical page side", (2 * dx).toFloat(), 2 * minOf(midX - minX, maxX - midX))
+        if (midY - dy < minY - .001 || midY + dy > maxY + .001)
+            overflow("Text frame crosses the physical page top or bottom", (2 * dy).toFloat(), 2 * minOf(midY - minY, maxY - midY))
         return x to y
     }
 
@@ -94,6 +104,7 @@ internal object BoxLayouter {
 
     private fun PdfParagraph.hasVisualDecorations() = borders != null || background != null || lines.isNotEmpty()
 
-    private fun overflow(): Nothing = throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, "Text frame exceeds its content area or physical page")
+    private fun overflow(reason: String, required: Float, available: Float): Nothing =
+        throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW, "$reason; required=$required pt; available=$available pt")
 
 }
