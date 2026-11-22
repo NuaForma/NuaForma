@@ -46,7 +46,7 @@ internal object FlowLayouter {
             ParagraphBounds.check(block, page)
             val content = if (block.hasHandledLeadingPageBreak()) block.copy(runs = block.runs.drop(1)) else block
             paragraph(content, width, measurer, previous = document.blocks.getOrNull(index - 1) as? PdfParagraph,
-                next = document.blocks.getOrNull(index + 1) as? PdfParagraph, permitMarginMarker = true,
+                next = document.blocks.getOrNull(index + 1) as? PdfParagraph, permitMarginOverflow = true,
                 rightMarginAllowance = page.margins.right)
         }
 
@@ -393,14 +393,14 @@ internal object FlowLayouter {
     }
 
     internal fun paragraph(p: PdfParagraph, width: Float, measurer: TextMeasurer, previous: PdfParagraph? = null, next: PdfParagraph? = null, owner: PdfParagraph = p,
-        permitMarginMarker: Boolean = false, rightMarginAllowance: Float = 0f,
+        permitMarginOverflow: Boolean = false, rightMarginAllowance: Float = 0f,
         lineArea: ((Int) -> Pair<Float, Float>)? = null): MeasuredParagraph {
         if (p.anchoredImages.isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Anchored images are supported only in body paragraphs")
         if (p.format.automaticLineSpacing == null && p.minimumLineHeight == null && p.format.exactLineHeight == null)
             fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paginated proof requires an explicit line spacing policy")
         val normalized = p.copy(spaceBefore = 0f, spaceAfter = 0f, borders = null, lines = emptyList()).withBackground(null)
         val local = PageLayouter.layout(PdfDocument(PdfPage(width, 14_400f, PdfMargins(0f, 0f, 0f, 0f)), listOf(normalized)),
-            measurer, lineArea, measurement = true, permitMarginMarker = permitMarginMarker, rightMarginAllowance = rightMarginAllowance)
+            measurer, lineArea, measurement = true, permitMarginOverflow = permitMarginOverflow, rightMarginAllowance = rightMarginAllowance)
         val heights = local.lineBoxes.map { it.height }
         val height = heights.firstOrNull() ?: p.format.exactLineHeight ?: PageLayouter.automaticBox(p, measurer)?.first
             ?: fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph line metrics are unavailable")

@@ -78,6 +78,28 @@ class PdfLayoutOverflowDiagnosticsTest {
     }
 
     @Test
+    fun `a standalone left aligned picture can use the free right page margin`() {
+        fun picture(width: Float, clipped: Boolean = true) =
+            PdfImageRun(PdfImage(ByteArray(24), width, 8f)).withLineClipping(clipped)
+
+        fun layoutImage(run: PdfImageRun, alignment: PdfAlignment = PdfAlignment.LEFT, margin: Float = 10f): PageLayout {
+            val paragraph = PdfParagraph(listOf(run), format = PdfParagraphFormat(alignment = alignment))
+            return PageLayouter.layout(PdfDocument(page, listOf(paragraph)), measurer, permitMarginOverflow = true, rightMarginAllowance = margin)
+        }
+
+        val portion = picture(80f).withPadding(PdfMargins(0f, .3f, 0f, 0f))
+        val saved = layoutImage(portion).elements.filterIsInstance<PositionedImage>().single()
+        assertEquals(10f, saved.x)
+        assertEquals(80f, saved.image.width)
+        assertTrue(saved.requiresPhysicalBounds)
+        assertEquals(85f, layoutImage(picture(85f)).elements.filterIsInstance<PositionedImage>().single().image.width)
+        failure("Inline image exceeds physical page width", 91f, 90f) { layoutImage(picture(91f)) }
+        failure("Inline image exceeds line width", 81f, 80f) { layoutImage(picture(81f, clipped = false)) }
+        failure("Inline image exceeds line width", 81f, 80f) { layoutImage(picture(81f), PdfAlignment.CENTER) }
+        failure("Inline image exceeds line width", 81f, 80f) { layoutImage(picture(81f), margin = 0f) }
+    }
+
+    @Test
     fun `automatic line geometry reports finite limits and nonfinite calculations`() {
         val p = paragraph(format = PdfParagraphFormat(automaticLineSpacing = PdfAutomaticLineSpacing()))
         failure("Automatic line height is below minimum", 1f, .5f) {

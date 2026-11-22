@@ -425,3 +425,5 @@ A full-width solid background in the first header paragraph clips to the paper a
 Unwrapped body pictures align to the top, center or bottom of a physical page using the outer extent and effect distances.
 
 Ordinary Basic Latin text keeps its ASCII typeface when Word saves a fallback hint for a different script.
+
+An eligible left-aligned picture on its own body line can extend into the free right page margin. Layout failures report the applicable measured width.

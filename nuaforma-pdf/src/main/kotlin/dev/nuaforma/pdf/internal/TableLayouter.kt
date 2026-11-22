@@ -62,7 +62,7 @@ internal object TableLayouter {
                             block.copy(anchoredImages = emptyList())
                         }
                         val p = FlowLayouter.paragraph(shapeFree, width, measurer, previous = blocks.getOrNull(blockIndex - 1) as? PdfParagraph,
-                            next = blocks.getOrNull(blockIndex + 1) as? PdfParagraph, owner = block, permitMarginMarker = true)
+                            next = blocks.getOrNull(blockIndex + 1) as? PdfParagraph, owner = block, permitMarginOverflow = true)
                         if (p.lines.size > 1 && block.format.keepLines)
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph pagination rules inside table cells are not qualified")
                         top += ParagraphSpacing.before(block, after, blockIndex == 0)

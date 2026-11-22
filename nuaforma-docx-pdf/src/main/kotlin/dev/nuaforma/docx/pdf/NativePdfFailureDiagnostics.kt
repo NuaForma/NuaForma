@@ -62,6 +62,8 @@ internal object NativePdfFailureDiagnostics {
         "Tab start exceeds line boundary",
         "Aligned tab content exceeds line boundary",
         "Web address exceeds line width at a supported break",
+        "Inline image exceeds line width",
+        "Inline image exceeds physical page width",
         "Word and leading spaces exceed line width",
         "Word width exceeds line width",
         "Word cluster width exceeds line width",

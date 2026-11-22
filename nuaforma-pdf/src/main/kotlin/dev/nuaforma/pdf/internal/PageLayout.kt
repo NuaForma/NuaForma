@@ -55,7 +55,7 @@ internal object PageLayouter {
     private val unshapedForbiddenTypes = setOf(Character.FORMAT.toInt(), Character.SURROGATE.toInt(), Character.UNASSIGNED.toInt(), Character.NON_SPACING_MARK.toInt(), Character.COMBINING_SPACING_MARK.toInt(), Character.ENCLOSING_MARK.toInt())
 
     fun layout(document: PdfDocument, measurer: TextMeasurer, lineArea: ((Int) -> Pair<Float, Float>)? = null, measurement: Boolean = false,
-        permitMarginMarker: Boolean = false, rightMarginAllowance: Float = 0f): PageLayout {
+        permitMarginOverflow: Boolean = false, rightMarginAllowance: Float = 0f): PageLayout {
         val page = document.page
         val width = page.width - page.margins.left - page.margins.right
         val bottom = page.height - page.margins.bottom
@@ -115,7 +115,7 @@ internal object PageLayouter {
                     val markerEnd = markerLeft + (marker?.width ?: 0f)
                     // Flow measurement uses local coordinates. Word places a negative left-aligned marker
                     // outside the paragraph and resumes the item at its indent when the marker fits before it.
-                    val marginMarker = permitMarginMarker && lineArea == null && format.textDirection == null &&
+                    val marginMarker = permitMarginOverflow && lineArea == null && format.textDirection == null &&
                         format.alignment == PdfAlignment.LEFT && label?.alignment == PdfAlignment.LEFT &&
                         label.suffix == PdfListSuffix.TAB && markerLeft < -.001f && markerEnd <= format.leftIndent + .001f
                     if (label != null && markerLeft < -.001f && !marginMarker)
@@ -520,9 +520,20 @@ internal object PageLayouter {
                             spaces.clear()
                         }
                         val oversizedWord = wordWidth > availableWidth() + .001f
+                        val inlineImage = word.singleOrNull()?.takeIf { it.image != null }
+                        // A dedicated left-aligned body picture may reach into an unused page margin.
+                        val bodyPicture = inlineImage?.imageClipToLine == true && permitMarginOverflow && rightMarginAllowance > 0f &&
+                            block.runs.singleOrNull() is PdfImageRun && block.endDestinations.isEmpty() &&
+                            label == null && lineArea == null && format.alignment == PdfAlignment.LEFT &&
+                            format.rightIndent == 0f && line.isEmpty() && spaces.isEmpty()
+                        if (oversizedWord && bodyPicture) {
+                            val pageWidth = width + rightMarginAllowance - lineLeft()
+                            if (wordWidth > pageWidth + .001f)
+                                overflow("Inline image exceeds physical page width", wordWidth, pageWidth)
+                        }
                         val simpleWebPath = oversizedWord && !movesToNextLine && !block.breakLongWords && line.isEmpty() && spaces.isEmpty() &&
                             ordinaryWebAddress(word) && WebAddressBreaks.isSimplePath(word.map { it.text })
-                        if (oversizedWord && (block.breakLongWords || simpleWebPath)) {
+                        if (oversizedWord && inlineImage == null && (block.breakLongWords || simpleWebPath)) {
                             if (format.textDirection != null || word.any { it.style == null || it.text.isEmpty() })
                                 throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Long-word breaking with bidi or inline objects is not qualified")
                             val leadingWidth = spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
@@ -541,9 +552,13 @@ internal object PageLayouter {
                             }
                             continue
                         }
-                        if (!movesToNextLine && lineWidth + spaceWidth + wordWidth > availableWidth() + .001f)
-                            overflow("Word and leading spaces exceed line width", spaceWidth + wordWidth, availableWidth())
-                        if (wordWidth > availableWidth() + .001f) overflow("Word width exceeds line width", wordWidth, availableWidth())
+                        if (!bodyPicture) {
+                            if (!movesToNextLine && lineWidth + spaceWidth + wordWidth > availableWidth() + .001f)
+                                overflow(if (inlineImage == null) "Word and leading spaces exceed line width" else "Inline image exceeds line width",
+                                    spaceWidth + wordWidth, availableWidth())
+                            if (oversizedWord) overflow(if (inlineImage == null) "Word width exceeds line width" else "Inline image exceeds line width",
+                                wordWidth, availableWidth())
+                        }
                         line += spaces
                         lineWidth += spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
                         spaces.clear()
