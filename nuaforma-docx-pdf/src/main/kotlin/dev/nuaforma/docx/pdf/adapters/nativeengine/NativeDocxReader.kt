@@ -206,6 +206,12 @@ internal class NativeDocxReader(
             provenance[copy] = provenance[original] ?: activePart; source.alias(copy, original)
         }, ::reject)
         parsed.forEach { (name, root) -> activePart = name; propertyParagraphs.normalize(root) }
+        val originalBookmarks = parsed.values.asSequence().flatMap { it.descendants() }
+            .filter { node ->
+                context.checkActive()
+                node.name.namespaceURI == word && node.name.localPart == "bookmarkStart"
+            }.mapNotNull { it.value("name") }.toSet()
+        val bookmarksByCase = originalBookmarks.groupBy { it.lowercase(java.util.Locale.ROOT) }
         val fieldCodeStyles = java.util.IdentityHashMap<XmlElement, XmlElement?>()
         val formFields = java.util.IdentityHashMap<XmlElement, NativeDocxFields.Form>()
         parsed.forEach { (name, root) ->
@@ -862,7 +868,18 @@ internal class NativeDocxReader(
                     val id = node.attribute(rel, "id")
                     val anchor = node.value("anchor")
                     check((id == null) != (anchor == null), "Hyperlinks require one target")
-                    val link = if (id == null) PdfLink.Internal(requireNotNull(anchor)) else PdfLink.External(partRelations[id] ?: reject("Missing hyperlink relationship"))
+                    val link = if (id == null) {
+                        val requested = PdfLink.Internal(requireNotNull(anchor))
+                        val compatible = bookmarksByCase[anchor.lowercase(java.util.Locale.ROOT)].orEmpty()
+                        check(anchor in originalBookmarks || compatible.size <= 1, "Ambiguous case-insensitive bookmark destination")
+                        val target = if (anchor in originalBookmarks) anchor else compatible.singleOrNull()
+                        if (target == null) {
+                            // Word's PDF export retains ordinary text when its bookmark does not exist.
+                            check(node.elements().all { it.name.namespaceURI == word && it.name.localPart == "r" },
+                                "An unresolved bookmark cannot qualify a field inside its hyperlink")
+                            null
+                        } else if (target == requested.destination) requested else PdfLink.Internal(target)
+                    } else PdfLink.External(partRelations[id] ?: reject("Missing hyperlink relationship"))
                     check(node.elements().isNotEmpty(), "Empty hyperlink")
                     val linkIdentity = "source-link${linkCounter++}"
                     node.elements().flatMap { readRun(it, link, linkIdentity) }

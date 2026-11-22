@@ -327,3 +327,5 @@ An ordinary paragraph after a standalone contents end marker retains its text, f
 Supported fixed, unwrapped rectangular frames resolve their relative width and height independently.
 
 A centered or decimal-aligned field can move left to remain inside the line when the full field fits after the preceding text.
+
+An unresolved ordinary Word hyperlink keeps its visible text. Existing names resolve with explicit case-preserving identity.
