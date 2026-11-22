@@ -1328,6 +1328,12 @@ internal class NativeDocxReader(
 
             val sparseStrokes by lazy { tableBorders.mapValues { (_, border) -> border?.let(::ranked) } }
 
+            val outlineSides = setOf("top", "left", "bottom", "right")
+            val uniformTableOutline = tableBorders["top"]?.takeIf { stroke ->
+                sparseBorders && outlineSides.all { tableBorders[it] == stroke } &&
+                    tableBorders["insideH"] == null && tableBorders["insideV"] == null
+            }
+
             fun tableCellEdges(rowIndex: Int, column: Int): PdfCellBorders = PdfCellBorders(
                 sparseStrokes[if (rowIndex == 0) "top" else "insideH"],
                 sparseStrokes[if (column == widths.lastIndex) "right" else "insideV"],
@@ -1433,13 +1439,34 @@ internal class NativeDocxReader(
                         } && listOfNotNull(declaredCellBorders?.top, declaredCellBorders?.bottom).all {
                             it.border.width == tableBorders["bottom"]?.width
                         }
+                        val styleBorders = cellStyles.mapNotNull { layer -> layer.one("tcPr")?.one("tcBorders")?.let { layer to it } }
+                        val matchingStyleOutline = uniformTableOutline != null && cp.one("gridSpan") == null &&
+                            cp.one("tcBorders") == null && styleBorders.all { (layer, _) ->
+                                layer.name.localPart == "style" || layer.value("type") in setOf("wholeTable", "band1Horz", "band2Horz")
+                            } && edgePolicies.all { policy ->
+                                policy.elements().all { edge ->
+                                    edge.name.namespaceURI == word && edge.name.localPart in outlineSides && edge.value("val") == "single"
+                                }
+                            } && declaredCellBorders?.let { edges ->
+                                listOfNotNull(edges.top, edges.left, edges.bottom, edges.right).all { it.border == uniformTableOutline }
+                            } == true
                         check(cp.one("vMerge") == null && cell.elements().none { it.name.localPart == "tbl" } &&
-                            (horizontalEdges || cp.one("gridSpan") == null && declaredCellBorders == null),
+                            (horizontalEdges || matchingStyleOutline || cp.one("gridSpan") == null && declaredCellBorders == null),
                             "Independent table edges with merged, nested or custom-bordered cells are not qualified")
                         val inherited = tableCellEdges(rowIndex, column)
-                        if (horizontalEdges && declaredCellBorders != null) inherited.copy(
-                            top = declaredCellBorders.top ?: inherited.top, bottom = declaredCellBorders.bottom ?: inherited.bottom,
-                        ) else inherited
+                        val overridingEdges = when {
+                            horizontalEdges -> declaredCellBorders
+                            matchingStyleOutline -> {
+                                // Under a uniform table outline, Word applies horizontal band lines across the row.
+                                // Cell-side styles do not introduce an interior vertical edge without an insideV line.
+                                val bands = styleBorders.filter { (layer, _) -> layer.value("type") in setOf("band1Horz", "band2Horz") }
+                                bands.fold(PdfCellBorders()) { chosen, (_, declaration) -> readCellBorders(declaration, chosen) }
+                            }
+                            else -> null
+                        }
+                        if (overridingEdges == null) inherited else inherited.copy(
+                            top = overridingEdges.top ?: inherited.top, bottom = overridingEdges.bottom ?: inherited.bottom,
+                        )
                     } else declaredCellBorders?.takeUnless {
                         cellMargins == null && it == fallbackBorders && (suppressGrid || border == null ||
                             edgePolicies.none { policy -> policy.elements().any { it.value("val") == "none" } })
