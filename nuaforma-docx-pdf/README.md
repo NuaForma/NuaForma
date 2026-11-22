@@ -371,3 +371,5 @@ Consecutive undecorated terminal tabs can occupy blank continuation lines when t
 A row can split at ordinary line boundaries when its own sides and surrounding joins match the fixed table outline.
 
 A visible run without a resolved font family reports the missing declaration at its source location.
+
+Empty trailing fields after a nondecorated right tab also keep the blank continuation lines used by Word.

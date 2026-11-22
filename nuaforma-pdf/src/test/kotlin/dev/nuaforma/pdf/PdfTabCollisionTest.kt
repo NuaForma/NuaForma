@@ -173,9 +173,11 @@ class PdfTabCollisionTest {
 
     @Test
     fun `multiple trailing plain tabs keep the lines used by Word`() {
-        val format = PdfParagraphFormat(exactLineHeight = 14f, tabs = PdfTabSettings(defaultInterval = 120f))
-        val next = PdfParagraph(listOf(PdfTextRun("NEXT", style)), 0f, 0f, format)
-        for (number in listOf(2, 6)) {
+        val explicitRight = PdfTabSettings(listOf(PdfTabStop(214f, PdfTabAlignment.RIGHT)), defaultInterval = 120f)
+        val defaultStops = PdfTabSettings(defaultInterval = 120f)
+        val next = PdfParagraph(listOf(PdfTextRun("NEXT", style)), 0f, 0f, PdfParagraphFormat(exactLineHeight = 14f))
+        for (stops in listOf(defaultStops, explicitRight)) for (number in listOf(2, 6)) {
+            val format = PdfParagraphFormat(exactLineHeight = 14f, tabs = stops)
             val tabs = List(number) { PdfTab(style) }
             val first = PdfParagraph(listOf(PdfTextRun("PREFIX", style)) + tabs, 0f, 0f, format)
             val printed = PageLayouter.layout(PdfDocument(page, listOf(first, next)), measurer)
@@ -183,7 +185,8 @@ class PdfTabCollisionTest {
             assertEquals(listOf("PREFIX", "NEXT"), printed.map { it.text })
             assertEquals(14f * number, printed[1].baseline - printed[0].baseline, .001f)
         }
-        for (ending in listOf(PdfTextRun("END", style), PdfTab(style.copy(underline = true)))) {
+        for (stops in listOf(defaultStops, explicitRight)) for (ending in listOf(PdfTextRun("END", style), PdfTab(style.copy(underline = true)))) {
+            val format = PdfParagraphFormat(exactLineHeight = 14f, tabs = stops)
             val first = PdfParagraph(listOf(PdfTextRun("PREFIX", style), PdfTab(style), PdfTab(style), ending), 0f, 0f, format)
             val failure = assertThrows(PdfRenderException::class.java) {
                 PageLayouter.layout(PdfDocument(page, listOf(first)), measurer)

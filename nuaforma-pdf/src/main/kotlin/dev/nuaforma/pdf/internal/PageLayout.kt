@@ -168,7 +168,10 @@ internal object PageLayouter {
                         format.tabs?.stops?.map { it.alignment } == listOf(PdfTabAlignment.CENTER, PdfTabAlignment.RIGHT)
                     var rightFieldIndex = 0
                     val plainTrailingTabs = format.alignment == PdfAlignment.LEFT && block.runs.any { it is PdfTab } &&
-                        format.tabs?.stops.orEmpty().all { it.alignment == PdfTabAlignment.LEFT && it.leader == PdfTabLeader.NONE }
+                        format.tabs?.stops.orEmpty().all { stop ->
+                            stop.leader == PdfTabLeader.NONE && (stop.alignment == PdfTabAlignment.LEFT ||
+                                stop.alignment == PdfTabAlignment.RIGHT && stop.position <= width + .001f)
+                        }
                     val lastVisibleGroup = if (plainTrailingTabs) groups.indexOfLast { group ->
                         group.any { fragment ->
                             val style = fragment.style
