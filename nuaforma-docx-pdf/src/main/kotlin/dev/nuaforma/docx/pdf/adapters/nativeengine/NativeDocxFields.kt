@@ -154,6 +154,8 @@ internal object NativeDocxFields {
         fun simple(code: String, cached: List<XmlElement>, form: Form?, origin: XmlElement, codeProperties: XmlElement?): List<XmlElement> {
             val kind = instruction(code, fail).kind
             val contents = kind == "TOC"
+            // Word prints nothing for a complete checkbox field with neither form data nor a cached result.
+            if (kind == "FORMCHECKBOX" && form == null && cached.isEmpty()) return emptyList()
             if (kind == "FORMTEXT") {
                 if (form == null) fail("Text input field requires its own form metadata")
             } else if ((kind == "FORMCHECKBOX") != (form != null)) fail("Checkbox field requires its own form metadata")

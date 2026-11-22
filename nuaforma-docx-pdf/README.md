@@ -269,3 +269,5 @@ Validated absent or nil text-run borders leave normal text drawing unchanged.
 Embedded pictures with an explicitly invisible outline can retain a validated miter and empty arrow ends.
 
 Validated saved fill, line and effects metadata leaves a frame's explicit unpainted appearance unchanged.
+
+A complete legacy checkbox field with no form metadata or saved result remains unprinted.
