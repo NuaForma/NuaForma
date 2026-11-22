@@ -80,6 +80,24 @@ class PdfParagraphPaginationTest {
         }
     }
 
+    @Test fun `a heading moves with a plain paragraph that owns an unwrapped page picture`() {
+        val image = PdfImage(FoundationLetter.resource("/fixtures/nuaforma-icon-transparent.png"), 18f, 18f)
+        val anchor = PdfAnchoredImage(image, 100f, 96f, PdfBoxAnchor.PAGE, PdfImageWrap.NONE)
+        val target = p("Picture paragraph").copy(anchoredImages = listOf(anchor))
+        val doc = PdfDocument(page, fillers(5) + p("Heading", next = true) + target, PdfFlow())
+        Loader.loadPDF(PdfEngine().render(doc, fonts)).use { pdf ->
+            assertEquals(2, pdf.numberOfPages)
+            assertEquals(0, pdf.getPage(0).resources.xObjectNames.count())
+            assertEquals(1, pdf.getPage(1).resources.xObjectNames.count())
+            val final = PDFTextStripper().apply { startPage = 2; endPage = 2 }.getText(pdf)
+            assertTrue(final.contains("Heading") && final.contains("Picture paragraph"))
+        }
+        val wrapped = target.copy(anchoredImages = listOf(anchor.copy(wrap = PdfImageWrap.RIGHT)))
+        assertEquals(PdfFailureCode.UNSUPPORTED_TEXT, assertThrows(PdfRenderException::class.java) {
+            PdfEngine().render(PdfDocument(page, listOf(p("Heading", next = true), wrapped), PdfFlow()), fonts)
+        }.code)
+    }
+
     @Test fun `keeps reject fragmented and vertically spanning first rows and frame targets`() {
         val split = PdfTable(listOf(90f), listOf(PdfTableRow(listOf(PdfTableCell(listOf(p("Split")))), allowSplit = true)))
         val merged = PdfTable(listOf(90f), listOf(PdfTableRow(listOf(PdfTableCell(listOf(p("Merged")), rowSpan = 2))), PdfTableRow(emptyList())))

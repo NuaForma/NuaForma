@@ -44,7 +44,11 @@ internal object FlowLayouter {
         fun measuredAt(index: Int) = paragraphCache.getOrPut(index) {
             val block = document.blocks[index] as PdfParagraph
             ParagraphBounds.check(block, page)
-            val content = if (block.hasHandledLeadingPageBreak()) block.copy(runs = block.runs.drop(1)) else block
+            val content = when {
+                block.hasHandledLeadingPageBreak() -> block.copy(runs = block.runs.drop(1))
+                block.isFixedPictureKeepTarget() -> block.copy(anchoredImages = emptyList())
+                else -> block
+            }
             paragraph(content, width, measurer, previous = document.blocks.getOrNull(index - 1) as? PdfParagraph,
                 next = document.blocks.getOrNull(index + 1) as? PdfParagraph, permitMarginOverflow = true,
                 rightMarginAllowance = page.margins.right)
@@ -382,6 +386,15 @@ internal object FlowLayouter {
     }
 
     /** Automatic extra leading can end at the body edge when a simple line fits in its natural box. */
+    private fun PdfParagraph.isFixedPictureKeepTarget(): Boolean {
+        val picture = anchoredImages.singleOrNull() ?: return false
+        // A fixed unwrapped picture is painted by ImageFlow on its anchor page and takes no flow space.
+        return picture.anchor == PdfBoxAnchor.PAGE && picture.wrap == PdfImageWrap.NONE &&
+            !format.keepWithNext && !format.keepLines && format.textDirection == null &&
+            listLabel == null && borders == null && lines.isEmpty() && background == null &&
+            runs.all { it is PdfTextRun }
+    }
+
     private fun naturalHeightAtPageEnd(measured: MeasuredParagraph): Float? {
         val paragraph = measured.paragraph
         val multiple = paragraph.format.automaticLineSpacing?.multiple ?: return null
