@@ -158,6 +158,22 @@ internal object TableLayouter {
         }
     }
 
+    fun canContinueBetweenRows(layout: Measured, row: Int): Boolean {
+        val table = layout.table
+        val outline = table.border ?: return false
+        if (row <= 0 || table.widthPolicy != PdfTableWidthPolicy.FIXED || table.repeatedHeaderRows != 0 ||
+            layout.cells.any { cell -> cell.placement.cell.columnSpan != 1 || cell.placement.cell.rowSpan != 1 ||
+                cell.placement.cell.printableBlocks.any { it is PdfTable } }) return false
+
+        fun matchesOutline(cells: List<Cell>, top: Boolean): Boolean = cells.all { cell ->
+            val edges = cell.placement.cell.borders
+            val stroke = if (edges == null) outline else (if (top) edges.top else edges.bottom)?.border
+            stroke == outline
+        }
+
+        return matchesOutline(layout.rowCells(row - 1), top = false) && matchesOutline(layout.rowCells(row), top = true)
+    }
+
     fun cut(layout: Measured, row: Int, from: Float, limit: Float): Float {
         if (layout.customBorders && !layout.consistentBorders) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Conflicting borders in fragmented rows are not qualified")
         var end = minOf(layout.rowCells(row).maxOf { it.contentHeight }, limit)

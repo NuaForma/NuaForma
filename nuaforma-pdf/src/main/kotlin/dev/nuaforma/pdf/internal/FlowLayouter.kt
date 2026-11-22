@@ -289,6 +289,8 @@ internal object FlowLayouter {
                     if (!firstFits || !firstRow.allowSplit && first > freshData && top > page.margins.top + 0.001f) nextPage()
                     headers()
                     val tableStartPage = pages.size
+                    val conflictingBorders = measured.customBorders && !measured.consistentBorders
+                    var wholeRowBreaks = 0
                     while (index < block.rows.size) {
                         PageLayouter.checkCancellation()
                         val row = block.rows[index]
@@ -305,6 +307,18 @@ internal object FlowLayouter {
                             continue
                         }
                         val minimumOwnsHeight = row.minimumHeight?.let { it >= height - .001f } == true
+                        if (conflictingBorders && height + measured.closing <= freshData && TableLayouter.canContinueBetweenRows(measured, index)) {
+                            val capacity = bottom - top - measured.frameAt(index) - measured.closing
+                            val noPieceFits = measured.rowCells(index).all { cell ->
+                                cell.pieces.none { piece -> piece.top + piece.height <= capacity + .001f }
+                            }
+                            if (!row.allowSplit || minimumOwnsHeight || noPieceFits) {
+                                nextPage()
+                                headers()
+                                wholeRowBreaks++
+                                continue
+                            }
+                        }
                         if ((!row.allowSplit || minimumOwnsHeight) && height + measured.closing <= freshData) { nextPage(); headers(); continue }
                         if (measured.customBorders && !row.allowSplit) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Oversized non-splitting custom-border rows are not qualified")
                         if (!row.allowSplit && !row.splitOversized) overflow()
@@ -326,7 +340,8 @@ internal object FlowLayouter {
                         index++
                     }
                     top += measured.closing
-                    if (measured.customBorders && !measured.consistentBorders && pages.size != tableStartPage) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Conflicting custom table borders across pages are not qualified")
+                    if (conflictingBorders && pages.size - tableStartPage != wholeRowBreaks)
+                        fail(PdfFailureCode.UNSUPPORTED_TEXT, "Conflicting custom table borders across pages are not qualified")
                     after = 0f
                 }
             }
