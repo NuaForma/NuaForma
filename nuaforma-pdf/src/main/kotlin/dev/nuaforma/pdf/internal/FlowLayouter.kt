@@ -290,7 +290,7 @@ internal object FlowLayouter {
                     headers()
                     val tableStartPage = pages.size
                     val conflictingBorders = measured.customBorders && !measured.consistentBorders
-                    var wholeRowBreaks = 0
+                    var matchedBorderBreaks = 0
                     while (index < block.rows.size) {
                         PageLayouter.checkCancellation()
                         val row = block.rows[index]
@@ -315,7 +315,7 @@ internal object FlowLayouter {
                             if (!row.allowSplit || minimumOwnsHeight || noPieceFits) {
                                 nextPage()
                                 headers()
-                                wholeRowBreaks++
+                                matchedBorderBreaks++
                                 continue
                             }
                         }
@@ -331,16 +331,23 @@ internal object FlowLayouter {
                             val cut = TableLayouter.cut(measured, index, consumed, consumed + maxOf(0f, capacity))
                             if (cut <= consumed + 0.001f) {
                                 if (top <= page.margins.top + headerHeight + 0.001f) overflow()
-                                nextPage(); headers(); continue
+                                nextPage()
+                                headers()
+                                if (conflictingBorders) matchedBorderBreaks++
+                                continue
                             }
                             top += TableLayouter.fragment(measured, index, consumed, cut, left, top, pages.last())
                             consumed = cut
-                            if (consumed < end - 0.001f) { nextPage(); headers() }
+                            if (consumed < end - 0.001f) {
+                                nextPage()
+                                headers()
+                                if (conflictingBorders) matchedBorderBreaks++
+                            }
                         }
                         index++
                     }
                     top += measured.closing
-                    if (conflictingBorders && pages.size - tableStartPage != wholeRowBreaks)
+                    if (conflictingBorders && pages.size - tableStartPage != matchedBorderBreaks)
                         fail(PdfFailureCode.UNSUPPORTED_TEXT, "Conflicting custom table borders across pages are not qualified")
                     after = 0f
                 }

@@ -367,3 +367,5 @@ A whole fixed row may continue on the next page when the adjoining strokes match
 A word moving to a narrower continuation line is measured against that line before applying the existing word-breaking policy.
 
 Consecutive undecorated terminal tabs can occupy blank continuation lines when their default or ordinary left stops exceed the text area.
+
+A row can split at ordinary line boundaries when its own sides and surrounding joins match the fixed table outline.

@@ -174,8 +174,19 @@ internal object TableLayouter {
         return matchesOutline(layout.rowCells(row - 1), top = false) && matchesOutline(layout.rowCells(row), top = true)
     }
 
+    private fun canFragmentUniformRow(layout: Measured, row: Int): Boolean {
+        val outline = layout.table.border ?: return false
+        if (!canContinueBetweenRows(layout, row) ||
+            row < layout.table.rows.lastIndex && !canContinueBetweenRows(layout, row + 1)) return false
+        return layout.rowCells(row).all { cell ->
+            val edges = cell.placement.cell.borders
+            edges == null || listOf(edges.top, edges.right, edges.bottom, edges.left).all { it?.border == outline }
+        }
+    }
+
     fun cut(layout: Measured, row: Int, from: Float, limit: Float): Float {
-        if (layout.customBorders && !layout.consistentBorders) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Conflicting borders in fragmented rows are not qualified")
+        if (layout.customBorders && !layout.consistentBorders && !canFragmentUniformRow(layout, row))
+            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Conflicting borders in fragmented rows are not qualified")
         var end = minOf(layout.rowCells(row).maxOf { it.contentHeight }, limit)
         var remaining = 20_000
         while (remaining-- > 0) {

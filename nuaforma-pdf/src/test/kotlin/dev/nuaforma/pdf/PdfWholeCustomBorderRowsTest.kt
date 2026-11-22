@@ -18,10 +18,11 @@ class PdfWholeCustomBorderRowsTest {
     private fun paragraph(value: String, height: Float = 15f) =
         PdfParagraph(listOf(PdfTextRun(value, style)), 0f, 0f, format = PdfParagraphFormat(exactLineHeight = height))
 
-    private fun document(narrowBoundary: Int, allowSplit: Boolean, firstPieceFits: Boolean = false): PdfDocument {
+    private fun document(narrowBoundary: Int, allowSplit: Boolean, firstPieceFits: Boolean = false,
+                         mixedFragment: Boolean = false): PdfDocument {
         val rows = (1..6).map { row ->
             val borders = PdfCellBorders(if (row == narrowBoundary + 1) thin else line, line,
-                if (row == narrowBoundary) thin else line, line)
+                if (row == narrowBoundary) thin else line, if (row == 3 && mixedFragment) thin else line)
             val text = if (row == 3 && firstPieceFits) listOf(paragraph("R$row", 10f), paragraph("Tail", 10f))
             else listOf(paragraph("R$row"))
             PdfTableRow(listOf(PdfTableCell(text, borders = borders)), allowSplit)
@@ -41,8 +42,16 @@ class PdfWholeCustomBorderRowsTest {
     }
 
     @Test
-    fun `a differing continuation stroke or required row fragment retains the diagnostic`() {
-        for (value in listOf(document(2, true), document(5, true, firstPieceFits = true))) {
+    fun `a uniform affected row can split while mixed styles stay in other rows`() {
+        val pages = DocumentLayouter.plain(document(5, true, firstPieceFits = true), measure, PdfRenderControl()).pages
+        val content = pages.map { DocumentLayouter.texts(it.elements).map { span -> span.text }.toList() }
+        assertEquals(listOf("Before", "R1", "R2", "R3"), content[0])
+        assertEquals(listOf("Tail", "R4", "R5", "R6"), content[1])
+    }
+
+    @Test
+    fun `a differing continuation stroke or mixed row fragment retains the diagnostic`() {
+        for (value in listOf(document(2, true), document(5, true, firstPieceFits = true, mixedFragment = true))) {
             val failure = assertThrows(PdfRenderException::class.java) {
                 DocumentLayouter.plain(value, measure, PdfRenderControl())
             }
