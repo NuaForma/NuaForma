@@ -210,11 +210,22 @@ class PdfTableCell private constructor(
 }
 
 /** Optional physical row-advance floor in points, including the cell frame; null retains natural sizing. */
-class PdfTableRow @JvmOverloads constructor(cells: List<PdfTableCell>, val allowSplit: Boolean = false,
-    val splitOversized: Boolean = false, val minimumHeight: Float? = null) {
+class PdfTableRow private constructor(cells: List<PdfTableCell>, val allowSplit: Boolean,
+    val splitOversized: Boolean, val minimumHeight: Float?, val omittedLeadingColumns: Int, val omittedTrailingColumns: Int) {
+    @JvmOverloads
+    constructor(cells: List<PdfTableCell>, allowSplit: Boolean = false, splitOversized: Boolean = false,
+        minimumHeight: Float? = null) : this(cells, allowSplit, splitOversized, minimumHeight, 0, 0)
+
+    /** The omitted slots reserve their physical grid width without owning a cell. */
+    fun withOmittedColumns(leading: Int, trailing: Int): PdfTableRow =
+        if (leading == omittedLeadingColumns && trailing == omittedTrailingColumns) this
+        else PdfTableRow(cells, allowSplit, splitOversized, minimumHeight, leading, trailing)
+
     val cells: List<PdfTableCell> = Collections.unmodifiableList(ArrayList(cells))
     init {
         require(this.cells.size in 0..16) { "Invalid column count" }
+        require(omittedLeadingColumns in 0..15 && omittedTrailingColumns in 0..15 &&
+            omittedLeadingColumns + omittedTrailingColumns <= 15) { "Invalid omitted table-column count" }
         require(minimumHeight == null || minimumHeight.isFinite() && minimumHeight in 0f..14_400f) { "Invalid minimum row height" }
     }
 }

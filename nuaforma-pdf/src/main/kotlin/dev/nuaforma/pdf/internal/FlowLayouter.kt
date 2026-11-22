@@ -341,6 +341,7 @@ internal object FlowLayouter {
                     })
                 }
                 PdfTableRow(cells, row.allowSplit, row.splitOversized, row.minimumHeight)
+                    .withOmittedColumns(row.omittedLeadingColumns, row.omittedTrailingColumns)
             }
             return PdfTable(table.columnWidths, rows, table.cellMargins, table.border, table.repeatedHeaderRows,
                 table.leftIndent, table.widthPolicy, table.semantics, table.preferredWidth)

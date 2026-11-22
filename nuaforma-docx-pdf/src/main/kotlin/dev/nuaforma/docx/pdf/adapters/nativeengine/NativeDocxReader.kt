@@ -1051,6 +1051,7 @@ internal class NativeDocxReader(
             val headerFlags = mutableListOf<Boolean>()
             val rowMinimums = mutableListOf<Float?>()
             val rowPaddingFrames = mutableListOf<Float>()
+            val omissions = mutableListOf<Pair<Int, Int>>()
             var tableWidthFloor: Float? = null
             data class CellSpec(
                 val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment,
@@ -1074,7 +1075,19 @@ internal class NativeDocxReader(
                 source.current = row
                 children(row, setOf("trPr", "tc"))
                 val rowProperties = row.one("trPr")
-                rowProperties?.let { children(it, setOf("cantSplit", "tblHeader", "trHeight", "jc")) }
+                rowProperties?.let { children(it, setOf("cantSplit", "tblHeader", "trHeight", "jc",
+                    "gridBefore", "gridAfter", "wBefore", "wAfter")) }
+                val (leading, trailing) = WordTableOmittedGrid.read(rowProperties, widths) { origin, message ->
+                    source.current = origin
+                    reject(message)
+                }
+                if (leading + trailing > 0) {
+                    source.current = rowProperties ?: row
+                    check(!automaticLayout && !sparseBorders && depth == 0,
+                        "Omitted Word columns require a top-level fixed table with uniform borders")
+                }
+                omissions += leading to trailing
+                val lastColumn = widths.size - trailing
                 rowProperties?.one("jc")?.let { property ->
                     val rowAlignment = WordTableAlignment.read(property) { origin, message -> source.current = origin; reject(message) }
                     source.current = property
@@ -1091,7 +1104,7 @@ internal class NativeDocxReader(
                 val cells = mutableListOf<CellSpec>()
                 val marginInputs = mutableListOf<PdfMargins>()
                 val active = mutableMapOf<Int, CellSpec>()
-                var column = 0
+                var column = leading
                 for (cell in row.elements().filter { it.name.localPart == "tc" }) {
                     children(cell, setOf("tcPr", "p", "tbl"))
                     val cp = cell.one("tcPr") ?: reject("Explicit cell properties required")
@@ -1129,7 +1142,7 @@ internal class NativeDocxReader(
                     } ?: PdfVerticalAlignment.TOP
                     val span = cp.one("gridSpan")?.let { attributes(it, setOf("val")); number(it.value("val")).toInt() } ?: 1
                     check(!regions.active || cp.one("vMerge") == null && span == 1, "Merged conditional table regions are not qualified")
-                    check(span in 1..16 && column + span <= widths.size, "Invalid grid span")
+                    check(span in 1..16 && column + span <= lastColumn, "Invalid grid span")
                     val cellWidth = cp.one("tcW")
                     var preferredCellWidth = if (automaticLayout) preferredWidth(cellWidth) else null
                     val protectPreferredWidth = cp.one("noWrap")?.let { node ->
@@ -1203,7 +1216,7 @@ internal class NativeDocxReader(
                     }
                     column += span
                 }
-                check(column == widths.size, "Incomplete table row")
+                check(column == lastColumn, "Incomplete table row")
                 // Word shares the greatest vertical padding across the row; the neutral model stays physical.
                 val topPadding = marginInputs.maxOf { it.top }
                 val bottomPadding = marginInputs.maxOf { it.bottom }
@@ -1243,7 +1256,9 @@ internal class NativeDocxReader(
                     check(physical <= 14_400f, "Minimum row height exceeds the physical layout limit")
                     physical
                 }
+                val (leading, trailing) = omissions[rowIndex]
                 PdfTableRow(resolved, allow, splitOversized = true, minimumHeight = minimum)
+                    .withOmittedColumns(leading, trailing)
             }
             if (customBorders) {
                 val styles = rows.flatMap { it.cells }.flatMap { cell -> cell.borders!!.let { listOfNotNull(it.top, it.right, it.bottom, it.left) } }.map { it.border }.distinct()

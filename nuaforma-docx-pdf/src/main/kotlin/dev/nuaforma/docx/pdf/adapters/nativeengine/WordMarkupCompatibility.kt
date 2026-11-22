@@ -236,6 +236,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     archive.touch(part)
                     changed = true
                 }
+                WordTableOmittedGrid.validateSource(root) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }
                 WordRunSpacing.validateSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)

@@ -223,3 +223,5 @@ A qualified page-relative text box can align to the left, center or right and to
 Embedded Office SVG pictures may use an internal SVG part with static filled paths and a distinct embedded raster fallback. The renderer uses the SVG for qualified inputs with the existing picture placement. External references, scripts, complex styling and effects remain outside this profile.
 
 In development mode, text-frame overflow diagnostics identify the affected dimension or physical edge and include the measured required and available space in points.
+
+Fixed tables can retain empty grid positions at either outer edge of a row. The declared omission must agree with the physical column widths. Only actual cells paint their content and borders.

@@ -47,6 +47,7 @@ internal object DocumentTransforms {
                     PdfTableRow(row.cells.mapIndexed { cellIndex, cell ->
                         cell.withBlocks(blocks(cell.blocks, semanticChildId(key, "r$rowIndex-c$cellIndex"), Scope.CELL))
                     }, row.allowSplit, row.splitOversized, row.minimumHeight)
+                        .withOmittedColumns(row.omittedLeadingColumns, row.omittedTrailingColumns)
                 }, block.cellMargins, block.border, block.repeatedHeaderRows, block.leftIndent, block.widthPolicy, metadata(block, key, PdfSemanticRole.TABLE), block.preferredWidth).withRightOverflow(block.rightOverflow).withAlignment(block.alignment))
             }
         }
