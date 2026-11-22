@@ -31,7 +31,14 @@ internal class WordThemeColors(
 
     fun cellFill(node: XmlElement): PdfColor? {
         validateCellFill(node, reject)
-        if (node.attribute(W, "val") == "solid") return rgb(node, node.attribute(W, "color"))
+        val fillKind = node.attribute(W, "val")
+        if (fillKind == "solid") return rgb(node, node.attribute(W, "color"))
+        cellPercentages[fillKind]?.let { percent ->
+            val pattern = node.attribute(W, "color")?.takeUnless { it == "auto" }?.let { rgb(node, it) } ?: PdfColor(0, 0, 0)
+            val base = node.attribute(W, "fill")?.takeUnless { it == "auto" }?.let { rgb(node, it) } ?: PdfColor(255, 255, 255)
+            fun channel(background: Int, foreground: Int) = (background * (100 - percent) + foreground * percent + 49) / 100
+            return PdfColor(channel(base.red, pattern.red), channel(base.green, pattern.green), channel(base.blue, pattern.blue))
+        }
         val role = node.attribute(W, "themeFill")
         if (role == "none") return null
         if (role == null) return node.attribute(W, "fill")?.takeUnless { it == "auto" }?.let { rgb(node, it) }
@@ -139,6 +146,7 @@ internal class WordThemeColors(
             "text1" to "dk1", "background1" to "lt1", "text2" to "dk2", "background2" to "lt2",
             "hyperlink" to "hlink", "followedHyperlink" to "folHlink") + (1..6).associate { "accent$it" to "accent$it" }
         private val drawingAliases = mapOf("bg1" to "lt1", "bg2" to "lt2", "tx1" to "dk1", "tx2" to "dk2")
+        private val cellPercentages = listOf(5, 10, 20, 25, 50, 75).associateBy { "pct$it" }
 
         fun drawingSlot(value: String): String? = drawingAliases[value] ?: value.takeIf { it in roles.values }
 
@@ -155,7 +163,7 @@ internal class WordThemeColors(
             for (properties in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart == "tcPr" }) {
                 val fills = properties.elements().filter { it.name.localPart == "shd" }
                 val qualified = fills.any { node ->
-                    node.attribute(W, "val") == "solid" ||
+                    node.attribute(W, "val") == "solid" || node.attribute(W, "val") in cellPercentages ||
                         node.attributes.keys.any { it.localPart in setOf("themeFill", "themeFillTint", "themeFillShade") } ||
                         node.attribute(W, "val") == "clear" && node.attribute(W, "color") != "auto" && hasExplicitCellFill(node)
                 }
@@ -238,6 +246,14 @@ internal class WordThemeColors(
                     cache != null && cache != "auto" && !cache.matches(Regex("[0-9A-Fa-f]{6}")) ||
                     node.attributes.keys.any { it.localPart.startsWith("theme") })
                     reject(node, "Solid cell shading requires an explicit RGB foreground")
+                return
+            }
+            if (!table && node.attribute(W, "val") in cellPercentages) {
+                val background = node.attribute(W, "fill")
+                val rgb = Regex("[0-9A-Fa-f]{6}")
+                if (node.attributes.keys.any { it.localPart.startsWith("theme") } ||
+                    listOf(foreground, background).any { it != null && it != "auto" && !rgb.matches(it) })
+                    reject(node, "Percentage cell shading requires automatic or explicit RGB colors")
                 return
             }
             // A clear pattern paints only the background. Keep explicit fill separate from

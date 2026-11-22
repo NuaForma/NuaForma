@@ -160,6 +160,24 @@ class WordThemeColorsTest {
     }
 
     @Test
+    fun percentageCellShadingUsesWordRgbBlends() {
+        val colors = colors()
+        fun shading(kind: String, foreground: String = "auto", background: String = "auto", extra: String = "") =
+            root("""<w:shd xmlns:w="$word" w:val="$kind" w:color="$foreground" w:fill="$background" $extra/>""")
+        for ((percent, luminance) in mapOf(5 to 242, 10 to 229, 20 to 204, 25 to 191, 50 to 127, 75 to 64)) {
+            assertEquals(PdfColor(luminance, luminance, luminance), colors.cellFill(shading("pct$percent")))
+        }
+        assertEquals(PdfColor(214, 201, 178), colors.cellFill(shading("pct20", "314978", "FFE9C1")))
+        for (element in listOf(shading("pct99"), shading("pct20", "broken"), shading("pct20", extra = "w:themeFill=\"accent1\"")))
+            assertThrows(NativeDocxReadException::class.java) { colors.cellFill(element) }
+        assertThrows(NativeDocxReadException::class.java) {
+            WordThemeColors.validateTableShading(shading("pct20")) { _, message ->
+                throw NativeDocxReadException(message, "word/document.xml")
+            }
+        }
+    }
+
+    @Test
     fun `original cell theme attributes and missing palettes reject explicitly`() {
         for (properties in listOf("w:themeFill=\"unknown\"", "w:themeFill=\"background1\" extra=\"1\"",
             "x:themeFill=\"background1\"", "w:themeFill=\"background1\" w:themeFillShade=\"GG\"",

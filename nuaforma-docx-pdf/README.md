@@ -349,3 +349,5 @@ A matching visible web hyperlink can continue at a character boundary when the n
 A literal SET assignment may retain its result value for ordinary references when Word wraps the saved invisible result in its own bookmark.
 
 An ordinary title sharing the opening field-code paragraph stays in its original place when the saved contents start in the next paragraph.
+
+Qualified percentage cell shading blends the stored RGB colors into Word's PDF shade.
