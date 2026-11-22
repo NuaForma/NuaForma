@@ -1451,6 +1451,7 @@ internal class NativeDocxReader(
             data class CellSpec(
                 val blocks: List<PdfBlock>, val background: PdfColor?, val span: Int, val alignment: PdfVerticalAlignment,
                 val borders: PdfCellBorders?, val preferredWidth: PdfPreferredWidth?, val protectPreferredWidth: Boolean,
+                val keepContentUnbroken: Boolean,
                 val declaredMargins: PdfMargins?, val omittedEndMark: XmlElement?,
                 var margins: PdfMargins? = declaredMargins, var rows: Int = 1,
             )
@@ -1573,10 +1574,18 @@ internal class NativeDocxReader(
                     } ?: PdfVerticalAlignment.TOP
                     val cellWidth = cp.one("tcW")
                     var preferredCellWidth = if (automaticLayout) preferredWidth(cellWidth) else null
+                    var keepContentUnbroken = false
                     val protectPreferredWidth = cp.one("noWrap")?.let { node ->
                         val enabled = WordTableWidths.cellToggle(node) { origin, message -> source.current = origin; reject(message) }
                         if (!enabled || !automaticLayout) return@let false
                         source.current = node
+                        if (cellWidth?.value("type") in setOf(null, "pct", "auto")) {
+                            check(depth == 0 && !fields && !naturalWidths && span == 1 && cp.one("vMerge") == null &&
+                                position == null && modernTableAlignment && cell.elements().all { it.name.localPart in setOf("tcPr", "p") },
+                                "Unbroken percentage and automatic cell content requires a top-level unmerged body cell")
+                            keepContentUnbroken = true
+                            return@let false
+                        }
                         val physical = preferredCellWidth?.points
                         check(depth == 0 && cp.one("vMerge") == null && physical != null && physical > 0f,
                             "Cell no-wrap in automatic tables requires a positive physical width and a top-level unmerged row")
@@ -1678,7 +1687,7 @@ internal class NativeDocxReader(
                             active[column] = origin
                         }
                         null, "restart" -> {
-                            val spec = CellSpec(printable, background, span, alignment, cellBorders, preferredCellWidth, protectPreferredWidth, ownMargins, omittedEndMark)
+                            val spec = CellSpec(printable, background, span, alignment, cellBorders, preferredCellWidth, protectPreferredWidth, keepContentUnbroken, ownMargins, omittedEndMark)
                             cells += spec
                             if (merge == "restart") active[column] = spec
                         }
@@ -1714,6 +1723,7 @@ internal class NativeDocxReader(
                     val resolvedCell = PdfTableCell(cell.blocks, cell.background, cell.span, cell.rows, cell.alignment,
                         if (customBorders) cell.borders ?: fallbackBorders else null, cell.preferredWidth, cell.margins)
                         .withProtectedPreferredWidth(cell.protectPreferredWidth)
+                        .withUnbrokenContent(cell.keepContentUnbroken)
                     val endMark = cell.omittedEndMark ?: return@map resolvedCell
                     try {
                         resolvedCell.withOmittedTrailingEmptyParagraph(true)

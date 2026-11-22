@@ -405,3 +405,5 @@ Fixed square-wrapped body frames that cover the text column retain their qualifi
 Solid native table strokes can be up to six points. Modern flat tables with one border color retain mixed stroke widths, including with automatic layout.
 
 A qualified full-width two-row merge preserves the blank continuation line and thicker hidden top-rule clearance without painting a divider.
+
+Automatic and percentage cell widths preserve a qualified unbroken line when Word disables wrapping for that cell.

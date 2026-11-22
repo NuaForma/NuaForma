@@ -152,10 +152,10 @@ data class PdfCellBorders @JvmOverloads constructor(
 class PdfTableCell private constructor(
     blocks: List<PdfBlock>, val background: PdfColor?, val columnSpan: Int, val rowSpan: Int,
     val verticalAlignment: PdfVerticalAlignment, val borders: PdfCellBorders?,
-    val preferredWidth: PdfPreferredWidth?, spacing: CellSpacing,
+    val preferredWidth: PdfPreferredWidth?, private val spacing: CellSpacing,
 ) {
     private data class CellSpacing(val margins: PdfMargins?, val protectPreferredWidth: Boolean = false,
-        val omitTrailingEmptyParagraph: Boolean = false)
+        val omitTrailingEmptyParagraph: Boolean = false, val keepContentUnbroken: Boolean = false)
 
     @JvmOverloads constructor(blocks: List<PdfBlock>, background: PdfColor? = null, columnSpan: Int = 1, rowSpan: Int = 1,
         verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP, borders: PdfCellBorders? = null,
@@ -177,15 +177,22 @@ class PdfTableCell private constructor(
 
     fun withProtectedPreferredWidth(enabled: Boolean): PdfTableCell =
         if (enabled == protectPreferredWidth) this else PdfTableCell(blocks, background, columnSpan, rowSpan, verticalAlignment,
-            borders, preferredWidth, CellSpacing(margins, enabled, omitTrailingEmptyParagraph))
+            borders, preferredWidth, spacing.copy(protectPreferredWidth = enabled))
 
     fun withOmittedTrailingEmptyParagraph(enabled: Boolean): PdfTableCell =
         if (enabled == omitTrailingEmptyParagraph) this else PdfTableCell(blocks, background, columnSpan, rowSpan, verticalAlignment,
-            borders, preferredWidth, CellSpacing(margins, protectPreferredWidth, enabled))
+            borders, preferredWidth, spacing.copy(omitTrailingEmptyParagraph = enabled))
+
+    /** Use the natural unbroken line width when negotiating an automatic grid. */
+    val keepContentUnbroken: Boolean = spacing.keepContentUnbroken
+
+    fun withUnbrokenContent(enabled: Boolean): PdfTableCell =
+        if (enabled == keepContentUnbroken) this else PdfTableCell(blocks, background, columnSpan, rowSpan, verticalAlignment,
+            borders, preferredWidth, spacing.copy(keepContentUnbroken = enabled))
 
     internal fun withBlocks(blocks: List<PdfBlock>): PdfTableCell = PdfTableCell(
         blocks, background, columnSpan, rowSpan, verticalAlignment, borders, preferredWidth,
-        CellSpacing(margins, protectPreferredWidth, omitTrailingEmptyParagraph),
+        spacing,
     )
 
     val blocks: List<PdfBlock> = Collections.unmodifiableList(ArrayList(blocks))
@@ -197,6 +204,9 @@ class PdfTableCell private constructor(
         require(columnSpan in 1..16 && rowSpan in 1..500) { "Invalid cell span" }
         require(!protectPreferredWidth || columnSpan == 1 && rowSpan == 1 && (preferredWidth?.points ?: 0f) > 0f) {
             "Protected cell width requires a positive physical preference and a single grid cell"
+        }
+        require(!keepContentUnbroken || columnSpan == 1 && rowSpan == 1 && this.blocks.all { it is PdfParagraph }) {
+            "Unbroken automatic cell content requires unmerged paragraphs"
         }
         if (omitTrailingEmptyParagraph) {
             val end = this.blocks.lastOrNull() as? PdfParagraph

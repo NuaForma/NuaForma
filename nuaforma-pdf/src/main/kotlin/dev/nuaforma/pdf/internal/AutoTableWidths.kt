@@ -44,7 +44,7 @@ internal object AutoTableWidths {
         val row = table.rows.singleOrNull() ?: overflow()
         if (table.alignment != PdfTableAlignment.LEFT || table.columnWidths.sum() > available + .001f ||
             row.cells.any { cell ->
-                cell.columnSpan != 1 || cell.rowSpan != 1 || cell.protectPreferredWidth ||
+                cell.columnSpan != 1 || cell.rowSpan != 1 || cell.protectPreferredWidth || cell.keepContentUnbroken ||
                     cell.printableBlocks.any { it !is PdfParagraph || !it.breakLongWords }
             }) overflow()
         return PdfTable(table.columnWidths, table.rows, table.cellMargins, table.border, table.repeatedHeaderRows,
@@ -83,7 +83,7 @@ internal object AutoTableWidths {
                     }
                     else -> unsupported("Unsupported automatic table cell block")
                 }
-                minimum = maxOf(minimum, widths.first)
+                minimum = maxOf(minimum, if (placement.cell.keepContentUnbroken) widths.second else widths.first)
                 maximum = maxOf(maximum, widths.second)
             }
             if (!minimum.isFinite() || !maximum.isFinite() || minimum + padding > 14_400f) overflow()
