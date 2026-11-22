@@ -463,6 +463,9 @@ internal object FlowLayouter {
         val floatingImages = mutableListOf<Pair<PdfAnchoredImage, Float>>()
         val cellPictures = mutableListOf<PageBandObjects.CellPicture>()
         val floatingBoxes = mutableListOf<Pair<PdfTextBox, Float>>()
+        val startsWithBackdrop = !footer && band.blocks.takeWhile { it is PdfTextBox }.filterIsInstance<PdfTextBox>()
+            .any { PageBandObjects.isHeaderBackdrop(it, band.offset, page) }
+        var measuredHeaderText = false
         for ((blockIndex, block) in band.blocks.withIndex()) {
             PageLayouter.checkCancellation()
             when (block) {
@@ -481,8 +484,11 @@ internal object FlowLayouter {
                         previous = band.blocks.getOrNull(blockIndex - 1) as? PdfParagraph,
                         next = band.blocks.getOrNull(blockIndex + 1) as? PdfParagraph, owner = block,
                         rightMarginAllowance = marginAllowance)
+                    val beforeSpacing = top
                     top += ParagraphSpacing.before(block, after, blockIndex == 0)
-                    floatingImages += block.anchoredImages.map { it to top }
+                    val anchorTop = if (startsWithBackdrop && !measuredHeaderText) beforeSpacing else top
+                    floatingImages += block.anchoredImages.map { it to anchorTop }
+                    measuredHeaderText = true
                     for ((index, line) in p.lines.withIndex()) { placeLine(line, page.margins.left, top, elements); top += p.heights[index] }
                     top += block.spaceAfter
                     after = block.spaceAfter

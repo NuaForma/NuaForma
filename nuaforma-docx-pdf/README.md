@@ -419,3 +419,5 @@ Thick single underlines apply Word-verified line metrics within the measured 8â€
 Development diagnostics name the conversion stage and its specific measured byte or part budget. The production response remains redacted.
 
 A qualified inline or fixed unwrapped body picture preserves its declared viewport while fitting its stored aspect ratio.
+
+A full-width solid background in the first header paragraph clips to the paper and preserves the positions of the frame, logo and body text.

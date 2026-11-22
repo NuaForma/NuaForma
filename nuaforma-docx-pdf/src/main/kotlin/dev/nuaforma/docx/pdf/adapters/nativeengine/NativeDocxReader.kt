@@ -1975,9 +1975,14 @@ internal class NativeDocxReader(
             val graphic = one(one(anchor, drawing, "graphic"), drawing, "graphicData")
             check(graphic.attribute("", "uri") == wps && graphic.elements().size == 1, "Unsupported floating graphic")
             val shape = one(graphic, wps, "wsp")
-            check(shape.elements().size == 4 && shape.elements().all { it.name.namespaceURI == wps && it.name.localPart in setOf("cNvSpPr", "spPr", "txbx", "bodyPr") }, "Unsupported shape content")
+            val plainBackdrop = firstHeaderFrame && order?.layer == PdfDrawingLayer.BACKGROUND &&
+                WordHeaderBackdrop.isUnlabelledShape(shape)
+            val shapeChildren = if (plainBackdrop) setOf("cNvSpPr", "spPr", "style", "bodyPr")
+                else setOf("cNvSpPr", "spPr", "txbx", "bodyPr")
+            check(shape.elements().size == shapeChildren.size &&
+                shape.elements().all { it.name.namespaceURI == wps && it.name.localPart in shapeChildren }, "Unsupported shape content")
             val nonvisual = one(shape, wps, "cNvSpPr")
-            check(nonvisual.attribute("", "txBox") in setOf("1", "true"), "Text frame required")
+            check(plainBackdrop || nonvisual.attribute("", "txBox") in setOf("1", "true"), "Text frame required")
             if (inline) check(nonvisual.attributes.size == 1 && nonvisual.elements().size <= 1 &&
                 nonvisual.elements().all { lock -> lock.name.namespaceURI == drawing && lock.name.localPart == "spLocks" &&
                     lock.elements().isEmpty() && lock.attributes.size == 1 &&
@@ -1998,25 +2003,26 @@ internal class NativeDocxReader(
             val rotation = (transform.attribute("", "rot")?.let(::numeric) ?: 0f) / 60000
 
             val bodyProps = one(shape, wps, "bodyPr")
-            val autoFit = WordFrameTextMetadata.validate(bodyProps, rotation == 0f) { origin, message ->
+            val autoFit = if (plainBackdrop) null else WordFrameTextMetadata.validate(bodyProps, rotation == 0f) { origin, message ->
                 source.current = origin
                 reject(message)
             }
-            if (autoFit == null) {
+            if (autoFit == null && !plainBackdrop) {
                 check(bodyProps.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in setOf("rot", "vert", "wrap", "lIns", "tIns", "rIns", "bIns", "anchor", "anchorCtr", "upright", "vertOverflow") }, "Unsupported text frame policy")
                 check(bodyProps.attribute("", "rot") == "0" && bodyProps.attribute("", "vert") == "horz" &&
                     bodyProps.attribute("", "wrap") == "square", "Unsupported text direction")
                 check(bodyProps.attribute("", "vertOverflow") in setOf(null, "overflow"), "Unsupported fixed frame overflow policy")
                 check(bodyProps.elements().size == 1 && one(bodyProps, drawing, "noAutofit").attributes.isEmpty(), "Frame autofitting is unsupported")
             }
-            val content = one(one(shape, wps, "txbx"), word, "txbxContent")
-            children(content, setOf("p"))
+            val content = if (plainBackdrop) null else one(one(shape, wps, "txbx"), word, "txbxContent")
+            content?.let { children(it, setOf("p")) }
             val strokes = props.elements().filter { it.name.namespaceURI == drawing && it.name.localPart == "ln" }
             check(strokes.size <= 1, "Duplicate shape border")
             val border = strokes.singleOrNull()?.let { line ->
                 WordFramePaint.stroke(line, themeColors) { origin, message -> source.current = origin; reject(message) }
             }
-            val paragraphs = content.elements().map { readParagraph(it, partRelations, fields, allowPageBreak = false) }
+            val paragraphs = content?.elements()?.map { readParagraph(it, partRelations, fields, allowPageBreak = false) }
+                ?: listOf(readParagraph(XmlElement(javax.xml.namespace.QName(word, "p")), partRelations, fields, allowPageBreak = false))
             val relativeSizes = anchor.elements().filter { it.name.namespaceURI == wp14 }.mapNotNull { element ->
                 source.current = element
                 WordAnchorMetadata.read(element, ::reject)
@@ -2097,6 +2103,13 @@ internal class NativeDocxReader(
                 PdfTextBoxPageAlignment(horizontalPageAlignment, verticalPageAlignment)
             } else null
             val frame = frame(left, top, placement).withDrawingOrder(order).withAutoFit(autoFit).withPageAlignment(pageAlignment)
+            if (plainBackdrop) {
+                source.current = node
+                check(frame.fill != null && border == null && relativeSizes.isEmpty() && square == null &&
+                    rotation == 0f && placement == PdfBoxAnchor.PARAGRAPH && horizontalPageAlignment == null &&
+                    left in -72f..0f && left + width in (page.width - .001f)..(page.width + 72f) && top < 0f,
+                    "Header backdrop requires a fixed solid rectangle spanning the page")
+            }
             if (square != null) {
                 source.current = square
                 fun clearance(name: String): Float = (anchor.attribute("", name)?.let(::numeric) ?: 0f) / 12_700f
@@ -2195,9 +2208,13 @@ internal class NativeDocxReader(
                         }
                         val paragraph = readParagraph(plain, partRelations, fields)
                         val firstBodyParagraph = index == 0 && !fields && images.isEmpty() && paragraph.runs.none { it is PdfPageBreak }
-                        val firstHeaderFrame = fields && root.name.localPart == "hdr" && index == 0 &&
-                            frames.size == 1 && boxes.size == 1 && boxes.single().name.localPart == "drawing" &&
+                        val firstHeaderParagraph = fields && root.name.localPart == "hdr" && index == 0 &&
                             paragraph.background == null && paragraph.borders == null && paragraph.lines.isEmpty()
+                        val firstHeaderFrame = firstHeaderParagraph && frames.size == 1 && boxes.singleOrNull()?.name?.localPart == "drawing"
+                        val firstHeaderBackdrop = firstHeaderParagraph && boxes.size == 2 && images.size <= 1 &&
+                            boxes.all { it.name.localPart == "drawing" } && boxes.count { box ->
+                                box.elements().singleOrNull()?.attribute("", "behindDoc") in setOf("1", "true")
+                            } == 1
                         val isolatedHeaderPicture = fields && root.name.localPart == "hdr" && root.elements().size == 1 &&
                             frames.size == 1 && images.size == 1 && unprintedBand(listOf(paragraph)) &&
                             paragraph.background == null && paragraph.lines.isEmpty() && paragraph.borders == null
@@ -2209,7 +2226,7 @@ internal class NativeDocxReader(
                             else readDrawingBox(it, partRelations, fields, firstBodyParagraph, isolatedFooterFrames,
                                 isolatedBodyFrame = !fields && frames.size == 1 && images.isEmpty() && paragraph.spaceBefore == 0f &&
                                     paragraph.runs.none { it is PdfPageBreak } && !paragraph.format.pageBreakBefore,
-                                firstHeaderFrame = firstHeaderFrame) } +
+                                firstHeaderFrame = firstHeaderFrame || firstHeaderBackdrop) } +
                             paragraph.copy(anchoredImages = images.map {
                                 readAnchoredImage(it, partRelations, fields, isolatedHeaderPicture)
                             })

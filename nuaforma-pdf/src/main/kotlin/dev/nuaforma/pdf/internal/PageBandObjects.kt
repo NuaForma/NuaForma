@@ -33,10 +33,15 @@ internal object PageBandObjects {
             val visible = image.withPhysicalCrop(cropLeft, cropTop, cropRight, cropBottom)
             result += PositionedImage(visible, left + cropLeft, top + cropTop, pageY = true, drawingOrder = anchor.drawingOrder)
         }
-        for ((box, paragraphTop) in boxes) {
+        val backdrop = if (header) boxes.singleOrNull { (box, paragraphTop) ->
+            paragraphTop == 0f && isHeaderBackdrop(box, origin, page)
+        } else null
+        for (entry in boxes) {
+            val (box, paragraphTop) = entry
             PageLayouter.checkCancellation()
             if (box.wrap != PdfBoxWrap.NONE) unsupported("Wrapped text frames in page bands are not qualified")
-            result += BoxLayouter.layout(box, page, origin + paragraphTop, measurer).copy(pageY = true)
+            result += if (entry === backdrop) paintHeaderBackdrop(box, origin, page)
+                else BoxLayouter.layout(box, page, origin + paragraphTop, measurer).copy(pageY = true)
         }
         // In Word a full-page header picture stays within its story's stack, underneath body content.
         val cover = if (header && boxes.isEmpty() && images.all { (image, _) ->
@@ -45,7 +50,9 @@ internal object PageBandObjects {
         val bounds = result.map(::bounds)
         for (index in bounds.indices) for (other in 0 until index) {
             val a = bounds[index]; val b = bounds[other]
-            if (cover != null && (result[index] === cover || result[other] === cover)) continue
+            if (cover != null && (result[index] === cover || result[other] === cover) ||
+                (result[index] as? PositionedBox)?.headerBackdrop == true ||
+                (result[other] as? PositionedBox)?.headerBackdrop == true) continue
             if (a[0] < b[2] - .001f && a[2] > b[0] + .001f && a[1] < b[3] - .001f && a[3] > b[1] + .001f)
                 unsupported("Overlapping floating page-band objects are not qualified")
         }
@@ -55,13 +62,37 @@ internal object PageBandObjects {
     fun occupied(band: PdfPageBand, footer: Boolean, page: PdfPage, content: Pair<List<PositionedElement>, Float>): Float {
         var required = band.offset + content.second
         for (element in content.first) {
-            if (element is PositionedImage && element.headerUnderlay && pageCover(element, page)) continue
+            if (element is PositionedImage && element.headerUnderlay && pageCover(element, page) ||
+                element is PositionedBox && element.headerBackdrop) continue
             if (element is PositionedImage && element.pageY || element is PositionedBox && element.pageY) {
                 val bounds = bounds(element)
                 required = maxOf(required, if (footer) page.height - bounds[1] else bounds[3])
             }
         }
         return required
+    }
+
+    fun isHeaderBackdrop(box: PdfTextBox, headerOrigin: Float, page: PdfPage): Boolean {
+        val top = headerOrigin + box.top
+        val bottom = top + box.height
+        return box.anchor == PdfBoxAnchor.PARAGRAPH && box.drawingOrder?.layer == PdfDrawingLayer.BACKGROUND &&
+            box.wrap == PdfBoxWrap.NONE && box.rotation == 0f && box.autoFit == null && box.border == null &&
+            box.fill != null && (box.semantics == null || box.semantics.role == PdfSemanticRole.FRAME &&
+                box.semantics.parentId == null) && box.left in -72f..0f && top in -1f..0f &&
+            box.left + box.width in (page.width - .001f)..(page.width + 72f) && bottom in 1f..(page.height / 4f) &&
+            box.paragraphs.all { p -> p.background == null && p.borders == null && p.anchoredImages.isEmpty() &&
+                p.lines.isEmpty() && p.endDestinations.isEmpty() && p.contents == null && p.listLabel == null &&
+                p.runs.all { it is PdfTextRun && it.text.isBlank() && it.navigation == null &&
+                    !it.style.underline && !it.style.strikethrough && it.style.background == null }
+            }
+    }
+
+    private fun paintHeaderBackdrop(box: PdfTextBox, origin: Float, page: PdfPage): PositionedBox {
+        val height = origin + box.top + box.height
+        val clipped = PdfTextBox(0f, 0f, page.width, height, box.paragraphs, PdfBoxAnchor.PAGE, padding = PdfMargins(0f, 0f, 0f, 0f), fill = box.fill)
+            .withDrawingOrder(box.drawingOrder)
+        return PositionedBox(clipped, 0f, 0f, listOf(PositionedRectangle(0f, 0f, page.width, height, box.fill, null)),
+            pageY = true, headerBackdrop = true)
     }
 
     private fun pageCover(image: PositionedImage, page: PdfPage): Boolean =
