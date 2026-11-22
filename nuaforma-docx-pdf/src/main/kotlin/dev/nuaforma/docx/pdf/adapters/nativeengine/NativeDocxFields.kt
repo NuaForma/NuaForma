@@ -145,18 +145,38 @@ internal object NativeDocxFields {
             value(marker, "dirty")?.let { if (it !in setOf("0", "1", "false", "true", "on", "off")) fail("Invalid field state") }
             return value(marker, "fldCharType") ?: fail("Missing field control type")
         }
-        // A Word-generated TOC can be wrapped in its identified built-in content control.
+        // Word saves these built-in objects inside a control that does not supply new visible content.
         for (parent in root.descendants().toList()) for (node in parent.elements().toList()) if (local(node, "sdt")) {
             focus(node)
             val properties = node.elements().singleOrNull { local(it, "sdtPr") }
             val gallery = properties?.descendants()?.singleOrNull { local(it, "docPartGallery") }?.let { value(it, "val") }
-            if (gallery != "Table of Contents") continue // Other controls remain visible to the rejecting reader.
+            val watermark = gallery == "Watermarks" && parent === root && local(root, "hdr")
+            if (gallery != "Table of Contents" && !watermark) continue
+            val endProperties = node.elements().filter { local(it, "sdtEndPr") }
+            val emptyWatermarkEnd = watermark && endProperties.singleOrNull()?.let { end ->
+                end.attributes.isEmpty() && end.elements().isEmpty() && end.children.filterIsInstance<XmlText>().all { it.text.isBlank() }
+            } == true
             if (properties.elements().any { !local(it, "id") && !local(it, "docPartObj") } ||
-                node.elements().any { !local(it, "sdtPr") && !local(it, "sdtContent") }) fail("Unsupported contents control")
+                node.elements().any { !local(it, "sdtPr") && !local(it, "sdtContent") && !(emptyWatermarkEnd && it === endProperties.single()) })
+                fail(if (watermark) "Unsupported saved watermark control" else "Unsupported contents control")
             if (properties.descendants().any { it.name.namespaceURI != W || it.name.localPart !in setOf("sdtPr", "id", "docPartObj", "docPartGallery", "docPartUnique") ||
                 it.attributes.keys.any { key -> key.namespaceURI != W || key.localPart != "val" } }) fail("Unsupported contents control property")
             val content = node.elements().singleOrNull { local(it, "sdtContent") } ?: fail("Missing contents control body")
-            if (content.elements().none { p -> p.descendants().any { local(it, "instrText") && it.children.filterIsInstance<XmlText>().joinToString("") { t -> t.text }.trimStart().startsWith("TOC", true) } }) fail("Contents control has no contents field")
+            if (watermark) {
+                val paragraph = content.elements().singleOrNull { local(it, "p") }
+                    ?: fail("A saved watermark control requires one ordinary drawing paragraph")
+                val run = paragraph.elements().singleOrNull { local(it, "r") }
+                if (node.attributes.isNotEmpty() || content.attributes.isNotEmpty() ||
+                    properties.elements().any { local(it, "id") && value(it, "val")?.toIntOrNull() == null } ||
+                    properties.elements().count { local(it, "id") } > 1 ||
+                    properties.elements().count { local(it, "docPartObj") } != 1 ||
+                    paragraph.elements().any { !local(it, "pPr") && it !== run } || run == null ||
+                    run.elements().count { local(it, "pict") || local(it, "drawing") } != 1 ||
+                    run.elements().any { !local(it, "rPr") && !local(it, "pict") && !local(it, "drawing") })
+                    fail("Unsupported saved watermark control")
+            } else if (content.elements().none { p -> p.descendants().any { local(it, "instrText") &&
+                    it.children.filterIsInstance<XmlText>().joinToString("") { t -> t.text }.trimStart().startsWith("TOC", true) } })
+                fail("Contents control has no contents field")
             val at = parent.children.indexOf(node)
             parent.children.removeAt(at); parent.children.addAll(at, content.children)
         }

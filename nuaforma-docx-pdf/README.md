@@ -373,3 +373,5 @@ A row can split at ordinary line boundaries when its own sides and surrounding j
 A visible run without a resolved font family reports the missing declaration at its source location.
 
 Empty trailing fields after a nondecorated right tab also keep the blank continuation lines used by Word.
+
+A Word Watermarks gallery wrapper can retain its ordinary saved header drawing, including an empty closing marker. The drawing itself still follows the native profile.

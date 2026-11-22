@@ -130,4 +130,24 @@ class NativeDocxFieldsTest {
         assertFalse(normalize(control).contains("sdt"))
         assertTrue(normalize(control.replace("Table of Contents", "Other gallery")).contains("sdt"))
     }
+    @Test
+    fun `a saved watermark keeps its original drawing nodes including an empty end marker`() {
+        val paragraph = "<w:p><w:r><w:pict/></w:r></w:p>"
+        val properties = """<w:sdtPr><w:id w:val="-12"/><w:docPartObj><w:docPartGallery w:val="Watermarks"/>
+            <w:docPartUnique/></w:docPartObj></w:sdtPr>"""
+        val content = "<w:sdt>$properties<w:sdtEndPr/><w:sdtContent>$paragraph</w:sdtContent></w:sdt>"
+        val namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+        val xml = ConversionXml(GenerationContext())
+        fun read(value: String) = xml.read("<w:hdr xmlns:w=\"$namespace\">$value</w:hdr>".toByteArray())
+        val root = read(content)
+        val saved = root.elements().single().descendants().single { it.name.localPart == "p" }
+        NativeDocxFields.normalize(root, ::fail)
+        assertSame(saved, root.elements().single())
+        for (invalid in listOf(content.replace("</w:sdtPr>", "<w:dataBinding/></w:sdtPr>"),
+            content.replace("<w:sdtEndPr/>", "<w:sdtEndPr><w:rPr><w:b/></w:rPr></w:sdtEndPr>"),
+            content.replace("<w:pict/>", "<w:t>Plain text</w:t>"))) {
+            assertThrows(IllegalArgumentException::class.java) { NativeDocxFields.normalize(read(invalid), ::fail) }
+        }
+    }
+
 }
