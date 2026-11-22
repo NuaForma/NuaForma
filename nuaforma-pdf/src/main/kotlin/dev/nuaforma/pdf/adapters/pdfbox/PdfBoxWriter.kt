@@ -357,7 +357,9 @@ internal object PdfBoxWriter {
                                         val metrics = lineMetrics[element.style.fontId]
                                         val position = metrics?.getOrNull(3)?.takeIf { it.isFinite() } ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified underline metrics")
                                         val thickness = metrics.getOrNull(4)?.takeIf { it.isFinite() } ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified underline thickness")
-                                        if (position - thickness < font.fontDescriptor.fontBoundingBox.lowerLeftY / 1000f)
+                                        val underline = underlineGeometry(element.style, position, thickness)
+                                        val depth = if (element.style.thickUnderline) underline.bottom / element.style.size else position - thickness
+                                        if (depth < font.fontDescriptor.fontBoundingBox.lowerLeftY / 1000f)
                                             fail(PdfFailureCode.UNSUPPORTED_TEXT, "Underline exceeds the qualified font bounds")
                                         val underlineColor = element.style.underlineColor?.takeUnless { it == color }
                                         if (underlineColor != null) {
@@ -366,8 +368,8 @@ internal object PdfBoxWriter {
                                                 number(underlineColor.blue / 255f))
                                         }
                                         // OpenType post.underlinePosition denotes the top edge, unlike PostScript's center coordinate.
-                                        command("re", number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift) + (position - thickness) * element.style.size),
-                                            number(element.trailingDecorationWidth ?: measurer.measure(element.text, element.style).width), number(thickness * element.style.size))
+                                        command("re", number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift) + underline.bottom),
+                                            number(element.trailingDecorationWidth ?: measurer.measure(element.text, element.style).width), number(underline.thickness))
                                         command("f")
                                         if (underlineColor != null) command("Q")
                                     }

@@ -413,3 +413,5 @@ A hidden, undecorated empty cell marker contributes neither its final line nor i
 Single underlines preserve explicit RGB independently of run ink, while automatic color follows that ink.
 
 An isolated fixed drawing frame in the first header paragraph uses the band origin before the paragraph spacing.
+
+Thick single underlines apply Word-verified line metrics within the measured 8–20 point range.

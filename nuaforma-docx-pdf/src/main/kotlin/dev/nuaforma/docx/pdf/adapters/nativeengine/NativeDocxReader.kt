@@ -2327,7 +2327,7 @@ internal class NativeDocxReader(
         val kerningThreshold: Float = 0f, val standardLigatures: Boolean = false, val openType: Boolean = false, val highAnsiFamily: String? = null, val characterSpacing: Float = 0f,
         val highlight: PdfColor? = null, val shading: PdfColor? = null, val automaticColor: Boolean = true,
         val paragraphBackground: PdfColor? = null, val horizontalScale: Float = 1f, val capitals: Boolean = false, val smallCaps: Boolean = false,
-        val underlineColor: PdfColor? = null)
+        val underlineColor: PdfColor? = null, val thickUnderline: Boolean = false)
 
     private fun externalHyperlink(address: String, anchor: String?): PdfLink.External {
         if (anchor.isNullOrEmpty() || '#' in address) return PdfLink.External(address)
@@ -2348,6 +2348,7 @@ internal class NativeDocxReader(
         val nominal = face.size ?: reject("Missing font size")
         val family = face.family ?: reject("Text requires a font family from its run, style or document defaults")
         val size = if (face.superscript) kotlin.math.round(nominal * 1.3f) / 2 else nominal
+        check(!face.thickUnderline || size in 8f..20f, "Thick underlines require text from 8 to 20 points")
         val kern = if (face.kerningThreshold > 0 && size >= face.kerningThreshold)
             if (face.openType) PdfKerning.OPENTYPE else PdfKerning.PAIRS else PdfKerning.NONE
         val background = face.highlight ?: face.shading
@@ -2360,6 +2361,7 @@ internal class NativeDocxReader(
             .withBackground(background)
             .withHorizontalScale(face.horizontalScale)
             .withUnderlineColor(face.underlineColor)
+            .withThickUnderline(face.thickUnderline)
     }
 
     private val underscoredLocale = Regex("[A-Za-z]{2,3}_[A-Za-z]{2}")
@@ -2472,9 +2474,9 @@ internal class NativeDocxReader(
         property.one("u")?.let {
             attributes(it, setOf("val", "color")); children(it, emptySet())
             val kind = it.value("val")
-            check(kind in setOf(null, "single", "none"), "Only single run underlining is qualified")
+            check(kind in setOf(null, "single", "thick", "none"), "Only single and thick run underlining are qualified")
             val color = themeColors.explicitUnderlineColor(it)
-            result = result.copy(underline = kind != "none", underlineColor = color.takeUnless { kind == "none" })
+            result = result.copy(underline = kind != "none", underlineColor = color.takeUnless { kind == "none" }, thickUnderline = kind == "thick")
         }
         property.one("szCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && number(it.value("val")) / 2 == result.size, "Separate complex-script sizes are not qualified") }
         property.one("bCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && enabled(it) == result.bold, "Separate complex-script weight is not qualified") }

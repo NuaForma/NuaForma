@@ -671,6 +671,7 @@ class PdfTextStyle private constructor(
         val horizontalScale: Float = 1f,
         val lineMetricSize: Float? = null,
         val underlineColor: PdfColor? = null,
+        val thickUnderline: Boolean = false,
     )
     val strikethrough: Boolean get() = decoration.strike
     val fontFeatures: PdfFontFeatures get() = decoration.features
@@ -691,6 +692,13 @@ class PdfTextStyle private constructor(
 
     /** An explicit underline color, or null to follow the text ink. */
     val underlineColor: PdfColor? get() = decoration.underlineColor
+
+    /** A heavier painted underline with its top closer to the baseline. */
+    val thickUnderline: Boolean get() = decoration.thickUnderline
+
+    fun withThickUnderline(enabled: Boolean): PdfTextStyle =
+        if (enabled == thickUnderline) this else PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift,
+            decoration.copy(thickUnderline = enabled))
 
     fun withUnderlineColor(color: PdfColor?): PdfTextStyle =
         if (color == underlineColor) this else PdfTextStyle(fontId, size, this.color, languageTag, underline, baselineShift,
@@ -749,7 +757,7 @@ class PdfTextStyle private constructor(
     override fun equals(other: Any?): Boolean = other is PdfTextStyle && fontId == other.fontId &&
         java.lang.Float.compare(size, other.size) == 0 && color == other.color && languageTag == other.languageTag &&
         underline == other.underline && java.lang.Float.compare(baselineShift, other.baselineShift) == 0 && strikethrough == other.strikethrough && fontFeatures == other.fontFeatures && syntheticBold == other.syntheticBold && java.lang.Float.compare(characterSpacing, other.characterSpacing) == 0 && background == other.background && horizontalScale == other.horizontalScale && lineMetricSize == other.lineMetricSize &&
-        underlineColor == other.underlineColor
+        underlineColor == other.underlineColor && thickUnderline == other.thickUnderline
 
     override fun hashCode(): Int {
         var result = fontId.hashCode()
@@ -763,6 +771,7 @@ class PdfTextStyle private constructor(
         if (horizontalScale != 1f) result = 31 * result + horizontalScale.hashCode()
         if (lineMetricSize != null) result = 31 * result + lineMetricSize.hashCode()
         if (underlineColor != null) result = 31 * result + underlineColor.hashCode()
+        if (thickUnderline) result = 31 * result + true.hashCode()
         return if (syntheticBold) 31 * result + true.hashCode() else result
     }
 

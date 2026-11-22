@@ -33,12 +33,26 @@ internal object GlyphInkBounds {
                 ?: throw PdfRenderException(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified $kind metrics")
             val thickness = lineMetrics.getOrNull(thicknessIndex)?.takeIf { it.isFinite() }
                 ?: throw PdfRenderException(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified $kind thickness")
-            ascent = maxOf(ascent, position * style.size + style.baselineShift)
-            descent = maxOf(descent, (thickness - position) * style.size - style.baselineShift)
+            val underline = if (positionIndex == 3 && style.thickUnderline) underlineGeometry(style, position, thickness) else null
+            val top = underline?.top ?: position * style.size
+            val depth = underline?.let { -it.bottom } ?: (thickness - position) * style.size
+            ascent = maxOf(ascent, top + style.baselineShift)
+            descent = maxOf(descent, depth - style.baselineShift)
         }
 
         if (style.underline) decoration(3, 4)
         if (style.strikethrough) decoration(5, 6)
         return ascent to descent
     }
+}
+
+/** Physical underline geometry in points relative to the baseline. */
+internal data class UnderlineGeometry(val top: Float, val thickness: Float, val bottom: Float)
+
+internal fun underlineGeometry(style: PdfTextStyle, position: Float, thickness: Float): UnderlineGeometry {
+    val top = position * style.size
+    val weight = thickness * style.size
+    if (!style.thickUnderline) return UnderlineGeometry(top, weight, (position - thickness) * style.size)
+    val thickWeight = weight / 2f + 1f
+    return UnderlineGeometry(top / 2f, thickWeight, top / 2f - thickWeight)
 }
