@@ -427,3 +427,5 @@ Unwrapped body pictures align to the top, center or bottom of a physical page us
 Ordinary Basic Latin text keeps its ASCII typeface when Word saves a fallback hint for a different script.
 
 An eligible left-aligned picture on its own body line can extend into the free right page margin. Layout failures report the applicable measured width.
+
+A validated shadow occlusion flag leaves an unshadowed raster unchanged. Actual shadow effects and unknown extension payloads remain subject to profile checks.

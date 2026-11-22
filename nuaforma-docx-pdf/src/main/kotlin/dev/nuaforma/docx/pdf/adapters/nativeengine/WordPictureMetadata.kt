@@ -9,6 +9,7 @@ internal object WordPictureMetadata {
     private const val A = "http://schemas.openxmlformats.org/drawingml/2006/main"
     private const val PIC = "http://schemas.openxmlformats.org/drawingml/2006/picture"
     private const val A14 = "http://schemas.microsoft.com/office/drawing/2010/main"
+    private const val SHADOW_FLAG = "{53640926-AAD7-44D8-BBD7-CCE9431645EC}"
     private const val DPI = "{28A0092B-C50C-407e-A947-70E740481C1C}"
     private const val WP = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
     private const val DECORATIVE = "http://schemas.microsoft.com/office/drawing/2017/decorative"
@@ -29,6 +30,7 @@ internal object WordPictureMetadata {
     fun validateSource(root: XmlElement, reject: (XmlElement, String) -> Nothing) {
         if (root.name.namespaceURI != W || root.name.localPart !in setOf("document", "hdr", "ftr", "footnotes", "endnotes")) return
         for (node in root.descendants().filter { it.isName(WP, "docPr") || it.isName(PIC, "cNvPr") }) decorativeList(node, reject)
+        for (node in root.descendants().filter { it.isName(PIC, "spPr") }) inactiveShadowList(node, reject)
         for (node in root.descendants().filter { it.isName(A, "blip") }) {
             val valid = node.attributes.all { (name, value) ->
                 name.namespaceURI == R && name.localPart == "embed" || compressionState(name, value)
@@ -47,7 +49,10 @@ internal object WordPictureMetadata {
             when {
                 parent.isName(PIC, "cNvPr") -> decorativeList(parent, reject)?.let { parent.children.remove(it) }
                 parent.isName(PIC, "cNvPicPr") -> pictureLocks(parent, reject)
-                parent.isName(PIC, "spPr") -> noFill(parent, reject)
+                parent.isName(PIC, "spPr") -> {
+                    inactiveShadowList(parent, reject)?.let { parent.children.remove(it) }
+                    noFill(parent, reject)
+                }
                 parent.isName(A, "blip") -> localDpi(parent, reject)
             }
         }
@@ -69,6 +74,28 @@ internal object WordPictureMetadata {
             return list
         }
         return null
+    }
+
+    private fun inactiveShadowList(parent: XmlElement, reject: (XmlElement, String) -> Nothing): XmlElement? {
+        val lists = parent.elements().filter { it.isName(A, "extLst") }
+        val candidates = lists.flatMap { list -> list.elements().map { list to it } }.filter { (_, entry) ->
+            entry.attribute("", "uri")?.equals(SHADOW_FLAG, ignoreCase = true) == true ||
+                entry.elements().any { it.isName(A14, "shadowObscured") }
+        }
+        if (candidates.isEmpty()) return null
+        val (list, entry) = candidates.first()
+        requireNode(list, lists.size == 1 && candidates.size == 1 && list.attributes.isEmpty() &&
+            list.children.filterIsInstance<XmlText>().all { it.text.isBlank() }, reject)
+        val flag = entry.elements().singleOrNull()
+        requireNode(entry, entry.isName(A, "ext") && entry.attributes.size == 1 &&
+            entry.attribute("", "uri")?.equals(SHADOW_FLAG, ignoreCase = true) == true &&
+            entry.children.filterIsInstance<XmlText>().all { it.text.isBlank() } &&
+            flag != null && flag.isName(A14, "shadowObscured"), reject)
+        requireNode(requireNotNull(flag), empty(flag) &&
+            (flag.attributes.isEmpty() || flag.attributes.size == 1 && flag.attribute("", "val") in booleans), reject)
+        // The flag only controls occlusion of an existing shadow. Other extensions or effects still require support.
+        return list.takeIf { list.elements().size == 1 &&
+            parent.elements().none { it.isName(A, "effectLst") || it.isName(A, "effectDag") } }
     }
 
     private fun pictureLocks(parent: XmlElement, reject: (XmlElement, String) -> Nothing) {

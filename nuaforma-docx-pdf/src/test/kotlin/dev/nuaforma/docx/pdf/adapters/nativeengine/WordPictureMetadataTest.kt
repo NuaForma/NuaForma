@@ -53,6 +53,29 @@ class WordPictureMetadataTest {
     }
 
 
+    private fun shadow(attributes: String = "") =
+        """<a:extLst><a:ext uri="{53640926-AAD7-44D8-BBD7-CCE9431645EC}"><a14:shadowObscured $attributes/></a:ext></a:extLst>"""
+
+    @Test
+    fun `saved shadow occlusion flags have no paint without an actual shadow`() {
+        for (flag in listOf(shadow(), shadow("val=\"1\""), shadow("val=\"false\""))) {
+            assertFalse(normalize(fill = "<a:noFill/>" + flag).descendants().any { it.name.localPart == "extLst" })
+        }
+        for (effect in listOf("<a:effectLst><a:outerShdw/></a:effectLst>", "<a:effectDag/>")) {
+            assertTrue(normalize(fill = effect + shadow()).descendants().any { it.name.localPart == "extLst" })
+        }
+        assertTrue(normalize(fill = shadow().replace("</a:extLst>", "<a:ext uri=\"unknown\"/></a:extLst>"))
+            .descendants().any { it.name.localPart == "extLst" })
+    }
+
+    @Test
+    fun `malformed shadow flags remain distinguishable from passive picture metadata`() {
+        val flags = listOf(shadow("val=\"unchecked\""), shadow("a14:val=\"true\""),
+            shadow().replace("a14:shadowObscured", "a:shadowObscured"),
+            shadow().replace("53640926", "12345678"), shadow() + shadow())
+        for (flag in flags) assertThrows(NativeDocxReadException::class.java) { normalize(fill = flag) }
+    }
+
     private fun storyBlip(name: String, attributes: String) = ConversionXml(GenerationContext()).read(
         """<w:$name xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><a:blip r:embed="image" $attributes/></w:$name>""".toByteArray())
 
