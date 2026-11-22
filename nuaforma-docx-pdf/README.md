@@ -281,3 +281,5 @@ The preference to save a document preview image leaves PDF output unchanged.
 Page-fixed unwrapped pictures can keep an external link whose clickable rectangle follows the picture.
 
 Qualified horizontal borders of equal width can retain regional colors across cells and horizontal merges.
+
+A bounded final EMF object deletion can immediately precede a valid end record when only that deletion falls outside the recorded count.
