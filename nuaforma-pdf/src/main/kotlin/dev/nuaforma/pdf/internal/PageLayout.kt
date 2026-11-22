@@ -330,12 +330,14 @@ internal object PageLayouter {
                         return fragments.subList(start, fragments.size).filterNot { it.discretionaryHyphen }
                     }
 
+                    fun ordinaryWebAddress(word: List<Fragment>): Boolean = lineArea == null && label == null &&
+                        format.textDirection == null && block.runs.none { it is PdfTab } && word.all {
+                            it.style != null && !it.style.fontFeatures.active && it.style.characterSpacing == 0f &&
+                                it.navigation?.destinations?.isNotEmpty() != true
+                        }
+
                     fun placeWebAddress(word: List<Fragment>, wordWidth: Float, spaceWidth: Float): Boolean {
-                        if (lineWidth + spaceWidth + wordWidth <= availableWidth() + .001f ||
-                            lineArea != null || label != null || format.textDirection != null ||
-                            block.runs.any { it is PdfTab } || word.any { it.style == null ||
-                                it.style.fontFeatures.active || it.style.characterSpacing != 0f ||
-                                it.navigation?.destinations?.isNotEmpty() == true }) return false
+                        if (lineWidth + spaceWidth + wordWidth <= availableWidth() + .001f || !ordinaryWebAddress(word)) return false
                         val runs = word.map { it.text to requireNotNull(it.style) }
                         val breaks = WebAddressBreaks.of(runs, measurer) ?: return false
                         var gap = spaceWidth
@@ -475,7 +477,10 @@ internal object PageLayouter {
                         val wordWidth = word.sumOf { it.metrics.width.toDouble() }.toFloat()
                         val spaceWidth = spaces.sumOf { it.metrics.width.toDouble() }.toFloat()
                         if (!block.breakLongWords && placeWebAddress(word, wordWidth, spaceWidth)) continue
-                        if (block.breakLongWords && wordWidth > availableWidth() + .001f) {
+                        val oversizedWord = wordWidth > availableWidth() + .001f
+                        val simpleWebPath = oversizedWord && !block.breakLongWords && line.isEmpty() && spaces.isEmpty() &&
+                            ordinaryWebAddress(word) && WebAddressBreaks.isSimplePath(word.map { it.text })
+                        if (oversizedWord && (block.breakLongWords || simpleWebPath)) {
                             if (format.textDirection != null || word.any { it.style == null || it.text.isEmpty() })
                                 throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Long-word breaking with bidi or inline objects is not qualified")
                             if (line.isNotEmpty()) {

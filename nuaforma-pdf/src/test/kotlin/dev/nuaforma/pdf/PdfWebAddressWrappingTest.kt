@@ -38,6 +38,34 @@ class PdfWebAddressWrappingTest {
     }
 
     @Test
+    fun oversizedSimplePathBreaksAtExistingCharacterBoundaries() {
+        val address = "https://example.test/letters/0123456789.pdf"
+        val plain = layout(150f, listOf(PdfTextRun(address, regular)))
+        assertEquals(address.chunked(25), lines(plain))
+        assertTrue(plain.all { it.navigation == null })
+
+        val nav = PdfTextNavigation(PdfLink.External(address), logicalId = "large-link")
+        val linked = layout(150f, listOf(PdfTextRun(address.take(30), linkStyle, nav),
+            PdfTextRun(address.drop(30), tailStyle, nav)))
+        assertEquals(address.chunked(25), lines(linked))
+        assertTrue(linked.all { it.navigation == nav })
+        assertEquals(listOf(0, 25, 30), linked.map { it.logicalOffset })
+        assertEquals(listOf(linkStyle, linkStyle, tailStyle), linked.map { it.style })
+    }
+
+    @Test
+    fun percentEncodedPathRetainsTheCompleteVisibleTextAndTarget() {
+        val address = "https://example.test/ab%20cd/longpath.pdf"
+        val nav = PdfTextNavigation(PdfLink.External(address), logicalId = "escaped-link")
+        val linked = layout(150f, listOf(PdfTextRun(address, linkStyle, nav)))
+        assertEquals(address.chunked(25), lines(linked))
+        assertTrue(linked.all { it.navigation == nav })
+        val malformed = address.replace("%20", "%ZZ")
+        val error = assertThrows(PdfRenderException::class.java) { layout(150f, listOf(PdfTextRun(malformed, regular))) }
+        assertEquals(PdfFailureCode.CONTENT_OVERFLOW, error.code)
+    }
+
+    @Test
     fun reportsOverflowWithoutAQualifiedBreak() {
         val ordinary = "non-url-word-with-visible-hyphen"
         val bad = "https://example.test/firstlongpath-last"

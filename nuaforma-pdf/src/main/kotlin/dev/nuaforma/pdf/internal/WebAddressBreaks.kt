@@ -46,6 +46,16 @@ internal class WebAddressBreaks private constructor(
     companion object {
         private val address = Regex("""https?://[A-Za-z0-9][A-Za-z0-9.:-]*(?:[/#?][A-Za-z0-9._~:/?#@!$&'()*+,;=%-]*)?""", RegexOption.IGNORE_CASE)
 
+        private val simplePath = Regex("""https?://[A-Za-z0-9][A-Za-z0-9.:-]*(?:/[A-Za-z0-9._~%]+)+/?""", RegexOption.IGNORE_CASE)
+
+        private val invalidEscape = Regex("%(?![0-9A-Fa-f]{2})")
+
+        fun isSimplePath(fragments: List<String>): Boolean {
+            if (fragments.sumOf(String::length) !in 1..2_048) return false
+            val address = fragments.joinToString("")
+            return simplePath.matches(address) && !invalidEscape.containsMatchIn(address)
+        }
+
         fun of(runs: List<Pair<String, PdfTextStyle>>, measurer: TextMeasurer): WebAddressBreaks? {
             if (runs.sumOf { it.first.length } !in 1..2048) return null
             val text = runs.joinToString("") { it.first }

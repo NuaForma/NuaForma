@@ -341,3 +341,5 @@ Qualified horizontal bands retain ordinary row lines without adding an interior 
 Separately stored Word hyperlink fragments retain the complete external destination and visible label.
 
 An ordinary row with no owning note can stay whole in note-aware layout. A required physical row split retains an explicit diagnostic.
+
+Oversized visible HTTP and HTTPS paths can wrap at existing character boundaries while retaining styling and navigation.
