@@ -265,3 +265,5 @@ Isolated fixed unrotated footer frames can continue visible text below the nomin
 Numbered paragraph marks can retain their highlight on the label and supported separator.
 
 Validated absent or nil text-run borders leave normal text drawing unchanged.
+
+Embedded pictures with an explicitly invisible outline can retain a validated miter and empty arrow ends.

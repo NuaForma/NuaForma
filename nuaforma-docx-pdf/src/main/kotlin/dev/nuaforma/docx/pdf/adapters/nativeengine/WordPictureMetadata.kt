@@ -87,14 +87,34 @@ internal object WordPictureMetadata {
             requireNode(node, fills.size == 1 && node.attributes.isEmpty() && empty(node), reject)
             parent.children.remove(node)
         }
-        for (line in elements.filter { it.isName(A, "ln") }) {
-            val fill = line.elements().singleOrNull { it.isName(A, "noFill") }
-            if (fill != null && line.elements().size == 1) {
-                requireNode(fill, fill.attributes.isEmpty() && empty(fill), reject)
-                requireNode(line, line.attributes.all { (key, value) -> key.namespaceURI.isEmpty() && lineAttribute(key.localPart, value) } &&
-                    line.children.filterIsInstance<XmlText>().all { it.text.isBlank() }, reject)
-                parent.children.remove(line)
+        val lines = elements.filter { it.isName(A, "ln") }
+        for (line in lines) {
+            val children = line.elements()
+            val fill = children.firstOrNull { it.isName(A, "noFill") } ?: continue
+            if (children.any { it.name.namespaceURI != A || it.name.localPart !in invisibleLineElements }) continue
+            requireNode(line, lines.size == 1 && children.map { it.name.localPart }.distinct().size == children.size &&
+                line.attributes.all { (key, value) -> key.namespaceURI.isEmpty() && lineAttribute(key.localPart, value) } &&
+                line.children.filterIsInstance<XmlText>().all { it.text.isBlank() }, reject)
+            requireNode(fill, fill.attributes.isEmpty() && empty(fill), reject)
+            for (child in children.filterNot { it === fill }) requireNode(child, invisibleLineDecoration(child), reject)
+            parent.children.remove(line)
+        }
+    }
+
+    private val invisibleLineElements = setOf("noFill", "miter", "headEnd", "tailEnd")
+
+    private fun invisibleLineDecoration(node: XmlElement): Boolean {
+        if (!empty(node)) return false
+        return when (node.name.localPart) {
+            "miter" -> node.attributes.all { (name, value) -> name.namespaceURI.isEmpty() && name.localPart == "lim" && value == "800000" }
+            "headEnd", "tailEnd" -> node.attributes.all { (name, value) ->
+                name.namespaceURI.isEmpty() && when (name.localPart) {
+                    "type" -> value == "none"
+                    "w", "len" -> value == "med"
+                    else -> false
+                }
             }
+            else -> false
         }
     }
 
