@@ -345,3 +345,5 @@ An ordinary row with no owning note can stay whole in note-aware layout. A requi
 Oversized visible HTTP and HTTPS paths can wrap at existing character boundaries while retaining styling and navigation.
 
 A matching visible web hyperlink can continue at a character boundary when the next preferred boundary is wider than the line.
+
+A literal SET assignment may retain its result value for ordinary references when Word wraps the saved invisible result in its own bookmark.

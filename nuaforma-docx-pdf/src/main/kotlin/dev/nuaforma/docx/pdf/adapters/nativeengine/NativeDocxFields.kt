@@ -112,11 +112,20 @@ internal object NativeDocxFields {
         }
     }
 
+    private fun ownedBookmarkMarkers(start: XmlElement, end: XmlElement): Boolean {
+        val id = start.attribute(W, "id") ?: return false
+        return id.toIntOrNull()?.let { it >= 0 } == true && end.attribute(W, "id") == id &&
+            start.attributes.keys.all { it.namespaceURI == W && it.localPart in setOf("id", "name") } &&
+            end.attributes.keys.all { it.namespaceURI == W && it.localPart == "id" } &&
+            listOf(start, end).all { it.elements().isEmpty() && it.children.filterIsInstance<XmlText>().all { child -> child.text.isBlank() } }
+    }
+
     /** Collapse only complete complex fields; a multi-paragraph field must be a standalone TOC. */
     fun normalize(root: XmlElement, fail: (String) -> Nothing,
         forms: MutableMap<XmlElement, Form> = java.util.IdentityHashMap(),
         fieldOrigin: (XmlElement, XmlElement) -> Unit = { _, _ -> },
-        formatting: (XmlElement, XmlElement?) -> Unit = { _, _ -> }, focus: (XmlElement) -> Unit = {}) {
+        formatting: (XmlElement, XmlElement?) -> Unit = { _, _ -> },
+        omitSetResultBookmark: (String) -> Unit = {}, focus: (XmlElement) -> Unit = {}) {
 
         val pageBand = root.name.namespaceURI == W && root.name.localPart in setOf("hdr", "ftr")
 
@@ -152,7 +161,8 @@ internal object NativeDocxFields {
             parent.children.removeAt(at); parent.children.addAll(at, content.children)
         }
         fun simple(code: String, cached: List<XmlElement>, form: Form?, origin: XmlElement, codeProperties: XmlElement?): List<XmlElement> {
-            val kind = instruction(code, fail).kind
+            val parsed = instruction(code, fail)
+            val kind = parsed.kind
             val contents = kind == "TOC"
             // Word prints nothing for a complete checkbox field with neither form data nor a cached result.
             if (kind == "FORMCHECKBOX" && form == null && cached.isEmpty()) return emptyList()
@@ -170,6 +180,13 @@ internal object NativeDocxFields {
             fieldOrigin(field, origin)
             if (kind == "SEQ" || pageBand && isPageCount(kind)) formatting(field, codeProperties)
             if (form != null) forms[field] = form
+            val start = cached.firstOrNull()
+            val end = cached.lastOrNull()
+            if (kind == "SET" && bookmarks.size == 2 && start != null && end != null && local(start, "bookmarkStart") &&
+                local(end, "bookmarkEnd") && value(start, "name") == parsed.argument && ownedBookmarkMarkers(start, end)) {
+                omitSetResultBookmark(requireNotNull(parsed.argument))
+                return listOf(field)
+            }
             return if (contents) listOf(field) else bookmarks.filter { local(it, "bookmarkStart") } + field + bookmarks.filter { local(it, "bookmarkEnd") }
         }
         for (container in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart in setOf("body", "tc", "hdr", "ftr", "txbxContent", "footnote", "endnote") }.toList()) {
@@ -275,7 +292,7 @@ internal object NativeDocxFields {
                 fail("Complex page references in hyperlinks require ordinary runs")
             val paragraph = XmlElement(QName(W, "p", "w")).also { it.children.addAll(link.children) }
             val body = XmlElement(QName(W, "body", "w")).also { it.children += paragraph }
-            normalize(body, fail, forms, fieldOrigin, formatting, focus)
+            normalize(body, fail, forms, fieldOrigin, formatting, focus = focus)
             val fields = paragraph.elements().filter { local(it, "fldSimple") }
             if (fields.isEmpty() || fields.any { instruction(value(it, "instr") ?: fail("Missing hyperlink field instruction"), fail).kind != "PAGEREF" })
                 fail("Only page-reference fields inside hyperlinks are qualified")

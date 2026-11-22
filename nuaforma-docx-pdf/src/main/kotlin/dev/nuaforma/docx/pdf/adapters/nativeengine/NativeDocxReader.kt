@@ -211,15 +211,38 @@ internal class NativeDocxReader(
                 context.checkActive()
                 node.name.namespaceURI == word && node.name.localPart == "bookmarkStart"
             }.mapNotNull { it.value("name") }.toSet()
-        val bookmarksByCase = originalBookmarks.groupBy { it.lowercase(java.util.Locale.ROOT) }
+        val discardedSetBookmarks = mutableSetOf<String>()
         val fieldCodeStyles = java.util.IdentityHashMap<XmlElement, XmlElement?>()
         val formFields = java.util.IdentityHashMap<XmlElement, NativeDocxFields.Form>()
         parsed.forEach { (name, root) ->
             activePart = name; source.current = root
             NativeDocxFields.normalize(root, ::reject, formFields, { field, original ->
                 provenance[field] = name; source.alias(field, original)
-            }, formatting = { field, properties -> fieldCodeStyles[field] = properties }) { source.current = it }
+            }, formatting = { field, properties -> fieldCodeStyles[field] = properties },
+                omitSetResultBookmark = { discardedSetBookmarks += it.lowercase(java.util.Locale.ROOT) }) { source.current = it }
         }
+        if (discardedSetBookmarks.isNotEmpty()) for ((name, root) in parsed) {
+            activePart = name
+            for (node in root.descendants()) {
+                context.checkActive()
+                if (node.name.namespaceURI != word) continue
+                val target = when (node.name.localPart) {
+                    "hyperlink" -> node.value("anchor").takeIf { node.attribute(rel, "id") == null }
+                    "fldSimple" -> node.value("instr")?.takeIf {
+                        it.trimStart().takeWhile { character -> !character.isWhitespace() }.equals("PAGEREF", ignoreCase = true)
+                    }?.let { code ->
+                        source.current = node
+                        NativeDocxFields.instruction(code, ::reject).argument
+                    }
+                    else -> null
+                }
+                source.current = node
+                check(target?.lowercase(java.util.Locale.ROOT)?.let { it in discardedSetBookmarks } != true,
+                    "Navigation to a SET result bookmark is not qualified")
+            }
+        }
+        val visibleBookmarks = originalBookmarks.filterNot { it.lowercase(java.util.Locale.ROOT) in discardedSetBookmarks }.toSet()
+        val bookmarksByCase = visibleBookmarks.groupBy { it.lowercase(java.util.Locale.ROOT) }
         val blockBoundaryTextRanges = mutableSetOf<String>()
         parsed.forEach { (name, root) -> activePart = name; blockBoundaryTextRanges += NativeDocxBookmarks(context).normalize(root, { source.current = it }, ::reject) }
         staticFields.index(parsed.values)
@@ -871,8 +894,8 @@ internal class NativeDocxReader(
                     val link = if (id == null) {
                         val requested = PdfLink.Internal(requireNotNull(anchor))
                         val compatible = bookmarksByCase[anchor.lowercase(java.util.Locale.ROOT)].orEmpty()
-                        check(anchor in originalBookmarks || compatible.size <= 1, "Ambiguous case-insensitive bookmark destination")
-                        val target = if (anchor in originalBookmarks) anchor else compatible.singleOrNull()
+                        check(anchor in visibleBookmarks || compatible.size <= 1, "Ambiguous case-insensitive bookmark destination")
+                        val target = if (anchor in visibleBookmarks) anchor else compatible.singleOrNull()
                         if (target == null) {
                             // Word's PDF export retains ordinary text when its bookmark does not exist.
                             check(node.elements().all { it.name.namespaceURI == word && it.name.localPart == "r" },
