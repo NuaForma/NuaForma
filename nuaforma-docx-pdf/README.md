@@ -293,3 +293,5 @@ A fixed full-page header picture can layer behind body text while retaining the 
 An isolated single-cell page-band table can keep its qualified top stroke and ordinary text.
 
 A fixed unwrapped image in the first cell of an isolated one-row page-band table can retain its column and page offsets.
+
+A qualified picture can keep tiny proportional discrepancy between its stored internal and outer extents. Fixed page-band table text can wrap an oversized word within its column.

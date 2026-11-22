@@ -1031,7 +1031,7 @@ internal class NativeDocxReader(
                 inline.children += visible
             }
             val container = XmlElement(node.name).also { it.children += inline }
-            val converted = image(container, partRelations, parts)
+            val converted = image(container, partRelations, parts, uniformCellPictureExtent = cellRelative)
             if (cellRelative) {
                 source.current = anchor
                 check(pageBand && policy == PdfImageWrap.NONE && link == null && !headerContour,
@@ -1396,7 +1396,8 @@ internal class NativeDocxReader(
                         when (child.name.localPart) {
                             "p" -> (if (fields) readBandCellParagraph(child, partRelations, cellStyles, allowCellPictures)
                                 else readParagraph(child, partRelations, false, cellStyles, allowPageBreak = false)).let { paragraph ->
-                                val resolved = paragraph.withLongWordBreaking(depth == 0 && !fields && !automaticLayout)
+                                val pageBandWrapping = fields && cp.one("noWrap") == null && paragraph.format.textDirection == null
+                                val resolved = paragraph.withLongWordBreaking(depth == 0 && !automaticLayout && (!fields || pageBandWrapping))
                                 if (depth == 0 && !fields && span == 1 && cp.one("vMerge") == null)
                                     resolved.copy(format = resolved.format.copy(keepLines = false, widowControl = false))
                                 else resolved
@@ -2242,7 +2243,8 @@ internal class NativeDocxReader(
         return result
     }
 
-    private fun image(node: XmlElement, relations: Map<String, String>, parts: Map<String, ByteArray>): PdfImage {
+    private fun image(node: XmlElement, relations: Map<String, String>, parts: Map<String, ByteArray>,
+                      uniformCellPictureExtent: Boolean = false): PdfImage {
         source.current = node
 
         fun at(element: XmlElement, condition: Boolean, message: String) {
@@ -2307,7 +2309,13 @@ internal class NativeDocxReader(
         val offset = transform.elements().singleOrNull { it.name.localPart == "off" } ?: reject("Missing image offset")
         at(offset, offset.attribute("", "x") == "0" && offset.attribute("", "y") == "0", "Unsupported image offset")
         val transformedExtent = transform.elements().singleOrNull { it.name.localPart == "ext" } ?: reject("Missing picture extent")
-        at(transformedExtent, transformedExtent.attribute("", "cx") == extent.attribute("", "cx") && transformedExtent.attribute("", "cy") == extent.attribute("", "cy"), "Nonmatching picture transforms are unsupported")
+        val expectedWidth = extent.attribute("", "cx")
+        val expectedHeight = extent.attribute("", "cy")
+        val innerWidth = transformedExtent.attribute("", "cx")
+        val innerHeight = transformedExtent.attribute("", "cy")
+        at(transformedExtent, innerWidth == expectedWidth && innerHeight == expectedHeight ||
+            uniformCellPictureExtent && WordCellPictureExtent.isUniform(expectedWidth, expectedHeight, innerWidth, innerHeight),
+            "Nonmatching picture transforms are unsupported")
         val shape = inline.descendants().singleOrNull { it.name.localPart == "prstGeom" } ?: reject("Missing image geometry")
         at(shape, shape.attribute("", "prst") == "rect", "Unsupported image geometry: prstGeom/@prst")
         val fill = inline.descendants().singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "fillRect" } ?: reject("Missing image stretch rectangle")
