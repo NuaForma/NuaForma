@@ -696,15 +696,32 @@ class PdfFont @JvmOverloads constructor(val id: String, bytes: ByteArray, val em
 }
 
 /** PNG bytes and explicit physical dimensions; no external resource lookup. */
-class PdfImage @JvmOverloads constructor(bytes: ByteArray, val width: Float, val height: Float, val crop: PdfImageCrop = PdfImageCrop(), override val semantics: PdfBlockSemantics? = null) : PdfBlock {
-    private val content: ByteArray
-    init {
-        require(bytes.size in 24..4_194_304) { "PNG exceeds the foundation limit" }
-        require(width.isFinite() && height.isFinite() && width in 1f..14_400f && height in 1f..14_400f) { "Invalid image dimensions" }
-        content = bytes.copyOf()
+class PdfImage private constructor(
+    private val raster: Raster, val width: Float, val height: Float, val crop: PdfImageCrop,
+    override val semantics: PdfBlockSemantics?,
+) : PdfBlock {
+    private class Raster(bytes: ByteArray) {
+        private val content: ByteArray
+        init {
+            require(bytes.size in 24..4_194_304) { "PNG exceeds the foundation limit" }
+            content = bytes.copyOf()
+        }
+        fun bytes(): ByteArray = content.copyOf()
+        val byteSize: Int get() = content.size
     }
 
-    fun bytes(): ByteArray = content.copyOf()
+    @get:JvmSynthetic
+    internal val rasterIdentity: Any get() = raster
+
+    @JvmOverloads
+    constructor(bytes: ByteArray, width: Float, height: Float, crop: PdfImageCrop = PdfImageCrop(), semantics: PdfBlockSemantics? = null) :
+        this(Raster(bytes), width, height, crop, semantics)
+
+    init {
+        require(width.isFinite() && height.isFinite() && width in 1f..14_400f && height in 1f..14_400f) { "Invalid image dimensions" }
+    }
+
+    fun bytes(): ByteArray = raster.bytes()
 
     /** Crop amounts are measured in physical points of the current image. */
     fun withPhysicalCrop(left: Float, top: Float, right: Float, bottom: Float): PdfImage {
@@ -712,10 +729,13 @@ class PdfImage @JvmOverloads constructor(bytes: ByteArray, val width: Float, val
         if (left == 0f && top == 0f && right == 0f && bottom == 0f) return this
         val horizontal = (1.0 - crop.left - crop.right) / width
         val vertical = (1.0 - crop.top - crop.bottom) / height
-        return PdfImage(content, width - left - right, height - top - bottom,
+        return PdfImage(raster, width - left - right, height - top - bottom,
             PdfImageCrop((crop.top + top * vertical).toFloat(), (crop.right + right * horizontal).toFloat(),
                 (crop.bottom + bottom * vertical).toFloat(), (crop.left + left * horizontal).toFloat()), semantics)
     }
 
-    internal val byteSize: Int get() = content.size
+    internal fun withSemantics(value: PdfBlockSemantics): PdfImage = PdfImage(raster, width, height, crop, value)
+
+    internal val byteSize: Int get() = raster.byteSize
+
 }

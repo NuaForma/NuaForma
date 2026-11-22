@@ -303,3 +303,5 @@ Qualified names can contain an ordinary colon or curly apostrophe. A closed same
 An isolated qualified two-column automatic table can fall back to its saved grid when its styled contents need word wrapping.
 
 A plain white source background without children retains the default physical page appearance.
+
+Within a render, crops and semantic copies of a picture can share its bounded decoded raster.

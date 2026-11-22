@@ -15,7 +15,7 @@ internal object DocumentTransforms {
 
         fun image(value: PdfImage, path: String): PdfImage {
             if (!normalize || value.semantics != null) return value
-            return PdfImage(value.bytes(), value.width, value.height, value.crop, PdfBlockSemantics(path, PdfSemanticRole.FIGURE))
+            return value.withSemantics(PdfBlockSemantics(path, PdfSemanticRole.FIGURE))
         }
 
         fun blocks(values: List<PdfBlock>, path: String, scope: Scope): List<PdfBlock> = values.flatMapIndexed { index, block ->

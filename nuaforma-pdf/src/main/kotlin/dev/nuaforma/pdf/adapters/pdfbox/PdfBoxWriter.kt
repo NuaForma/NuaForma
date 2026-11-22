@@ -140,7 +140,7 @@ internal object PdfBoxWriter {
                     encoding.normal(requested.fontId, it)
                 }
             }
-            val images = java.util.IdentityHashMap<PdfImage, PDImageXObject>()
+            val images = java.util.IdentityHashMap<Any, PDImageXObject>()
             var decodedImageBytes = 0L
             for (layout in layouts) {
                 val page = PDPage(PDRectangle(layout.page.width, layout.page.height))
@@ -395,7 +395,7 @@ internal object PdfBoxWriter {
                                             if (bottom > canvasHeight + .001f) exceeds("bottom", bottom - top, canvasHeight - top)
                                         }
                                     }
-                                    val image = images.getOrPut(element.image) {
+                                    val image = images.getOrPut(element.image.rasterIdentity) {
                                         val bytes = element.image.bytes()
                                         validatePng(bytes)
                                         val dimensions = ByteBuffer.wrap(bytes, 16, 8).order(ByteOrder.BIG_ENDIAN)
