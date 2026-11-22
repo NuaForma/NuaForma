@@ -16,7 +16,8 @@ internal object ParagraphKeeps {
             PageLayouter.checkCancellation()
             when (val block = blocks[index]) {
                 is PdfParagraph -> {
-                    if (index > start && block.format.pageBreakBefore) return if (index > start + 1) Group(minimum, index - 1) else null
+                    if (index > start && (block.format.pageBreakBefore || block.hasLeadingPageBreakWithKeeps()))
+                        return if (index > start + 1) Group(minimum, index - 1) else null
                     val measured = paragraph(index)
                     if (measured.breakAfter.isNotEmpty())
                         throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Inline page breaks with paragraph keep rules are not qualified")
@@ -51,3 +52,10 @@ internal object ParagraphKeeps {
     }
     private fun unsupported(): Nothing = throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Unsupported keep-with-next target")
 }
+
+
+/** A hard break at the very start puts the whole kept paragraph on the next page. */
+internal fun PdfParagraph.hasLeadingPageBreakWithKeeps(): Boolean =
+    (format.keepWithNext || format.keepLines) && runs.firstOrNull() is PdfPageBreak && runs.size > 1 &&
+        anchoredImages.isEmpty() && lines.isEmpty() && listLabel == null && contents == null &&
+        runs.drop(1).all { it is PdfTextRun || it is PdfTab || it is PdfLineBreak }

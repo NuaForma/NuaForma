@@ -315,3 +315,5 @@ Dedicated fixed horizontal inline text frames can retain their visible rectangle
 Square-wrapped ordinary pictures retain Word's foreground layering and saved drawing order.
 
 The qualified inactive punctuation overflow preference is retained for ordinary text. Active East Asian punctuation geometry remains separate.
+
+A leading explicit break keeps its physical page boundary before a supported paragraph with keep rules.

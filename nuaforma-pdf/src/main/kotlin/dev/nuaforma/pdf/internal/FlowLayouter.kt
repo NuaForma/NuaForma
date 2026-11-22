@@ -26,7 +26,8 @@ internal object FlowLayouter {
         fun measuredAt(index: Int) = paragraphCache.getOrPut(index) {
             val block = document.blocks[index] as PdfParagraph
             ParagraphBounds.check(block, page)
-            paragraph(block, width, measurer, previous = document.blocks.getOrNull(index - 1) as? PdfParagraph, next = document.blocks.getOrNull(index + 1) as? PdfParagraph, permitMarginMarker = true)
+            val content = if (block.hasLeadingPageBreakWithKeeps()) block.copy(runs = block.runs.drop(1)) else block
+            paragraph(content, width, measurer, previous = document.blocks.getOrNull(index - 1) as? PdfParagraph, next = document.blocks.getOrNull(index + 1) as? PdfParagraph, permitMarginMarker = true)
         }
 
         var protectedThrough = -1
@@ -89,7 +90,11 @@ internal object FlowLayouter {
                 is PdfParagraph -> {
                     if (block.runs.any { it is PdfPageField }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields are supported only in page bands")
                     val format = block.format
-                    if (format.pageBreakBefore && top > page.margins.top + .001f) nextPage()
+                    val leadingPageBreak = block.hasLeadingPageBreakWithKeeps()
+                    if (leadingPageBreak) {
+                        if (exclusions.isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Inline page breaks with wrapped frames are not qualified")
+                        nextPage()
+                    } else if (format.pageBreakBefore && top > page.margins.top + .001f) nextPage()
                     if (block.anchoredImages.isNotEmpty() || floating[pages.lastIndex].orEmpty().any { top < it.bottom - .001f }) {
                         if (exclusions[pages.lastIndex].orEmpty().isNotEmpty()) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Combining image and text-frame wrapping is not qualified")
                         val result = ImageFlow.paragraph(block, page, pages, top, after, floating, measurer, minOf(policy.maxPages, pageBudget))
@@ -101,7 +106,7 @@ internal object FlowLayouter {
                         fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph keep rules with wrapped frames are not qualified")
                     }
                     val measured = measuredAt(blockIndex)
-                    var before = ParagraphSpacing.before(block, after, top <= page.margins.top + .001f, format.pageBreakBefore)
+                    var before = ParagraphSpacing.before(block, after, top <= page.margins.top + .001f, format.pageBreakBefore || leadingPageBreak)
                     if (measured.breakAfter.isNotEmpty()) {
                         if (exclusions.isNotEmpty())
                             fail(PdfFailureCode.UNSUPPORTED_TEXT, "Inline page breaks with wrapped frames are not qualified")

@@ -506,6 +506,8 @@ internal class NativeDocxReader(
             crossParagraphBookmarks += openBookmarks.mapNotNull { bookmarkNames[it] }
             val logicalId = "source-p${paragraphCounter++}"
             val lineDrawings = mutableListOf<PdfLineDrawing>()
+            var firstPageBreak: XmlElement? = null
+            var destinationsBeforePageBreak = false
             children(paragraph, setOf("pPr", "r", "fldSimple", "hyperlink", "bookmarkStart", "bookmarkEnd"))
             val direct = paragraph.one("pPr")
             val styleChain = chain(direct?.one("pStyle")?.value("val") ?: normal, "paragraph")
@@ -808,7 +810,10 @@ internal class NativeDocxReader(
                             source.current = item
                             check(allowPageBreak && !fields && currentNoteKind == null && link == null && geometry.direction == null,
                                 "Inline page breaks require ordinary body text")
-                            check(!geometry.keepWithNext && !geometry.keepLines, "Inline page breaks with paragraph keep rules are not qualified")
+                            if (firstPageBreak == null) {
+                                firstPageBreak = item
+                                destinationsBeforePageBreak = pendingDestinations.isNotEmpty()
+                            }
                             PdfPageBreak(textStyle(face))
                         } else PdfLineBreak(textStyle(face))
                     }
@@ -867,6 +872,13 @@ internal class NativeDocxReader(
             }.also { converted ->
                 for (key in openBookmarks) bookmarkNames[key]?.let { bookmarkRuns.getValue(it).addAll(converted) }
             } }
+            if (firstPageBreak != null && (geometry.keepWithNext || geometry.keepLines)) {
+                source.current = requireNotNull(firstPageBreak)
+                check(!destinationsBeforePageBreak && runs.firstOrNull() is PdfPageBreak && runs.size > 1 &&
+                    runs.drop(1).all { it is PdfTextRun || it is PdfTab || it is PdfLineBreak } &&
+                    listEntry == null && contents == null && lineDrawings.isEmpty(),
+                    "Inline page breaks with paragraph keep rules are not qualified")
+            }
             if (pendingDestinations.isNotEmpty()) {
                 check(pendingDestinations.none { it.name == "_GoBack" }, "Bookmark requires following visible paragraph text")
                 check(!fields && currentNoteKind == null && geometry.direction == null &&
