@@ -413,8 +413,9 @@ internal class NativeDocxReader(
             throw source.failure(message, provenance[node] ?: activePart)
         }
 
-        fun resolveRun(property: XmlElement?, initial: Face, characterBase: Face? = null) =
-            runProperties(property, initial, themeFonts, themeColors, characterBase)
+        fun resolveRun(property: XmlElement?, initial: Face, characterBase: Face? = null,
+            basicLatinOnly: Boolean = false) =
+            runProperties(property, initial, themeFonts, themeColors, characterBase, basicLatinOnly)
 
         val neighbors = java.util.IdentityHashMap<XmlElement, Pair<XmlElement?, XmlElement?>>()
 
@@ -594,14 +595,14 @@ internal class NativeDocxReader(
 
             check(!uniformFonts || !mixedFonts(base), "Mixed font selection in generated contents styles is not qualified")
 
-            fun faceFor(properties: XmlElement?, initial: Face = base): Face {
+            fun faceFor(properties: XmlElement?, initial: Face = base, basicLatinOnly: Boolean = false): Face {
                 val characterStyle = properties?.one("rStyle")?.value("val")
                 val inherited = characterStyle?.let { id ->
                     chain(id, "character").fold(initial) { acc, style ->
                         resolveRun(style.one("rPr"), acc, characterBase = initial)
                     }
                 } ?: initial
-                return resolveRun(properties, inherited)
+                return resolveRun(properties, inherited, basicLatinOnly = basicLatinOnly)
             }
 
             val markProperties = paragraphChain.mapNotNull { it.one("rPr") }
@@ -783,8 +784,16 @@ internal class NativeDocxReader(
                 children(run, setOf("rPr", "t", "tab", "br", "cr", "noBreakHyphen", "softHyphen", "drawing", "pict", "footnoteReference", "endnoteReference", "footnoteRef", "endnoteRef"))
                 val contents = run.elements().filter { it.name.localPart != "rPr" }
                 if (contents.isEmpty()) return emptyList()
-                val face = faceFor(run.one("rPr"))
-                propertyParagraphs.formats[run]?.let { format ->
+                val properties = run.one("rPr")
+                val storedFormat = propertyParagraphs.formats[run]
+                val fontHint = properties?.one("rFonts")?.value("hint")
+                // Word selects ASCII for Basic Latin independently of a run's fallback font hint.
+                val basicLatinOnly = fontHint in setOf("cs", "eastAsia") && storedFormat == null &&
+                    contents.all { node -> node.name.localPart == "t" &&
+                        node.children.all { it is XmlText && it.text.all { char -> char in ' '..'~' } } } &&
+                    contents.any { node -> node.children.any { it is XmlText && it.text.isNotBlank() } }
+                val face = faceFor(properties, basicLatinOnly = basicLatinOnly)
+                storedFormat?.let { format ->
                     check(face.rtl != true && format.samples.all { faceFor(it.run.one("rPr")).copy(languageTag = face.languageTag) == face },
                         "Mixed property-result formatting is not qualified")
                 }
@@ -2405,7 +2414,7 @@ internal class NativeDocxReader(
     private val underscoredLocale = Regex("[A-Za-z]{2,3}_[A-Za-z]{2}")
 
     private fun runProperties(property: XmlElement?, initial: Face, themeFonts: Map<String, String>,
-        themeColors: WordThemeColors, characterBase: Face?): Face {
+        themeColors: WordThemeColors, characterBase: Face?, basicLatinOnly: Boolean): Face {
         if (property == null) return initial
         val word14 = "http://schemas.microsoft.com/office/word/2010/wordml"
         children(property, setOf("rStyle", "rFonts", "sz", "b", "i", "color", "lang", "szCs", "bCs", "iCs", "rtl", "u", "vertAlign", "vanish", "webHidden", "strike", "kern", "spacing", "dstrike", "w", "highlight", "shd", "caps", "smallCaps", "bdr"), setOf(word14 to "ligatures", WordTextOutline.NS to "textOutline"))
@@ -2458,7 +2467,11 @@ internal class NativeDocxReader(
         }
         property.one("rFonts")?.let {
             attributes(it, setOf("ascii", "hAnsi", "asciiTheme", "hAnsiTheme", "cs", "eastAsia", "hint"))
-            check(it.value("hint") in setOf(null, "default"), "Only default font hints are qualified")
+            val hint = it.value("hint")
+            val basicLatinHint = basicLatinOnly && hint in setOf("cs", "eastAsia") &&
+                initial.rtl != true && property.one("rtl") == null && !initial.capitals && !initial.smallCaps &&
+                property.one("caps") == null && property.one("smallCaps") == null
+            check(hint in setOf(null, "default") || basicLatinHint, "Non-default font hints require ordinary Basic Latin text")
 
             fun family(name: String): String? = it.value(name + "Theme")?.let { key ->
                 val kind = when (key) { "majorAscii", "majorHAnsi" -> "major"; "minorAscii", "minorHAnsi" -> "minor"; else -> reject("Unsupported theme font role") }
@@ -2468,8 +2481,10 @@ internal class NativeDocxReader(
             val family = family("ascii") ?: reject("Explicit Latin font required")
             val highAnsi = family("hAnsi") ?: reject("Explicit high-ANSI font required")
             check(family.isNotBlank() && highAnsi.isNotBlank(), "Empty Latin font family")
-            check(it.value("cs") == null || it.value("cs") == family, "Separate complex-script font faces are outside this proof")
-            check(it.value("eastAsia") == null || it.value("eastAsia") == family, "Separate East Asian font faces are outside this profile")
+            if (!basicLatinHint) {
+                check(it.value("cs") == null || it.value("cs") == family, "Separate complex-script font faces are outside this proof")
+                check(it.value("eastAsia") == null || it.value("eastAsia") == family, "Separate East Asian font faces are outside this profile")
+            }
             result = result.copy(family = family, highAnsiFamily = highAnsi)
         }
         property.one("lang")?.let {

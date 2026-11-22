@@ -423,3 +423,5 @@ A qualified inline or fixed unwrapped body picture preserves its declared viewpo
 A full-width solid background in the first header paragraph clips to the paper and preserves the positions of the frame, logo and body text.
 
 Unwrapped body pictures align to the top, center or bottom of a physical page using the outer extent and effect distances.
+
+Ordinary Basic Latin text keeps its ASCII typeface when Word saves a fallback hint for a different script.
