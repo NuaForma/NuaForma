@@ -214,21 +214,37 @@ class PdfTableCell private constructor(
 
 /** Optional physical row-advance floor in points, including the cell frame; null retains natural sizing. */
 class PdfTableRow private constructor(cells: List<PdfTableCell>, val allowSplit: Boolean,
-    val splitOversized: Boolean, val minimumHeight: Float?, val omittedLeadingColumns: Int, val omittedTrailingColumns: Int) {
+    val splitOversized: Boolean, val minimumHeight: Float?, val omittedLeadingColumns: Int, val omittedTrailingColumns: Int,
+    val continuationParagraph: PdfParagraph?, val continuationTopBorder: Float) {
     @JvmOverloads
     constructor(cells: List<PdfTableCell>, allowSplit: Boolean = false, splitOversized: Boolean = false,
-        minimumHeight: Float? = null) : this(cells, allowSplit, splitOversized, minimumHeight, 0, 0)
+        minimumHeight: Float? = null) : this(cells, allowSplit, splitOversized, minimumHeight, 0, 0, null, 0f)
 
     /** The omitted slots reserve their physical grid width without owning a cell. */
     fun withOmittedColumns(leading: Int, trailing: Int): PdfTableRow =
         if (leading == omittedLeadingColumns && trailing == omittedTrailingColumns) this
-        else PdfTableRow(cells, allowSplit, splitOversized, minimumHeight, leading, trailing)
+        else PdfTableRow(cells, allowSplit, splitOversized, minimumHeight, leading, trailing,
+            continuationParagraph, continuationTopBorder)
+
+    /** Preserve the blank line and top clearance of a row covered by a vertical merge. */
+    fun withMergedCellContinuation(paragraph: PdfParagraph?, topBorder: Float): PdfTableRow =
+        PdfTableRow(cells, allowSplit, splitOversized, minimumHeight, omittedLeadingColumns, omittedTrailingColumns,
+            paragraph, topBorder)
 
     val cells: List<PdfTableCell> = Collections.unmodifiableList(ArrayList(cells))
     init {
         require(this.cells.size in 0..16) { "Invalid column count" }
         require(omittedLeadingColumns in 0..15 && omittedTrailingColumns in 0..15 &&
             omittedLeadingColumns + omittedTrailingColumns <= 15) { "Invalid omitted table-column count" }
+        require(continuationTopBorder.isFinite() && continuationTopBorder in 0f..6f &&
+            (continuationParagraph != null || continuationTopBorder == 0f)) { "Invalid merged continuation border" }
+        require(continuationParagraph == null || cells.isEmpty() && !allowSplit &&
+            continuationParagraph.runs.all { it is PdfTextRun && it.text.isBlank() } &&
+            continuationParagraph.endDestinations.isEmpty() && continuationParagraph.anchoredImages.isEmpty() &&
+            continuationParagraph.contents == null && continuationParagraph.listLabel == null &&
+            continuationParagraph.background == null && continuationParagraph.borders == null && continuationParagraph.lines.isEmpty()) {
+            "A merged row continuation must be blank and owned by its origin cell"
+        }
         require(minimumHeight == null || minimumHeight.isFinite() && minimumHeight in 0f..14_400f) { "Invalid minimum row height" }
     }
 }
@@ -294,6 +310,14 @@ class PdfTable private constructor(
         require(rightOverflow.isFinite() && rightOverflow in 0f..14_400f) { "Invalid right table overflow" }
         require(textRelativeTopOffset == null || textRelativeTopOffset.isFinite() && textRelativeTopOffset in 0f..14_400f &&
             widthPolicy == PdfTableWidthPolicy.FIXED && alignment == PdfTableAlignment.LEFT) { "Invalid text-relative table position" }
+        if (this.rows.any { it.continuationParagraph != null }) {
+            val origin = this.rows.first().cells.singleOrNull()
+            require(this.columnWidths.size == 1 && this.rows.size == 2 && this.rows.last().continuationParagraph != null &&
+                origin?.rowSpan == 2 && origin.verticalAlignment == PdfVerticalAlignment.TOP &&
+                origin.blocks.all { it is PdfParagraph } && repeatedHeaderRows == 0) {
+                "A measured vertical continuation requires one top-aligned cell spanning two rows"
+            }
+        }
         val grid = placements()
         val horizontalMargins = cellMargins.left + cellMargins.right
         if (widthPolicy == PdfTableWidthPolicy.FIXED && !variedMargins && this.columnWidths.any { it <= horizontalMargins }) {

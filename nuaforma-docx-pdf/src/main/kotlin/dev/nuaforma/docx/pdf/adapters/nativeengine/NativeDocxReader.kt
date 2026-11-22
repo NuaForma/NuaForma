@@ -534,7 +534,7 @@ internal class NativeDocxReader(
         }
 
         fun readParagraph(paragraph: XmlElement, partRelations: Map<String, String>, fields: Boolean = false, tableStyles: List<XmlElement> = emptyList(), uniformFonts: Boolean = false, allowPageBreak: Boolean = true, measureMark: Boolean = true,
-            bodyCell: Boolean = false): PdfParagraph {
+            bodyCell: Boolean = false, mergedContinuation: Boolean = false): PdfParagraph {
             source.current = paragraph
             context.checkActive()
             crossParagraphBookmarks += openBookmarks.mapNotNull { bookmarkNames[it] }
@@ -557,7 +557,11 @@ internal class NativeDocxReader(
             }
             val legacyTableHierarchy = tableStyles.isNotEmpty() && !modernTableAlignment && !formatting.overrideNormalTableStyle
             val tableJustification = tableStyles.any { it.one("pPr")?.one("jc") != null }
-            var geometry = paragraphChain.fold(Geometry()) { result, property ->
+            // Word supplies its continuation paragraph defaults only when there is no inherited spacing.
+            val implicitContinuationSpacing = mergedContinuation && paragraphChain.none { it !== direct && it.one("spacing") != null }
+            val initialGeometry = if (implicitContinuationSpacing)
+                Geometry(after = 8f, automatic = PdfAutomaticLineSpacing(278f / 240f)) else Geometry()
+            var geometry = paragraphChain.fold(initialGeometry) { result, property ->
                 val resolved = paragraphProperties(property, result, themeColors, property !== direct && property in sourceProperties)
                 if (legacyTableHierarchy && tableJustification && property === normalStyle?.one("pPr") &&
                     property.one("jc")?.value("val") == "left") resolved.copy(alignment = result.alignment) else resolved
@@ -1440,6 +1444,7 @@ internal class NativeDocxReader(
 
             val headerFlags = mutableListOf<Boolean>()
             val rowMinimums = mutableListOf<Float?>()
+            val continuations = mutableMapOf<Int, Pair<PdfParagraph, Float>>()
             val rowPaddingFrames = mutableListOf<Float>()
             val omissions = mutableListOf<Pair<Int, Int>>()
             var tableWidthFloor: Float? = null
@@ -1604,7 +1609,10 @@ internal class NativeDocxReader(
                     val blocks = cell.elements().filter { it.name.localPart != "tcPr" }.map { child ->
                         when (child.name.localPart) {
                             "p" -> (if (fields) readBandCellParagraph(child, partRelations, cellStyles, allowCellPictures)
-                                else readParagraph(child, partRelations, false, cellStyles, allowPageBreak = false, bodyCell = true)).let { paragraph ->
+                                else readParagraph(child, partRelations, false, cellStyles, allowPageBreak = false, bodyCell = true,
+                                    mergedContinuation = depth == 0 && modernTableAlignment && cp.one("vMerge")?.let {
+                                        it.value("val") in setOf(null, "continue")
+                                    } == true)).let { paragraph ->
                                 val ordinaryText = cp.one("noWrap") == null && paragraph.format.textDirection == null
                                 val savedGridWrapping = automaticLayout && !fields && modernTableAlignment && rowNodes.size == 1 &&
                                     properties.one("tblInd") != null && preferredTableWidth?.points?.let {
@@ -1649,9 +1657,23 @@ internal class NativeDocxReader(
                             val origin = previous[column] ?: reject("Vertical continuation has no origin")
                             check(origin.span == span && origin.background == background, "Inconsistent vertical continuation")
                             check(cp.one("vAlign") == null || origin.alignment == alignment, "Inconsistent vertical continuation alignment")
-                            check(cellBorders == null || origin.borders == cellBorders, "Inconsistent vertical continuation borders")
+                            val marker = blocks.singleOrNull() as? PdfParagraph
+                            val inheritedTop = origin.borders?.top?.border
+                            val continuationTop = cellBorders?.top?.border
+                            val boundedContinuation = depth == 0 && !fields && modernTableAlignment && automaticLayout &&
+                                preferredTableWidth?.percent == 100f && widths.size == 1 && rowNodes.size == 2 && rowIndex == 1 &&
+                                marker != null && omittedEndMark == null && origin.alignment == PdfVerticalAlignment.TOP &&
+                                origin.blocks.all { it is PdfParagraph } && headerFlags.none { it } &&
+                                marker.endDestinations.isEmpty() && marker.listLabel == null && marker.contents == null &&
+                                marker.background == null && marker.borders == null && marker.lines.isEmpty() && marker.anchoredImages.isEmpty() &&
+                                inheritedTop != null && continuationTop != null && inheritedTop.color == continuationTop.color &&
+                                continuationTop.width >= inheritedTop.width && (continuationTop.width > inheritedTop.width || position != null) &&
+                                cellBorders.copy(top = origin.borders.top) == origin.borders
+                            check(cellBorders == null || origin.borders == cellBorders || boundedContinuation,
+                                "Inconsistent vertical continuation borders")
                             check(origin.declaredMargins == ownMargins, "Inconsistent vertical continuation margins")
                             check(blocks.all { it is PdfParagraph && it.runs.all { run -> run is PdfTextRun && run.text.isBlank() } }, "Continuation cells must not contain additional content")
+                            if (boundedContinuation) continuations[rowIndex] = requireNotNull(marker) to requireNotNull(continuationTop).width
                             origin.rows++
                             active[column] = origin
                         }
@@ -1701,15 +1723,16 @@ internal class NativeDocxReader(
                     }
                 }
                 val minimum = rowMinimums[rowIndex]?.let { contentFloor ->
-                    val topBorder = maxOf(border?.width ?: 0f, resolved.maxOfOrNull { it.borders?.top?.border?.width ?: 0f } ?: 0f)
+                    val topBorder = continuations[rowIndex]?.second ?: maxOf(border?.width ?: 0f, resolved.maxOfOrNull { it.borders?.top?.border?.width ?: 0f } ?: 0f)
                     val physical = contentFloor + rowPaddingFrames[rowIndex] + topBorder
                     source.current = rowNodes[rowIndex].one("trPr")?.one("trHeight") ?: rowNodes[rowIndex]
                     check(physical <= 14_400f, "Minimum row height exceeds the physical layout limit")
                     physical
                 }
                 val (leading, trailing) = omissions[rowIndex]
-                PdfTableRow(resolved, allow && !hasVerticalMerges, splitOversized = true, minimumHeight = minimum)
+                val row = PdfTableRow(resolved, allow && !hasVerticalMerges, splitOversized = true, minimumHeight = minimum)
                     .withOmittedColumns(leading, trailing)
+                continuations[rowIndex]?.let { (line, clearance) -> row.withMergedCellContinuation(line, clearance) } ?: row
             }
             val firstSplittableRow = rows.indexOfFirst { it.allowSplit }
             if (firstSplittableRow >= 0 && rows.any { row -> row.cells.any { cell -> cell.blocks.any { it is PdfTable } } }) {
@@ -1766,10 +1789,14 @@ internal class NativeDocxReader(
                 val fixedWidth = !automaticLayout && position.value("leftFromText") == "180" &&
                     (if (floatingOffset == null) spareWidth in 0f..0.25f else spareWidth >= 0f)
                 // No text can flow beside a nonoverlapping table that fills the column.
+                val flatRows = rows.all { row -> row.cells.all { cell ->
+                    cell.columnSpan == 1 && cell.rowSpan == 1 && cell.blocks.none { it is PdfTable }
+                } }
+                val singleMerge = widths.size == 1 && rows.size == 2 && rows.first().cells.singleOrNull()?.let { cell ->
+                    cell.rowSpan == 2 && cell.blocks.none { it is PdfTable } && rows.last().continuationParagraph != null
+                } == true
                 val exactPercentage = automaticLayout && floatingOffset == null && preferredTableWidth?.percent == 100f &&
-                    spareWidth in 0f..1.001f && rows.all { row -> row.cells.all { cell ->
-                        cell.columnSpan == 1 && cell.rowSpan == 1 && cell.blocks.none { it is PdfTable }
-                    } }
+                    spareWidth in 0f..1.001f && (flatRows || singleMerge)
                 check(ordinaryBody && (fixedWidth || exactPercentage),
                     if (floatingOffset == null) "Only a full-width table in ordinary body flow can use the qualified text-relative anchor"
                     else "Text-relative tables require a fixed left-aligned table inside ordinary body flow")

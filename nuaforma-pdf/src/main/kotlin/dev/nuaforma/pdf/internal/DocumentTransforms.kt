@@ -52,6 +52,7 @@ internal object DocumentTransforms {
                         cell.withBlocks(blocks(cell.blocks, semanticChildId(key, "r$rowIndex-c$cellIndex"), Scope.CELL))
                     }, row.allowSplit, row.splitOversized, row.minimumHeight)
                         .withOmittedColumns(row.omittedLeadingColumns, row.omittedTrailingColumns)
+                        .withMergedCellContinuation(row.continuationParagraph, row.continuationTopBorder)
                 }, block.cellMargins, block.border, block.repeatedHeaderRows, block.leftIndent, block.widthPolicy, metadata(block, key, PdfSemanticRole.TABLE), block.preferredWidth).withRightOverflow(block.rightOverflow).withAlignment(block.alignment)
                     .withTextRelativeTopOffset(block.textRelativeTopOffset))
                 }

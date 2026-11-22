@@ -102,6 +102,19 @@ internal object TableLayouter {
         for (cell in cells.filter { it.placement.cell.rowSpan > 1 }) {
             val end = cell.placement.row + cell.placement.cell.rowSpan
             val cellFrame = cell.margins.top + cell.margins.bottom + if (customBorders) topInsets[cell.placement.row] else (table.border?.width ?: 0f)
+            val continuationRow = table.rows[end - 1]
+            val continuation = continuationRow.continuationParagraph
+            if (cell.placement.cell.rowSpan == 2 && continuation != null) {
+                PageLayouter.checkCancellation()
+                val start = cell.placement.row
+                heights[start] = maxOf(heights[start], cell.contentHeight + cellFrame)
+                val horizontalMargins = cell.margins.left + cell.margins.right
+                val verticalMargins = cell.margins.top + cell.margins.bottom
+                val markHeight = FlowLayouter.paragraph(continuation, table.columnWidths.sum() - horizontalMargins, measurer).height()
+                val markSpace = continuation.spaceBefore + markHeight + continuation.spaceAfter + verticalMargins
+                heights[end - 1] = maxOf(heights[end - 1], markSpace + continuationRow.continuationTopBorder)
+                continue
+            }
             val deficit = cell.contentHeight + cellFrame - heights.subList(cell.placement.row, end).sum()
             if (deficit > 0f) heights[end - 1] += deficit
         }
