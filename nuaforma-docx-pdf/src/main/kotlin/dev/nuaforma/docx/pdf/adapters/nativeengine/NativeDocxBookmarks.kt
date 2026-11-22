@@ -16,7 +16,13 @@ internal class NativeDocxBookmarks(private val context: GenerationContext) {
             focus(node)
             if (!isWord(node, "bookmarkStart")) reject("Invalid editing bookmark namespace")
         }
-        if (editing.isNotEmpty() || root.descendants().any { isWord(it, "tbl") && it.elements().any { child -> isWord(child, "bookmarkEnd") } }) {
+        val cellEnds = cellsWithBookmarkEnds(root)
+        for (cell in cellEnds) for (marker in cell.elements().filter { it.name.localPart == "bookmarkEnd" }) {
+            focus(marker)
+            if (!isWord(marker, "bookmarkEnd")) reject("Invalid cell bookmark namespace")
+        }
+        if (editing.isNotEmpty() || cellEnds.isNotEmpty() ||
+            root.descendants().any { isWord(it, "tbl") && it.elements().any { child -> isWord(child, "bookmarkEnd") } }) {
             validate(root, focus, reject)
         }
     }
@@ -64,12 +70,27 @@ internal class NativeDocxBookmarks(private val context: GenerationContext) {
     /** Return block-ended ranges that require paragraph-aware text-reference resolution. */
     fun normalize(root: XmlElement, focus: (XmlElement) -> Unit, reject: (String) -> Nothing): Set<String> {
         val bodies = root.descendants().filter { isWord(it, "body") && it.elements().any(::bookmark) }.toList()
-        if (bodies.isEmpty()) return emptySet()
+        val cells = cellsWithBookmarkEnds(root)
+        if (bodies.isEmpty() && cells.isEmpty()) return emptySet()
         validate(root, focus, reject)
         val names = root.descendants().filter { isWord(it, "bookmarkStart") }
             .associate { it.attribute(word, "id") to it.attribute(word, "name") }
-        val blockEndedRanges = bodies.flatMap { body -> body.elements().filter { isWord(it, "bookmarkEnd") } }
+        val blockEndedRanges = (bodies + cells).flatMap { parent -> parent.elements().filter { isWord(it, "bookmarkEnd") } }
             .mapNotNull { names[it.attribute(word, "id")] }.toSet()
+        for (cell in cells) {
+            context.checkActive()
+            val content = cell.elements().dropWhile { isWord(it, "tcPr") }
+            val ends = content.takeWhile { isWord(it, "bookmarkEnd") }
+            focus(cell.elements().first { it.name.localPart == "bookmarkEnd" })
+            val paragraph = content.getOrNull(ends.size)?.takeIf { isWord(it, "p") }
+                ?: reject("Cell bookmark ends require an adjacent leading paragraph")
+            if (ends.isEmpty() || content.drop(ends.size).any { it.name.localPart == "bookmarkEnd" })
+                reject("Cell bookmark ends must precede the first paragraph")
+            val properties = paragraph.elements().firstOrNull()?.takeIf { isWord(it, "pPr") }
+            val index = properties?.let { paragraph.children.indexOf(it) + 1 } ?: 0
+            cell.children.removeAll(ends.toSet())
+            paragraph.children.addAll(index, ends)
+        }
         for (body in bodies) normalizeBody(body, focus, reject)
         return blockEndedRanges
     }
@@ -157,6 +178,9 @@ internal class NativeDocxBookmarks(private val context: GenerationContext) {
         }
         for ((paragraph, nodes) in append) paragraph.children.addAll(nodes)
     }
+
+    private fun cellsWithBookmarkEnds(root: XmlElement): List<XmlElement> = root.descendants()
+        .filter { isWord(it, "tc") && it.elements().any { child -> child.name.localPart == "bookmarkEnd" } }.toList()
 
     private fun bookmark(node: XmlElement) = isWord(node, "bookmarkStart") || isWord(node, "bookmarkEnd")
 

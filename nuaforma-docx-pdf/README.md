@@ -389,3 +389,5 @@ Word paragraph shading retains the explicit solid color or measured percentage b
 Word run shading uses its own measured solid or percentage color while retaining paragraph backgrounds and text styling.
 
 An empty footnote or endnote continuation notice with explicit zero paragraph spacing leaves note pagination intact.
+
+A valid bookmark ending before a cell's first paragraph keeps its original text boundary without adding a paragraph.
