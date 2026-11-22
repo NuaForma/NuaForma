@@ -275,7 +275,7 @@ class PdfTable private constructor(
         require(this.columnWidths.size in 1..16 && this.columnWidths.all {
             it.isFinite() && when {
                 widthPolicy == PdfTableWidthPolicy.AUTO_FIT -> it in 0f..14_400f
-                variedMargins -> it > 0f
+                variedMargins || widthPolicy == PdfTableWidthPolicy.FIXED -> it > 0f
                 else -> it > cellMargins.left + cellMargins.right
             }
         }) { "Invalid table widths" }
@@ -283,7 +283,15 @@ class PdfTable private constructor(
         require(repeatedHeaderRows in 0..minOf(4, this.rows.size - 1)) { "Invalid repeated table headers" }
         require(leftIndent.isFinite() && leftIndent in -14_400f..14_400f) { "Invalid table indentation" }
         require(rightOverflow.isFinite() && rightOverflow in 0f..14_400f) { "Invalid right table overflow" }
-        placements()
+        val grid = placements()
+        val horizontalMargins = cellMargins.left + cellMargins.right
+        if (widthPolicy == PdfTableWidthPolicy.FIXED && !variedMargins && this.columnWidths.any { it <= horizontalMargins }) {
+            // A saved grid column can be narrower than the margins when it is always inside a spanning cell.
+            require(grid.all { placement ->
+                val end = placement.column + placement.cell.columnSpan
+                this.columnWidths.subList(placement.column, end).sum() > horizontalMargins
+            }) { "Invalid table widths" }
+        }
     }
 
 
