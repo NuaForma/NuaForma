@@ -229,3 +229,5 @@ Fixed tables can retain empty grid positions at either outer edge of a row. The 
 The Word numeric picture 0 is accepted on PAGE, NUMPAGES and SECTIONPAGES. These fields still resolve against the final pagination.
 
 Ordinary unrotated fixed DrawingML text boxes in the main story can keep their original rectangle while longer text continues below it. The frame and text remain within the physical page.
+
+In a merged table, permission for an ordinary row to split is accepted when the resolved table can keep the relevant row whole. The current restrictions for fragmenting merged cells still apply.

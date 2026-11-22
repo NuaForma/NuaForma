@@ -1236,6 +1236,8 @@ internal class NativeDocxReader(
                 source.current = properties
                 reject("Explicit cell margins required for tables with cell borders")
             }
+            // Word moves these rows as units. The PDF engine does not fragment vertical merges.
+            val hasVerticalMerges = specs.any { (cells, _) -> cells.any { it.rows > 1 } }
             val rows = specs.mapIndexed { rowIndex, (cells, allow) ->
                 val resolved = cells.map { cell ->
                     val resolvedCell = PdfTableCell(cell.blocks, cell.background, cell.span, cell.rows, cell.alignment,
@@ -1257,7 +1259,7 @@ internal class NativeDocxReader(
                     physical
                 }
                 val (leading, trailing) = omissions[rowIndex]
-                PdfTableRow(resolved, allow, splitOversized = true, minimumHeight = minimum)
+                PdfTableRow(resolved, allow && !hasVerticalMerges, splitOversized = true, minimumHeight = minimum)
                     .withOmittedColumns(leading, trailing)
             }
             if (customBorders) {
