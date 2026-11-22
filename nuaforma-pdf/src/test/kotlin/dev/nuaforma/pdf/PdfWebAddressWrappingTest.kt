@@ -66,6 +66,22 @@ class PdfWebAddressWrappingTest {
     }
 
     @Test
+    fun visibleLinkCanContinuePastAPreferredBreakOnTheNextLine() {
+        val beginning = "https://example.test/short-"
+        val tail = "abcdefghijklmnopqrstuvwxyzabcdefghijklmn-tail"
+        val address = beginning + tail
+        val nav = PdfTextNavigation(PdfLink.External(address), logicalId = "continuation")
+        val result = layout(180f, listOf(PdfTextRun(address, linkStyle, nav)))
+        assertEquals(listOf(beginning, tail.take(30), tail.drop(30)), lines(result))
+        assertEquals(listOf(0, beginning.length, beginning.length + 30), result.map { it.logicalOffset })
+        assertTrue(result.all { it.navigation == nav && it.style == linkStyle })
+        val unrelatedTarget = PdfTextNavigation(PdfLink.External("https://example.test/other"), logicalId = "different")
+        assertThrows(PdfRenderException::class.java) {
+            layout(180f, listOf(PdfTextRun(address, linkStyle, unrelatedTarget)))
+        }
+    }
+
+    @Test
     fun reportsOverflowWithoutAQualifiedBreak() {
         val ordinary = "non-url-word-with-visible-hyphen"
         val bad = "https://example.test/firstlongpath-last"

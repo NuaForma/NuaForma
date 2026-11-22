@@ -343,3 +343,5 @@ Separately stored Word hyperlink fragments retain the complete external destinat
 An ordinary row with no owning note can stay whole in note-aware layout. A required physical row split retains an explicit diagnostic.
 
 Oversized visible HTTP and HTTPS paths can wrap at existing character boundaries while retaining styling and navigation.
+
+A matching visible web hyperlink can continue at a character boundary when the next preferred boundary is wider than the line.

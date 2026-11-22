@@ -27,6 +27,21 @@ internal class WebAddressBreaks private constructor(
         return chosen
     }
 
+    /** Continue an oversized visible link at a character boundary when no preferred boundary fits. */
+    fun takeCharacters(available: Float): List<TextRunSlice> {
+        val remainder = slices(endpoints.last())
+        val remainingRuns = remainder.map { part ->
+            val (text, style) = runs[part.run]
+            text.substring(part.from, part.until) to style
+        }
+        val chosen = LongWordBreaks(remainingRuns, measurer).next(available).map { part ->
+            val origin = remainder[part.run]
+            part.copy(run = origin.run, from = origin.from + part.from, until = origin.from + part.until)
+        }
+        start += chosen.sumOf { it.until - it.from }
+        return chosen
+    }
+
     private fun slices(end: Int): List<TextRunSlice> {
         var offset = 0
         return buildList {

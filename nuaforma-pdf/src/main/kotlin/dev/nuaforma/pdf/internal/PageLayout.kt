@@ -340,9 +340,15 @@ internal object PageLayouter {
                         if (lineWidth + spaceWidth + wordWidth <= availableWidth() + .001f || !ordinaryWebAddress(word)) return false
                         val runs = word.map { it.text to requireNotNull(it.style) }
                         val breaks = WebAddressBreaks.of(runs, measurer) ?: return false
+                        val link = word.first().navigation?.link as? PdfLink.External
+                        val displaysTarget = link != null && word.all { it.navigation?.link == link } &&
+                            runs.joinToString("") { it.first } == link.uri
                         var gap = spaceWidth
                         while (breaks.hasMore) {
-                            val slices = breaks.take(availableWidth() - lineWidth - gap)
+                            val available = availableWidth() - lineWidth - gap
+                            val preferred = breaks.take(available)
+                            val slices = if (preferred.isEmpty() && line.isEmpty() && displaysTarget)
+                                breaks.takeCharacters(available) else preferred
                             if (slices.isEmpty()) {
                                 if (line.isEmpty())
                                     overflow("Web address exceeds line width at a supported break", breaks.minimumWidth(), availableWidth() - gap)
