@@ -55,6 +55,27 @@ internal object FlowLayouter {
             PageLayouter.checkCancellation()
             when (block) {
                 is PdfTextBox -> {
+                    val inline = block.inlineParagraph
+                    if (inline != null) {
+                        val format = inline.format
+                        if (exclusions[pages.lastIndex].orEmpty().isNotEmpty() || floating[pages.lastIndex].orEmpty().isNotEmpty())
+                            fail(PdfFailureCode.UNSUPPORTED_TEXT, "Inline frames combined with other wrapping objects are not qualified")
+                        if (format.pageBreakBefore && top > page.margins.top + .001f) nextPage()
+                        val line = InlineTextFrameLayout.measure(block, inline, page, measurer)
+                        if (line.height > freshHeight() + .001f) overflow()
+                        var before = ParagraphSpacing.before(inline, after, top <= page.margins.top + .001f, format.pageBreakBefore)
+                        if (!fits(before + line.height)) {
+                            nextPage()
+                            before = ParagraphSpacing.before(inline, 0f, true, true)
+                            if (!fits(before + line.height)) overflow()
+                        }
+                        top += before
+                        val atLine = block.positionedInline(line.left, top + line.top)
+                        pages.last() += BoxLayouter.layout(atLine, page, top, measurer)
+                        after = inline.spaceAfter
+                        top += line.height + after
+                        continue
+                    }
                     if (block.wrap == PdfBoxWrap.TOP_BOTTOM) {
                         if (block.anchor == PdfBoxAnchor.PARAGRAPH) {
                             if (block.top + block.height > freshHeight()) overflow()
@@ -355,6 +376,7 @@ internal object FlowLayouter {
             PageLayouter.checkCancellation()
             when (block) {
                 is PdfTextBox -> {
+                    if (block.inlineParagraph != null) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Inline text frames require ordinary body flow")
                     val resolved = PdfTextBox(block.left, block.top, block.width, block.height, block.paragraphs.map(::resolve),
                         block.anchor, block.rotation, block.padding, block.fill, block.border, block.verticalAlignment, block.wrap, block.semantics).withDrawingOrder(block.drawingOrder).withAutoFit(block.autoFit).withPageAlignment(block.pageAlignment).withVisibleTextOverflow(block.visibleTextOverflow)
                     floatingBoxes += resolved to top

@@ -6,6 +6,8 @@ import kotlin.math.*
 internal object BoxLayouter {
 
     fun layout(box: PdfTextBox, page: PdfPage, paragraphTop: Float, measurer: TextMeasurer): PositionedBox {
+        if (box.inlineParagraph != null)
+            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Inline text frames require ordinary body flow")
         if (box.paragraphs.any { paragraph ->
                 paragraph.endDestinations.isNotEmpty() || paragraph.runs.any { run ->
                     when (run) {

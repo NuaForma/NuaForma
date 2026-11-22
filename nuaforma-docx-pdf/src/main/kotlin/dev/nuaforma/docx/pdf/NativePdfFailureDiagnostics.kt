@@ -26,6 +26,7 @@ internal object NativePdfFailureDiagnostics {
     // Only owned reasons plus numeric measurements cross the diagnostic boundary; no arbitrary text.
     private val overflowReasons = setOf(
         "Inline image exceeds physical left boundary",
+        "Inline text frame exceeds the line width",
         "Inline image exceeds physical right boundary",
         "Inline image exceeds physical top boundary",
         "Inline image exceeds physical bottom boundary",
@@ -157,6 +158,11 @@ internal object NativePdfFailureDiagnostics {
         "Independent PDF conformance validation failed",
         "Inline block images beside floating images are not qualified",
         "Inline vector geometry budget exceeded",
+        "Inline text frames require automatic or minimum line spacing",
+        "Inline text frame line metrics unavailable",
+        "Inline text frames require ordinary body flow",
+        "Inline frames combined with other wrapping objects are not qualified",
+        "Cell-relative pictures require a top-level page-band table",
         "Internal navigation target is not placed",
         "Invalid OS/2 font permissions table",
         "Invalid PNG chunk bounds",

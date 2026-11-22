@@ -1632,14 +1632,19 @@ internal class NativeDocxReader(
         }
 
         fun readDrawingBox(node: XmlElement, partRelations: Map<String, String>, fields: Boolean = false,
-            firstBodyParagraph: Boolean = false, isolatedFooterFrames: Boolean = false): PdfTextBox {
+            firstBodyParagraph: Boolean = false, isolatedFooterFrames: Boolean = false,
+            inlineHost: PdfParagraph? = null): PdfTextBox {
             source.current = node
             val wps = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
             val anchor = node.elements().singleOrNull() ?: reject("Invalid floating drawing")
-            check(anchor.name.namespaceURI == wp && anchor.name.localPart == "anchor", "Floating anchor required")
+            val inline = inlineHost != null
+            check(anchor.name.namespaceURI == wp && anchor.name.localPart == (if (inline) "inline" else "anchor"),
+                "Invalid frame placement")
+            if (inline) check(anchor.attributes.keys.all { it.namespaceURI.isEmpty() && it.localPart in setOf("distT", "distR", "distB", "distL") } &&
+                anchor.attributes.values.all { it == "0" }, "Unsupported inline frame distances")
             val footer = fields && provenance[node]?.matches(Regex("word/footer[0-9]+[.]xml")) == true
             val leavesOtherObjects = anchor.attribute("", "allowOverlap") in setOf("0", "false")
-            val order = WordDrawingOrder.read(anchor, separatedFooter = footer) { origin, message ->
+            val order = if (inline) null else WordDrawingOrder.read(anchor, separatedFooter = footer) { origin, message ->
                 source.current = origin
                 reject(message)
             }
@@ -1690,16 +1695,23 @@ internal class NativeDocxReader(
             }
 
             val extent = one(anchor, wp, "extent")
-            check(anchor.elements().all { it.name.namespaceURI == wp && it.name.localPart in setOf("simplePos", "positionH", "positionV", "extent", "effectExtent", "wrapNone", "docPr", "cNvGraphicFramePr") ||
+            val paintProperties = setOf("extent", "effectExtent", "docPr", "cNvGraphicFramePr")
+            val allowed = if (inline) paintProperties else paintProperties + setOf("simplePos", "positionH", "positionV", "wrapNone")
+            check(anchor.elements().all { it.name.namespaceURI == wp && it.name.localPart in allowed ||
                 it.name.namespaceURI == drawing && it.name.localPart == "graphic" ||
-                it.name.namespaceURI == wp14 && it.name.localPart in setOf("sizeRelH", "sizeRelV") }, "Unsupported floating shape")
-            one(anchor, wp, "wrapNone")
-            WordInlineImagePadding.read(one(anchor, wp, "effectExtent")) { origin, message -> source.current = origin; reject(message) }
+                !inline && it.name.namespaceURI == wp14 && it.name.localPart in setOf("sizeRelH", "sizeRelV") }, "Unsupported frame shape")
+            if (!inline) one(anchor, wp, "wrapNone")
+            val exterior = WordInlineImagePadding.read(one(anchor, wp, "effectExtent")) { origin, message -> source.current = origin; reject(message) }
             val graphic = one(one(anchor, drawing, "graphic"), drawing, "graphicData")
             check(graphic.attribute("", "uri") == wps && graphic.elements().size == 1, "Unsupported floating graphic")
             val shape = one(graphic, wps, "wsp")
             check(shape.elements().size == 4 && shape.elements().all { it.name.namespaceURI == wps && it.name.localPart in setOf("cNvSpPr", "spPr", "txbx", "bodyPr") }, "Unsupported shape content")
-            check(one(shape, wps, "cNvSpPr").attribute("", "txBox") in setOf("1", "true"), "Text frame required")
+            val nonvisual = one(shape, wps, "cNvSpPr")
+            check(nonvisual.attribute("", "txBox") in setOf("1", "true"), "Text frame required")
+            if (inline) check(nonvisual.attributes.size == 1 && nonvisual.elements().size <= 1 &&
+                nonvisual.elements().all { lock -> lock.name.namespaceURI == drawing && lock.name.localPart == "spLocks" &&
+                    lock.elements().isEmpty() && lock.attributes.size == 1 &&
+                    lock.attribute("", "noChangeArrowheads") in setOf("1", "true") }, "Unsupported nonvisual inline frame properties")
             val props = one(shape, wps, "spPr")
             val passivePaint = WordFramePaint.passivePaintMetadata(props) { origin, message -> source.current = origin; reject(message) }
             props.elements().firstOrNull { it !in passivePaint &&
@@ -1736,6 +1748,28 @@ internal class NativeDocxReader(
             }
             val paragraphs = content.elements().map { readParagraph(it, partRelations, fields, allowPageBreak = false) }
             val width = numeric(extent.attribute("", "cx")) / 12700
+            fun frame(left: Float, top: Float, placement: PdfBoxAnchor): PdfTextBox {
+                source.current = node
+                val height = numeric(extent.attribute("", "cy")) / 12700
+                val padding = PdfMargins(numeric(bodyProps.attribute("", "tIns")) / 12700, numeric(bodyProps.attribute("", "rIns")) / 12700,
+                    numeric(bodyProps.attribute("", "bIns")) / 12700, numeric(bodyProps.attribute("", "lIns")) / 12700)
+                val vertical = when (bodyProps.attribute("", "anchor")) {
+                    "t" -> PdfVerticalAlignment.TOP
+                    "ctr" -> PdfVerticalAlignment.CENTER
+                    "b" -> PdfVerticalAlignment.BOTTOM
+                    else -> reject("Unsupported vertical alignment")
+                }
+                val fill = WordFramePaint.fill(props, themeColors) { origin, message -> source.current = origin; reject(message) }
+                return PdfTextBox(left, top, width, height, paragraphs, placement, rotation, padding, fill, border, vertical)
+            }
+
+            if (inlineHost != null) {
+                source.current = anchor
+                check(!fields && rotation == 0f && autoFit == null && bodyProps.attribute("", "vertOverflow") == null,
+                    "Inline text frames require fixed unrotated body geometry")
+                return frame(0f, 0f, PdfBoxAnchor.PARAGRAPH).withInlineParagraph(inlineHost, exterior)
+            }
+
             val (left, horizontalPageAlignment) = horizontal(width)
             if (autoFit == PdfTextBoxAutoFit.WIDTH_AND_HEIGHT && horizontalPageAlignment == null) {
                 val coordinate = one(anchor, wp, "positionH").elements().single()
@@ -1773,14 +1807,7 @@ internal class NativeDocxReader(
                 check(reference == "page" && rotation == 0f, "Physical page alignment requires an unrotated page frame")
                 PdfTextBoxPageAlignment(horizontalPageAlignment, verticalPageAlignment)
             } else null
-            source.current = node
-            return PdfTextBox(left, top, width,
-                numeric(extent.attribute("", "cy")) / 12700, paragraphs, placement,
-                rotation,
-                PdfMargins(numeric(bodyProps.attribute("", "tIns")) / 12700, numeric(bodyProps.attribute("", "rIns")) / 12700,
-                    numeric(bodyProps.attribute("", "bIns")) / 12700, numeric(bodyProps.attribute("", "lIns")) / 12700),
-                WordFramePaint.fill(props, themeColors) { origin, message -> source.current = origin; reject(message) }, border,
-                when (bodyProps.attribute("", "anchor")) { "t" -> PdfVerticalAlignment.TOP; "ctr" -> PdfVerticalAlignment.CENTER; "b" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported vertical alignment") }).withDrawingOrder(order).withAutoFit(autoFit).withPageAlignment(pageAlignment)
+            return frame(left, top, placement).withDrawingOrder(order).withAutoFit(autoFit).withPageAlignment(pageAlignment)
                 .withVisibleTextOverflow((!fields || isolatedFooterFrames && placement == PdfBoxAnchor.PAGE) &&
                     autoFit == null && rotation == 0f && bodyProps.attribute("", "anchorCtr") in setOf(null, "0", "false"))
         }
@@ -1832,6 +1859,23 @@ internal class NativeDocxReader(
                         emptyFollowers[block]?.let { spacing ->
                             verifyEmptyTableFollower(block, spacing, partRelations)
                             return@flatMapIndexed emptyList()
+                        }
+                        val frameNamespace = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+                        val ownerRun = block.elements().singleOrNull { it.name.namespaceURI == word && it.name.localPart == "r" }
+                        val drawingNode = ownerRun?.elements()?.singleOrNull { it.name.namespaceURI == word && it.name.localPart == "drawing" }
+                        val inlineFrame = drawingNode?.elements()?.singleOrNull { it.name.namespaceURI == wp && it.name.localPart == "inline" }
+                        if (!fields && inlineFrame?.descendants()?.any { it.name.namespaceURI == frameNamespace && it.name.localPart == "wsp" } == true &&
+                            !vectorReader.isVector(requireNotNull(drawingNode))) {
+                            source.current = requireNotNull(drawingNode)
+                            check(block.elements().all { it === ownerRun || it.name.namespaceURI == word && it.name.localPart == "pPr" } &&
+                                ownerRun.elements().all { it === drawingNode || it.name.namespaceURI == word && it.name.localPart == "rPr" },
+                                "Inline text frames require a dedicated paragraph")
+                            val placeholder = XmlElement(block.name, block.attributes, block.namespaces)
+                            placeholder.children.addAll(block.children.filterNot { it === ownerRun })
+                            numbering.alias(block, placeholder)
+                            neighbors[placeholder] = neighbors[block] ?: (null to null)
+                            val host = readParagraph(placeholder, partRelations)
+                            return@flatMapIndexed listOf(readDrawingBox(drawingNode, partRelations, inlineHost = host))
                         }
                         val frames = block.elements().filter { it.name.localPart == "r" }.flatMap { it.elements().filter { node -> node.name.namespaceURI == word && !lineReader.isLine(node) && (node.name.localPart == "pict" || node.name.localPart == "drawing" && node.elements().any { it.name.namespaceURI == wp && it.name.localPart == "anchor" }) } }
                         source.current = block
