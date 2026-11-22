@@ -24,12 +24,12 @@ class WordHiddenFrameOutlineTest {
 
     @Test
     fun storedSolidOutlineIsEditingMetadataWhenTheVisibleLineHasNoFill() {
-        assertEquals("extLst", WordFramePaint.hiddenOutline(outline(invisible)) { _, reason ->
+        assertEquals("extLst", WordFramePaint.passivePaintMetadata(outline(invisible)) { _, reason ->
             throw IllegalArgumentException(reason)
-        }?.name?.localPart)
-        assertNull(WordFramePaint.hiddenOutline(outline(invisible, null)) { _, reason ->
+        }.single().name.localPart)
+        assertTrue(WordFramePaint.passivePaintMetadata(outline(invisible, null)) { _, reason ->
             throw IllegalArgumentException(reason)
-        })
+        }.isEmpty())
     }
 
     @Test
@@ -37,7 +37,7 @@ class WordHiddenFrameOutlineTest {
         for (input in listOf(outline("""<a:ln w="9525">$solid</a:ln>"""), outline("", guid),
             outline(invisible, guid.replace("4DF", "4DA")), outline(invisible, guid, 999999))) {
             assertThrows(IllegalArgumentException::class.java) {
-                WordFramePaint.hiddenOutline(input) { _, reason -> throw IllegalArgumentException(reason) }
+                WordFramePaint.passivePaintMetadata(input) { _, reason -> throw IllegalArgumentException(reason) }
             }
         }
     }

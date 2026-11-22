@@ -12,7 +12,11 @@ internal object WordFramePaint {
     private const val wps = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
     private const val drawing = "http://schemas.openxmlformats.org/drawingml/2006/main"
     private const val drawing2010 = "http://schemas.microsoft.com/office/drawing/2010/main"
-    private const val hiddenLineExtension = "{91240B29-F687-4F45-9708-019B960494DF}"
+    private val hiddenProperties = mapOf(
+        "hiddenFill" to "{909E8E84-426E-40DD-AFC4-6F175D3DCCD1}",
+        "hiddenLine" to "{91240B29-F687-4F45-9708-019B960494DF}",
+        "hiddenEffects" to "{AF507438-7753-43E0-B8FC-AC1667EBCBE1}",
+    )
 
     fun validateSource(root: XmlElement, context: GenerationContext, reject: (XmlElement, String) -> Nothing) {
         for (anchor in root.descendants()) {
@@ -22,35 +26,64 @@ internal object WordFramePaint {
                 if (shape.elements().none { it.name.namespaceURI == wps && it.name.localPart == "txbx" }) continue
                 val properties = shape.elements().singleOrNull { it.name.namespaceURI == wps && it.name.localPart == "spPr" } ?: continue
                 fillColor(properties, reject, allowAbsent = true)
-                hiddenOutline(properties, reject)
+                passivePaintMetadata(properties, reject)
                 properties.elements().filter { it.name.namespaceURI == drawing && it.name.localPart == "ln" }.forEach { strokePaint(it, reject) }
             }
         }
     }
 
-    fun hiddenOutline(parent: XmlElement, reject: (XmlElement, String) -> Nothing): XmlElement? {
-        val lists = parent.elements().filter { it.name.namespaceURI == drawing && it.name.localPart == "extLst" }
-        val known = lists.flatMap { list -> list.elements().map { list to it } }.filter { (_, node) ->
-            node.attribute("", "uri")?.equals(hiddenLineExtension, ignoreCase = true) == true ||
-                node.elements().any { it.name.namespaceURI == drawing2010 && it.name.localPart == "hiddenLine" }
+    fun passivePaintMetadata(parent: XmlElement, reject: (XmlElement, String) -> Nothing): Set<XmlElement> {
+        val effects = parent.childrenNamed("effectLst")
+        val emptyEffects = effects.singleOrNull()?.takeIf(::emptyEffectList)
+        val lists = parent.childrenNamed("extLst")
+        val entries = lists.flatMap { it.elements() }
+        val found = entries.any { entry ->
+            hiddenProperties.values.any { it.equals(entry.attribute("", "uri"), ignoreCase = true) } ||
+                entry.elements().any { it.name.namespaceURI == drawing2010 && it.name.localPart in hiddenProperties }
         }
-        if (known.isEmpty()) return null
-        val (list, entry) = known.first()
-        if (known.size != 1 || lists.size != 1 || list.elements().size != 1 || list.attributes.isNotEmpty() ||
-            list.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
-            entry.name.namespaceURI != drawing || entry.name.localPart != "ext" || entry.attributes.size != 1 ||
-            entry.attribute("", "uri")?.equals(hiddenLineExtension, ignoreCase = true) != true ||
-            entry.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
-            reject(entry, "Invalid hidden frame outline extension")
-        val hidden = entry.elements().singleOrNull()
-        if (hidden == null || hidden.name.namespaceURI != drawing2010 || hidden.name.localPart != "hiddenLine")
-            reject(entry, "Invalid hidden frame outline properties")
-        val visible = parent.elements().singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "ln" }
-        if (visible == null || strokePaint(visible, reject) != null)
-            reject(entry, "Hidden frame outline requires an explicit invisible outline")
-        if (strokePaint(hidden, reject) == null) reject(hidden, "Hidden frame outline requires qualified stored line properties")
-        return list
+        if (!found) return setOfNotNull(emptyEffects)
+        val list = lists.singleOrNull() ?: reject(parent, "Duplicate saved frame paint lists")
+        if (list.attributes.isNotEmpty() || hasText(list))
+            reject(list, "Invalid saved frame paint list")
+        val seen = mutableSetOf<String>()
+        for (entry in entries) {
+            val saved = entry.elements().singleOrNull() ?: reject(entry, "A saved frame paint extension requires one property")
+            val name = saved.name.localPart
+            val uri = hiddenProperties[name]
+            if (entry.name.namespaceURI != drawing || entry.name.localPart != "ext" || entry.attributes.size != 1 ||
+                uri == null || !uri.equals(entry.attribute("", "uri"), ignoreCase = true) ||
+                saved.name.namespaceURI != drawing2010 || !seen.add(name) || hasText(entry) || hasText(saved))
+                reject(entry, "Invalid or duplicate saved frame paint extension")
+            when (name) {
+                "hiddenFill" -> {
+                    val fill = parent.childrenNamed("noFill").singleOrNull()
+                    if (fill == null || !empty(fill) || saved.attributes.isNotEmpty() ||
+                        saved.childrenNamed("solidFill").size != 1 || saved.elements().size != 1)
+                        reject(saved, "Saved frame fill requires an explicit invisible fill and stored solid color")
+                    fillColor(saved, reject)
+                }
+                "hiddenLine" -> {
+                    val visible = parent.childrenNamed("ln").singleOrNull()
+                    if (visible == null || strokePaint(visible, reject) != null || strokePaint(saved, reject, stored = true) == null)
+                        reject(saved, "Saved frame outline requires an explicit invisible outline and stored solid color")
+                }
+                "hiddenEffects" -> if (emptyEffects == null || saved.attributes.isNotEmpty() ||
+                    saved.elements().singleOrNull()?.let(::emptyEffectList) != true)
+                    reject(saved, "Saved frame effects require empty visible and stored effects")
+            }
+        }
+        return setOfNotNull(list, emptyEffects)
     }
+
+    private fun XmlElement.childrenNamed(local: String) =
+        elements().filter { it.name.namespaceURI == drawing && it.name.localPart == local }
+
+    private fun emptyEffectList(node: XmlElement): Boolean =
+        node.name.namespaceURI == drawing && node.name.localPart == "effectLst" && empty(node)
+
+    private fun empty(node: XmlElement): Boolean = node.attributes.isEmpty() && node.elements().isEmpty() && !hasText(node)
+
+    private fun hasText(node: XmlElement): Boolean = node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }
 
     fun fill(parent: XmlElement, theme: WordThemeColors, reject: (XmlElement, String) -> Nothing): PdfColor? =
         fillColor(parent, reject, allowAbsent = true)?.let { resolve(it, theme) }
@@ -123,7 +156,9 @@ internal object WordFramePaint {
         }
     }
 
-    private fun strokePaint(node: XmlElement, reject: (XmlElement, String) -> Nothing): Pair<Float, XmlElement>? {
+    private fun strokePaint(
+        node: XmlElement, reject: (XmlElement, String) -> Nothing, stored: Boolean = false,
+    ): Pair<Float, XmlElement>? {
         if (node.attributes.keys.any { it.namespaceURI.isNotEmpty() || it.localPart !in setOf("w", "cap", "cmpd", "algn") } ||
             node.attribute("", "cap") !in setOf(null, "flat", "rnd", "sq") || node.attribute("", "cmpd") !in setOf(null, "sng") ||
             node.attribute("", "algn") !in setOf(null, "ctr")) reject(node, "Only centered solid frame strokes are qualified")
@@ -133,7 +168,7 @@ internal object WordFramePaint {
         if (raw != null && (!raw.matches(Regex("[0-9]{1,10}")) || width == null || width !in 0L..182_880_000L))
             reject(node, "Invalid original frame ln/@w")
         val color = fillColor(node, reject) ?: return null
-        if (width == null || width !in 1270L..50_800L)
+        if (width == null || width !in 1270L..50_800L && !(stored && width == 0L))
             reject(node, "Frame ln/@w exceeds the qualified border bounds")
         return width / 12700f to color
     }
