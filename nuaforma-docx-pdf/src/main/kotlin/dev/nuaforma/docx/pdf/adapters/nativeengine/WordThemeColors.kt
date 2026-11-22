@@ -23,6 +23,9 @@ internal class WordThemeColors(
         return themed(node, role, node.attribute(W, "themeTint"), node.attribute(W, "themeShade"))
     }
 
+    fun explicitUnderlineColor(node: XmlElement): PdfColor? =
+        node.attribute(W, "color")?.takeUnless { it == "auto" }?.let { rgb(node, it) }
+
     fun borderColor(node: XmlElement, role: String): PdfColor? {
         if (role == "none") return null
         if (!supportsBorderRole(role)) reject(node, "Unsupported table border theme color")

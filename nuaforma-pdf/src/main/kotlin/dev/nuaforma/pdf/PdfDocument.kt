@@ -662,7 +662,16 @@ class PdfTextStyle private constructor(
     val baselineShift: Float,
     private val decoration: Decoration,
 ) {
-    private class Decoration(val strike: Boolean = false, val features: PdfFontFeatures = PdfFontFeatures(), val syntheticBold: Boolean = false, val characterSpacing: Float = 0f, val background: PdfColor? = null, val horizontalScale: Float = 1f, val lineMetricSize: Float? = null)
+    private data class Decoration(
+        val strike: Boolean = false,
+        val features: PdfFontFeatures = PdfFontFeatures(),
+        val syntheticBold: Boolean = false,
+        val characterSpacing: Float = 0f,
+        val background: PdfColor? = null,
+        val horizontalScale: Float = 1f,
+        val lineMetricSize: Float? = null,
+        val underlineColor: PdfColor? = null,
+    )
     val strikethrough: Boolean get() = decoration.strike
     val fontFeatures: PdfFontFeatures get() = decoration.features
 
@@ -680,14 +689,21 @@ class PdfTextStyle private constructor(
     /** Optional nominal font size used for natural line metrics, in PDF points. */
     val lineMetricSize: Float? get() = decoration.lineMetricSize
 
+    /** An explicit underline color, or null to follow the text ink. */
+    val underlineColor: PdfColor? get() = decoration.underlineColor
+
+    fun withUnderlineColor(color: PdfColor?): PdfTextStyle =
+        if (color == underlineColor) this else PdfTextStyle(fontId, size, this.color, languageTag, underline, baselineShift,
+            decoration.copy(underlineColor = color))
+
     fun withLineMetricSize(points: Float?): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift,
-        Decoration(strikethrough, fontFeatures, syntheticBold, characterSpacing, background, horizontalScale, points))
+        decoration.copy(lineMetricSize = points))
 
     fun withHorizontalScale(factor: Float): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift,
-        Decoration(strikethrough, fontFeatures, syntheticBold, characterSpacing, background, factor, lineMetricSize))
+        decoration.copy(horizontalScale = factor))
 
     fun withBackground(color: PdfColor?): PdfTextStyle = PdfTextStyle(fontId, size, this.color, languageTag, underline, baselineShift,
-        Decoration(strikethrough, fontFeatures, syntheticBold, characterSpacing, color, horizontalScale, lineMetricSize))
+        decoration.copy(background = color))
 
     @JvmOverloads
     constructor(fontId: String, size: Float, color: PdfColor = PdfColor(0, 0, 0), languageTag: String? = null,
@@ -698,15 +714,15 @@ class PdfTextStyle private constructor(
                 baselineShift: Float, strikethrough: Boolean) :
         this(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough))
 
-    fun withStrikethrough(value: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(value, fontFeatures, syntheticBold, characterSpacing, background, horizontalScale, lineMetricSize))
+    fun withStrikethrough(value: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, decoration.copy(strike = value))
 
-    fun withFontFeatures(features: PdfFontFeatures): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough, features, syntheticBold, characterSpacing, background, horizontalScale, lineMetricSize))
+    fun withFontFeatures(features: PdfFontFeatures): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, decoration.copy(features = features))
 
     /** Explicit fill-and-stroke emboldening; advances and font bytes remain unchanged. */
-    fun withSyntheticBold(enabled: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, Decoration(strikethrough, fontFeatures, enabled, characterSpacing, background, horizontalScale, lineMetricSize))
+    fun withSyntheticBold(enabled: Boolean): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift, decoration.copy(syntheticBold = enabled))
 
     fun withCharacterSpacing(points: Float): PdfTextStyle = PdfTextStyle(fontId, size, color, languageTag, underline, baselineShift,
-        Decoration(strikethrough, fontFeatures, syntheticBold, if (points == 0f) 0f else points, background, horizontalScale, lineMetricSize))
+        decoration.copy(characterSpacing = if (points == 0f) 0f else points))
 
     /** Keep Kotlin's original copy and copy$default descriptors, retaining additional decorations. */
     fun copy(fontId: String = this.fontId, size: Float = this.size, color: PdfColor = this.color,
@@ -732,7 +748,8 @@ class PdfTextStyle private constructor(
 
     override fun equals(other: Any?): Boolean = other is PdfTextStyle && fontId == other.fontId &&
         java.lang.Float.compare(size, other.size) == 0 && color == other.color && languageTag == other.languageTag &&
-        underline == other.underline && java.lang.Float.compare(baselineShift, other.baselineShift) == 0 && strikethrough == other.strikethrough && fontFeatures == other.fontFeatures && syntheticBold == other.syntheticBold && java.lang.Float.compare(characterSpacing, other.characterSpacing) == 0 && background == other.background && horizontalScale == other.horizontalScale && lineMetricSize == other.lineMetricSize
+        underline == other.underline && java.lang.Float.compare(baselineShift, other.baselineShift) == 0 && strikethrough == other.strikethrough && fontFeatures == other.fontFeatures && syntheticBold == other.syntheticBold && java.lang.Float.compare(characterSpacing, other.characterSpacing) == 0 && background == other.background && horizontalScale == other.horizontalScale && lineMetricSize == other.lineMetricSize &&
+        underlineColor == other.underlineColor
 
     override fun hashCode(): Int {
         var result = fontId.hashCode()
@@ -745,6 +762,7 @@ class PdfTextStyle private constructor(
         if (background != null) result = 31 * result + background.hashCode()
         if (horizontalScale != 1f) result = 31 * result + horizontalScale.hashCode()
         if (lineMetricSize != null) result = 31 * result + lineMetricSize.hashCode()
+        if (underlineColor != null) result = 31 * result + underlineColor.hashCode()
         return if (syntheticBold) 31 * result + true.hashCode() else result
     }
 

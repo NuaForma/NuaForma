@@ -2321,7 +2321,8 @@ internal class NativeDocxReader(
         val italic: Boolean = false, val color: PdfColor = PdfColor(0, 0, 0), val languageTag: String? = null, val rtl: Boolean? = null, val underline: Boolean = false, val superscript: Boolean = false, val strikethrough: Boolean = false,
         val kerningThreshold: Float = 0f, val standardLigatures: Boolean = false, val openType: Boolean = false, val highAnsiFamily: String? = null, val characterSpacing: Float = 0f,
         val highlight: PdfColor? = null, val shading: PdfColor? = null, val automaticColor: Boolean = true,
-        val paragraphBackground: PdfColor? = null, val horizontalScale: Float = 1f, val capitals: Boolean = false, val smallCaps: Boolean = false)
+        val paragraphBackground: PdfColor? = null, val horizontalScale: Float = 1f, val capitals: Boolean = false, val smallCaps: Boolean = false,
+        val underlineColor: PdfColor? = null)
 
     private fun externalHyperlink(address: String, anchor: String?): PdfLink.External {
         if (anchor.isNullOrEmpty() || '#' in address) return PdfLink.External(address)
@@ -2353,6 +2354,7 @@ internal class NativeDocxReader(
             .withCharacterSpacing(face.characterSpacing)
             .withBackground(background)
             .withHorizontalScale(face.horizontalScale)
+            .withUnderlineColor(face.underlineColor)
     }
 
     private val underscoredLocale = Regex("[A-Za-z]{2,3}_[A-Za-z]{2}")
@@ -2463,9 +2465,11 @@ internal class NativeDocxReader(
             attributes(it, setOf("val")); children(it, emptySet()); result = result.copy(strikethrough = enabled(it))
         }
         property.one("u")?.let {
-            attributes(it, setOf("val")); children(it, emptySet())
-            check(it.value("val") in setOf(null, "single", "none"), "Only single run underlining is qualified")
-            result = result.copy(underline = it.value("val") != "none")
+            attributes(it, setOf("val", "color")); children(it, emptySet())
+            val kind = it.value("val")
+            check(kind in setOf(null, "single", "none"), "Only single run underlining is qualified")
+            val color = themeColors.explicitUnderlineColor(it)
+            result = result.copy(underline = kind != "none", underlineColor = color.takeUnless { kind == "none" })
         }
         property.one("szCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && number(it.value("val")) / 2 == result.size, "Separate complex-script sizes are not qualified") }
         property.one("bCs")?.let { attributes(it, setOf("val")); check(it.elements().isEmpty() && enabled(it) == result.bold, "Separate complex-script weight is not qualified") }

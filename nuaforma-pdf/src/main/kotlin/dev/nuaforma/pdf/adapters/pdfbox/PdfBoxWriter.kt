@@ -359,10 +359,17 @@ internal object PdfBoxWriter {
                                         val thickness = metrics.getOrNull(4)?.takeIf { it.isFinite() } ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified underline thickness")
                                         if (position - thickness < font.fontDescriptor.fontBoundingBox.lowerLeftY / 1000f)
                                             fail(PdfFailureCode.UNSUPPORTED_TEXT, "Underline exceeds the qualified font bounds")
+                                        val underlineColor = element.style.underlineColor?.takeUnless { it == color }
+                                        if (underlineColor != null) {
+                                            command("q")
+                                            command("rg", number(underlineColor.red / 255f), number(underlineColor.green / 255f),
+                                                number(underlineColor.blue / 255f))
+                                        }
                                         // OpenType post.underlinePosition denotes the top edge, unlike PostScript's center coordinate.
                                         command("re", number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift) + (position - thickness) * element.style.size),
                                             number(element.trailingDecorationWidth ?: measurer.measure(element.text, element.style).width), number(thickness * element.style.size))
                                         command("f")
+                                        if (underlineColor != null) command("Q")
                                     }
                                     if (element.style.strikethrough) {
                                         val metrics = lineMetrics[element.style.fontId]

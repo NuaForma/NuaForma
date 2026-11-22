@@ -409,3 +409,5 @@ A qualified full-width two-row merge preserves the blank continuation line and t
 Automatic and percentage cell widths preserve a qualified unbroken line when Word disables wrapping for that cell.
 
 A hidden, undecorated empty cell marker contributes neither its final line nor its paragraph spacing.
+
+Single underlines preserve explicit RGB independently of run ink, while automatic color follows that ink.
