@@ -122,6 +122,7 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
         if (headerDefaults.size > 1) throw failure(part, headerDefaults[1])
         val editorNames = mutableSetOf<String>()
         val writingStyles = mutableSetOf<Pair<String, String>>()
+        WordHeaderControlDirection.normalize(parts, context)
         val complexText = WordAuthoringMetadata.containsComplexText(parts.values)
         for (child in settings.elements()) {
             context.checkActive()

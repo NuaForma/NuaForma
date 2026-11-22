@@ -215,3 +215,5 @@ Selected 0.5.0-alpha.4 [font family identity qualification](../docs/font-family-
 ## Additional native layout support
 
 Unrotated DrawingML text boxes can use Word shape autofit. Wrapped text adjusts the height while retaining the specified width. Unwrapped text adjusts both dimensions. The final shape and contents must fit on the physical page.
+
+A narrow profile admits direction properties on ordinary nonprinting header tabs and paragraph marks when the ordinary and complex-script faces and sizes match. The check runs after template evaluation. Visible text still follows the native script and direction checks.

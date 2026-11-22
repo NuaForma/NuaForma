@@ -198,8 +198,11 @@ internal object WordAuthoringMetadata {
         }
     }
 
-    fun containsComplexText(roots: Collection<XmlElement>): Boolean = roots.any { root -> root.descendants().any { node ->
-        val forced = node.name.namespaceURI == W && node.name.localPart in setOf("rtl", "bidi", "cs") && node.attribute(W, "val") !in setOf("0", "false", "off")
+    fun containsComplexText(roots: Collection<XmlElement>): Boolean = containsComplexText(roots, emptySet())
+
+    fun containsComplexText(roots: Collection<XmlElement>, inactiveDirections: Set<XmlElement>): Boolean = roots.any { root -> root.descendants().any { node ->
+        val forced = node !in inactiveDirections && node.name.namespaceURI == W && node.name.localPart in setOf("rtl", "bidi", "cs") &&
+            node.attribute(W, "val") !in setOf("0", "false", "off")
         forced || node.name.namespaceURI == W && node.name.localPart == "t" && node.children.filterIsInstance<XmlText>().any { text ->
             text.text.codePoints().anyMatch { code -> Character.isLetter(code) && Character.UnicodeScript.of(code) !in
                 setOf(Character.UnicodeScript.LATIN, Character.UnicodeScript.GREEK, Character.UnicodeScript.CYRILLIC) }
