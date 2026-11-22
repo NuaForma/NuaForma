@@ -279,3 +279,5 @@ Saving HTML as separate files is an authoring preference and leaves PDF output u
 The preference to save a document preview image leaves PDF output unchanged.
 
 Page-fixed unwrapped pictures can keep an external link whose clickable rectangle follows the picture.
+
+Qualified horizontal borders of equal width can retain regional colors across cells and horizontal merges.

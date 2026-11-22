@@ -30,7 +30,7 @@ internal object TableLayouter {
         }.toSet()
         val consistentBorders = styles.size <= 1
         val complex = depth > 0 || table.rows.any { row -> row.cells.any { cell -> cell.columnSpan != 1 || cell.rowSpan != 1 || cell.blocks.any { it is PdfTable } } }
-        if (customBorders && complex && !consistentBorders) {
+        if (customBorders && complex && !consistentBorders && !horizontalEdgesOnly(table, depth, styles)) {
             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Conflicting custom borders with merged or nested cells are not qualified")
         }
         val topInsets = table.rows.map { row -> maxOf(table.border?.width ?: 0f, row.cells.maxOfOrNull { it.borders?.top?.border?.width ?: 0f } ?: 0f) }
@@ -103,6 +103,16 @@ internal object TableLayouter {
         } ?: 0f) else table.border?.width ?: 0f
         return Measured(table, cells, heights, offsets, topInsets, customBorders, consistentBorders, closing)
     }
+
+    private fun horizontalEdgesOnly(table: PdfTable, depth: Int, styles: Set<PdfBorder>): Boolean =
+        depth == 0 && table.widthPolicy == PdfTableWidthPolicy.FIXED && table.border == null &&
+            styles.map { it.width }.distinct().size == 1 && table.rows.all { row ->
+                row.cells.all { cell ->
+                    val borders = cell.borders
+                    cell.rowSpan == 1 && borders != null && borders.left == null && borders.right == null &&
+                        cell.blocks.none { it is PdfTable }
+                }
+            }
 
     fun slice(layout: Measured, from: Float, until: Float, x: Float, top: Float, target: MutableList<PositionedElement>, closeStart: Boolean = false, closeEnd: Boolean = false) {
         val table = layout.table
