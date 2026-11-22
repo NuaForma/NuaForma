@@ -162,6 +162,11 @@ internal object PageLayouter {
                     var lineContainsAnchoredTab = false
                     val spaces = mutableListOf<Fragment>()
                     val groups = words(block.runs, measurer, format.textDirection != null)
+                    val rightTabFields = format.alignment == PdfAlignment.RIGHT && format.textDirection == null &&
+                        label == null && lineArea == null && block.runs.count { it is PdfTab } == 2 &&
+                        block.runs.all { it is PdfTextRun || it is PdfTab } &&
+                        format.tabs?.stops?.map { it.alignment } == listOf(PdfTabAlignment.CENTER, PdfTabAlignment.RIGHT)
+                    var rightFieldIndex = 0
                     val paragraphBidi = format.textDirection?.let { direction ->
                         val text = block.runs.joinToString("") { when (it) { is PdfTextRun -> it.text; is PdfLineBreak -> "\n"; else -> "" } }
                         java.text.Bidi(text, if (direction == PdfTextDirection.RIGHT_TO_LEFT) java.text.Bidi.DIRECTION_RIGHT_TO_LEFT else java.text.Bidi.DIRECTION_LEFT_TO_RIGHT)
@@ -169,6 +174,8 @@ internal object PageLayouter {
 
                     fun flush(justify: Boolean = false, terminal: Boolean = false) {
                         if (line.isEmpty()) return
+                        if (rightTabFields && !terminal)
+                            throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Right-aligned tab fields require a single line")
                         val deferredListLabel = label != null && line.all { it.lineBreak != null } && line.any { it.pageBreak }
                         if (justify && lineContainsAnchoredTab && format.alignment == PdfAlignment.JUSTIFY)
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Right, centered or decimal tabs in non-final justified lines are not qualified")
@@ -383,7 +390,7 @@ internal object PageLayouter {
                         }
                         val control = word.singleOrNull()?.tab
                         if (control != null) {
-                            if (format.alignment !in setOf(PdfAlignment.LEFT, PdfAlignment.JUSTIFY))
+                            if (!rightTabFields && format.alignment !in setOf(PdfAlignment.LEFT, PdfAlignment.JUSTIFY))
                                 throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Tab paragraphs require left alignment or qualified justification")
                             line += spaces; lineWidth += spaces.sumOf { it.metrics.width.toDouble() }.toFloat(); spaces.clear()
                             val settings = format.tabs ?: PdfTabSettings()
@@ -401,6 +408,8 @@ internal object PageLayouter {
                                 decimalPrefix -= fragment.text.length
                             }
                             val explicit = settings.stops.firstOrNull { it.position > cursor + .001f }
+                            if (rightTabFields && explicit != settings.stops[rightFieldIndex++])
+                                throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Right-aligned tab fields require both explicit stops")
                             val position = explicit?.position
                                 ?: (kotlin.math.floor((cursor + .001f) / settings.defaultInterval) + 1) * settings.defaultInterval
                             val alignment = explicit?.alignment ?: PdfTabAlignment.LEFT

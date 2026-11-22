@@ -272,6 +272,8 @@ internal object NativePdfFailureDiagnostics {
         "Tabs in non-final justified lines are not qualified",
         "Right, centered or decimal tabs in non-final justified lines are not qualified",
         "Right, centered or decimal tabs in non-final justified lines are not qualified",
+        "Right-aligned tab fields require a single line",
+        "Right-aligned tab fields require both explicit stops",
         "Tab paragraphs require left alignment or qualified justification",
         "Text frame exceeds its content area or physical page",
         "Text requires unsupported shaping or control handling",

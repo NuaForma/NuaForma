@@ -357,3 +357,5 @@ A fixed Word grid may retain a subpoint column when its actual spanning cells al
 A fixed text-relative table with an isolated anchor stays at its saved vertical offset while the body continues independently.
 
 A bookmark after a standalone Word page break keeps its destination on the source page.
+
+A right-aligned line with explicit center and right tab stops preserves the tab fields and follows Word's right-edge alignment.
