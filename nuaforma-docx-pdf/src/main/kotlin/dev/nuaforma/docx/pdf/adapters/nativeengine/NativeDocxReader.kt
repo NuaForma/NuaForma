@@ -1549,7 +1549,8 @@ internal class NativeDocxReader(
                     bodyProps.attribute("", "anchorCtr") in setOf(null, "0", "false"))
         }
 
-        fun readAnchoredImage(node: XmlElement, partRelations: Map<String, String>, pageBand: Boolean = false): PdfAnchoredImage {
+        fun readAnchoredImage(node: XmlElement, partRelations: Map<String, String>, pageBand: Boolean = false,
+            isolatedHeaderPicture: Boolean = false): PdfAnchoredImage {
             source.current = node
             val anchor = node.elements().single()
 
@@ -1584,9 +1585,23 @@ internal class NativeDocxReader(
             val horizontal = offset("positionH", true).first
             val vertical = offset("positionV", false)
             val wraps = anchor.elements().filter { it.name.namespaceURI == wp && it.name.localPart.startsWith("wrap") }
-            check(wraps.size == 1 && wraps.single().elements().isEmpty(), "Unsupported image wrapping geometry")
+            check(wraps.size == 1, "Unsupported image wrapping geometry")
             val wrap = wraps.single()
+            source.current = wrap
+            val headerContour = wrap.name.localPart == "wrapTight"
+            check(headerContour || wrap.elements().isEmpty(), "Unsupported image wrapping geometry")
             val policy = when (wrap.name.localPart) {
+                "wrapTight" -> {
+                    check(isolatedHeaderPicture && vertical.second == PdfBoxAnchor.PAGE &&
+                        order.layer == PdfDrawingLayer.BACKGROUND,
+                        "Tight image wrapping requires a behind-text picture in an otherwise empty header")
+                    val edge = WordHeaderWrapContour.bottom(wrap) { origin, message -> source.current = origin; reject(message) }
+                    val height = number(extent.attribute("", "cy")) / 12700
+                    val distance = number(anchor.attribute("", "distB") ?: "0") / 12700
+                    check(vertical.first + height * edge + distance <= page.margins.top + .001f,
+                        "Tight header image contour extends below the body margin")
+                    PdfImageWrap.NONE
+                }
                 "wrapNone" -> { check(wrap.attributes.isEmpty(), "Invalid image wrapping"); PdfImageWrap.NONE }
                 "wrapTopAndBottom" -> { check(wrap.attributes.isEmpty(), "Invalid image wrapping"); PdfImageWrap.TOP_BOTTOM }
                 "wrapSquare" -> {
@@ -1695,9 +1710,14 @@ internal class NativeDocxReader(
                         }
                         val paragraph = readParagraph(plain, partRelations, fields)
                         val firstBodyParagraph = index == 0 && !fields && images.isEmpty() && paragraph.runs.none { it is PdfPageBreak }
+                        val isolatedHeaderPicture = fields && root.name.localPart == "hdr" && root.elements().size == 1 &&
+                            frames.size == 1 && images.size == 1 && unprintedBand(listOf(paragraph)) &&
+                            paragraph.background == null && paragraph.lines.isEmpty() && paragraph.borders == null
                         boxes.map { if (it.name.localPart == "pict") readBox(it, partRelations, fields)
                             else readDrawingBox(it, partRelations, fields, firstBodyParagraph) } +
-                            paragraph.copy(anchoredImages = images.map { readAnchoredImage(it, partRelations, fields) })
+                            paragraph.copy(anchoredImages = images.map {
+                                readAnchoredImage(it, partRelations, fields, isolatedHeaderPicture)
+                            })
                     }
                     "tbl" -> listOf(readTable(block, partRelations, fields))
                     else -> reject("Unsupported block")

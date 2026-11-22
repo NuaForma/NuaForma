@@ -251,3 +251,5 @@ Saved DrawingML outline properties can accompany an explicitly invisible frame o
 A qualified Word page reference within its own internal hyperlink resolves to the actual page of the common target.
 
 Fixed flat body tables with one solid color can use different qualified direct cell-border widths.
+
+A background header picture can retain a closed tight wrapping contour that sits wholly above the body. Other kinds of shaped wrapping require separate qualification.
