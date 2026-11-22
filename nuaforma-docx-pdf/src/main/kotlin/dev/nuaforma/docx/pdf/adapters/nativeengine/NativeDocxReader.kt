@@ -1103,9 +1103,23 @@ internal class NativeDocxReader(
                 val amount = when (value.name.localPart) {
                     "posOffset" -> (text.toLongOrNull()?.takeIf { it in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong() }
                         ?: reject("Invalid signed image offset")).toFloat() / 12700
-                    "align" -> {
-                        check(horizontal, "Vertical image alignment is not qualified")
+                    "align" -> if (horizontal) {
                         when (text) { "left" -> 0f; "right" -> available - imageWidth; "center" -> (available - imageWidth) / 2; else -> reject("Unsupported image alignment") }
+                    } else {
+                        source.current = value
+                        check(relative == "page" && !pageBand && renderedSize == null &&
+                            anchor.elements().any { it.name.namespaceURI == wp && it.name.localPart == "wrapNone" },
+                            "Vertical image alignment requires an unwrapped picture aligned to the physical page")
+                        val effect = anchor.elements().singleOrNull { it.name.namespaceURI == wp && it.name.localPart == "effectExtent" }
+                            ?.let { extent -> WordInlineImagePadding.read(extent) { origin, message -> source.current = origin; reject(message) } }
+                        val before = effect?.top ?: 0f
+                        val after = effect?.bottom ?: 0f
+                        when (text) {
+                            "top" -> before
+                            "center" -> (page.height - declaredHeight + before - after) / 2f
+                            "bottom" -> page.height - declaredHeight - after
+                            else -> reject("Unsupported vertical image alignment")
+                        }
                     }
                     else -> reject("Unsupported image offset")
                 }
