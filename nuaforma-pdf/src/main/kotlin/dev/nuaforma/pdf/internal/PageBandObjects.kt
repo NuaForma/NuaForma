@@ -7,10 +7,11 @@ import kotlin.math.sin
 
 /** Floating page-band objects keep physical coordinates independently of the band's text origin. */
 internal object PageBandObjects {
+    data class CellPicture(val picture: PdfAnchoredImage, val left: Float, val top: Float)
 
     fun place(images: List<Pair<PdfAnchoredImage, Float>>, boxes: List<Pair<PdfTextBox, Float>>,
               origin: Float, page: PdfPage, measurer: TextMeasurer, foreground: Boolean = false,
-              header: Boolean = false): List<PositionedElement> {
+              header: Boolean = false, cellPictures: List<CellPicture> = emptyList()): List<PositionedElement> {
         val result = mutableListOf<PositionedElement>()
         for ((image, paragraphTop) in images) {
             PageLayouter.checkCancellation()
@@ -18,6 +19,19 @@ internal object PageBandObjects {
             val top = image.top + if (image.anchor == PdfBoxAnchor.PARAGRAPH) origin + paragraphTop else 0f
             if (image.left < 0 || image.left + image.image.width > page.width + .001f || top < -.001f || top + image.image.height > page.height + .001f) overflow()
             result += PositionedImage(image.image, image.left, top, foreground = foreground, pageY = true, drawingOrder = image.drawingOrder, link = image.link)
+        }
+        for ((anchor, baseLeft, baseTop) in cellPictures) {
+            PageLayouter.checkCancellation()
+            val image = anchor.image
+            val left = baseLeft + anchor.left
+            val top = origin + baseTop + anchor.top
+            val cropLeft = (-left).coerceAtLeast(0f)
+            val cropTop = (-top).coerceAtLeast(0f)
+            val cropRight = (left + image.width - page.width).coerceAtLeast(0f)
+            val cropBottom = (top + image.height - page.height).coerceAtLeast(0f)
+            if (image.width - cropLeft - cropRight < 1f || image.height - cropTop - cropBottom < 1f) overflow()
+            val visible = image.withPhysicalCrop(cropLeft, cropTop, cropRight, cropBottom)
+            result += PositionedImage(visible, left + cropLeft, top + cropTop, pageY = true, drawingOrder = anchor.drawingOrder)
         }
         for ((box, paragraphTop) in boxes) {
             PageLayouter.checkCancellation()
@@ -27,7 +41,7 @@ internal object PageBandObjects {
         // In Word a full-page header picture stays within its story's stack, underneath body content.
         val cover = if (header && boxes.isEmpty() && images.all { (image, _) ->
             image.anchor == PdfBoxAnchor.PAGE && image.drawingOrder != null
-        }) result.filterIsInstance<PositionedImage>().singleOrNull { pageCover(it, page) } else null
+        } && cellPictures.all { it.picture.drawingOrder != null }) result.filterIsInstance<PositionedImage>().singleOrNull { pageCover(it, page) } else null
         val bounds = result.map(::bounds)
         for (index in bounds.indices) for (other in 0 until index) {
             val a = bounds[index]; val b = bounds[other]

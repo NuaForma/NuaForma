@@ -349,6 +349,7 @@ internal object FlowLayouter {
         }
 
         val floatingImages = mutableListOf<Pair<PdfAnchoredImage, Float>>()
+        val cellPictures = mutableListOf<PageBandObjects.CellPicture>()
         val floatingBoxes = mutableListOf<Pair<PdfTextBox, Float>>()
         for ((blockIndex, block) in band.blocks.withIndex()) {
             PageLayouter.checkCancellation()
@@ -370,9 +371,19 @@ internal object FlowLayouter {
                     after = block.spaceAfter
                 }
                 is PdfTable -> {
-                    val measured = TableLayouter.measure(resolveTable(block), measurer, width)
+                    val measured = TableLayouter.measure(resolveTable(block), measurer, width, band = true)
                     TableLayouter.checkWidth(measured.table, width, page.margins.left, page.width - page.margins.left)
-                    TableLayouter.slice(measured, 0f, measured.contentEnd, page.margins.left + measured.table.leftIndent, top, elements)
+                    val tableLeft = page.margins.left + measured.table.leftIndent
+                    for (cell in measured.cells) {
+                        val column = cell.placement.column
+                        val row = cell.placement.row
+                        val left = tableLeft + measured.table.columnWidths.take(column).sum() + cell.margins.left
+                        val cellTop = top + measured.offsets[row] + cell.margins.top +
+                            if (measured.customBorders) measured.topInsets[row] else (measured.table.border?.width ?: 0f)
+                        val pictures = cell.placement.cell.printableBlocks.filterIsInstance<PdfParagraph>().flatMap { it.anchoredImages }
+                        pictures.forEach { cellPictures += PageBandObjects.CellPicture(it, left, cellTop) }
+                    }
+                    TableLayouter.slice(measured, 0f, measured.contentEnd, tableLeft, top, elements)
                     top += measured.height
                     after = 0f
                 }
@@ -384,7 +395,7 @@ internal object FlowLayouter {
         }
         if (top > band.maxHeight + 0.001f) overflow()
         val origin = if (footer) page.height - band.offset - top else band.offset
-        elements += PageBandObjects.place(floatingImages, floatingBoxes, origin, page, measurer)
+        elements += PageBandObjects.place(floatingImages, floatingBoxes, origin, page, measurer, header = !footer, cellPictures = cellPictures)
         if (!band.reserveContentSpace && PageBandObjects.occupied(band, footer, page, elements to top) > band.offset + band.maxHeight + .001f) overflow()
         return elements to top
     }

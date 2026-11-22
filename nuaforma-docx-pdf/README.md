@@ -291,3 +291,5 @@ A terminal cell preference within the qualified downward rounding tolerance reta
 A fixed full-page header picture can layer behind body text while retaining the order of smaller header objects.
 
 An isolated single-cell page-band table can keep its qualified top stroke and ordinary text.
+
+A fixed unwrapped image in the first cell of an isolated one-row page-band table can retain its column and page offsets.

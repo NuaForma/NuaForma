@@ -40,7 +40,7 @@ class PdfDocument @JvmOverloads constructor(pageSequences: List<PdfPageSequence>
     internal fun validateNavigation(allowUnresolved: Boolean = false) {
         val paragraphs = allParagraphs()
         val navigation = paragraphs.flatMap { it.runs }.mapNotNull { when (it) {
-            is PdfTextRun -> it.navigation; is PdfTab -> it.navigation; is PdfReferenceField -> it.navigation; is PdfSequenceField -> it.navigation; is PdfNoteCall -> it.navigation; is PdfNoteLabel -> it.navigation; else -> null
+            is PdfTextRun -> it.navigation; is PdfReferenceField -> it.navigation; is PdfSequenceField -> it.navigation; is PdfNoteCall -> it.navigation; is PdfNoteLabel -> it.navigation; else -> null
         } }
         require(navigation.size <= 2_000) { "Navigation budget exceeded" }
         val destinations = (navigation.flatMap { it.destinations } + paragraphs.flatMap { it.endDestinations }).map { it.name }
@@ -705,6 +705,17 @@ class PdfImage @JvmOverloads constructor(bytes: ByteArray, val width: Float, val
     }
 
     fun bytes(): ByteArray = content.copyOf()
+
+    /** Crop amounts are measured in physical points of the current image. */
+    fun withPhysicalCrop(left: Float, top: Float, right: Float, bottom: Float): PdfImage {
+        require(listOf(left, top, right, bottom).all { it.isFinite() && it >= 0f }) { "Invalid physical image crop" }
+        if (left == 0f && top == 0f && right == 0f && bottom == 0f) return this
+        val horizontal = (1.0 - crop.left - crop.right) / width
+        val vertical = (1.0 - crop.top - crop.bottom) / height
+        return PdfImage(content, width - left - right, height - top - bottom,
+            PdfImageCrop((crop.top + top * vertical).toFloat(), (crop.right + right * horizontal).toFloat(),
+                (crop.bottom + bottom * vertical).toFloat(), (crop.left + left * horizontal).toFloat()), semantics)
+    }
 
     internal val byteSize: Int get() = content.size
 }

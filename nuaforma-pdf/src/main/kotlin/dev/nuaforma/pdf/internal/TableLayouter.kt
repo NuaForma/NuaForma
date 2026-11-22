@@ -20,7 +20,7 @@ internal object TableLayouter {
 
     }
 
-    fun measure(source: PdfTable, measurer: TextMeasurer, availableWidth: Float, depth: Int = 0): Measured {
+    fun measure(source: PdfTable, measurer: TextMeasurer, availableWidth: Float, depth: Int = 0, band: Boolean = false): Measured {
         require(depth <= 1) { "Only one nested table level is supported" }
         if (depth > 0 && source.widthPolicy == PdfTableWidthPolicy.FIT_CONTENTS) throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Natural widths in nested tables are not qualified")
         val table = TableWidthResolver.resolve(source, measurer, availableWidth)
@@ -53,7 +53,14 @@ internal object TableLayouter {
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Inline page breaks inside table cells are not qualified")
                         if (block.format.keepWithNext || block.format.pageBreakBefore)
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph pagination rules inside table cells are not qualified")
-                        val p = FlowLayouter.paragraph(block, width, measurer, previous = blocks.getOrNull(blockIndex - 1) as? PdfParagraph, next = blocks.getOrNull(blockIndex + 1) as? PdfParagraph, permitMarginMarker = true)
+                        val shapeFree = if (block.anchoredImages.isEmpty()) block else {
+                            if (!band || depth != 0 || block.anchoredImages.any { !it.cellRelative }) {
+                                throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Cell-relative pictures require a top-level page-band table")
+                            }
+                            block.copy(anchoredImages = emptyList())
+                        }
+                        val p = FlowLayouter.paragraph(shapeFree, width, measurer, previous = blocks.getOrNull(blockIndex - 1) as? PdfParagraph,
+                            next = blocks.getOrNull(blockIndex + 1) as? PdfParagraph, owner = block, permitMarginMarker = true)
                         if (p.lines.size > 1 && block.format.keepLines)
                             throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph pagination rules inside table cells are not qualified")
                         top += ParagraphSpacing.before(block, after, blockIndex == 0)

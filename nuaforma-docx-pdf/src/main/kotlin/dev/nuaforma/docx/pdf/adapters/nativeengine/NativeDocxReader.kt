@@ -922,6 +922,170 @@ internal class NativeDocxReader(
                 .withEndDestinations(pendingDestinations)
         }
 
+        fun readAnchoredImage(node: XmlElement, partRelations: Map<String, String>, pageBand: Boolean = false,
+            isolatedHeaderPicture: Boolean = false, cellRelative: Boolean = false): PdfAnchoredImage {
+            source.current = node
+            val anchor = node.elements().single()
+
+            fun one(name: String) = anchor.elements().singleOrNull { it.name.namespaceURI == wp && it.name.localPart == name } ?: reject("Missing or duplicate image anchor property")
+
+            val order = WordDrawingOrder.read(anchor) { origin, message -> source.current = origin; reject(message) }
+            val extent = one("extent")
+            val imageWidth = number(extent.attribute("", "cx")) / 12700
+
+            fun offset(name: String, horizontal: Boolean): Pair<Float, PdfBoxAnchor> {
+                val position = one(name)
+                check(position.attributes.size == 1 && position.elements().size == 1, "Unsupported anchor position")
+                val relative = position.attribute("", "relativeFrom")
+                check(relative in (if (horizontal) setOf("page", "margin", "column") else setOf("page", "paragraph")), "Unsupported image reference area")
+                val value = position.elements().single()
+                check(value.name.namespaceURI == wp && value.attributes.isEmpty() && value.elements().isEmpty(), "Invalid anchor offset")
+                val text = value.children.filterIsInstance<XmlText>().joinToString("") { it.text }
+                if (cellRelative) {
+                    check(relative == (if (horizontal) "column" else "page") && value.name.localPart == "posOffset",
+                        "Cell-relative pictures require column and page offsets")
+                }
+                val base = if (!cellRelative && horizontal && relative != "page") page.margins.left else 0f
+                val available = if (relative == "page") page.width else page.width - page.margins.left - page.margins.right
+                val amount = when (value.name.localPart) {
+                    "posOffset" -> (text.toLongOrNull()?.takeIf { it in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong() }
+                        ?: reject("Invalid signed image offset")).toFloat() / 12700
+                    "align" -> {
+                        check(horizontal, "Vertical image alignment is not qualified")
+                        when (text) { "left" -> 0f; "right" -> available - imageWidth; "center" -> (available - imageWidth) / 2; else -> reject("Unsupported image alignment") }
+                    }
+                    else -> reject("Unsupported image offset")
+                }
+                return (base + amount) to if (relative == "paragraph") PdfBoxAnchor.PARAGRAPH else PdfBoxAnchor.PAGE
+            }
+
+            val horizontal = offset("positionH", true).first
+            val vertical = offset("positionV", false)
+            val wraps = anchor.elements().filter { it.name.namespaceURI == wp && it.name.localPart.startsWith("wrap") }
+            check(wraps.size == 1, "Unsupported image wrapping geometry")
+            val wrap = wraps.single()
+            source.current = wrap
+            val headerContour = wrap.name.localPart == "wrapTight"
+            check(headerContour || wrap.elements().isEmpty(), "Unsupported image wrapping geometry")
+            val policy = when (wrap.name.localPart) {
+                "wrapTight" -> {
+                    check(isolatedHeaderPicture && vertical.second == PdfBoxAnchor.PAGE &&
+                        order.layer == PdfDrawingLayer.BACKGROUND,
+                        "Tight image wrapping requires a behind-text picture in an otherwise empty header")
+                    val edge = WordHeaderWrapContour.bottom(wrap) { origin, message -> source.current = origin; reject(message) }
+                    val height = number(extent.attribute("", "cy")) / 12700
+                    val distance = number(anchor.attribute("", "distB") ?: "0") / 12700
+                    check(vertical.first + height * edge + distance <= page.margins.top + .001f,
+                        "Tight header image contour extends below the body margin")
+                    PdfImageWrap.NONE
+                }
+                "wrapNone" -> { check(wrap.attributes.isEmpty(), "Invalid image wrapping"); PdfImageWrap.NONE }
+                "wrapTopAndBottom" -> { check(wrap.attributes.isEmpty(), "Invalid image wrapping"); PdfImageWrap.TOP_BOTTOM }
+                "wrapSquare" -> {
+                    check(wrap.attributes.size == 1, "Unsupported square wrapping effect")
+                    when (wrap.attribute("", "wrapText")) {
+                        "left" -> PdfImageWrap.LEFT; "right" -> PdfImageWrap.RIGHT; "largest" -> PdfImageWrap.LARGEST
+                        "bothSides" -> PdfImageWrap.BOTH
+                        else -> reject("Unsupported square wrapping side")
+                    }
+                }
+                else -> reject("Unsupported image wrapping")
+            }
+            val allowed = setOf("simplePos", "positionH", "positionV", "extent", "effectExtent", "docPr", "cNvGraphicFramePr", wrap.name.localPart)
+            val extras = anchor.elements().filterNot { it.name.namespaceURI == wp && it.name.localPart in allowed || it.name.namespaceURI == drawing && it.name.localPart == "graphic" }
+            check(extras.map { it.name }.distinct().size == extras.size, "Duplicate relative image size")
+            for (extra in extras) {
+                source.current = extra
+                WordAnchorMetadata.validate(extra, ::reject)
+            }
+            source.current = node
+            anchor.elements().filter { it.name.namespaceURI == wp && it.name.localPart == "effectExtent" }.forEach { effect ->
+                val padding = WordInlineImagePadding.read(effect) { origin, message -> source.current = origin; reject(message) }
+                source.current = effect
+                if (policy != PdfImageWrap.NONE && padding != PdfMargins(0f, 0f, 0f, 0f)) {
+                    val side = listOf("l", "t", "r", "b").first { effect.attribute("", it)?.toLongOrNull() != 0L }
+                    reject("Unsupported anchored image effectExtent/@$side")
+                }
+            }
+            check(!pageBand || policy == PdfImageWrap.NONE, "Only unwrapped floating images are qualified in page bands")
+            check(order.layer != PdfDrawingLayer.BACKGROUND || policy == PdfImageWrap.NONE, "Wrapped background pictures are not qualified")
+            val properties = anchor.elements().filter { it.name.namespaceURI == wp && it.name.localPart == "docPr" }
+            val docPr = properties.singleOrNull()
+            val clicks = properties.flatMap { it.elements() }.filter { it.name.namespaceURI == drawing && it.name.localPart == "hlinkClick" }
+            source.current = clicks.getOrNull(1) ?: clicks.firstOrNull() ?: docPr ?: anchor
+            check(clicks.isEmpty() || clicks.size == 1 && docPr != null, "Duplicate picture or hyperlink properties")
+            val click = clicks.singleOrNull()
+            val link = click?.let {
+                val id = it.attribute(rel, "id")
+                check(policy == PdfImageWrap.NONE && vertical.second == PdfBoxAnchor.PAGE && it.attributes.size == 1 &&
+                    it.elements().isEmpty() && it.children.filterIsInstance<XmlText>().all { text -> text.text.isBlank() } && id != null,
+                    "A picture hyperlink requires a fixed unwrapped picture and one external relationship")
+                PdfLink.External(partRelations[id] ?: reject("Missing picture hyperlink relationship"))
+            }
+            val inline = XmlElement(javax.xml.namespace.QName(wp, "inline"))
+            for (item in anchor.elements().filter { it.name.namespaceURI == drawing ||
+                it.name.localPart in setOf("extent", "effectExtent", "docPr", "cNvGraphicFramePr") }) {
+                val visible = if (click != null && item === docPr) XmlElement(item.name, item.attributes, item.namespaces).also {
+                    it.children.addAll(item.children.filterNot { child -> child === click })
+                } else item
+                inline.children += visible
+            }
+            val container = XmlElement(node.name).also { it.children += inline }
+            val converted = image(container, partRelations, parts)
+            if (cellRelative) {
+                source.current = anchor
+                check(pageBand && policy == PdfImageWrap.NONE && link == null && !headerContour,
+                    "Only unwrapped inert cell-relative pictures are qualified in page bands")
+                return PdfAnchoredImage.inTableCell(converted, horizontal, vertical.first, order)
+            }
+            val pageFixed = vertical.second == PdfBoxAnchor.PAGE
+            val fitsWidth = horizontal >= 0f && horizontal + converted.width <= page.width + .001f
+            val fitsHeight = !pageFixed || vertical.first >= 0f && vertical.first + converted.height <= page.height + .001f
+            val bounds = if (fitsWidth && fitsHeight) {
+                Triple(converted, horizontal, vertical.first)
+            } else {
+                check(pageBand && pageFixed && policy == PdfImageWrap.NONE || fitsWidth,
+                    "Anchored image exceeds the physical page width")
+                check(pageBand && pageFixed && policy == PdfImageWrap.NONE || fitsHeight,
+                    "Anchored image exceeds the physical page height")
+                source.current = anchor
+                val visible = WordPageBandPictureClip.clip(converted, horizontal, vertical.first, page)
+                    ?: reject("Anchored picture has no usable area inside the page")
+                Triple(visible.image, visible.left, visible.top)
+            }
+            return PdfAnchoredImage(bounds.first, bounds.second, bounds.third, vertical.second, policy,
+                PdfMargins(number(anchor.attribute("", "distT") ?: "0") / 12700, number(anchor.attribute("", "distR") ?: "0") / 12700,
+                    number(anchor.attribute("", "distB") ?: "0") / 12700, number(anchor.attribute("", "distL") ?: "0") / 12700)).withDrawingOrder(order).withLink(link)
+        }
+
+        fun readBandCellParagraph(paragraph: XmlElement, partRelations: Map<String, String>, cellStyles: List<XmlElement>,
+                                  allowCellPictures: Boolean): PdfParagraph {
+            if (!allowCellPictures) return readParagraph(paragraph, partRelations, true, cellStyles, allowPageBreak = false)
+            val runs = paragraph.elements().filter { run ->
+                run.name.namespaceURI == word && run.name.localPart == "r" && run.elements().any { element ->
+                    element.name.namespaceURI == word && element.name.localPart == "drawing" &&
+                        element.elements().singleOrNull()?.let { it.name.namespaceURI == wp && it.name.localPart == "anchor" } == true
+                }
+            }
+            if (runs.isEmpty()) return readParagraph(paragraph, partRelations, true, cellStyles, allowPageBreak = false)
+            val drawings = runs.map { run ->
+                source.current = run
+                check(run.elements().size in 1..2 && run.elements().all {
+                    it.name.namespaceURI == word && it.name.localPart in setOf("rPr", "drawing")
+                }, "Mixed picture and text runs in page-band cells are not qualified")
+                run.one("drawing") ?: reject("Missing cell picture")
+            }
+            val plain = XmlElement(paragraph.name, paragraph.attributes, paragraph.namespaces).also {
+                it.children.addAll(paragraph.children.filterNot { child -> child in runs })
+            }
+            numbering.alias(paragraph, plain)
+            neighbors[plain] = neighbors[paragraph] ?: (null to null)
+            val text = readParagraph(plain, partRelations, true, cellStyles, allowPageBreak = false)
+            return text.copy(anchoredImages = drawings.map {
+                readAnchoredImage(it, partRelations, pageBand = true, cellRelative = true)
+            })
+        }
+
         fun readTable(table: XmlElement, partRelations: Map<String, String>, fields: Boolean, depth: Int = 0): PdfTable {
             source.current = table
             check(depth <= 1, "Only one nested table level is supported")
@@ -1226,9 +1390,12 @@ internal class NativeDocxReader(
                     val hideMark = cp.one("hideMark")?.takeIf { node ->
                         WordTableWidths.cellToggle(node) { origin, message -> source.current = origin; reject(message) }
                     }
+                    val allowCellPictures = fields && depth == 0 && rowNodes.size == 1 && column == 0 &&
+                        span == 1 && cp.one("vMerge") == null && alignment == PdfVerticalAlignment.TOP
                     val blocks = cell.elements().filter { it.name.localPart != "tcPr" }.map { child ->
                         when (child.name.localPart) {
-                            "p" -> readParagraph(child, partRelations, fields, cellStyles, allowPageBreak = false).let { paragraph ->
+                            "p" -> (if (fields) readBandCellParagraph(child, partRelations, cellStyles, allowCellPictures)
+                                else readParagraph(child, partRelations, false, cellStyles, allowPageBreak = false)).let { paragraph ->
                                 val resolved = paragraph.withLongWordBreaking(depth == 0 && !fields && !automaticLayout)
                                 if (depth == 0 && !fields && span == 1 && cp.one("vMerge") == null)
                                     resolved.copy(format = resolved.format.copy(keepLines = false, widowControl = false))
@@ -1596,132 +1763,6 @@ internal class NativeDocxReader(
                 when (bodyProps.attribute("", "anchor")) { "t" -> PdfVerticalAlignment.TOP; "ctr" -> PdfVerticalAlignment.CENTER; "b" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported vertical alignment") }).withDrawingOrder(order).withAutoFit(autoFit).withPageAlignment(pageAlignment)
                 .withVisibleTextOverflow((!fields || isolatedFooterFrames && placement == PdfBoxAnchor.PAGE) &&
                     autoFit == null && rotation == 0f && bodyProps.attribute("", "anchorCtr") in setOf(null, "0", "false"))
-        }
-
-        fun readAnchoredImage(node: XmlElement, partRelations: Map<String, String>, pageBand: Boolean = false,
-            isolatedHeaderPicture: Boolean = false): PdfAnchoredImage {
-            source.current = node
-            val anchor = node.elements().single()
-
-            fun one(name: String) = anchor.elements().singleOrNull { it.name.namespaceURI == wp && it.name.localPart == name } ?: reject("Missing or duplicate image anchor property")
-
-            val order = WordDrawingOrder.read(anchor) { origin, message -> source.current = origin; reject(message) }
-            val extent = one("extent")
-            val imageWidth = number(extent.attribute("", "cx")) / 12700
-
-            fun offset(name: String, horizontal: Boolean): Pair<Float, PdfBoxAnchor> {
-                val position = one(name)
-                check(position.attributes.size == 1 && position.elements().size == 1, "Unsupported anchor position")
-                val relative = position.attribute("", "relativeFrom")
-                check(relative in (if (horizontal) setOf("page", "margin", "column") else setOf("page", "paragraph")), "Unsupported image reference area")
-                val value = position.elements().single()
-                check(value.name.namespaceURI == wp && value.attributes.isEmpty() && value.elements().isEmpty(), "Invalid anchor offset")
-                val text = value.children.filterIsInstance<XmlText>().joinToString("") { it.text }
-                val base = if (horizontal && relative != "page") page.margins.left else 0f
-                val available = if (relative == "page") page.width else page.width - page.margins.left - page.margins.right
-                val amount = when (value.name.localPart) {
-                    "posOffset" -> (text.toLongOrNull()?.takeIf { it in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong() }
-                        ?: reject("Invalid signed image offset")).toFloat() / 12700
-                    "align" -> {
-                        check(horizontal, "Vertical image alignment is not qualified")
-                        when (text) { "left" -> 0f; "right" -> available - imageWidth; "center" -> (available - imageWidth) / 2; else -> reject("Unsupported image alignment") }
-                    }
-                    else -> reject("Unsupported image offset")
-                }
-                return (base + amount) to if (relative == "paragraph") PdfBoxAnchor.PARAGRAPH else PdfBoxAnchor.PAGE
-            }
-
-            val horizontal = offset("positionH", true).first
-            val vertical = offset("positionV", false)
-            val wraps = anchor.elements().filter { it.name.namespaceURI == wp && it.name.localPart.startsWith("wrap") }
-            check(wraps.size == 1, "Unsupported image wrapping geometry")
-            val wrap = wraps.single()
-            source.current = wrap
-            val headerContour = wrap.name.localPart == "wrapTight"
-            check(headerContour || wrap.elements().isEmpty(), "Unsupported image wrapping geometry")
-            val policy = when (wrap.name.localPart) {
-                "wrapTight" -> {
-                    check(isolatedHeaderPicture && vertical.second == PdfBoxAnchor.PAGE &&
-                        order.layer == PdfDrawingLayer.BACKGROUND,
-                        "Tight image wrapping requires a behind-text picture in an otherwise empty header")
-                    val edge = WordHeaderWrapContour.bottom(wrap) { origin, message -> source.current = origin; reject(message) }
-                    val height = number(extent.attribute("", "cy")) / 12700
-                    val distance = number(anchor.attribute("", "distB") ?: "0") / 12700
-                    check(vertical.first + height * edge + distance <= page.margins.top + .001f,
-                        "Tight header image contour extends below the body margin")
-                    PdfImageWrap.NONE
-                }
-                "wrapNone" -> { check(wrap.attributes.isEmpty(), "Invalid image wrapping"); PdfImageWrap.NONE }
-                "wrapTopAndBottom" -> { check(wrap.attributes.isEmpty(), "Invalid image wrapping"); PdfImageWrap.TOP_BOTTOM }
-                "wrapSquare" -> {
-                    check(wrap.attributes.size == 1, "Unsupported square wrapping effect")
-                    when (wrap.attribute("", "wrapText")) {
-                        "left" -> PdfImageWrap.LEFT; "right" -> PdfImageWrap.RIGHT; "largest" -> PdfImageWrap.LARGEST
-                        "bothSides" -> PdfImageWrap.BOTH
-                        else -> reject("Unsupported square wrapping side")
-                    }
-                }
-                else -> reject("Unsupported image wrapping")
-            }
-            val allowed = setOf("simplePos", "positionH", "positionV", "extent", "effectExtent", "docPr", "cNvGraphicFramePr", wrap.name.localPart)
-            val extras = anchor.elements().filterNot { it.name.namespaceURI == wp && it.name.localPart in allowed || it.name.namespaceURI == drawing && it.name.localPart == "graphic" }
-            check(extras.map { it.name }.distinct().size == extras.size, "Duplicate relative image size")
-            for (extra in extras) {
-                source.current = extra
-                WordAnchorMetadata.validate(extra, ::reject)
-            }
-            source.current = node
-            anchor.elements().filter { it.name.namespaceURI == wp && it.name.localPart == "effectExtent" }.forEach { effect ->
-                val padding = WordInlineImagePadding.read(effect) { origin, message -> source.current = origin; reject(message) }
-                source.current = effect
-                if (policy != PdfImageWrap.NONE && padding != PdfMargins(0f, 0f, 0f, 0f)) {
-                    val side = listOf("l", "t", "r", "b").first { effect.attribute("", it)?.toLongOrNull() != 0L }
-                    reject("Unsupported anchored image effectExtent/@$side")
-                }
-            }
-            check(!pageBand || policy == PdfImageWrap.NONE, "Only unwrapped floating images are qualified in page bands")
-            check(order.layer != PdfDrawingLayer.BACKGROUND || policy == PdfImageWrap.NONE, "Wrapped background pictures are not qualified")
-            val properties = anchor.elements().filter { it.name.namespaceURI == wp && it.name.localPart == "docPr" }
-            val docPr = properties.singleOrNull()
-            val clicks = properties.flatMap { it.elements() }.filter { it.name.namespaceURI == drawing && it.name.localPart == "hlinkClick" }
-            source.current = clicks.getOrNull(1) ?: clicks.firstOrNull() ?: docPr ?: anchor
-            check(clicks.isEmpty() || clicks.size == 1 && docPr != null, "Duplicate picture or hyperlink properties")
-            val click = clicks.singleOrNull()
-            val link = click?.let {
-                val id = it.attribute(rel, "id")
-                check(policy == PdfImageWrap.NONE && vertical.second == PdfBoxAnchor.PAGE && it.attributes.size == 1 &&
-                    it.elements().isEmpty() && it.children.filterIsInstance<XmlText>().all { text -> text.text.isBlank() } && id != null,
-                    "A picture hyperlink requires a fixed unwrapped picture and one external relationship")
-                PdfLink.External(partRelations[id] ?: reject("Missing picture hyperlink relationship"))
-            }
-            val inline = XmlElement(javax.xml.namespace.QName(wp, "inline"))
-            for (item in anchor.elements().filter { it.name.namespaceURI == drawing ||
-                it.name.localPart in setOf("extent", "effectExtent", "docPr", "cNvGraphicFramePr") }) {
-                val visible = if (click != null && item === docPr) XmlElement(item.name, item.attributes, item.namespaces).also {
-                    it.children.addAll(item.children.filterNot { child -> child === click })
-                } else item
-                inline.children += visible
-            }
-            val container = XmlElement(node.name).also { it.children += inline }
-            val converted = image(container, partRelations, parts)
-            val pageFixed = vertical.second == PdfBoxAnchor.PAGE
-            val fitsWidth = horizontal >= 0f && horizontal + converted.width <= page.width + .001f
-            val fitsHeight = !pageFixed || vertical.first >= 0f && vertical.first + converted.height <= page.height + .001f
-            val bounds = if (fitsWidth && fitsHeight) {
-                Triple(converted, horizontal, vertical.first)
-            } else {
-                check(pageBand && pageFixed && policy == PdfImageWrap.NONE || fitsWidth,
-                    "Anchored image exceeds the physical page width")
-                check(pageBand && pageFixed && policy == PdfImageWrap.NONE || fitsHeight,
-                    "Anchored image exceeds the physical page height")
-                source.current = anchor
-                val visible = WordPageBandPictureClip.clip(converted, horizontal, vertical.first, page)
-                    ?: reject("Anchored picture has no usable area inside the page")
-                Triple(visible.image, visible.left, visible.top)
-            }
-            return PdfAnchoredImage(bounds.first, bounds.second, bounds.third, vertical.second, policy,
-                PdfMargins(number(anchor.attribute("", "distT") ?: "0") / 12700, number(anchor.attribute("", "distR") ?: "0") / 12700,
-                    number(anchor.attribute("", "distB") ?: "0") / 12700, number(anchor.attribute("", "distL") ?: "0") / 12700)).withDrawingOrder(order).withLink(link)
         }
 
         fun omitEmptyLegacyBandFrame(paragraph: XmlElement, partRelations: Map<String, String>): Boolean {
