@@ -212,10 +212,10 @@ class PdfTableCell private constructor(
             val end = this.blocks.lastOrNull() as? PdfParagraph
             require(end != null && end.listLabel == null && end.contents == null && end.background == null &&
                 end.borders == null && end.lines.isEmpty() && end.anchoredImages.isEmpty() &&
-                end.spaceBefore == 0f && end.spaceAfter == 0f && !end.format.pageBreakBefore &&
+                !end.format.pageBreakBefore &&
                 end.runs.all { it is PdfTextRun && it.text.all { c -> c == ' ' } &&
                     it.navigation == null && it.style.background == null && !it.style.underline && !it.style.strikethrough }) {
-                "Only a plain unspaced trailing empty table paragraph can be omitted"
+                "Only a plain trailing empty table paragraph can be omitted"
             }
         }
         require(margins == null || listOf(margins.top, margins.right, margins.bottom, margins.left).all { it <= 14_400f }) { "Cell margins exceed the layout limit" }

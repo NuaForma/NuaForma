@@ -407,3 +407,5 @@ Solid native table strokes can be up to six points. Modern flat tables with one 
 A qualified full-width two-row merge preserves the blank continuation line and thicker hidden top-rule clearance without painting a divider.
 
 Automatic and percentage cell widths preserve a qualified unbroken line when Word disables wrapping for that cell.
+
+A hidden, undecorated empty cell marker contributes neither its final line nor its paragraph spacing.

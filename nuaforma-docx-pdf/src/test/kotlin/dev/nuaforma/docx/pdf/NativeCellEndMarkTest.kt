@@ -23,6 +23,17 @@ class NativeCellEndMarkTest {
     }
 
     @Test
+    fun `the hidden empty marker contributes neither its line nor its paragraph spacing`() {
+        for (preceding in listOf(false, true)) {
+            val hidden = markers(mark = 72, toggle = "<w:hideMark/>", precedingText = preceding)
+            val spacedHidden = markers(mark = 72, toggle = "<w:hideMark/>", precedingText = preceding, markerSpacing = 180)
+            val spacedVisible = markers(mark = 72, precedingText = preceding, markerSpacing = 180)
+            assertEquals(hidden, spacedHidden)
+            assertTrue(distance(spacedVisible) - distance(spacedHidden) > 40f)
+        }
+    }
+
+    @Test
     fun `hiding a large mark in a populated cell retains the visible text and its ordinary line`() {
         val ordinary = markers(mark = 22, populated = true)
         val hidden = markers(mark = 72, populated = true, toggle = "<w:hideMark/>")
@@ -44,19 +55,19 @@ class NativeCellEndMarkTest {
         markers.getValue("AFTER_CELL").y - markers.getValue("BEFORE_CELL").y
 
     private fun markers(mark: Int, toggle: String = "", populated: Boolean = false, rowFloor: Int? = null,
-        precedingText: Boolean = false): Map<String, NativeWordFeatureSupport.Position> {
+        precedingText: Boolean = false, markerSpacing: Int = 0): Map<String, NativeWordFeatureSupport.Position> {
         val support = NativeWordFeatureSupport(temporary)
         val parts = PdfFixture.unzip(support.bytes(source)).toMutableMap()
-        parts[part] = fixture(parts.getValue(part).decodeToString(), toggle, mark, populated, rowFloor, precedingText).toByteArray()
+        parts[part] = fixture(parts.getValue(part).decodeToString(), toggle, mark, populated, rowFloor, precedingText, markerSpacing).toByteArray()
         return Loader.loadPDF(support.generate(PdfFixture.zip(parts), "standard")).use { pdf ->
             assertEquals(1, pdf.numberOfPages)
             support.positions(pdf, Regex("BEFORE_CELL|AFTER_CELL|CELL_TEXT|FIRST_TEXT"))
         }
     }
 
-    private fun fixture(xml: String, toggle: String, mark: Int, populated: Boolean, rowFloor: Int?, precedingText: Boolean): String {
+    private fun fixture(xml: String, toggle: String, mark: Int, populated: Boolean, rowFloor: Int?, precedingText: Boolean, markerSpacing: Int = 0): String {
         val previous = if (precedingText) paragraph("FIRST_TEXT", 22) else ""
-        val cellContent = previous + paragraph(if (populated) "CELL_TEXT" else "", mark)
+        val cellContent = previous + paragraph(if (populated) "CELL_TEXT" else "", mark, markerSpacing)
         return xml.substringBefore("<w:body>") +
             """<w:body><w:tbl><w:tblPr><w:tblW w:w="4000" w:type="dxa"/><w:tblLayout w:type="fixed"/>""" +
             """<w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="0" w:type="dxa"/>""" +
@@ -71,9 +82,9 @@ class NativeCellEndMarkTest {
         return """<w:tr>$rowMinimum<w:tc><w:tcPr><w:tcW w:type="dxa" w:w="4000"/>$toggle</w:tcPr>$content</w:tc></w:tr>"""
     }
 
-    private fun paragraph(text: String, mark: Int): String {
+    private fun paragraph(text: String, mark: Int, spacing: Int = 0): String {
         val run = if (text.isEmpty()) "" else """<w:r><w:rPr><w:sz w:val="22"/></w:rPr><w:t>$text</w:t></w:r>"""
-        return """<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>""" +
+        return """<w:p><w:pPr><w:spacing w:before="$spacing" w:after="$spacing" w:line="240" w:lineRule="auto"/>""" +
             """<w:rPr><w:sz w:val="$mark"/></w:rPr></w:pPr>$run</w:p>"""
     }
 

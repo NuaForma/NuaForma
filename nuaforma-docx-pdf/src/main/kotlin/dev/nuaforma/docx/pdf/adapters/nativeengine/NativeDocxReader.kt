@@ -1729,7 +1729,7 @@ internal class NativeDocxReader(
                         resolvedCell.withOmittedTrailingEmptyParagraph(true)
                     } catch (invalid: IllegalArgumentException) {
                         source.current = endMark
-                        reject("Omitting a decorated or spaced cell end mark is not qualified")
+                        reject("Omitting a decorated cell end mark is not qualified")
                     }
                 }
                 val minimum = rowMinimums[rowIndex]?.let { contentFloor ->
