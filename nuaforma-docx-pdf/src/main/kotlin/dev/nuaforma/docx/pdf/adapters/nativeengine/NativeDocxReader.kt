@@ -1656,7 +1656,12 @@ internal class NativeDocxReader(
             val customBorders = specs.any { (cells, _) -> cells.any { it.borders != null } }
             if (cellMargins == null && customBorders && !independentFixedEdges) {
                 source.current = properties
-                reject("Explicit cell margins required for tables with cell borders")
+                val allSides = setOf("top", "right", "bottom", "left")
+                val completeCellMargins = modernTableAlignment && !fields && depth == 0 && position == null &&
+                    rowNodes.all { row -> row.elements().filter { it.name.localPart == "tc" }.all { cell ->
+                        cell.one("tcPr")?.one("tcMar")?.elements()?.map { it.name.localPart }?.toSet() == allSides
+                    } }
+                check(completeCellMargins, "Explicit cell margins required for tables with cell borders")
             }
             // Word moves these rows as units. The PDF engine does not fragment vertical merges.
             val hasVerticalMerges = specs.any { (cells, _) -> cells.any { it.rows > 1 } }

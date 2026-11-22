@@ -377,3 +377,5 @@ Empty trailing fields after a nondecorated right tab also keep the blank continu
 A Word Watermarks gallery wrapper can retain its ordinary saved header drawing, including an empty closing marker. The drawing itself still follows the native profile.
 
 A saved table of contents keeps its document styles when Word stores separate font properties for insertion and the control end mark.
+
+Modern body tables with complete explicit margins in every cell retain their spacing and borders when the table does not declare default cell margins.
