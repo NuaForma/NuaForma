@@ -1013,6 +1013,8 @@ internal class NativeDocxReader(
             }
             val borderValues = borderNames.map(tableBorders::get).distinct()
             val sparseBorders = borderValues.size > 1
+            val bottomOnly = sparseBorders && tableBorders["bottom"] != null &&
+                tableBorders.entries.none { (side, stroke) -> side != "bottom" && stroke != null }
             if (sparseBorders) {
                 source.current = borderLayers.last()
                 check(borderValues.filterNotNull().size == 1 && modernTableAlignment && depth == 0 && !fields &&
@@ -1150,10 +1152,16 @@ internal class NativeDocxReader(
                     val declaredCellBorders = if (edgePolicies.isEmpty()) null else edgePolicies.fold(fallbackBorders) { inherited, node -> readCellBorders(node, inherited) }
                     val cellBorders = if (sparseBorders) {
                         source.current = cell
-                        check(cp.one("gridSpan") == null && cp.one("vMerge") == null && declaredCellBorders == null &&
-                            cell.elements().none { it.name.localPart == "tbl" },
+                        val sameBottom = bottomOnly && (edgePolicies.isEmpty() || edgePolicies.all { policy ->
+                            val edge = policy.elements().singleOrNull()
+                            edge != null && edge.name.namespaceURI == word && edge.name.localPart == "bottom" &&
+                                edge.value("val") == "single"
+                        } && declaredCellBorders?.bottom?.border == tableBorders["bottom"])
+                        check(cp.one("vMerge") == null && cell.elements().none { it.name.localPart == "tbl" } &&
+                            (sameBottom || cp.one("gridSpan") == null && declaredCellBorders == null),
                             "Independent table edges with merged, nested or custom-bordered cells are not qualified")
-                        tableCellEdges(rowIndex, column)
+                        val inherited = tableCellEdges(rowIndex, column)
+                        if (sameBottom && declaredCellBorders != null) inherited.copy(bottom = declaredCellBorders.bottom) else inherited
                     } else declaredCellBorders?.takeUnless {
                         cellMargins == null && it == fallbackBorders && (suppressGrid || border == null ||
                             edgePolicies.none { policy -> policy.elements().any { it.value("val") == "none" } })
@@ -1646,8 +1654,27 @@ internal class NativeDocxReader(
             }
             check(!pageBand || policy == PdfImageWrap.NONE, "Only unwrapped floating images are qualified in page bands")
             check(order.layer != PdfDrawingLayer.BACKGROUND || policy == PdfImageWrap.NONE, "Wrapped background pictures are not qualified")
+            val properties = anchor.elements().filter { it.name.namespaceURI == wp && it.name.localPart == "docPr" }
+            val docPr = properties.singleOrNull()
+            val clicks = properties.flatMap { it.elements() }.filter { it.name.namespaceURI == drawing && it.name.localPart == "hlinkClick" }
+            source.current = clicks.getOrNull(1) ?: clicks.firstOrNull() ?: docPr ?: anchor
+            check(clicks.isEmpty() || clicks.size == 1 && docPr != null, "Duplicate picture or hyperlink properties")
+            val click = clicks.singleOrNull()
+            val link = click?.let {
+                val id = it.attribute(rel, "id")
+                check(policy == PdfImageWrap.NONE && vertical.second == PdfBoxAnchor.PAGE && it.attributes.size == 1 &&
+                    it.elements().isEmpty() && it.children.filterIsInstance<XmlText>().all { text -> text.text.isBlank() } && id != null,
+                    "A picture hyperlink requires a fixed unwrapped picture and one external relationship")
+                PdfLink.External(partRelations[id] ?: reject("Missing picture hyperlink relationship"))
+            }
             val inline = XmlElement(javax.xml.namespace.QName(wp, "inline"))
-            inline.children.addAll(anchor.elements().filter { it.name.namespaceURI == drawing || it.name.localPart in setOf("extent", "effectExtent", "docPr", "cNvGraphicFramePr") })
+            for (item in anchor.elements().filter { it.name.namespaceURI == drawing ||
+                it.name.localPart in setOf("extent", "effectExtent", "docPr", "cNvGraphicFramePr") }) {
+                val visible = if (click != null && item === docPr) XmlElement(item.name, item.attributes, item.namespaces).also {
+                    it.children.addAll(item.children.filterNot { child -> child === click })
+                } else item
+                inline.children += visible
+            }
             val container = XmlElement(node.name).also { it.children += inline }
             val converted = image(container, partRelations, parts)
             check(horizontal >= 0 && horizontal + converted.width <= page.width + .001f, "Anchored image exceeds the physical page width")
@@ -1655,7 +1682,7 @@ internal class NativeDocxReader(
                 "Anchored image exceeds the physical page height")
             return PdfAnchoredImage(converted, horizontal, vertical.first, vertical.second, policy,
                 PdfMargins(number(anchor.attribute("", "distT") ?: "0") / 12700, number(anchor.attribute("", "distR") ?: "0") / 12700,
-                    number(anchor.attribute("", "distB") ?: "0") / 12700, number(anchor.attribute("", "distL") ?: "0") / 12700)).withDrawingOrder(order)
+                    number(anchor.attribute("", "distB") ?: "0") / 12700, number(anchor.attribute("", "distL") ?: "0") / 12700)).withDrawingOrder(order).withLink(link)
         }
 
         fun omitEmptyLegacyBandFrame(paragraph: XmlElement, partRelations: Map<String, String>): Boolean {

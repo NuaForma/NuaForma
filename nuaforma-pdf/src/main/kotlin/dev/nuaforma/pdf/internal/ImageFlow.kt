@@ -39,7 +39,7 @@ internal object ImageFlow {
                 fail(PdfFailureCode.CONTENT_OVERFLOW, "Anchored image exceeds the physical page")
             if (anchor.wrap != PdfImageWrap.NONE && (y - anchor.distances.top < start - .001f || y + anchor.image.height + anchor.distances.bottom > bottom + .001f))
                 fail(PdfFailureCode.CONTENT_OVERFLOW, "Wrapped image exceeds its body flow area")
-            PositionedImage(anchor.image, anchor.left, y, foreground = true, drawingOrder = anchor.drawingOrder) to Exclusion(anchor.left - anchor.distances.left, y - anchor.distances.top,
+            PositionedImage(anchor.image, anchor.left, y, foreground = true, drawingOrder = anchor.drawingOrder, link = anchor.link) to Exclusion(anchor.left - anchor.distances.left, y - anchor.distances.top,
                 anchor.left + anchor.image.width + anchor.distances.right, y + anchor.image.height + anchor.distances.bottom, anchor.wrap)
         }
         val preceding = pages.getOrNull(anchorPage).orEmpty().filterIsInstance<PositionedImage>().filter { it.foreground }.toMutableList()

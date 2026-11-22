@@ -418,6 +418,10 @@ internal object PdfBoxWriter {
                                         number(element.x - width * crop.left), number(canvasHeight - element.top - height * (1f - crop.top)))
                                     command("Do", page.resources.add(image))
                                     command("Q")
+                                    element.link?.let { link ->
+                                        navigation.addImage(page, link, originX + element.x, originTop + element.top,
+                                            element.image.width, element.image.height)
+                                    }
                                 }
                             }
                         }

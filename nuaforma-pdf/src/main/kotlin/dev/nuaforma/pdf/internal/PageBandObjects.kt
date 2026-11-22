@@ -16,7 +16,7 @@ internal object PageBandObjects {
             if (image.wrap != PdfImageWrap.NONE) unsupported("Wrapped floating images in page bands are not qualified")
             val top = image.top + if (image.anchor == PdfBoxAnchor.PARAGRAPH) origin + paragraphTop else 0f
             if (image.left < 0 || image.left + image.image.width > page.width + .001f || top < -.001f || top + image.image.height > page.height + .001f) overflow()
-            result += PositionedImage(image.image, image.left, top, foreground = foreground, pageY = true, drawingOrder = image.drawingOrder)
+            result += PositionedImage(image.image, image.left, top, foreground = foreground, pageY = true, drawingOrder = image.drawingOrder, link = image.link)
         }
         for ((box, paragraphTop) in boxes) {
             PageLayouter.checkCancellation()

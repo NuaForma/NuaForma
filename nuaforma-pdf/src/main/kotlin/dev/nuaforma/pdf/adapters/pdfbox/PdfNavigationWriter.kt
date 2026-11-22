@@ -32,17 +32,27 @@ internal class PdfNavigationWriter(private val pdf: PDDocument) {
         val top = minOf(height, height - text.baseline + metrics.ascent)
         if (text.text.isNotBlank()) navigation.destinations.forEach { addDestination(it, page, text.x, top) }
         val link = navigation.link ?: return
-        if (++annotations > 4_000) throw PdfRenderException(PdfFailureCode.RESOURCE_LIMIT, "Link annotation budget exceeded")
         val linkArea = text.tabLinkArea
         val start = text.x + (linkArea?.offset ?: 0f)
         val left = maxOf(0f, start)
         val right = minOf(page.mediaBox.width, start + (linkArea?.width ?: metrics.width))
+        addLink(page, link, left, bottom, right, top, text.text.take(256).takeIf { linkArea == null })
+    }
+
+    fun addImage(page: PDPage, link: PdfLink.External, x: Float, y: Float, width: Float, height: Float) {
+        val pageHeight = page.mediaBox.height
+        addLink(page, link, maxOf(0f, x), maxOf(0f, pageHeight - y - height),
+            minOf(page.mediaBox.width, x + width), minOf(pageHeight, pageHeight - y), null)
+    }
+
+    private fun addLink(page: PDPage, link: PdfLink, left: Float, bottom: Float, right: Float, top: Float, description: String?) {
+        if (++annotations > 4_000) throw PdfRenderException(PdfFailureCode.RESOURCE_LIMIT, "Link annotation budget exceeded")
         if (right <= left || top <= bottom) return
         page.annotations.add(PDAnnotationLink().apply {
             rectangle = PDRectangle(left, bottom, right - left, top - bottom)
             border = COSArray().apply { repeat(3) { add(COSInteger.ZERO) } }
             isPrinted = true
-            if (linkArea == null) contents = text.text.take(256)
+            if (description != null) contents = description
             this.page = page
             when (link) {
                 is PdfLink.External -> action = PDActionURI().apply { uri = link.encodedUri }
