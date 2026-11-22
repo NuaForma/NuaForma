@@ -417,3 +417,5 @@ An isolated fixed drawing frame in the first header paragraph uses the band orig
 Thick single underlines apply Word-verified line metrics within the measured 8–20 point range.
 
 Development diagnostics name the conversion stage and its specific measured byte or part budget. The production response remains redacted.
+
+A qualified inline or fixed unwrapped body picture preserves its declared viewport while fitting its stored aspect ratio.

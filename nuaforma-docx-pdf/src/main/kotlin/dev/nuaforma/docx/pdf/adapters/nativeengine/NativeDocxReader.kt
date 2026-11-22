@@ -872,7 +872,10 @@ internal class NativeDocxReader(
                         lineDrawings += lineReader.drawing(item, page); null
                     } else {
                         check(link == null && pendingDestinations.isEmpty() && !face.underline && !face.strikethrough, "Navigation or text decorations on pictures are not qualified")
-                        PdfImageRun(image(item, partRelations, parts)).withPadding(WordInlineImagePadding.inline(item) { origin, message -> source.current = origin; reject(message) })
+                        val picture = image(item, partRelations, parts, containTransform = true)
+                        val padding = WordInlineImagePadding.inline(item) { origin, message -> source.current = origin; reject(message) }
+                        PdfImageRun(picture.image).withPadding(padding.copy(right = padding.right + picture.blankRight,
+                            bottom = padding.bottom + picture.blankBottom))
                             .withLineClipping(true)
                     } }
                     else -> reject("Unsupported run content")
@@ -1182,7 +1185,10 @@ internal class NativeDocxReader(
                 inline.children += visible
             }
             val container = XmlElement(node.name).also { it.children += inline }
-            val converted = image(container, partRelations, parts, uniformCellPictureExtent = cellRelative, renderedSize = renderedSize)
+            val fitStoredPicture = !pageBand && policy == PdfImageWrap.NONE && relativeSizes.isEmpty() && link == null &&
+                one("positionH").elements().singleOrNull()?.name?.localPart == "posOffset"
+            val converted = image(container, partRelations, parts, uniformCellPictureExtent = cellRelative,
+                renderedSize = renderedSize, containTransform = fitStoredPicture).image
             if (cellRelative) {
                 source.current = anchor
                 check(pageBand && policy == PdfImageWrap.NONE && link == null && !headerContour,
@@ -2618,8 +2624,11 @@ internal class NativeDocxReader(
         return result
     }
 
+    private data class ResolvedPicture(val image: PdfImage, val blankRight: Float, val blankBottom: Float)
+
     private fun image(node: XmlElement, relations: Map<String, String>, parts: Map<String, ByteArray>,
-                      uniformCellPictureExtent: Boolean = false, renderedSize: Pair<Float, Float>? = null): PdfImage {
+                      uniformCellPictureExtent: Boolean = false, renderedSize: Pair<Float, Float>? = null,
+                      containTransform: Boolean = false): ResolvedPicture {
         source.current = node
 
         fun at(element: XmlElement, condition: Boolean, message: String) {
@@ -2688,7 +2697,10 @@ internal class NativeDocxReader(
         val expectedHeight = extent.attribute("", "cy")
         val innerWidth = transformedExtent.attribute("", "cx")
         val innerHeight = transformedExtent.attribute("", "cy")
-        at(transformedExtent, innerWidth == expectedWidth && innerHeight == expectedHeight ||
+        val sameExtent = innerWidth == expectedWidth && innerHeight == expectedHeight
+        val fit = if (!sameExtent && containTransform && target.substringAfterLast('.').lowercase(java.util.Locale.ROOT) in setOf("png", "jpg", "jpeg"))
+            WordPictureTransform.fit(expectedWidth, expectedHeight, innerWidth, innerHeight) else null
+        at(transformedExtent, sameExtent || fit != null ||
             uniformCellPictureExtent && WordCellPictureExtent.isUniform(expectedWidth, expectedHeight, innerWidth, innerHeight),
             "Nonmatching picture transforms are unsupported")
         val shape = inline.descendants().singleOrNull { it.name.localPart == "prstGeom" } ?: reject("Missing image geometry")
@@ -2699,6 +2711,7 @@ internal class NativeDocxReader(
         check(crops.size <= 1, "Duplicate image crop")
         val crop = crops.singleOrNull()
         if (crop != null) {
+            at(transformedExtent, fit == null || crop.attributes.isEmpty(), "Nonmatching cropped picture transforms are unsupported")
             imageAttributes(crop) { name, _ -> name.namespaceURI.isEmpty() && name.localPart in setOf("t", "r", "b", "l") }
             at(crop, crop.elements().isEmpty(), "Unsupported srcRect content")
         }
@@ -2709,8 +2722,8 @@ internal class NativeDocxReader(
         }
 
         source.current = extent
-        val width = renderedSize?.first ?: number(extent.attribute("", "cx")) / 12700
-        val height = renderedSize?.second ?: number(extent.attribute("", "cy")) / 12700
+        val width = renderedSize?.first ?: fit?.width ?: number(extent.attribute("", "cx")) / 12700
+        val height = renderedSize?.second ?: fit?.height ?: number(extent.attribute("", "cy")) / 12700
         source.current = blip
         val original = parts["word/$target"] ?: reject("Missing image bytes")
         val pixels = if (target.endsWith(".emf", true)) try { metafiles.decode(original, width, height) }
@@ -2726,7 +2739,8 @@ internal class NativeDocxReader(
             NativeConversionBudget.SVG_IMAGES.check(context, svgPictureBytes, minOf(8_388_608L, context.limits.maxExpandedBytes))
             image
         } else if (target.endsWith(".jpg", true) || target.endsWith(".jpeg", true)) jpegs.decode(original, "word/$target") else original
-        return PdfImage(pixels, width, height, PdfImageCrop(fraction("t"), fraction("r"), fraction("b"), fraction("l")))
+        val image = PdfImage(pixels, width, height, PdfImageCrop(fraction("t"), fraction("r"), fraction("b"), fraction("l")))
+        return ResolvedPicture(image, fit?.blankRight ?: 0f, fit?.blankBottom ?: 0f)
     }
 
     private fun unprintedBand(blocks: List<PdfBlock>): Boolean = blocks.all { block ->
