@@ -205,7 +205,7 @@ internal object PageLayouter {
                         if (!deferInkBounds && baseline + descent > bottom + 0.01f) overflow("Line descent exceeds space below baseline", descent, bottom - baseline)
                         val remaining = availableWidth() - lineWidth
                         val prefix = (label?.value?.text?.length ?: 0) + if (label == null || label.suffix == PdfListSuffix.NOTHING) 0 else 1
-                        if (firstLine && label != null && !deferredListLabel) elements += PositionedText(label.value.text, label.style, page.margins.left + area().first + markerLeft, baseline, logicalOwner = block.semantics?.id, span = block.semantics?.let { PdfSpanSemantics(semanticChildId(it.id, "label"), PdfSemanticRole.LABEL) }, logicalOffset = block.semantics?.let { 0 }, requiresPhysicalBounds = deferInkBounds, background = background(label.style, requireNotNull(marker).width),
+                        if (firstLine && label != null && !deferredListLabel) elements += PositionedText(label.value.text, label.style, page.margins.left + area().first + markerLeft, baseline, logicalOwner = block.semantics?.id, span = block.semantics?.let { PdfSpanSemantics(semanticChildId(it.id, "label"), PdfSemanticRole.LABEL) }, logicalOffset = block.semantics?.let { 0 }, requiresPhysicalBounds = deferInkBounds, background = background(label.style, if (label.highlightSuffix) firstTextLeft - markerLeft else requireNotNull(marker).width),
                             physicalLeftOverhang = (-markerLeft).takeIf { marginMarker })
                         var x = page.margins.left + lineLeft() + when (format.alignment) {
                             PdfAlignment.LEFT, PdfAlignment.JUSTIFY -> 0f

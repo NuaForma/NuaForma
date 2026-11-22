@@ -261,3 +261,5 @@ Existing external-link targets can remain clickable inside a fixed unrotated tex
 When a hidden ordinary cell mark follows a trailing soft line break, the final unprinted line is omitted while earlier lines remain intact.
 
 Isolated fixed unrotated footer frames can continue visible text below the nominal rectangle. The actual ink remains within the page and clear of other footer objects.
+
+Numbered paragraph marks can retain their highlight on the label and supported separator.

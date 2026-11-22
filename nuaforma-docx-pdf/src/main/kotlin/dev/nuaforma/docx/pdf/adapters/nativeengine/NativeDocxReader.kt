@@ -540,11 +540,15 @@ internal class NativeDocxReader(
             }
 
             val markProperties = paragraphChain.mapNotNull { it.one("rPr") }
+            var markerBaseHighlight = base.highlight
             val markFace = markProperties.takeIf { it.isNotEmpty() }?.fold(base) { face, property ->
                 val metrics = WordParagraphMark.metricProperties(property) { node, valid ->
                     source.current = node
                     check(valid, "Invalid paragraph-mark highlight")
-                    check(listEntry == null || node.value("val") == "none", "Highlight on numbered paragraph marks is not qualified")
+                    markerBaseHighlight = WordRunBackground.highlight(node) { origin, message ->
+                        source.current = origin
+                        reject(message)
+                    }
                 }
                 faceFor(metrics, face)
             }
@@ -855,12 +859,15 @@ internal class NativeDocxReader(
             val label = listEntry?.let { entry ->
                 check(content.all { it is PdfTextRun || it is PdfReferenceField || it is PdfSequenceField || it is PdfLineBreak ||
                     it is PdfPageBreak || it is PdfTab || it is PdfNoteCall }, "This inline list content is outside the qualified profile")
-                val markerFace = resolveRun(entry.level.one("rPr"), base)
+                val markerFace = resolveRun(entry.level.one("rPr"), base.copy(highlight = markerBaseHighlight))
                 val markerSegments = if (mixedFonts(markerFace)) WordLatinFontSelection.segments(entry.value.text, context, ::reject, ::fontRunsBound) else emptyList()
                 check(markerSegments.size <= 1, "Mixed font selection within one list label is not qualified")
                 val selected = if (markerSegments.singleOrNull()?.highAnsi == true) markerFace.copy(family = markerFace.highAnsiFamily) else markerFace
                 check(!(markerFace.capitals || markerFace.smallCaps) || entry.value.text.none(Char::isLowerCase), "Capitalized list markers are not qualified")
-                PdfListLabel(entry.value, textStyle(selected), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval)
+                check(markerFace.highlight == null || entry.suffix != PdfListSuffix.SPACE || entry.alignment == PdfAlignment.LEFT,
+                    "A highlighted space suffix with centered or right-aligned numbering is not qualified")
+                PdfListLabel(entry.value, textStyle(selected), entry.alignment, entry.suffix, geometry.listTab, defaultTabInterval,
+                    highlightSuffix = markerFace.highlight != null)
             }
             val alignment = if (geometry.direction == PdfTextDirection.RIGHT_TO_LEFT) when (geometry.alignment) {
                 PdfAlignment.LEFT -> PdfAlignment.RIGHT; PdfAlignment.RIGHT -> PdfAlignment.LEFT; PdfAlignment.CENTER -> PdfAlignment.CENTER; PdfAlignment.JUSTIFY -> PdfAlignment.JUSTIFY

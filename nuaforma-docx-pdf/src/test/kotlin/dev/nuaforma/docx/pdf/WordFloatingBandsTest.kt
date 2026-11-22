@@ -401,14 +401,20 @@ class WordFloatingBandsTest {
     }
 
     @Test
-    fun `colored numbering marks remain explicit until visible label highlighting is qualified`() {
+    fun `numbering marks preserve supported label highlights without coloring body text`() {
         for (color in listOf("none", "yellow")) {
             val entries = parts(resource("/own-engine-lists/source.docx"))
             entries["word/document.xml"] = entries.getValue("word/document.xml").decodeToString().replace("<w:numPr>",
                 "<w:rPr><w:highlight w:val=\"$color\"/></w:rPr><w:numPr>").toByteArray()
-            val read = { NativeDocxReader(context()) { _, _, _ -> "regular" }.read(zip(entries)) }
-            if (color == "none") assertDoesNotThrow { read() }
-            else assertTrue(assertThrows(NativeDocxReadException::class.java) { read() }.message!!.contains("numbered paragraph marks"))
+            val model = NativeDocxReader(context()) { _, _, _ -> "regular" }.read(zip(entries))
+            val labels = model.blocks.filterIsInstance<PdfParagraph>().mapNotNull { it.listLabel }
+            assertTrue(labels.isNotEmpty())
+            val yellow = PdfColor(255, 255, 0)
+            val highlighted = labels.filter { it.style.background != null }
+            assertEquals(if (color == "yellow") 74 else 0, highlighted.size)
+            assertTrue(highlighted.all { it.style.background == yellow && it.highlightSuffix })
+            assertFalse(model.blocks.filterIsInstance<PdfParagraph>().flatMap { it.runs }.filterIsInstance<PdfTextRun>()
+                .any { it.style.background == yellow })
         }
     }
 
