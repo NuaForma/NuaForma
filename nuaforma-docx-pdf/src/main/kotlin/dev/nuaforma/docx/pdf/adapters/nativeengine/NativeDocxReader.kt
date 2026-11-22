@@ -1015,12 +1015,21 @@ internal class NativeDocxReader(
             val sparseBorders = borderValues.size > 1
             val bottomOnly = sparseBorders && tableBorders["bottom"] != null &&
                 tableBorders.entries.none { (side, stroke) -> side != "bottom" && stroke != null }
+            val bandCellWidth = rowNodes.singleOrNull()?.elements()?.filter { it.name.localPart == "tc" }
+                ?.singleOrNull()?.one("tcPr")?.one("tcW")
+            val singleBandRule = fields && modernTableAlignment && depth == 0 && widths.size == 1 &&
+                !regions.active && position == null && alignment == PdfTableAlignment.LEFT &&
+                tableBorders["top"] != null && tableBorders.none { (side, stroke) -> side != "top" && stroke != null } &&
+                bandCellWidth?.value("type") == "dxa" && bandCellWidth.value("w") == grid.elements().single().value("w") &&
+                (tableWidth?.value("type") == "dxa" && !automaticLayout ||
+                    tableWidth?.value("type") == "auto" && tableWidth.value("w") == "0")
             if (sparseBorders) {
                 source.current = borderLayers.last()
-                check(borderValues.filterNotNull().size == 1 && modernTableAlignment && depth == 0 && !fields &&
-                    cellMargins != null && !naturalWidths && preferredTableWidth?.percent == null &&
-                    regions.property("jc")?.value("val") in setOf(null, "left"),
-                    "Table edges with independent visibility require a flat modern body table with a common solid border")
+                val ordinaryBodyEdges = borderValues.filterNotNull().size == 1 && modernTableAlignment && depth == 0 &&
+                    !fields && cellMargins != null && !naturalWidths && preferredTableWidth?.percent == null &&
+                    alignment == PdfTableAlignment.LEFT
+                check(ordinaryBodyEdges || singleBandRule,
+                    "Table edges with independent visibility require a flat modern body table or a single qualified page-band rule")
             }
             // Direct absent edges on every ordinary cell suppress the entire inherited grid.
             val suppressGrid = borderValues.singleOrNull() != null && cellMargins == null && modernTableAlignment &&
@@ -1030,8 +1039,8 @@ internal class NativeDocxReader(
             val border = if (sparseBorders || suppressGrid) null else borderValues.single()
             val padding = if (cellMargins == null) {
                 source.current = properties
-                check(modernTableAlignment && depth == 0 && !fields, "Explicit cell margins required for this table")
-                val clearance = maxOf(.5f, (border?.width ?: 0f) / 2f)
+                check(modernTableAlignment && depth == 0 && !fields || singleBandRule, "Explicit cell margins required for this table")
+                val clearance = if (singleBandRule) 5.4f else maxOf(.5f, (border?.width ?: 0f) / 2f)
                 PdfMargins(0f, clearance, 0f, clearance)
             } else PdfMargins(edge("top"), edge("right"), edge("bottom"), edge("left"))
             val resolvedTableWidth = preferredTableWidth?.let { preference ->
@@ -1381,7 +1390,11 @@ internal class NativeDocxReader(
                 PdfPreferredWidth.points(maxOf(minimum, requireNotNull(resolvedTableWidth?.points)))
             } ?: resolvedTableWidth
             return PdfTable(widths, rows, padding, border, count, physicalIndent,
-                if (naturalWidths) PdfTableWidthPolicy.FIT_CONTENTS else if (automaticLayout) PdfTableWidthPolicy.AUTO_FIT else PdfTableWidthPolicy.FIXED,
+                when {
+                    naturalWidths -> PdfTableWidthPolicy.FIT_CONTENTS
+                    automaticLayout && !singleBandRule -> PdfTableWidthPolicy.AUTO_FIT
+                    else -> PdfTableWidthPolicy.FIXED
+                },
                 preferredWidth = finalTableWidth).withRightOverflow(maxOf(legacyOverflow, fixedOverflow)).withAlignment(alignment)
         }
 

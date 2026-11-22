@@ -289,3 +289,5 @@ Fixed unwrapped page-band pictures may retain their visible portion when a physi
 A terminal cell preference within the qualified downward rounding tolerance retains the saved fixed-table grid.
 
 A fixed full-page header picture can layer behind body text while retaining the order of smaller header objects.
+
+An isolated single-cell page-band table can keep its qualified top stroke and ordinary text.
