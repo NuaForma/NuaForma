@@ -166,6 +166,10 @@ internal class NativeDocxReader(
             source.current = node
             source.failure("Unsupported Word document settings", name)
         }
+        WordPictureBulletMetadata(context).normalize(parsed, parts) { name, node, message ->
+            source.current = node
+            throw source.failure(message, name)
+        }
         parsed["word/numbering.xml"]?.let { root -> WordNumberingMetadata(context).normalize(root) { node ->
             source.current = node
             source.failure("Unsupported Word numbering metadata", "word/numbering.xml")
@@ -2663,7 +2667,7 @@ internal class NativeDocxReader(
                     budget(parts.size < minOf(256, context.limits.maxArchiveEntries))
                     check(entry.name !in parts && !entry.isDirectory, "Invalid or duplicate ZIP entries")
                     activePart = entry.name.take(256)
-                    check(trashItem.matches(entry.name) || entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docMetadata/LabelInfo\\.xml|docProps/thumbnail\\.(?:jpeg|jpg|png|emf)|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|stylesWithEffects|intelligence2|numbering|settings|footnotes|endnotes|fontTable|webSettings|comments(?:Extended|Ids|Extensible)?|people|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|theme/_rels/theme1\\.xml\\.rels|_rels/(?:document|settings|footnotes|endnotes|fontTable|comments(?:Extended|Ids|Extensible)?|people|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|fonts/[A-Za-z0-9_.-]+\\.(?i:odttf|ttf)|media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g|svg))|(?i:customXml)/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
+                    check(trashItem.matches(entry.name) || entry.name.matches(Regex("(?:\\[Content_Types]\\.xml|_rels/\\.rels|docMetadata/LabelInfo\\.xml|docProps/thumbnail\\.(?:jpeg|jpg|png|emf)|docProps/(?:app|core|custom)\\.xml|word/(?:(?:document|styles|stylesWithEffects|intelligence2|numbering|settings|footnotes|endnotes|fontTable|webSettings|comments(?:Extended|Ids|Extensible)?|people|(?:header|footer)[1-9][0-9]?)\\.xml|theme/theme1\\.xml|theme/_rels/theme1\\.xml\\.rels|_rels/(?:document|numbering|settings|footnotes|endnotes|fontTable|comments(?:Extended|Ids|Extensible)?|people|(?:header|footer)[1-9][0-9]?)\\.xml\\.rels|fonts/[A-Za-z0-9_.-]+\\.(?i:odttf|ttf)|media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g|svg))|(?i:customXml)/(?:item(?:Props)?[1-9][0-9]?\\.xml|_rels/item[1-9][0-9]?\\.xml\\.rels))")), "Unsupported package part")
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(8192)
                     while (true) {

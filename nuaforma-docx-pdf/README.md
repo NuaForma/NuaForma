@@ -391,3 +391,5 @@ Word run shading uses its own measured solid or percentage color while retaining
 An empty footnote or endnote continuation notice with explicit zero paragraph spacing leaves note pagination intact.
 
 A valid bookmark ending before a cell's first paragraph keeps its original text boundary without adding a paragraph.
+
+Validated internal PNG definitions for unused Word picture bullets leave printed numbering unchanged. Visible picture bullets remain outside the qualified profile.
