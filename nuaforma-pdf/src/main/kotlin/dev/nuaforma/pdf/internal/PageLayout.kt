@@ -167,6 +167,17 @@ internal object PageLayouter {
                         block.runs.all { it is PdfTextRun || it is PdfTab } &&
                         format.tabs?.stops?.map { it.alignment } == listOf(PdfTabAlignment.CENTER, PdfTabAlignment.RIGHT)
                     var rightFieldIndex = 0
+                    val plainTrailingTabs = format.alignment == PdfAlignment.LEFT && block.runs.any { it is PdfTab } &&
+                        format.tabs?.stops.orEmpty().all { it.alignment == PdfTabAlignment.LEFT && it.leader == PdfTabLeader.NONE }
+                    val lastVisibleGroup = if (plainTrailingTabs) groups.indexOfLast { group ->
+                        group.any { fragment ->
+                            val style = fragment.style
+                            style == null || style.underline || style.strikethrough || style.background != null ||
+                                fragment.navigation != null || (fragment.tab == null && (fragment.text.isEmpty() || fragment.text.any { it != ' ' }))
+                        }
+                    } else groups.lastIndex
+                    val multiplePlainTrailingTabs = plainTrailingTabs && label == null && lineArea == null &&
+                        groups.subList(lastVisibleGroup + 1, groups.size).count { it.singleOrNull()?.tab != null } > 1
                     val paragraphBidi = format.textDirection?.let { direction ->
                         val text = block.runs.joinToString("") { when (it) { is PdfTextRun -> it.text; is PdfLineBreak -> "\n"; else -> "" } }
                         java.text.Bidi(text, if (direction == PdfTextDirection.RIGHT_TO_LEFT) java.text.Bidi.DIRECTION_RIGHT_TO_LEFT else java.text.Bidi.DIRECTION_LEFT_TO_RIGHT)
@@ -462,12 +473,20 @@ internal object PageLayouter {
                                 }
                             }
                             lineContainsAnchoredTab = lineContainsAnchoredTab || anchored
-                            // An unpainted final left tab beyond the text edge retains its line metrics without adding width.
-                            if (start > fieldEdge + .001f && !anchored && groupIndex == groups.lastIndex &&
-                                cursor <= fieldEdge + .001f &&
+                            val unpaintedTrailingTab = !anchored && cursor <= fieldEdge + .001f &&
                                 leader == PdfTabLeader.NONE && control.navigation == null &&
-                                !control.style.underline && !control.style.strikethrough && control.style.background == null) {
-                                start = cursor
+                                !control.style.underline && !control.style.strikethrough && control.style.background == null
+                            if (start > fieldEdge + .001f && unpaintedTrailingTab) {
+                                if (multiplePlainTrailingTabs && groupIndex > lastVisibleGroup && line.isNotEmpty()) {
+                                    // A plain sequence resumes at the first available stop on the next line.
+                                    flush(justify = false)
+                                    cursor = lineLeft()
+                                    val next = settings.stops.firstOrNull { it.position > cursor + .001f }?.position
+                                        ?: (kotlin.math.floor((cursor + .001f) / settings.defaultInterval) + 1) * settings.defaultInterval
+                                    start = if (next <= fieldEdge + .001f) next else cursor
+                                } else if (groupIndex == groups.lastIndex) {
+                                    start = cursor
+                                }
                             }
                             if (start > fieldEdge + .001f) overflow("Tab start exceeds line boundary", start, fieldEdge)
                             if (alignment != PdfTabAlignment.LEFT && start + payloadWidth > fieldEdge + .001f)
