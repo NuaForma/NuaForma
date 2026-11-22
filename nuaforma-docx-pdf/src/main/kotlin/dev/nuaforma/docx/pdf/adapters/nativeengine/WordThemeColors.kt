@@ -45,6 +45,9 @@ internal class WordThemeColors(
         return themed(node, role, node.attribute(W, "themeFillTint"), node.attribute(W, "themeFillShade"))
     }
 
+    fun paragraphFill(node: XmlElement): PdfColor? =
+        if (isPaintedPattern(node)) cellFill(node) else runFill(node)
+
     fun runFill(node: XmlElement): PdfColor? {
         validateRunFill(node, reject)
         return if (node.attribute(W, "val") == "nil") null else cellFill(normalizedRunFill(node))
@@ -212,6 +215,16 @@ internal class WordThemeColors(
                 if (expected == null || node.attribute("", "lastClr")?.uppercase() != expected)
                     reject(node, "Only standard black and white system theme colors are qualified")
             }
+        }
+
+        private fun isPaintedPattern(node: XmlElement): Boolean =
+            node.attribute(W, "val").let { it == "solid" || it in cellPercentages }
+
+        fun validateParagraphFill(node: XmlElement, reject: (XmlElement, String) -> Nothing) {
+            val validate = { origin: XmlElement, message: String ->
+                reject(origin, message.replace("cell", "paragraph").replace("run shading", "paragraph shading"))
+            }
+            if (isPaintedPattern(node)) validateCellFill(node, validate) else validateRunFill(node, validate)
         }
 
         fun validateRunFill(node: XmlElement, reject: (XmlElement, String) -> Nothing) {

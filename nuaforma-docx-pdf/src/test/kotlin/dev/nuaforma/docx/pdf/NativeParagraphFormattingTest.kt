@@ -28,7 +28,7 @@ class NativeParagraphFormattingTest {
     @Test
     fun `malformed patterned or duplicate paragraph shading and invalid line multiples publish no PDF`() {
         val support = NativeWordFeatureSupport(temporary)
-        for ((before, after) in listOf("w:val=\"clear\"" to "w:val=\"pct10\"",
+        for ((before, after) in listOf("w:val=\"clear\"" to "w:val=\"diagStripe\"",
             "w:fill=\"DDEEFF\"" to "w:fill=\"invalid\"",
             "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"DDEEFF\"/>" to
                 "<w:shd w:val=\"clear\" w:color=\"auto\" w:fill=\"DDEEFF\"/><w:shd w:val=\"nil\"/>")) {

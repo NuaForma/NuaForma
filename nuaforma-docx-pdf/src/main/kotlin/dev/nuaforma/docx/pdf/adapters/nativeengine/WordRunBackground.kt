@@ -35,10 +35,11 @@ internal object WordRunBackground {
             for (name in if (property.name.localPart == "rPr") listOf("highlight", "shd") else listOf("shd")) {
                 val nodes = property.elements().filter { it.name.localPart == name }
                 if (nodes.size > 1) reject(nodes[1], "Duplicate run background property")
-                for (node in nodes) if (name == "highlight") highlight(node, reject)
-                    else WordThemeColors.validateRunFill(node) { origin, message ->
-                        reject(origin, if (property.name.localPart == "pPr") message.replace("run", "paragraph") else message)
-                    }
+                for (node in nodes) when {
+                    name == "highlight" -> highlight(node, reject)
+                    property.name.localPart == "pPr" -> WordThemeColors.validateParagraphFill(node, reject)
+                    else -> WordThemeColors.validateRunFill(node, reject)
+                }
             }
         }
     }

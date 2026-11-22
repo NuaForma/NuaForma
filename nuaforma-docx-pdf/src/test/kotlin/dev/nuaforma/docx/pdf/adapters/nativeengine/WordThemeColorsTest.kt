@@ -197,4 +197,33 @@ class WordThemeColorsTest {
         }
     }
 
+
+    @Test
+    fun `paragraph shading preserves RGB foregrounds and measured percentage blends`() {
+        val colors = colors()
+        fun shading(kind: String, foreground: String = "auto", background: String = "auto", extra: String = "") =
+            """<w:shd w:val="$kind" w:color="$foreground" w:fill="$background" $extra/>"""
+        val samples = listOf(
+            shading("solid", "03A783") to PdfColor(3, 167, 131),
+            shading("pct20") to PdfColor(204, 204, 204),
+            shading("pct20", "314978", "FFE9C1") to PdfColor(214, 201, 178),
+        )
+        val reject = { _: dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement, message: String ->
+            throw NativeDocxReadException(message, "word/document.xml")
+        }
+        for ((shade, color) in samples) {
+            val paragraph = root("""<w:pPr xmlns:w="$word">$shade</w:pPr>""")
+            WordRunBackground.validateSource(paragraph, GenerationContext(), reject)
+            assertEquals(color, colors.paragraphFill(paragraph.elements().single()))
+            assertThrows(NativeDocxReadException::class.java) {
+                WordRunBackground.validateSource(root("""<w:rPr xmlns:w="$word">$shade</w:rPr>"""), GenerationContext(), reject)
+            }
+        }
+        for (shade in listOf(shading("pct99"), shading("solid"), shading("pct20", extra = "w:themeFill=\"background1\""))) {
+            val paragraph = root("""<w:pPr xmlns:w="$word">$shade</w:pPr>""")
+            assertThrows(NativeDocxReadException::class.java) {
+                WordRunBackground.validateSource(paragraph, GenerationContext(), reject)
+            }
+        }
+    }
 }

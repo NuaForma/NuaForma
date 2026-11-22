@@ -383,3 +383,5 @@ Modern body tables with complete explicit margins in every cell retain their spa
 Fixed nested tables with complete direct margins can keep their saved grid and alignment inside non-splitting parent rows.
 
 Blank endnote separator policies can remain in documents that contain no numbered endnotes. Existing footnote layout is preserved.
+
+Word paragraph shading retains the explicit solid color or measured percentage blend, including through style inheritance.
