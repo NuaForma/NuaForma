@@ -305,3 +305,5 @@ An isolated qualified two-column automatic table can fall back to its saved grid
 A plain white source background without children retains the default physical page appearance.
 
 Within a render, crops and semantic copies of a picture can share its bounded decoded raster.
+
+The checked setting for tracking future moved text does not alter the existing print model.
