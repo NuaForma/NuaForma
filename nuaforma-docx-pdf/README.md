@@ -259,3 +259,5 @@ Qualified fixed table cells can suppress the end mark while retaining visible te
 Existing external-link targets can remain clickable inside a fixed unrotated text frame. Annotations use translated physical page coordinates.
 
 When a hidden ordinary cell mark follows a trailing soft line break, the final unprinted line is omitted while earlier lines remain intact.
+
+Isolated fixed unrotated footer frames can continue visible text below the nominal rectangle. The actual ink remains within the page and clear of other footer objects.

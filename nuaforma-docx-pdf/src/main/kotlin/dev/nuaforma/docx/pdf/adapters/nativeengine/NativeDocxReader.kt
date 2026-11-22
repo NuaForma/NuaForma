@@ -1403,7 +1403,7 @@ internal class NativeDocxReader(
         }
 
         fun readDrawingBox(node: XmlElement, partRelations: Map<String, String>, fields: Boolean = false,
-            firstBodyParagraph: Boolean = false): PdfTextBox {
+            firstBodyParagraph: Boolean = false, isolatedFooterFrames: Boolean = false): PdfTextBox {
             source.current = node
             val wps = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
             val anchor = node.elements().singleOrNull() ?: reject("Invalid floating drawing")
@@ -1552,8 +1552,8 @@ internal class NativeDocxReader(
                     numeric(bodyProps.attribute("", "bIns")) / 12700, numeric(bodyProps.attribute("", "lIns")) / 12700),
                 WordFramePaint.fill(props, themeColors) { origin, message -> source.current = origin; reject(message) }, border,
                 when (bodyProps.attribute("", "anchor")) { "t" -> PdfVerticalAlignment.TOP; "ctr" -> PdfVerticalAlignment.CENTER; "b" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported vertical alignment") }).withDrawingOrder(order).withAutoFit(autoFit).withPageAlignment(pageAlignment)
-                .withVisibleTextOverflow(!fields && autoFit == null && rotation == 0f &&
-                    bodyProps.attribute("", "anchorCtr") in setOf(null, "0", "false"))
+                .withVisibleTextOverflow((!fields || isolatedFooterFrames && placement == PdfBoxAnchor.PAGE) &&
+                    autoFit == null && rotation == 0f && bodyProps.attribute("", "anchorCtr") in setOf(null, "0", "false"))
         }
 
         fun readAnchoredImage(node: XmlElement, partRelations: Map<String, String>, pageBand: Boolean = false,
@@ -1720,8 +1720,12 @@ internal class NativeDocxReader(
                         val isolatedHeaderPicture = fields && root.name.localPart == "hdr" && root.elements().size == 1 &&
                             frames.size == 1 && images.size == 1 && unprintedBand(listOf(paragraph)) &&
                             paragraph.background == null && paragraph.lines.isEmpty() && paragraph.borders == null
+                        val isolatedFooterFrames = fields && root.name.localPart == "ftr" && root.elements().size == 1 &&
+                            boxes.isNotEmpty() && images.isEmpty() && boxes.all { it.name.localPart == "drawing" } &&
+                            unprintedBand(listOf(paragraph)) && paragraph.background == null &&
+                            paragraph.lines.isEmpty() && paragraph.borders == null
                         boxes.map { if (it.name.localPart == "pict") readBox(it, partRelations, fields)
-                            else readDrawingBox(it, partRelations, fields, firstBodyParagraph) } +
+                            else readDrawingBox(it, partRelations, fields, firstBodyParagraph, isolatedFooterFrames) } +
                             paragraph.copy(anchoredImages = images.map {
                                 readAnchoredImage(it, partRelations, fields, isolatedHeaderPicture)
                             })

@@ -51,7 +51,10 @@ internal object PageBandObjects {
             val dy = ((abs(sin(angle)) * element.box.width + abs(cos(angle)) * element.box.height) / 2).toFloat()
             val stroke = (element.box.border?.width ?: 0f) / 2
             val x = element.x + element.box.width / 2; val y = element.top + element.box.height / 2
-            floatArrayOf(x - dx - stroke, y - dy - stroke, x + dx + stroke, y + dy + stroke)
+            val boxBottom = y + dy + stroke
+            val printedBottom = if (element.contentHeight > element.box.height)
+                maxOf(boxBottom, element.top + element.contentHeight) else boxBottom
+            floatArrayOf(x - dx - stroke, y - dy - stroke, x + dx + stroke, printedBottom)
         }
         else -> error("Not a floating page-band object")
     }
