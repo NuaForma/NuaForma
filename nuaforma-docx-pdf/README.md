@@ -237,3 +237,5 @@ A qualified left-to-right paragraph can retain a bookmark at the end of its last
 Standalone text frames with omitted fill and outline declarations can retain their transparent paint. Explicit colors still follow the qualified frame paint profile.
 
 Word paragraph styles can reset an inherited outline level to body text. Direct body-level overrides on heading paragraphs require additional qualification.
+
+Generated contents require a style for each requested outline level used by a heading in the document. Unused requested levels can omit their styles.

@@ -459,6 +459,7 @@ internal class NativeDocxReader(
         val crossParagraphBookmarks = mutableSetOf<String>()
         val textReferences = mutableSetOf<String>()
         val textReferenceSources = mutableMapOf<String, XmlElement>()
+        val missingContentsStyles = mutableListOf<Pair<XmlElement, Set<Int>>>()
         var paragraphCounter = 0
         var fieldCounter = 0
         var linkCounter = 0
@@ -634,10 +635,12 @@ internal class NativeDocxReader(
                         check(!fields && currentNoteKind == null && link == null && pendingDestinations.isEmpty() && contents == null, "Invalid contents location")
                         check(instruction.directOutlineLevels || body.descendants().none { it.name.namespaceURI == word && it.name.localPart == "p" && it.one("pPr")?.one("outlineLvl") != null },
                             "Contents for directly assigned outline levels require the explicit outline switch")
-                        val levels = (instruction.firstLevel..instruction.lastLevel).map { level ->
-                            val style = styles.entries.singleOrNull { (_, style) -> style.value("type") == "paragraph" &&
+                        val requested = instruction.firstLevel..instruction.lastLevel
+                        val levels = requested.mapNotNull { level ->
+                            val candidates = styles.entries.filter { (_, style) -> style.value("type") == "paragraph" &&
                                 (style.value("styleId").equals("TOC${level + 1}", true) || style.one("name")?.value("val").equals("toc ${level + 1}", true)) }
-                                ?: reject("Explicit contents paragraph styles are required")
+                            check(candidates.size <= 1, "Ambiguous contents paragraph style")
+                            val style = candidates.singleOrNull() ?: return@mapNotNull null
                             val sample = XmlElement(paragraph.name)
                             val props = XmlElement(javax.xml.namespace.QName(word, "pPr", "w"))
                             props.children += XmlElement(javax.xml.namespace.QName(word, "pStyle", "w"), linkedMapOf(javax.xml.namespace.QName(word, "val", "w") to style.key))
@@ -648,6 +651,9 @@ internal class NativeDocxReader(
                             val resolved = readParagraph(sample, partRelations, uniformFonts = true)
                             PdfContentsLevel(level, (resolved.runs.single() as PdfTextRun).style, resolved.format, resolved.spaceBefore, resolved.spaceAfter)
                         }
+                        check(levels.isNotEmpty(), "Explicit contents paragraph styles are required")
+                        val missing = requested.toSet() - levels.map { it.level }.toSet()
+                        if (missing.isNotEmpty()) missingContentsStyles += run to missing
                         contents = PdfContents(levels, instruction.linked)
                         return emptyList()
                     }
@@ -1734,6 +1740,31 @@ internal class NativeDocxReader(
             source.current = body
             activePart = "word/document.xml"
             reject("Notes require one paginated section; section-boundary note layout is not yet qualified")
+        }
+        if (missingContentsStyles.isNotEmpty()) {
+            val used = mutableSetOf<Int>()
+            fun collect(block: PdfBlock) {
+                context.checkActive()
+                when (block) {
+                    is PdfParagraph -> block.semantics?.level?.let { used += it }
+                    is PdfTextBox -> block.paragraphs.forEach(::collect)
+                    is PdfTable -> block.rows.forEach { row -> row.cells.forEach { cell -> cell.blocks.forEach(::collect) } }
+                    is PdfImage -> Unit
+                }
+            }
+            for (sequence in sequences) {
+                sequence.blocks.forEach(::collect)
+                val flowed = sequence.flow
+                val pageBands = listOfNotNull(flowed?.header, flowed?.footer, flowed?.firstPageBands?.header,
+                    flowed?.firstPageBands?.footer, flowed?.evenPageBands?.header, flowed?.evenPageBands?.footer)
+                pageBands.forEach { it.blocks.forEach(::collect) }
+            }
+            notes.forEach { it.paragraphs.forEach(::collect) }
+            for ((node, missing) in missingContentsStyles) {
+                source.current = node
+                activePart = provenance[node] ?: "word/document.xml"
+                check(missing.none { it in used }, "Explicit contents paragraph styles are required for used outline levels")
+            }
         }
         check(openBookmarks.isEmpty(), "Unclosed bookmarks")
         val targets = textReferences.map { name ->
