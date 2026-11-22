@@ -1709,13 +1709,14 @@ internal class NativeDocxReader(
             if (customBorders) {
                 val styles = rows.flatMap { it.cells }.flatMap { cell -> cell.borders!!.let { listOfNotNull(it.top, it.right, it.bottom, it.left) } }.map { it.border }.distinct()
                 // The shared border resolver can choose a winner for competing collinear strokes.
-                val fixedRowEdges = depth == 0 && !fields && !automaticLayout && !naturalWidths &&
+                val flatBodyEdges = depth == 0 && !fields && !naturalWidths &&
                     rows.all { row -> row.cells.all { cell ->
                         cell.columnSpan == 1 && cell.rowSpan == 1 && cell.blocks.none { it is PdfTable }
                     } }
                 val uniformWidths = bottomOnly && styles.all { it.width == tableBorders["bottom"]?.width }
-                check(independentFixedEdges || styles.size <= 1 || uniformWidths ||
-                    fixedRowEdges && styles.map { it.color }.distinct().size == 1,
+                val flatUniformWidth = flatBodyEdges && position == null && modernTableAlignment && styles.map { it.width }.distinct().size == 1
+                val flatUniformColor = flatBodyEdges && !automaticLayout && styles.map { it.color }.distinct().size == 1
+                check(independentFixedEdges || styles.size <= 1 || uniformWidths || flatUniformWidth || flatUniformColor,
                     "Mixed cell-border widths require a fixed flat body table with one solid color")
             }
             val count = headerFlags.takeWhile { it }.size

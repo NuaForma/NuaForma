@@ -2,6 +2,7 @@ package dev.nuaforma.docx.pdf.adapters.nativeengine
 
 import dev.nuaforma.contracts.GenerationContext
 import dev.nuaforma.docx.pdf.PdfFixture
+import dev.nuaforma.pdf.PdfColor
 import dev.nuaforma.pdf.PdfMargins
 import dev.nuaforma.pdf.PdfTable
 import dev.nuaforma.pdf.PdfTableAlignment
@@ -11,7 +12,8 @@ import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
 class NativeCompleteCellMarginsTest {
-    private fun read(partial: Boolean, nestedAlignment: String? = null, splittable: Boolean = false): PdfTable {
+    private fun read(partial: Boolean, nestedAlignment: String? = null, splittable: Boolean = false,
+        automatic: Boolean = false, differentBorders: Boolean = false): PdfTable {
         val parts = PdfFixture.parts()
         val settings = """<w:settings xmlns:w="${PdfFixture.W}"><w:compat>
             <w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="15"/>
@@ -28,13 +30,17 @@ class NativeCompleteCellMarginsTest {
         val margins = sides.entries.filterNot { partial && it.key == "left" }.joinToString("") { (name, width) ->
             """<w:$name w:type="dxa" w:w="$width"/>"""
         }
-        val border = sides.keys.joinToString("") { name -> """<w:$name w:val="single" w:sz="4" w:color="000000"/>""" }
         val width = if (nestedAlignment == null) """<w:tcW w:type="dxa" w:w="2000"/>""" else ""
-        val cell = """<w:tc><w:tcPr>$width<w:tcMar>$margins</w:tcMar>
-            <w:tcBorders>$border</w:tcBorders></w:tcPr><w:p><w:r><w:t>Cell</w:t></w:r></w:p></w:tc>"""
+        fun cell(color: String): String {
+            val border = sides.keys.joinToString("") { name -> """<w:$name w:val="single" w:sz="4" w:color="$color"/>""" }
+            return """<w:tc><w:tcPr>$width<w:tcMar>$margins</w:tcMar>
+                <w:tcBorders>$border</w:tcBorders></w:tcPr><w:p><w:r><w:t>Cell</w:t></w:r></w:p></w:tc>"""
+        }
         val align = nestedAlignment?.let { """<w:jc w:val="$it"/>""" }.orEmpty()
-        val table = """<w:tbl><w:tblPr><w:tblW w:type="dxa" w:w="4000"/><w:tblLayout w:type="fixed"/>$align</w:tblPr>
-            <w:tblGrid><w:gridCol w:w="2000"/><w:gridCol w:w="2000"/></w:tblGrid><w:tr>$cell$cell</w:tr></w:tbl>"""
+        val layout = if (automatic) "autofit" else "fixed"
+        val cells = cell("000000") + cell(if (differentBorders) "FF0000" else "000000")
+        val table = """<w:tbl><w:tblPr><w:tblW w:type="dxa" w:w="4000"/><w:tblLayout w:type="$layout"/>$align</w:tblPr>
+            <w:tblGrid><w:gridCol w:w="2000"/><w:gridCol w:w="2000"/></w:tblGrid><w:tr>$cells</w:tr></w:tbl>"""
         val bodyTable = if (nestedAlignment == null) table else {
             val keep = if (splittable) "" else "<w:trPr><w:cantSplit/></w:trPr>"
             val hostMargins = sides.entries.joinToString("") { (name, width) ->
@@ -79,5 +85,15 @@ class NativeCompleteCellMarginsTest {
             read(partial = false, nestedAlignment = "right", splittable = true)
         }
         assertEquals("Nested tables require every row of the parent table to stay together", error.message)
+    }
+
+    @Test
+    fun `flat modern fixed and automatic tables retain equal width borders with distinct colors`() {
+        for (automatic in listOf(false, true)) {
+            val table = read(partial = false, automatic = automatic, differentBorders = true)
+            val borders = table.rows.single().cells.map { requireNotNull(it.borders?.top).border }
+            assertEquals(listOf(PdfColor(0, 0, 0), PdfColor(255, 0, 0)), borders.map { it.color })
+            assertEquals(listOf(.5f, .5f), borders.map { it.width })
+        }
     }
 }
