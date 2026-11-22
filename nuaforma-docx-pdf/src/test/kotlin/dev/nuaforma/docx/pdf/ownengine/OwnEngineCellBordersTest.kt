@@ -44,7 +44,7 @@ class OwnEngineCellBordersTest {
         val anchor="<w:tcBorders><w:top w:val=\"single\" w:sz=\"4\" w:color=\"00999F\"/>"
         for(replacement in listOf(
             "<w:tcBorders><w:top w:val=\"double\" w:sz=\"4\" w:color=\"00999F\"/>",
-            "<w:tcBorders><w:top w:val=\"single\" w:sz=\"33\" w:color=\"00999F\"/>",
+            "<w:tcBorders><w:top w:val=\"single\" w:sz=\"49\" w:color=\"00999F\"/>",
             "<w:tcBorders><w:top w:val=\"single\" w:sz=\"1.5\" w:color=\"00999F\"/>",
             "<w:tcBorders><w:top w:val=\"single\" w:sz=\"4\" w:color=\"auto\"/>",
             "<w:tcBorders><w:tl2br w:val=\"single\" w:sz=\"4\" w:color=\"00999F\"/>",

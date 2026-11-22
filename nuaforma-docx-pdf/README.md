@@ -401,3 +401,5 @@ An isolated nonoverlapping table with a qualified text-relative anchor can keep 
 An explicit inline cell paragraph can cancel a saved floating style frame and its overlapping behavior while preserving the cell's text.
 
 Fixed square-wrapped body frames that cover the text column retain their qualified bottom effect extent and the following text clearance.
+
+Solid native table strokes can be up to six points. Modern flat tables with one border color retain mixed stroke widths, including with automatic layout.

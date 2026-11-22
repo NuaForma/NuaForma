@@ -97,7 +97,7 @@ internal object WordTableBorders {
         if (kind !in setOf("single", "none", "nil")) reject(node, "Only ordinary solid or absent table borders are qualified")
         val raw = node.attribute(word, "sz")
         val size = raw?.toIntOrNull()
-        if (raw != null && (size == null || size !in 0..32 || !raw.matches(Regex("[0-9]{1,10}")))) reject(node, "Invalid table border width")
+        if (raw != null && (size == null || size !in 0..48 || !raw.matches(Regex("[0-9]{1,10}")))) reject(node, "Invalid table border width")
         val color = node.attribute(word, "color")
         if (color != null && color != "auto" && !color.matches(Regex("[0-9A-Fa-f]{6}"))) reject(node, "Invalid table border color")
         val role = node.attribute(word, "themeColor")
@@ -112,7 +112,7 @@ internal object WordTableBorders {
             if (role != null) reject(node, "A themed border requires a solid line")
             return null
         }
-        if (size == null || size !in 1..32) reject(node, "Invalid solid table border width")
+        if (size == null || size !in 1..48) reject(node, "Invalid solid table border width")
         val themed = role?.let { theme.borderColor(node, it) }
         if (themed != null) return PdfBorder(size / 8f, themed)
         if (color == null) reject(node, "Missing solid table border color")

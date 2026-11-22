@@ -135,7 +135,7 @@ class PdfPageBand private constructor(val offset: Float, val maxHeight: Float, b
 }
 
 data class PdfBorder(val width: Float, val color: PdfColor) {
-    init { require(width.isFinite() && width in 0.1f..4f) { "Invalid border width" } }
+    init { require(width.isFinite() && width in 0.1f..6f) { "Invalid border width" } }
 }
 
 /** Adapters supply a neutral precedence; larger priorities win at a shared table edge. */

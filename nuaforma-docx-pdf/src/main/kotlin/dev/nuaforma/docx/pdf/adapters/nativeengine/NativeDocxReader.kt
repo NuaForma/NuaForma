@@ -1725,7 +1725,7 @@ internal class NativeDocxReader(
                     } }
                 val uniformWidths = bottomOnly && styles.all { it.width == tableBorders["bottom"]?.width }
                 val flatUniformWidth = flatBodyEdges && position == null && modernTableAlignment && styles.map { it.width }.distinct().size == 1
-                val flatUniformColor = flatBodyEdges && !automaticLayout && styles.map { it.color }.distinct().size == 1
+                val flatUniformColor = flatBodyEdges && (!automaticLayout || modernTableAlignment) && styles.map { it.color }.distinct().size == 1
                 check(independentFixedEdges || styles.size <= 1 || uniformWidths || flatUniformWidth || flatUniformColor,
                     "Mixed cell-border widths require a fixed flat body table with one solid color")
             }
