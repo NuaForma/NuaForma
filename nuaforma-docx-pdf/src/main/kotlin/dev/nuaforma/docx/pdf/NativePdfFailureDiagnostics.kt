@@ -135,6 +135,8 @@ internal object NativePdfFailureDiagnostics {
         "Field pagination contains a cycle",
         "Field pagination did not converge within eight passes",
         "Floating image overlaps the reserved footnote area",
+        "Floating text frame overlaps the reserved footnote area",
+        "Rotated frames inside the note text area are not qualified",
         "Floating image paragraphs with keeps, lists, RTL text or inline objects are not qualified",
         "Floating page-band object exceeds the physical page",
         "Font character-alias budget exceeded",

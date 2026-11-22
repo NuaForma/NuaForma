@@ -192,7 +192,8 @@ class PdfNotesTest {
         assertEquals(1, elements.count { it is PositionedImage })
         assertEquals(1, elements.count { it is PositionedBox })
         for (bad in listOf(
-            PdfTextBox(30f, 0f, 100f, 30f, listOf(text("Overlap"))),
+            PdfTextBox(30f, page.height - page.margins.bottom - 18f, 100f, 30f,
+                listOf(text("Overlap")), PdfBoxAnchor.PAGE),
             PdfTextBox(30f, 0f, 100f, 30f, listOf(text("Wrapped")), wrap = PdfBoxWrap.TOP_BOTTOM),
         )) assertEquals(PdfFailureCode.UNSUPPORTED_TEXT, assertThrows(PdfRenderException::class.java) {
             ReferenceLayouter.layout(PdfDocument(page, listOf(owner, bad), PdfFlow(), notes = listOf(foot)), measure, PdfRenderControl())

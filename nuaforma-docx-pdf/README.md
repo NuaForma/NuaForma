@@ -243,3 +243,5 @@ Generated contents require a style for each requested outline level used by a he
 Separately positioned page-fixed footer rectangles can retain Word's non-overlap flag when their physical boxes are disjoint. An explicit offset can start from the right margin.
 
 Hyperlinks can retain the clickable area of tab runs, including the full gap for tabs without visible leaders. Existing navigation target validation applies.
+
+Fixed body frames can share a page with footnotes when their painted bounds leave the actual footnote region clear. Intersections remain explicit layout errors.

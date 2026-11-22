@@ -32,6 +32,16 @@ internal object NoteFlowLayouter {
                 val images = pages.last().filterIsInstance<PositionedImage>().filter { it.foreground }
                 if (images.any { it.x < page.width - page.margins.right && it.x + it.image.width > page.margins.left &&
                     it.top + it.image.height > notes.bodyBottom + .001f }) unsupported("Floating image overlaps the reserved footnote area")
+                if (notes.bodyBottom < physicalBottom - .001f) {
+                    val boxes = pages.last().filterIsInstance<PositionedBox>()
+                    if (boxes.any { placed ->
+                        val box = placed.box
+                        val half = (box.border?.width ?: 0f) / 2f
+                        box.rotation == 0f && placed.x - half < page.width - page.margins.right &&
+                            placed.x + box.width + half > page.margins.left &&
+                            placed.top + maxOf(box.height + half, placed.contentHeight) > notes.bodyBottom + .001f
+                    }) unsupported("Floating text frame overlaps the reserved footnote area")
+                }
                 notes.finish(pages.last()); closed = true
             }
         }
@@ -143,8 +153,9 @@ internal object NoteFlowLayouter {
                 is PdfTextBox -> {
                     if (block.wrap != PdfBoxWrap.NONE) unsupported("Wrapped frames with notes are not qualified")
                     val placed = BoxLayouter.layout(block, page, top, measurer)
-                    if (document.notes.any { it.kind == PdfNoteKind.FOOTNOTE } && placed.x + block.width > page.margins.left && placed.x < page.width - page.margins.right)
-                        unsupported("Frames inside the note text area are not qualified")
+                    if (block.rotation != 0f && document.notes.any { it.kind == PdfNoteKind.FOOTNOTE } &&
+                        placed.x + block.width > page.margins.left && placed.x < page.width - page.margins.right)
+                        unsupported("Rotated frames inside the note text area are not qualified")
                     pages.last() += placed
                 }
                 is PdfTable -> {
