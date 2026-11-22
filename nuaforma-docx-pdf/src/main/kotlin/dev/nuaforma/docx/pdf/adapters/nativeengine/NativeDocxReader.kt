@@ -1140,11 +1140,7 @@ internal class NativeDocxReader(
                     children(cell, setOf("tcPr", "p", "tbl"))
                     val cp = cell.one("tcPr") ?: reject("Explicit cell properties required")
                     children(cp, setOf("tcW", "shd", "gridSpan", "vMerge", "vAlign", "tcBorders", "tcMar", "noWrap", "hideMark"))
-                    val span = cp.one("gridSpan")?.let { attributes(it, setOf("val")); number(it.value("val")).toInt() } ?: 1
-                    check(span in 1..16 && column + span <= lastColumn, "Invalid grid span")
-                    check(!regions.active || cp.one("vMerge") == null && (span == 1 || bottomOnly && regions.supportsHorizontalSpans()),
-                        "Merged conditional table regions are not qualified")
-                    val cellStyles = regions.layers(rowIndex, column, span)
+                    val cellStyles = regions.layers(rowIndex, column)
                     val cellProperties = cellStyles.mapNotNull { it.one("tcPr") } + cp
                     val marginDeclarations = cellProperties.mapNotNull { it.one("tcMar") }
                     val effectiveMargins = WordCellMargins.resolve(marginDeclarations, padding) { origin, message ->
@@ -1156,19 +1152,16 @@ internal class NativeDocxReader(
                     val declaredCellBorders = if (edgePolicies.isEmpty()) null else edgePolicies.fold(fallbackBorders) { inherited, node -> readCellBorders(node, inherited) }
                     val cellBorders = if (sparseBorders) {
                         source.current = cell
-                        val horizontalEdges = bottomOnly && edgePolicies.all { policy ->
-                            policy.elements().all { edge -> edge.name.namespaceURI == word &&
-                                edge.name.localPart in setOf("top", "bottom") && edge.value("val") == "single" }
-                        } && listOfNotNull(declaredCellBorders?.top, declaredCellBorders?.bottom).all {
-                            it.border.width == tableBorders["bottom"]?.width
-                        }
+                        val sameBottom = bottomOnly && (edgePolicies.isEmpty() || edgePolicies.all { policy ->
+                            val edge = policy.elements().singleOrNull()
+                            edge != null && edge.name.namespaceURI == word && edge.name.localPart == "bottom" &&
+                                edge.value("val") == "single"
+                        } && declaredCellBorders?.bottom?.border == tableBorders["bottom"])
                         check(cp.one("vMerge") == null && cell.elements().none { it.name.localPart == "tbl" } &&
-                            (horizontalEdges || cp.one("gridSpan") == null && declaredCellBorders == null),
+                            (sameBottom || cp.one("gridSpan") == null && declaredCellBorders == null),
                             "Independent table edges with merged, nested or custom-bordered cells are not qualified")
                         val inherited = tableCellEdges(rowIndex, column)
-                        if (horizontalEdges && declaredCellBorders != null) inherited.copy(
-                            top = declaredCellBorders.top ?: inherited.top, bottom = declaredCellBorders.bottom ?: inherited.bottom,
-                        ) else inherited
+                        if (sameBottom && declaredCellBorders != null) inherited.copy(bottom = declaredCellBorders.bottom) else inherited
                     } else declaredCellBorders?.takeUnless {
                         cellMargins == null && it == fallbackBorders && (suppressGrid || border == null ||
                             edgePolicies.none { policy -> policy.elements().any { it.value("val") == "none" } })
@@ -1184,6 +1177,9 @@ internal class NativeDocxReader(
                         attributes(node, setOf("val")); children(node, emptySet())
                         when (node.value("val")) { "top" -> PdfVerticalAlignment.TOP; "center" -> PdfVerticalAlignment.CENTER; "bottom" -> PdfVerticalAlignment.BOTTOM; else -> reject("Unsupported cell vertical alignment") }
                     } ?: PdfVerticalAlignment.TOP
+                    val span = cp.one("gridSpan")?.let { attributes(it, setOf("val")); number(it.value("val")).toInt() } ?: 1
+                    check(!regions.active || cp.one("vMerge") == null && span == 1, "Merged conditional table regions are not qualified")
+                    check(span in 1..16 && column + span <= lastColumn, "Invalid grid span")
                     val cellWidth = cp.one("tcW")
                     var preferredCellWidth = if (automaticLayout) preferredWidth(cellWidth) else null
                     val protectPreferredWidth = cp.one("noWrap")?.let { node ->
@@ -1317,8 +1313,7 @@ internal class NativeDocxReader(
                     rows.all { row -> row.cells.all { cell ->
                         cell.columnSpan == 1 && cell.rowSpan == 1 && cell.blocks.none { it is PdfTable }
                     } }
-                val uniformWidths = bottomOnly && styles.all { it.width == tableBorders["bottom"]?.width }
-                check(styles.size <= 1 || uniformWidths || fixedRowEdges && styles.map { it.color }.distinct().size == 1,
+                check(styles.size <= 1 || fixedRowEdges && styles.map { it.color }.distinct().size == 1,
                     "Mixed cell-border widths require a fixed flat body table with one solid color")
             }
             val count = headerFlags.takeWhile { it }.size
@@ -1682,10 +1677,22 @@ internal class NativeDocxReader(
             }
             val container = XmlElement(node.name).also { it.children += inline }
             val converted = image(container, partRelations, parts)
-            check(horizontal >= 0 && horizontal + converted.width <= page.width + .001f, "Anchored image exceeds the physical page width")
-            check(vertical.second != PdfBoxAnchor.PAGE || vertical.first >= 0 && vertical.first + converted.height <= page.height + .001f,
-                "Anchored image exceeds the physical page height")
-            return PdfAnchoredImage(converted, horizontal, vertical.first, vertical.second, policy,
+            val pageFixed = vertical.second == PdfBoxAnchor.PAGE
+            val fitsWidth = horizontal >= 0f && horizontal + converted.width <= page.width + .001f
+            val fitsHeight = !pageFixed || vertical.first >= 0f && vertical.first + converted.height <= page.height + .001f
+            val bounds = if (fitsWidth && fitsHeight) {
+                Triple(converted, horizontal, vertical.first)
+            } else {
+                check(pageBand && pageFixed && policy == PdfImageWrap.NONE || fitsWidth,
+                    "Anchored image exceeds the physical page width")
+                check(pageBand && pageFixed && policy == PdfImageWrap.NONE || fitsHeight,
+                    "Anchored image exceeds the physical page height")
+                source.current = anchor
+                val visible = WordPageBandPictureClip.clip(converted, horizontal, vertical.first, page)
+                    ?: reject("Anchored picture has no usable area inside the page")
+                Triple(visible.image, visible.left, visible.top)
+            }
+            return PdfAnchoredImage(bounds.first, bounds.second, bounds.third, vertical.second, policy,
                 PdfMargins(number(anchor.attribute("", "distT") ?: "0") / 12700, number(anchor.attribute("", "distR") ?: "0") / 12700,
                     number(anchor.attribute("", "distB") ?: "0") / 12700, number(anchor.attribute("", "distL") ?: "0") / 12700)).withDrawingOrder(order).withLink(link)
         }
