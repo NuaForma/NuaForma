@@ -43,7 +43,7 @@ internal object DocumentTransforms {
                     blocks(block.paragraphs, key, Scope.FRAME).map { it as PdfParagraph }, block.anchor, block.rotation,
                     block.padding, block.fill, block.border, block.verticalAlignment, block.wrap, metadata(block, key, PdfSemanticRole.FRAME))
                     .withDrawingOrder(block.drawingOrder).withAutoFit(block.autoFit).withPageAlignment(block.pageAlignment)
-                    .withVisibleTextOverflow(block.visibleTextOverflow).withInlineParagraph(block.inlineParagraph, block.inlinePadding))
+                    .withVisibleTextOverflow(block.visibleTextOverflow).withInlineParagraph(block.inlineParagraph, block.inlinePadding).withWrapPadding(block.wrapPadding))
                 is PdfTable -> {
                     if (block.textRelativeTopOffset != null && (scope != Scope.BODY || document.flow == null))
                         unsupported("Floating tables require the main body flow")

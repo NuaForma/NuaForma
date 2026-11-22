@@ -355,6 +355,7 @@ class PdfTextBox private constructor(
     val visibleTextOverflow: Boolean,
     val inlineParagraph: PdfParagraph?,
     val inlinePadding: PdfMargins,
+    val wrapPadding: PdfMargins,
 ) : PdfBlock {
 
     @JvmOverloads constructor(left: Float, top: Float, width: Float, height: Float,
@@ -363,23 +364,28 @@ class PdfTextBox private constructor(
         fill: PdfColor? = null, border: PdfBorder? = null,
         verticalAlignment: PdfVerticalAlignment = PdfVerticalAlignment.TOP, wrap: PdfBoxWrap = PdfBoxWrap.NONE,
         semantics: PdfBlockSemantics? = null,
-    ) : this(left, top, width, height, paragraphs, anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, null, null, null, false, null, noInlinePadding)
+    ) : this(left, top, width, height, paragraphs, anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, null, null, null, false, null, noInlinePadding, noInlinePadding)
 
     fun withDrawingOrder(order: PdfDrawingOrder?): PdfTextBox = PdfTextBox(left, top, width, height, paragraphs,
-        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, order, autoFit, pageAlignment, visibleTextOverflow, inlineParagraph, inlinePadding)
+        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, order, autoFit, pageAlignment, visibleTextOverflow, inlineParagraph, inlinePadding, wrapPadding)
 
     fun withAutoFit(mode: PdfTextBoxAutoFit?): PdfTextBox = PdfTextBox(left, top, width, height, paragraphs,
-        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, mode, pageAlignment, visibleTextOverflow, inlineParagraph, inlinePadding)
+        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, mode, pageAlignment, visibleTextOverflow, inlineParagraph, inlinePadding, wrapPadding)
 
     fun withPageAlignment(alignment: PdfTextBoxPageAlignment?): PdfTextBox = PdfTextBox(left, top, width, height, paragraphs,
-        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, autoFit, alignment, visibleTextOverflow, inlineParagraph, inlinePadding)
+        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, autoFit, alignment, visibleTextOverflow, inlineParagraph, inlinePadding, wrapPadding)
 
     /** Paint overflowing text below the fixed, unrotated frame while it fits on the physical page. */
     fun withVisibleTextOverflow(enabled: Boolean): PdfTextBox = PdfTextBox(left, top, width, height, paragraphs,
-        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, autoFit, pageAlignment, enabled, inlineParagraph, inlinePadding)
+        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, autoFit, pageAlignment, enabled, inlineParagraph, inlinePadding, wrapPadding)
+
+    /** Extra vertical clearance around a fixed frame that excludes body text across the line. */
+    fun withWrapPadding(padding: PdfMargins): PdfTextBox = PdfTextBox(left, top, width, height, paragraphs,
+        anchor, rotation, this.padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, autoFit,
+        pageAlignment, visibleTextOverflow, inlineParagraph, inlinePadding, padding)
 
     internal fun resolvedSize(width: Float, height: Float): PdfTextBox = PdfTextBox(left, top, width, height, paragraphs,
-        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, null, pageAlignment, visibleTextOverflow, inlineParagraph, inlinePadding)
+        anchor, rotation, padding, fill, border, verticalAlignment, wrap, semantics, drawingOrder, null, pageAlignment, visibleTextOverflow, inlineParagraph, inlinePadding, wrapPadding)
 
     private companion object {
         val noInlinePadding = PdfMargins(0f, 0f, 0f, 0f)
@@ -389,11 +395,11 @@ class PdfTextBox private constructor(
     @JvmOverloads
     fun withInlineParagraph(paragraph: PdfParagraph?, padding: PdfMargins = noInlinePadding): PdfTextBox =
         PdfTextBox(left, top, width, height, paragraphs, anchor, rotation, this.padding, fill, border, verticalAlignment,
-            wrap, semantics, drawingOrder, autoFit, pageAlignment, visibleTextOverflow, paragraph, padding)
+            wrap, semantics, drawingOrder, autoFit, pageAlignment, visibleTextOverflow, paragraph, padding, wrapPadding)
 
     internal fun positionedInline(left: Float, top: Float): PdfTextBox =
         PdfTextBox(left, top, width, height, paragraphs, PdfBoxAnchor.PAGE, rotation, padding, fill, border,
-            verticalAlignment, wrap, semantics, drawingOrder, autoFit, null, visibleTextOverflow, null, noInlinePadding)
+            verticalAlignment, wrap, semantics, drawingOrder, autoFit, null, visibleTextOverflow, null, noInlinePadding, noInlinePadding)
 
     val paragraphs: List<PdfParagraph> = Collections.unmodifiableList(ArrayList(paragraphs))
     init {
@@ -403,6 +409,9 @@ class PdfTextBox private constructor(
         require(this.paragraphs.size in 1..128) { "Invalid frame paragraph count" }
         require(wrap == PdfBoxWrap.NONE || rotation == 0f && top >= 0) { "Unsupported frame wrapping policy" }
         require(autoFit == null || wrap == PdfBoxWrap.NONE && rotation == 0f) { "Unsupported frame autofit geometry" }
+        require(wrapPadding.left == 0f && wrapPadding.right == 0f &&
+            (wrapPadding == noInlinePadding || wrap == PdfBoxWrap.TOP_BOTTOM) &&
+            wrapPadding.top + height + wrapPadding.bottom <= 14_400f) { "Invalid frame wrap clearance" }
         require(inlineParagraph == null || anchor == PdfBoxAnchor.PARAGRAPH && left == 0f && top == 0f &&
             wrap == PdfBoxWrap.NONE && rotation == 0f && autoFit == null && pageAlignment == null && !visibleTextOverflow) {
             "Inline text frames require fixed unrotated geometry"

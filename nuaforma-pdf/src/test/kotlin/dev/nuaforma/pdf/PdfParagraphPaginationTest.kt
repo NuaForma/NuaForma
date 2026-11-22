@@ -109,11 +109,18 @@ class PdfParagraphPaginationTest {
         val band = PdfPageBand(0f, 20f, listOf(p("Band", before = true)))
         val wrapped = PdfTextBox(20f, 20f, 80f, 40f, listOf(p("Frame")), anchor = PdfBoxAnchor.PAGE, wrap = PdfBoxWrap.TOP_BOTTOM)
         for ((blocks, flow) in listOf(listOf(box) to PdfFlow(), listOf(p("Body")) to PdfFlow(header = band),
-            listOf(wrapped, p("Body", widow = true)) to PdfFlow())) {
+            listOf(wrapped, p(tokens(3), widow = true)) to PdfFlow())) {
             assertEquals(PdfFailureCode.UNSUPPORTED_TEXT, assertThrows(PdfRenderException::class.java) {
                 PdfEngine().render(PdfDocument(page, blocks, flow), fonts)
             }.code)
         }
+    }
+
+    @Test fun `single line widow control preserves text below a wrapped frame`() {
+        val frame = PdfTextBox(20f, 20f, 80f, 40f, listOf(p("Frame")), anchor = PdfBoxAnchor.PAGE, wrap = PdfBoxWrap.TOP_BOTTOM)
+        val ordinary = pages(listOf(frame, p("Body")))
+        assertEquals(ordinary, pages(listOf(frame, p("Body", widow = true))))
+        assertTrue(ordinary.single().contains("Frame") && ordinary.single().contains("Body"))
     }
 
     @Test fun `paragraph keep state is private across concurrent shared engine calls`() {

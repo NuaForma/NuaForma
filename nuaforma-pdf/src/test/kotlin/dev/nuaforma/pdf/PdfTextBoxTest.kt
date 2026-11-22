@@ -71,4 +71,25 @@ class PdfTextBoxTest {
             PdfEngine().render(PdfDocument(page, blocks, PdfFlow(maxPages = 1)), FoundationLetter.fonts())
         }.code)
     }
+
+    @Test fun `a full-width frame keeps bottom clearance before a single line with widow control`() {
+        val engine = PdfEngine()
+        val fonts = FoundationLetter.fonts()
+        val base = PdfTextBox(30f, 12f, 340f, 40f, listOf(p("Frame")), wrap = PdfBoxWrap.TOP_BOTTOM)
+        val host = PdfParagraph(listOf(PdfTextRun("Zebra", PdfTextStyle("regular", 10f))), 0f, 0f,
+            PdfParagraphFormat(exactLineHeight = 16f, widowControl = true))
+        fun markerTop(frame: PdfTextBox): Float {
+            val markers = mutableListOf<Float>()
+            Loader.loadPDF(engine.render(PdfDocument(page, listOf(p("Lead"), frame, host), PdfFlow()), fonts)).use { pdf ->
+                assertEquals(1, pdf.numberOfPages)
+                object : PDFTextStripper() {
+                    override fun processTextPosition(text: TextPosition) {
+                        if (text.unicode == "Z") markers += text.yDirAdj
+                    }
+                }.getText(pdf)
+            }
+            return markers.single()
+        }
+        assertEquals(5.85f, markerTop(base.withWrapPadding(PdfMargins(3.6f, 0f, 5.85f, 0f))) - markerTop(base), .001f)
+    }
 }

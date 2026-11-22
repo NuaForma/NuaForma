@@ -99,17 +99,21 @@ internal object FlowLayouter {
                         continue
                     }
                     if (block.wrap == PdfBoxWrap.TOP_BOTTOM) {
+                        val trailingEdge = block.top + block.height + block.wrapPadding.bottom
                         if (block.anchor == PdfBoxAnchor.PARAGRAPH) {
-                            if (block.top + block.height > freshHeight()) overflow()
-                            if (!fits(block.top + block.height)) nextPage()
-                        } else if (block.top < top - .001f || block.top + block.height > bottom) overflow()
+                            if (trailingEdge > freshHeight()) overflow()
+                            if (!fits(trailingEdge)) nextPage()
+                        } else if (block.top - block.wrapPadding.top < top - .001f || trailingEdge > bottom) overflow()
                     }
                     val placed = BoxLayouter.layout(block, page, top, measurer)
                     if (block.rotation != 0f && pages.lastIndex in floatingTables)
                         fail(PdfFailureCode.UNSUPPORTED_TEXT, "Rotated frames beside floating tables are not qualified")
                     checkFloatingTableOverlap(placed.top, maxOf(block.height, placed.contentHeight))
                     pages.last() += placed
-                    if (block.wrap == PdfBoxWrap.TOP_BOTTOM) exclusions.getOrPut(pages.lastIndex) { mutableListOf() } += placed.top to placed.top + block.height
+                    if (block.wrap == PdfBoxWrap.TOP_BOTTOM) {
+                        exclusions.getOrPut(pages.lastIndex) { mutableListOf() } +=
+                            (placed.top - block.wrapPadding.top) to (placed.top + block.height + block.wrapPadding.bottom)
+                    }
                 }
                 is PdfParagraph -> {
                     if (block.runs.any { it is PdfPageField }) fail(PdfFailureCode.UNSUPPORTED_TEXT, "Page fields are supported only in page bands")
@@ -140,10 +144,12 @@ internal object FlowLayouter {
                         after = block.spaceAfter
                         continue
                     }
-                    if (exclusions[pages.lastIndex].orEmpty().isNotEmpty() && (format.keepWithNext || format.keepLines || format.widowControl)) {
+                    val measured = measuredAt(blockIndex)
+                    val activeFrame = exclusions[pages.lastIndex].orEmpty().any { top < it.second - .001f }
+                    val widowControl = format.widowControl && (!activeFrame || measured.lines.size > 1)
+                    if (activeFrame && (format.keepWithNext || format.keepLines || widowControl)) {
                         fail(PdfFailureCode.UNSUPPORTED_TEXT, "Paragraph keep rules with wrapped frames are not qualified")
                     }
-                    val measured = measuredAt(blockIndex)
                     var before = ParagraphSpacing.before(block, after, top <= page.margins.top + .001f, format.pageBreakBefore || leadingPageBreak)
                     if (measured.breakAfter.isNotEmpty()) {
                         if (exclusions.isNotEmpty())
@@ -203,7 +209,7 @@ internal object FlowLayouter {
                         continue
                     }
                     if (!fits(before + measured.heights.first())) nextPage() else top += before
-                    if (!format.widowControl || format.keepLines) {
+                    if (!widowControl || format.keepLines) {
                         for ((lineIndex, line) in measured.lines.withIndex()) {
                             val lineHeight = measured.heights[lineIndex]
                             if (lineHeight > freshHeight()) overflow()

@@ -1849,7 +1849,7 @@ internal class NativeDocxReader(
 
         fun readDrawingBox(node: XmlElement, partRelations: Map<String, String>, fields: Boolean = false,
             firstBodyParagraph: Boolean = false, isolatedFooterFrames: Boolean = false,
-            inlineHost: PdfParagraph? = null): PdfTextBox {
+            inlineHost: PdfParagraph? = null, isolatedBodyFrame: Boolean = false): PdfTextBox {
             source.current = node
             val wps = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
             val anchor = node.elements().singleOrNull() ?: reject("Invalid floating drawing")
@@ -1912,11 +1912,21 @@ internal class NativeDocxReader(
 
             val extent = one(anchor, wp, "extent")
             val paintProperties = setOf("extent", "effectExtent", "docPr", "cNvGraphicFramePr")
-            val allowed = if (inline) paintProperties else paintProperties + setOf("simplePos", "positionH", "positionV", "wrapNone")
+            val allowed = if (inline) paintProperties else paintProperties + setOf("simplePos", "positionH", "positionV", "wrapNone", "wrapSquare")
             check(anchor.elements().all { it.name.namespaceURI == wp && it.name.localPart in allowed ||
                 it.name.namespaceURI == drawing && it.name.localPart == "graphic" ||
                 !inline && it.name.namespaceURI == wp14 && it.name.localPart in setOf("sizeRelH", "sizeRelV") }, "Unsupported frame shape")
-            if (!inline) one(anchor, wp, "wrapNone")
+            val square = anchor.elements().singleOrNull { it.name.namespaceURI == wp && it.name.localPart == "wrapSquare" }
+            if (!inline && square == null) one(anchor, wp, "wrapNone")
+            if (square != null) {
+                source.current = square
+                check(isolatedBodyFrame && !inline && !fields && square.attributes.size == 1 &&
+                    square.attribute("", "wrapText") == "bothSides" && square.elements().isEmpty() &&
+                    square.children.filterIsInstance<XmlText>().all { it.text.isBlank() } &&
+                    order?.layer == PdfDrawingLayer.FOREGROUND &&
+                    anchor.elements().none { it.name.namespaceURI == wp && it.name.localPart == "wrapNone" },
+                    "Square-wrapped frames require one ordinary body anchor")
+            }
             val exterior = WordInlineImagePadding.read(one(anchor, wp, "effectExtent")) { origin, message -> source.current = origin; reject(message) }
             val graphic = one(one(anchor, drawing, "graphic"), drawing, "graphicData")
             check(graphic.attribute("", "uri") == wps && graphic.elements().size == 1, "Unsupported floating graphic")
@@ -1993,7 +2003,8 @@ internal class NativeDocxReader(
                     else -> reject("Unsupported vertical alignment")
                 }
                 val fill = WordFramePaint.fill(props, themeColors) { origin, message -> source.current = origin; reject(message) }
-                return PdfTextBox(left, top, width, height, paragraphs, placement, rotation, padding, fill, border, vertical)
+                val wrap = if (square == null) PdfBoxWrap.NONE else PdfBoxWrap.TOP_BOTTOM
+                return PdfTextBox(left, top, width, height, paragraphs, placement, rotation, padding, fill, border, vertical, wrap)
             }
 
             if (inlineHost != null) {
@@ -2015,7 +2026,7 @@ internal class NativeDocxReader(
             source.current = vertical
             val reference = vertical.attribute("", "relativeFrom")
             check(vertical.attributes.size == 1 && vertical.elements().size == 1 &&
-                (reference == "page" || reference == "paragraph" && firstBodyParagraph),
+                (reference == "page" || reference == "paragraph" && (firstBodyParagraph || square != null)),
                 "Paragraph-relative frames require the first body paragraph of a section")
             val verticalCoordinate = vertical.elements().single()
             val verticalPageAlignment = if (reference == "page" && verticalCoordinate.name.namespaceURI == wp &&
@@ -2040,8 +2051,19 @@ internal class NativeDocxReader(
                 check(reference == "page" && rotation == 0f, "Physical page alignment requires an unrotated page frame")
                 PdfTextBoxPageAlignment(horizontalPageAlignment, verticalPageAlignment)
             } else null
-            return frame(left, top, placement).withDrawingOrder(order).withAutoFit(autoFit).withPageAlignment(pageAlignment)
-                .withVisibleTextOverflow((!fields || isolatedFooterFrames && placement == PdfBoxAnchor.PAGE) &&
+            val frame = frame(left, top, placement).withDrawingOrder(order).withAutoFit(autoFit).withPageAlignment(pageAlignment)
+            if (square != null) {
+                source.current = square
+                fun clearance(name: String): Float = (anchor.attribute("", name)?.let(::numeric) ?: 0f) / 12_700f
+                check(rotation == 0f && autoFit == null && reference == "paragraph" && relativeSizes.isEmpty() &&
+                    horizontalPageAlignment == null && exterior.top == 0f &&
+                    maxOf(exterior.left, exterior.right, exterior.bottom) <= 3f &&
+                    left - clearance("distL") - exterior.left <= page.margins.left + .01f &&
+                    left + width + clearance("distR") + exterior.right >= page.width - page.margins.right - .01f,
+                    "Square-wrapped text frames must cover the entire text area")
+                return frame.withWrapPadding(PdfMargins(clearance("distT"), 0f, clearance("distB") + exterior.bottom, 0f))
+            }
+            return frame.withVisibleTextOverflow((!fields || isolatedFooterFrames && placement == PdfBoxAnchor.PAGE) &&
                     autoFit == null && rotation == 0f && bodyProps.attribute("", "anchorCtr") in setOf(null, "0", "false"))
         }
 
@@ -2136,7 +2158,9 @@ internal class NativeDocxReader(
                             unprintedBand(listOf(paragraph)) && paragraph.background == null &&
                             paragraph.lines.isEmpty() && paragraph.borders == null
                         boxes.map { if (it.name.localPart == "pict") readBox(it, partRelations, fields)
-                            else readDrawingBox(it, partRelations, fields, firstBodyParagraph, isolatedFooterFrames) } +
+                            else readDrawingBox(it, partRelations, fields, firstBodyParagraph, isolatedFooterFrames,
+                                isolatedBodyFrame = !fields && frames.size == 1 && images.isEmpty() && paragraph.spaceBefore == 0f &&
+                                    paragraph.runs.none { it is PdfPageBreak } && !paragraph.format.pageBreakBefore) } +
                             paragraph.copy(anchoredImages = images.map {
                                 readAnchoredImage(it, partRelations, fields, isolatedHeaderPicture)
                             })

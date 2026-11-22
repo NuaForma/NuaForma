@@ -399,3 +399,5 @@ Modern fixed and automatic flat tables can retain distinct border colors when th
 An isolated nonoverlapping table with a qualified text-relative anchor can keep ordinary full-width flow with a 100% automatic width.
 
 An explicit inline cell paragraph can cancel a saved floating style frame and its overlapping behavior while preserving the cell's text.
+
+Fixed square-wrapped body frames that cover the text column retain their qualified bottom effect extent and the following text clearance.
