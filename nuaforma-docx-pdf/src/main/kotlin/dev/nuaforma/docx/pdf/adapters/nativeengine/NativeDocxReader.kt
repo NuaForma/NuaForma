@@ -867,7 +867,7 @@ internal class NativeDocxReader(
                     children(node, setOf("r", "fldSimple"))
                     val id = node.attribute(rel, "id")
                     val anchor = node.value("anchor")
-                    check((id == null) != (anchor == null), "Hyperlinks require one target")
+                    check(id != null || anchor != null, "Hyperlinks require a target")
                     val link = if (id == null) {
                         val requested = PdfLink.Internal(requireNotNull(anchor))
                         val compatible = bookmarksByCase[anchor.lowercase(java.util.Locale.ROOT)].orEmpty()
@@ -879,7 +879,10 @@ internal class NativeDocxReader(
                                 "An unresolved bookmark cannot qualify a field inside its hyperlink")
                             null
                         } else if (target == requested.destination) requested else PdfLink.Internal(target)
-                    } else PdfLink.External(partRelations[id] ?: reject("Missing hyperlink relationship"))
+                    } else {
+                        val address = partRelations[id] ?: reject("Missing hyperlink relationship")
+                        externalHyperlink(address, anchor)
+                    }
                     check(node.elements().isNotEmpty(), "Empty hyperlink")
                     val linkIdentity = "source-link${linkCounter++}"
                     node.elements().flatMap { readRun(it, link, linkIdentity) }
@@ -2162,6 +2165,15 @@ internal class NativeDocxReader(
         fun id(resolve: (String, Boolean, Boolean) -> String): String = resolve(
             requireNotNull(family) { "An explicit font family is required" }, bold, italic)
 
+    }
+
+    private fun externalHyperlink(address: String, anchor: String?): PdfLink.External {
+        if (anchor.isNullOrEmpty() || '#' in address) return PdfLink.External(address)
+        check(anchor.length <= 2_048 && anchor.none { it.isISOControl() }, "Invalid hyperlink fragment")
+        // Word combines the relationship address with a separately stored fragment. Keep escapes already present in Word.
+        val encoded = java.net.URI(null, null, anchor).toASCIIString().drop(1)
+            .replace(Regex("%25(?=[0-9A-Fa-f]{2})"), "%")
+        return PdfLink.External("$address#$encoded")
     }
 
     private fun fontRunsBound(condition: Boolean) {

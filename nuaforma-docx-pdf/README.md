@@ -337,3 +337,5 @@ Ordinary header and footer paragraphs can keep a qualified right tab at the page
 An unpainted last left tab retains its font metrics when the requested blank advance extends past the line.
 
 Qualified horizontal bands retain ordinary row lines without adding an interior vertical stroke to an outside-only table outline.
+
+Separately stored Word hyperlink fragments retain the complete external destination and visible label.
