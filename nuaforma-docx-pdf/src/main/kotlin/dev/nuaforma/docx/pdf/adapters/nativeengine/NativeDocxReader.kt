@@ -941,7 +941,7 @@ internal class NativeDocxReader(
 
             fun one(name: String) = anchor.elements().singleOrNull { it.name.namespaceURI == wp && it.name.localPart == name } ?: reject("Missing or duplicate image anchor property")
 
-            val order = WordDrawingOrder.read(anchor) { origin, message -> source.current = origin; reject(message) }
+            val sourceOrder = WordDrawingOrder.read(anchor) { origin, message -> source.current = origin; reject(message) }
             val extent = one("extent")
             val imageWidth = number(extent.attribute("", "cx")) / 12700
 
@@ -982,7 +982,7 @@ internal class NativeDocxReader(
             val policy = when (wrap.name.localPart) {
                 "wrapTight" -> {
                     check(isolatedHeaderPicture && vertical.second == PdfBoxAnchor.PAGE &&
-                        order.layer == PdfDrawingLayer.BACKGROUND,
+                        sourceOrder.layer == PdfDrawingLayer.BACKGROUND,
                         "Tight image wrapping requires a behind-text picture in an otherwise empty header")
                     val edge = WordHeaderWrapContour.bottom(wrap) { origin, message -> source.current = origin; reject(message) }
                     val height = number(extent.attribute("", "cy")) / 12700
@@ -1020,6 +1020,8 @@ internal class NativeDocxReader(
                 }
             }
             check(!pageBand || policy == PdfImageWrap.NONE, "Only unwrapped floating images are qualified in page bands")
+            // Square wrapping is drawn in front of the text layer even if Word saved a behind-text editing flag.
+            val order = if (wrap.name.localPart == "wrapSquare") sourceOrder.copy(layer = PdfDrawingLayer.FOREGROUND) else sourceOrder
             check(order.layer != PdfDrawingLayer.BACKGROUND || policy == PdfImageWrap.NONE, "Wrapped background pictures are not qualified")
             val properties = anchor.elements().filter { it.name.namespaceURI == wp && it.name.localPart == "docPr" }
             val docPr = properties.singleOrNull()

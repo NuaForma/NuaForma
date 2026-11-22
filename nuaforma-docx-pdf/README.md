@@ -311,3 +311,5 @@ The checked setting for tracking future moved text does not alter the existing p
 Existing hyperlink relationship diagnostics report their source part and relationship position without displaying the destination value.
 
 Dedicated fixed horizontal inline text frames can retain their visible rectangle and body-line metrics.
+
+Square-wrapped ordinary pictures retain Word's foreground layering and saved drawing order.
