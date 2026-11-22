@@ -329,3 +329,5 @@ Supported fixed, unwrapped rectangular frames resolve their relative width and h
 A centered or decimal-aligned field can move left to remain inside the line when the full field fits after the preceding text.
 
 An unresolved ordinary Word hyperlink keeps its visible text. Existing names resolve with explicit case-preserving identity.
+
+An in-bounds stop can move the field to a continuation line. A right-aligned outside stop can use the physical margin of ordinary body text.

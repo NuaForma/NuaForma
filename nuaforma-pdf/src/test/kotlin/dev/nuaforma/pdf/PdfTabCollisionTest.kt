@@ -103,4 +103,32 @@ class PdfTabCollisionTest {
         }
     }
 
+
+    @Test
+    fun rightAlignedFieldsAtTheTextEdgeRespectThePhysicalPage() {
+        fun placed(prefix: String, stop: Float): List<PositionedText> {
+            val doc = PdfDocument(page, listOf(rightTabParagraph(prefix, stop)), PdfFlow())
+            val result = ReferenceLayouter.layout(doc, measurer, PdfRenderControl())
+            return result.pages.single().elements.filterIsInstance<PositionedText>()
+        }
+
+        val prefix = "A".repeat(33)
+        val inside = placed(prefix, 213f)
+        assertEquals(232.88f, inside.single { it.text == "VALUE" }.x, .001f)
+        assertEquals(14f, inside.single { it.text == "VALUE" }.baseline - inside.single { it.text == prefix }.baseline, .001f)
+
+        val outside = placed(prefix, 214.05f)
+        assertEquals(254f, outside.single { it.text == "VALUE" }.x, .001f)
+        assertEquals(outside.single { it.text == prefix }.baseline, outside.single { it.text == "VALUE" }.baseline, .001f)
+
+        val failure = assertThrows(PdfRenderException::class.java) { placed("A".repeat(35), 214.05f) }
+        assertEquals(PdfFailureCode.CONTENT_OVERFLOW, failure.code)
+    }
+
+    private fun rightTabParagraph(prefix: String, stop: Float): PdfParagraph {
+        val tabs = PdfTabSettings(listOf(PdfTabStop(stop, PdfTabAlignment.RIGHT)))
+        return PdfParagraph(listOf(PdfTextRun(prefix, style), PdfTab(style), PdfTextRun("VALUE", style)), 0f, 0f,
+            PdfParagraphFormat(exactLineHeight = 14f, tabs = tabs))
+    }
+
 }

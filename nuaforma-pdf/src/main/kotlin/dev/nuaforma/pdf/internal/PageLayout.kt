@@ -55,7 +55,7 @@ internal object PageLayouter {
     private val unshapedForbiddenTypes = setOf(Character.FORMAT.toInt(), Character.SURROGATE.toInt(), Character.UNASSIGNED.toInt(), Character.NON_SPACING_MARK.toInt(), Character.COMBINING_SPACING_MARK.toInt(), Character.ENCLOSING_MARK.toInt())
 
     fun layout(document: PdfDocument, measurer: TextMeasurer, lineArea: ((Int) -> Pair<Float, Float>)? = null, measurement: Boolean = false,
-        permitMarginMarker: Boolean = false): PageLayout {
+        permitMarginMarker: Boolean = false, rightMarginAllowance: Float = 0f): PageLayout {
         val page = document.page
         val width = page.width - page.margins.left - page.margins.right
         val bottom = page.height - page.margins.bottom
@@ -249,7 +249,8 @@ internal object PageLayouter {
                                 elements += PositionedText(fragment.text, displayStyle, x + fragment.paintOffset, baseline,
                                     fragment.decoration, fragment.navigation, block.semantics?.id, fragment.semantics,
                                     block.semantics?.takeUnless { fragment.decoration || fragment.text.isEmpty() }?.let { fragment.sourceStart + prefix },
-                                    trailingDecorationWidth = if (extra > 0f) fragment.metrics.width + extra else null, requiresPhysicalBounds = deferInkBounds,
+                                    trailingDecorationWidth = if (extra > 0f) fragment.metrics.width + extra else null,
+                                    requiresPhysicalBounds = deferInkBounds || (rightTabEdge ?: width) > width + .001f,
                                     background = background(style, fragment.metrics.width + extra, -fragment.paintOffset),
                                     tabLinkArea = fragment.tab?.navigation?.let { TabLinkArea(-fragment.paintOffset, fragment.metrics.width) })
                                 if (tabUnderline && fragment.metrics.width > 0f) {
@@ -378,7 +379,7 @@ internal object PageLayouter {
                                 throw PdfRenderException(PdfFailureCode.UNSUPPORTED_TEXT, "Tab paragraphs require left alignment or qualified justification")
                             line += spaces; lineWidth += spaces.sumOf { it.metrics.width.toDouble() }.toFloat(); spaces.clear()
                             val settings = format.tabs ?: PdfTabSettings()
-                            val cursor = lineLeft() + lineWidth
+                            var cursor = lineLeft() + lineWidth
                             val following = groups.drop(groupIndex + 1).takeWhile { group -> group.none { it.tab != null || it.lineBreak != null } }.flatten()
                             val payloadWidth = following.sumOf { it.metrics.width.toDouble() }.toFloat()
                             var decimalWidth = 0f
@@ -395,7 +396,6 @@ internal object PageLayouter {
                             val position = explicit?.position
                                 ?: (kotlin.math.floor((cursor + .001f) / settings.defaultInterval) + 1) * settings.defaultInterval
                             val alignment = explicit?.alignment ?: PdfTabAlignment.LEFT
-                            lineContainsAnchoredTab = lineContainsAnchoredTab || alignment != PdfTabAlignment.LEFT
                             val leader = explicit?.leader ?: PdfTabLeader.NONE
                             val paragraphEdge = width - format.rightIndent
                             val areaEdge = area().let { (left, span) -> minOf(width, left + span) }
@@ -410,7 +410,7 @@ internal object PageLayouter {
                                     PdfTabAlignment.DECIMAL -> decimalWidth
                                 }
                             }
-                            val fieldEdge = when {
+                            var fieldEdge = when {
                                 useRightEdge -> lineEdge()
                                 alignment == PdfTabAlignment.RIGHT && position <= areaEdge + .001f ->
                                     maxOf(paragraphEdge, position)
@@ -419,11 +419,32 @@ internal object PageLayouter {
                             // Word shifts a centered or decimal field left when its full text fits between the cursor and the edge.
                             // Keep preceding content and continue to reject fields that cannot fit in the available interval.
                             val lastStart = fieldEdge - payloadWidth
-                            val start = if (format.alignment == PdfAlignment.LEFT &&
-                                alignment in setOf(PdfTabAlignment.CENTER, PdfTabAlignment.DECIMAL) &&
-                                lastStart >= cursor - .001f) {
-                                maxOf(cursor, minOf(alignedStart, lastStart))
-                            } else maxOf(cursor, alignedStart)
+                            fun startAtCursor(): Float {
+                                val ordinary = format.alignment == PdfAlignment.LEFT &&
+                                    alignment in setOf(PdfTabAlignment.CENTER, PdfTabAlignment.DECIMAL)
+                                val candidate = if (ordinary && lastStart >= cursor - .001f)
+                                    minOf(alignedStart, lastStart) else alignedStart
+                                return maxOf(cursor, candidate)
+                            }
+                            var start = startAtCursor()
+                            val anchored = alignment != PdfTabAlignment.LEFT
+                            if (anchored && start + payloadWidth > fieldEdge + .001f &&
+                                explicit != null && format.alignment == PdfAlignment.LEFT && lineArea == null &&
+                                following.all { it.style != null } && line.any { it.text.isNotBlank() }) {
+                                if (useRightEdge) {
+                                    // An explicit right stop beyond the text area can continue into the physical right margin.
+                                    if (alignment == PdfTabAlignment.RIGHT && rightMarginAllowance > 0f &&
+                                        position <= width + rightMarginAllowance + .001f) {
+                                        fieldEdge = minOf(width + rightMarginAllowance, start + payloadWidth)
+                                    }
+                                } else {
+                                    // An in-bounds stop can move its intact field to the following line.
+                                    flush(justify = false)
+                                    cursor = lineLeft()
+                                    start = startAtCursor()
+                                }
+                            }
+                            lineContainsAnchoredTab = lineContainsAnchoredTab || anchored
                             if (start > fieldEdge + .001f) overflow("Tab start exceeds line boundary", start, fieldEdge)
                             if (alignment != PdfTabAlignment.LEFT && start + payloadWidth > fieldEdge + .001f)
                                 overflow("Aligned tab content exceeds line boundary", start + payloadWidth, fieldEdge)
