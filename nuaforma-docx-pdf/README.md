@@ -307,3 +307,5 @@ A plain white source background without children retains the default physical pa
 Within a render, crops and semantic copies of a picture can share its bounded decoded raster.
 
 The checked setting for tracking future moved text does not alter the existing print model.
+
+Existing hyperlink relationship diagnostics report their source part and relationship position without displaying the destination value.

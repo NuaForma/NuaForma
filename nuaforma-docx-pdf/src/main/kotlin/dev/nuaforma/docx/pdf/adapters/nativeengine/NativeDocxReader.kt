@@ -313,24 +313,36 @@ internal class NativeDocxReader(
         requireRelationships(relationRoot)
 
         fun readRelations(root: XmlElement): Map<String, String> {
-        requireRelationships(root)
-        val result = root.elements().associate { element ->
-            val id = element.attribute("", "Id") ?: reject("Missing relationship ID")
-            val target = element.attribute("", "Target") ?: reject("Missing relationship target")
-            if (element.attribute("", "Type") == "$rel/hyperlink") {
-                check(element.attribute("", "TargetMode") == "External", "Hyperlink relationships must be external")
-                PdfLink.External(target)
-                return@associate id to target
+            requireRelationships(root)
+            val result = root.elements().associate { element ->
+                source.current = element
+                val id = element.attribute("", "Id") ?: reject("Missing relationship ID")
+                val target = element.attribute("", "Target") ?: reject("Missing relationship target")
+                if (element.attribute("", "Type") == "$rel/hyperlink") {
+                    check(element.attribute("", "TargetMode") == "External", "Hyperlink relationships must be external")
+                    try {
+                        PdfLink.External(target)
+                    } catch (invalid: IllegalArgumentException) {
+                        val detail = when (invalid.message) {
+                            "Unsupported link scheme" -> "Unsupported hyperlink scheme; use HTTP, HTTPS or mailto"
+                            "Invalid link authority" -> "Invalid hyperlink authority"
+                            "Encoded link URI exceeds the limit" -> "Encoded hyperlink exceeds the length limit"
+                            else -> "Invalid hyperlink URI"
+                        }
+                        reject(detail)
+                    }
+                    return@associate id to target
+                }
+                check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g|svg)|styles\\.xml|numbering\\.xml|settings\\.xml|footnotes\\.xml|endnotes\\.xml|fontTable\\.xml|webSettings\\.xml|theme/theme1\\.xml|(?:header|footer)[1-9][0-9]?\\.xml)")), "Unsupported relationship target")
+                val type = element.attribute("", "Type")
+                check(type == "$rel/image" && target.startsWith("media/") || type == "$rel/styles" && target == "styles.xml" || type == "$rel/numbering" && target == "numbering.xml" || type == "$rel/settings" && target == "settings.xml" ||
+                    type == "$rel/footnotes" && target == "footnotes.xml" || type == "$rel/endnotes" && target == "endnotes.xml" ||
+                    type == "$rel/theme" && target == "theme/theme1.xml" || type == "$rel/fontTable" && target == "fontTable.xml" || type == "$rel/webSettings" && target == "webSettings.xml" || type == "$rel/header" && target.matches(Regex("header[1-9][0-9]?\\.xml")) || type == "$rel/footer" && target.matches(Regex("footer[1-9][0-9]?\\.xml")), "Unsupported relationship type")
+                id to target
             }
-            check(target.matches(Regex("(?:media/[A-Za-z0-9_.-]+\\.(?i:png|emf|jpe?g|svg)|styles\\.xml|numbering\\.xml|settings\\.xml|footnotes\\.xml|endnotes\\.xml|fontTable\\.xml|webSettings\\.xml|theme/theme1\\.xml|(?:header|footer)[1-9][0-9]?\\.xml)")), "Unsupported relationship target")
-            val type = element.attribute("", "Type")
-            check(type == "$rel/image" && target.startsWith("media/") || type == "$rel/styles" && target == "styles.xml" || type == "$rel/numbering" && target == "numbering.xml" || type == "$rel/settings" && target == "settings.xml" ||
-                type == "$rel/footnotes" && target == "footnotes.xml" || type == "$rel/endnotes" && target == "endnotes.xml" ||
-                type == "$rel/theme" && target == "theme/theme1.xml" || type == "$rel/fontTable" && target == "fontTable.xml" || type == "$rel/webSettings" && target == "webSettings.xml" || type == "$rel/header" && target.matches(Regex("header[1-9][0-9]?\\.xml")) || type == "$rel/footer" && target.matches(Regex("footer[1-9][0-9]?\\.xml")), "Unsupported relationship type")
-            id to target
-        }
-        check(result.size == root.elements().size, "Duplicate relationship ID")
-        return result
+            source.current = root
+            check(result.size == root.elements().size, "Duplicate relationship ID")
+            return result
         }
 
         val relations = readRelations(relationRoot)
@@ -1869,7 +1881,8 @@ internal class NativeDocxReader(
             registerNeighbors(bandRoot)
             check(bandRoot.name.namespaceURI == word && bandRoot.name.localPart == if (name == "header") "hdr" else "ftr", "Invalid page band")
             children(bandRoot, setOf("p", "tbl"))
-            val ownRelations = parts["word/_rels/$target.rels"]?.let { readRelations(xml.read(it)) } ?: emptyMap()
+            val relationshipsPart = "word/_rels/$target.rels"
+            val ownRelations = if (relationshipsPart in parts) readRelations(part(relationshipsPart)) else emptyMap()
             val blocks = readBlocks(bandRoot, ownRelations, true)
             source.current = margins
             activePart = provenance[margins] ?: "word/document.xml"
