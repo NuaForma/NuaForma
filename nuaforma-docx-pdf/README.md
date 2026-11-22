@@ -359,3 +359,5 @@ A fixed text-relative table with an isolated anchor stays at its saved vertical 
 A bookmark after a standalone Word page break keeps its destination on the source page.
 
 A right-aligned line with explicit center and right tab stops preserves the tab fields and follows Word's right-edge alignment.
+
+A fixed, flat modern Word table can retain independent border strokes and measured cell clearances, including when a saved grid supplies omitted cell widths.

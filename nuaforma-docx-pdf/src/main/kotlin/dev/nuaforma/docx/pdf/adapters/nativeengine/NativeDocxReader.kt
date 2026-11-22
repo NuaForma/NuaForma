@@ -1339,12 +1339,14 @@ internal class NativeDocxReader(
                 bandCellWidth?.value("type") == "dxa" && bandCellWidth.value("w") == grid.elements().single().value("w") &&
                 (tableWidth?.value("type") == "dxa" && !automaticLayout ||
                     tableWidth?.value("type") == "auto" && tableWidth.value("w") == "0")
+            val independentFixedEdges = borderValues.filterNotNull().size > 1 && modernTableAlignment && depth == 0 &&
+                !fields && !automaticLayout && position == null && !regions.active && alignment == PdfTableAlignment.LEFT
             if (sparseBorders) {
                 source.current = borderLayers.last()
                 val ordinaryBodyEdges = borderValues.filterNotNull().size == 1 && modernTableAlignment && depth == 0 &&
                     !fields && cellMargins != null && !naturalWidths && preferredTableWidth?.percent == null &&
                     alignment == PdfTableAlignment.LEFT
-                check(ordinaryBodyEdges || singleBandRule,
+                check(ordinaryBodyEdges || singleBandRule || independentFixedEdges,
                     "Table edges with independent visibility require a flat modern body table or a single qualified page-band rule")
             }
             // Direct absent edges on every ordinary cell suppress the entire inherited grid.
@@ -1529,8 +1531,10 @@ internal class NativeDocxReader(
                     val leftInset = (cellBorders?.left?.border?.width ?: if (cellBorders == null) border?.width ?: 0f else 0f) / 2
                     val rightInset = (cellBorders?.right?.border?.width ?: if (cellBorders == null) border?.width ?: 0f else 0f) / 2
                     val physicalMargins = effectiveMargins.copy(
-                        left = if (marginDeclarations.any { it.one("left") != null }) maxOf(effectiveMargins.left, leftInset) else effectiveMargins.left,
-                        right = if (marginDeclarations.any { it.one("right") != null }) maxOf(effectiveMargins.right, rightInset) else effectiveMargins.right)
+                        left = if (independentFixedEdges || marginDeclarations.any { it.one("left") != null })
+                            maxOf(effectiveMargins.left, leftInset) else effectiveMargins.left,
+                        right = if (independentFixedEdges || marginDeclarations.any { it.one("right") != null })
+                            maxOf(effectiveMargins.right, rightInset) else effectiveMargins.right)
                     val ownMargins = physicalMargins.takeUnless { it == padding }
                     val alignment = cellProperties.mapNotNull { it.one("vAlign") }.lastOrNull()?.let { node ->
                         attributes(node, setOf("val")); children(node, emptySet())
@@ -1555,7 +1559,7 @@ internal class NativeDocxReader(
                         }
                     } ?: false
                     if (naturalWidths) automaticDimension(cellWidth ?: reject("Missing cell width"))
-                    else if (!automaticLayout) {
+                    else if (!automaticLayout && (cellWidth != null || !independentFixedEdges)) {
                         val preferred = dimension(cellWidth ?: reject("Missing cell width"))
                         val declared = widths.subList(column, column + span).sum()
                         val difference = declared - preferred
@@ -1650,7 +1654,7 @@ internal class NativeDocxReader(
             }
             bookmarksBefore()
             val customBorders = specs.any { (cells, _) -> cells.any { it.borders != null } }
-            if (cellMargins == null && customBorders) {
+            if (cellMargins == null && customBorders && !independentFixedEdges) {
                 source.current = properties
                 reject("Explicit cell margins required for tables with cell borders")
             }
@@ -1688,7 +1692,8 @@ internal class NativeDocxReader(
                         cell.columnSpan == 1 && cell.rowSpan == 1 && cell.blocks.none { it is PdfTable }
                     } }
                 val uniformWidths = bottomOnly && styles.all { it.width == tableBorders["bottom"]?.width }
-                check(styles.size <= 1 || uniformWidths || fixedRowEdges && styles.map { it.color }.distinct().size == 1,
+                check(independentFixedEdges || styles.size <= 1 || uniformWidths ||
+                    fixedRowEdges && styles.map { it.color }.distinct().size == 1,
                     "Mixed cell-border widths require a fixed flat body table with one solid color")
             }
             val count = headerFlags.takeWhile { it }.size
