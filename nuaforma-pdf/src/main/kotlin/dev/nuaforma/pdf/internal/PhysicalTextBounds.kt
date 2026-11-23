@@ -2,12 +2,18 @@ package dev.nuaforma.pdf.internal
 
 import dev.nuaforma.pdf.*
 
-/** Exact-leading measurements are checked only after placement on the physical page. */
+/** Bounds that depend on flow placement are checked in physical page coordinates. */
 internal object PhysicalTextBounds {
 
     fun check(page: PageLayout, measurer: TextMeasurer) {
-        for (text in page.elements.filterIsInstance<PositionedText>().filter { it.requiresPhysicalBounds }) {
+        for (text in page.elements.filterIsInstance<PositionedText>()) {
+            val overhang = text.physicalLeftOverhang
+            if (!text.requiresPhysicalBounds && overhang == null) continue
             PageLayouter.checkCancellation()
+            if (overhang != null && text.x < -.001f)
+                throw PdfRenderException(PdfFailureCode.CONTENT_OVERFLOW,
+                    "List marker exceeds physical left page boundary; required=$overhang pt; available=${text.x + overhang} pt")
+            if (!text.requiresPhysicalBounds) continue
             if (text.text.isBlank() && !text.style.underline && !text.style.strikethrough) continue
             val metrics = measurer.ink(text.text, text.style)
             val top = text.baseline - metrics.ascent

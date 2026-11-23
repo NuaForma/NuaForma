@@ -63,7 +63,8 @@ class PdfLayoutOverflowDiagnosticsTest {
 
         assertDoesNotThrow { layout(tab("aa", 11f, PdfTabAlignment.RIGHT, "a")) }
         failure("Tab start exceeds line boundary", 81f, 80f) { layout(tab("a", 81f, PdfTabAlignment.LEFT)) }
-        failure("Aligned tab content exceeds line boundary", 85f, 80f) { layout(tab("aa", 75f, PdfTabAlignment.CENTER)) }
+        assertDoesNotThrow { layout(tab("aa", 75f, PdfTabAlignment.CENTER)) }
+        failure("Aligned tab content exceeds line boundary", 90f, 80f) { layout(tab("a".repeat(9), 40f, PdfTabAlignment.CENTER)) }
     }
 
     @Test
@@ -74,6 +75,28 @@ class PdfLayoutOverflowDiagnosticsTest {
         }
         failure("Whitespace exceeds line width", 90f, 80f) { layout(paragraph(" ".repeat(9))) }
         assertDoesNotThrow { layout(paragraph("a".repeat(8), PdfParagraphFormat(exactLineHeight = 80f))) }
+    }
+
+    @Test
+    fun `a standalone left aligned picture can use the free right page margin`() {
+        fun picture(width: Float, clipped: Boolean = true) =
+            PdfImageRun(PdfImage(ByteArray(24), width, 8f)).withLineClipping(clipped)
+
+        fun layoutImage(run: PdfImageRun, alignment: PdfAlignment = PdfAlignment.LEFT, margin: Float = 10f): PageLayout {
+            val paragraph = PdfParagraph(listOf(run), format = PdfParagraphFormat(alignment = alignment))
+            return PageLayouter.layout(PdfDocument(page, listOf(paragraph)), measurer, permitMarginOverflow = true, rightMarginAllowance = margin)
+        }
+
+        val portion = picture(80f).withPadding(PdfMargins(0f, .3f, 0f, 0f))
+        val saved = layoutImage(portion).elements.filterIsInstance<PositionedImage>().single()
+        assertEquals(10f, saved.x)
+        assertEquals(80f, saved.image.width)
+        assertTrue(saved.requiresPhysicalBounds)
+        assertEquals(85f, layoutImage(picture(85f)).elements.filterIsInstance<PositionedImage>().single().image.width)
+        failure("Inline image exceeds physical page width", 91f, 90f) { layoutImage(picture(91f)) }
+        failure("Inline image exceeds line width", 81f, 80f) { layoutImage(picture(81f, clipped = false)) }
+        failure("Inline image exceeds line width", 81f, 80f) { layoutImage(picture(81f), PdfAlignment.CENTER) }
+        failure("Inline image exceeds line width", 81f, 80f) { layoutImage(picture(81f), margin = 0f) }
     }
 
     @Test

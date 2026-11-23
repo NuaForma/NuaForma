@@ -73,13 +73,11 @@ class OwnEngineNavigationTest {
             Triple(relations, "https://nuaforma.dev/image-comparison/", "javascript:alert(1)"),
             Triple(relations, "https://nuaforma.dev/image-comparison/", "https://user:pass@example.test/"),
             Triple(relations, "relationships/hyperlink", "relationships/image"),
-            Triple(document, "w:anchor=\"Conclusion\"", "w:anchor=\"Missing\""),
             Triple(document, "w:anchor=\"Conclusion\"", "w:anchor=\"../outside\""),
             Triple(document, "w:name=\"Conclusion\"", "w:name=\"space name\""),
             Triple(document, "<w:bookmarkEnd w:id=\"1\"/>", "<w:bookmarkEnd w:id=\"2\"/>"),
             Triple(document, "<w:bookmarkEnd w:id=\"1\"/>", ""),
-            Triple(document, "<w:u w:val=\"single\"/>", "<w:u w:val=\"double\"/>"),
-            Triple(document, "<w:hyperlink r:id=\"mail\">", "<w:hyperlink r:id=\"mail\" w:anchor=\"Conclusion\">"))) {
+            Triple(document, "<w:u w:val=\"single\"/>", "<w:u w:val=\"double\"/>"))) {
             assertThrows(IllegalArgumentException::class.java) {
                 PdfEngine().render(OwnEngineDocxReader().read(rewrite(part, old, replacement)), fonts())
             }

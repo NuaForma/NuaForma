@@ -44,7 +44,10 @@ internal object EmfContent {
         val data = r.span(r.int(56), r.int(60))
         r.require(stride.toLong() * height <= data.size, "Truncated bitmap pixels")
         val sx = r.int(32); val sy = r.int(36); val sw = r.int(40); val sh = r.int(44)
-        r.require(sx >= 0 && sy >= 0 && sw > 0 && sh > 0 && sx.toLong() + sw <= width && sy.toLong() + sh <= height, "Invalid bitmap source rectangle")
+        val lastColumnOverhang = sx == 0 && sy == 0 && sw == width + 1 && sh == height &&
+            sw == r.int(72) && sh == r.int(76)
+        r.require(sx >= 0 && sy >= 0 && sw > 0 && sh > 0 && (sx.toLong() + sw <= width || lastColumnOverhang) &&
+            sy.toLong() + sh <= height, "Invalid bitmap source rectangle")
         r.point(24)
         r.require(r.int(72) in 1..1_000_000 && r.int(76) in 1..1_000_000 &&
             abs(r.int(24).toLong() + r.int(72)) <= 1_000_000 && abs(r.int(28).toLong() + r.int(76)) <= 1_000_000,
@@ -63,6 +66,7 @@ internal object EmfContent {
             val g = graphics(canvas, state, base)
             try {
                 g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, if (state.stretchMode == 4) RenderingHints.VALUE_INTERPOLATION_BICUBIC else RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR)
+                // Keep the original mapping so Java2D clips an uncovered source column instead of scaling it away.
                 g.drawImage(bitmap, r.int(24), r.int(28), r.int(24) + r.int(72), r.int(28) + r.int(76), sx, sy, sx + sw, sy + sh, null)
             } finally { g.dispose() }
         } finally { bitmap.flush() }

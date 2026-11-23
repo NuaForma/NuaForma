@@ -71,6 +71,45 @@ class EmfPictureTest {
     }
 
     @Test
+    fun `a valid final object deletion omitted from the record count does not change the logo`() {
+        val source = EmfFixture.file(
+            EmfFixture.record(39, 1, 0, 0x00b07010, 0), EmfFixture.record(37, 1),
+            EmfFixture.record(43, 10, 10, 190, 90), EmfFixture.record(37, 0x80000005.toInt()),
+            EmfFixture.record(40, 1)
+        )
+        val undercounted = withRecordCount(source, 6)
+        assertArrayEquals(requireNotNull(decode(source)), decode(undercounted))
+        assertNull(decode(undercounted, true))
+    }
+
+    @Test
+    fun `undercount tolerance requires one valid object deletion and a complete EOF`() {
+        val create = EmfFixture.record(39, 1, 0, 0, 0)
+        val delete = EmfFixture.record(40, 1)
+        val validShape = withRecordCount(EmfFixture.file(create, delete), 3)
+        val badEnd = validShape.copyOf().apply {
+            ByteBuffer.wrap(this).order(ByteOrder.LITTLE_ENDIAN).putInt(size - 4, 16)
+        }
+        for (invalid in listOf(
+            withRecordCount(EmfFixture.logo(), 7),
+            withRecordCount(EmfFixture.file(create, delete, delete), 3),
+            withRecordCount(EmfFixture.file(create, EmfFixture.record(40, 7)), 3),
+            withRecordCount(EmfFixture.file(create, EmfFixture.record(40, 1, 0)), 3),
+            withRecordCount(EmfFixture.file(create, delete), 5),
+            badEnd
+        )) {
+            for (inspect in listOf(false, true)) assertThrows(EmfFailure::class.java) { decode(invalid, inspect) }
+        }
+        for (inspect in listOf(false, true)) assertThrows(GenerationException::class.java) {
+            decode(withRecordCount(validShape, 20_001), inspect)
+        }
+    }
+
+    private fun withRecordCount(source: ByteArray, count: Int) = source.copyOf().apply {
+        ByteBuffer.wrap(this).order(ByteOrder.LITTLE_ENDIAN).putInt(52, count)
+    }
+
+    @Test
     fun `vector logo renders at bounded resolution with transparent surround and distinct fill`() {
         val png = requireNotNull(decode(EmfFixture.logo()))
         val image = ImageIO.read(png.inputStream())
@@ -147,6 +186,27 @@ class EmfPictureTest {
         val malformed = bitmap.copyOf()
         ByteBuffer.wrap(malformed).order(ByteOrder.LITTLE_ENDIAN).putInt(48, Int.MAX_VALUE)
         assertThrows(EmfFailure::class.java) { decode(EmfFixture.file(malformed)) }
+    }
+
+    @Test
+    fun `one uncovered right source column is clipped at original scale`() {
+
+        fun source(sourceWidth: Int, destinationWidth: Int, sourceHeight: Int = 1, sourceX: Int = 0): ByteArray {
+            val bitmap = EmfFixture.bitmap()
+            ByteBuffer.wrap(bitmap).order(ByteOrder.LITTLE_ENDIAN)
+                .putInt(32, sourceX).putInt(40, sourceWidth).putInt(44, sourceHeight)
+                .putInt(72, destinationWidth).putInt(76, 1)
+            return EmfFixture.file(bitmap)
+        }
+
+        val expected = requireNotNull(decode(source(1, 1)))
+        val overhang = source(2, 2)
+        assertArrayEquals(expected, decode(overhang))
+        assertNull(decode(overhang, true))
+        for (invalid in listOf(source(3, 3), source(2, 3), source(2, 2, sourceHeight = 2), source(2, 2, sourceX = 1))) {
+            assertThrows(EmfFailure::class.java) { decode(invalid) }
+            assertThrows(EmfFailure::class.java) { decode(invalid, true) }
+        }
     }
 
     @Test

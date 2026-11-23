@@ -129,6 +129,34 @@ class PdfNotesTest {
         assertTrue(texts.any { it.text == "END" })
     }
 
+    @Test
+    fun aSplittableRowWithoutAnOwningNoteCanStayOnTheCurrentPage() {
+        val foot = note("whole-table-note", PdfNoteKind.FOOTNOTE)
+        val owner = p(listOf(PdfTextRun("Owner", style), PdfNoteCall("whole-row-call", foot.id, marker)))
+        val row = PdfTableRow(listOf(PdfTableCell(listOf(text("Whole row")))), allowSplit = true)
+        val document = PdfDocument(page, listOf(owner, PdfTable(listOf(280f), listOf(row)), text("End")), PdfFlow(), notes = listOf(foot))
+        val layout = ReferenceLayouter.layout(document, measure, PdfRenderControl())
+        val painted = DocumentLayouter.texts(layout.pages.single().elements).toList()
+        assertTrue(painted.joinToString("") { it.text }.replace(" ", "").contains("Wholerow"))
+        assertTrue(painted.any { it.text == "End" })
+        assertEquals(1, painted.count { it.span?.id == "whole-row-call" })
+        assertTrue(painted.any { item -> item.navigation?.destinations?.any { it.name == foot.id } == true })
+    }
+
+    @Test
+    fun aRowThatCouldSplitAroundAFootnoteDoesNotSilentlyMoveToAnotherPage() {
+        val foot = note("split-table-note", PdfNoteKind.FOOTNOTE)
+        val owner = p(listOf(PdfTextRun("Owner", style), PdfNoteCall("split-row-call", foot.id, marker)))
+        val row = PdfTableRow(listOf(PdfTableCell((1..4).map { text("Row section $it") })), allowSplit = true)
+        val document = PdfDocument(PdfPage(320f, 135f, page.margins),
+            listOf(owner, PdfTable(listOf(280f), listOf(row))), PdfFlow(), notes = listOf(foot))
+        val failure = assertThrows(PdfRenderException::class.java) {
+            ReferenceLayouter.layout(document, measure, PdfRenderControl())
+        }
+        assertEquals(PdfFailureCode.UNSUPPORTED_TEXT, failure.code)
+        assertEquals("Splitting a table row across pages with notes is not qualified", failure.message)
+    }
+
     @Test fun `paragraph keeps move their note with the heading and long endnotes finish after the body`() {
         val foot = note("kept", PdfNoteKind.FOOTNOTE)
         val end = note("long-end", PdfNoteKind.ENDNOTE, extra = 31)
@@ -192,7 +220,8 @@ class PdfNotesTest {
         assertEquals(1, elements.count { it is PositionedImage })
         assertEquals(1, elements.count { it is PositionedBox })
         for (bad in listOf(
-            PdfTextBox(30f, 0f, 100f, 30f, listOf(text("Overlap"))),
+            PdfTextBox(30f, page.height - page.margins.bottom - 18f, 100f, 30f,
+                listOf(text("Overlap")), PdfBoxAnchor.PAGE),
             PdfTextBox(30f, 0f, 100f, 30f, listOf(text("Wrapped")), wrap = PdfBoxWrap.TOP_BOTTOM),
         )) assertEquals(PdfFailureCode.UNSUPPORTED_TEXT, assertThrows(PdfRenderException::class.java) {
             ReferenceLayouter.layout(PdfDocument(page, listOf(owner, bad), PdfFlow(), notes = listOf(foot)), measure, PdfRenderControl())

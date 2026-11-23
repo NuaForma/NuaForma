@@ -29,7 +29,7 @@ class NativeTextBackgroundTest {
         for ((folder, name, before, after) in listOf(
             listOf("highlight", "highlight", "w:val=\"yellow\"", "w:val=\"beige\""),
             listOf("highlight", "highlight", "<w:highlight w:val=\"yellow\"/>", "<w:highlight w:val=\"yellow\"/><w:highlight w:val=\"none\"/>"),
-            listOf("shading", "shd", "w:val=\"clear\"", "w:val=\"pct10\""),
+            listOf("shading", "shd", "w:val=\"clear\"", "w:val=\"diagStripe\""),
             listOf("shading", "shd", "w:fill=\"FFFFFF\"", "w:fill=\"not-a-color\""))) {
             support.rejectChanged("/text-backgrounds/$folder/a4/source.docx", "word/document.xml", name) { xml ->
                 xml.replaceFirst(before, after)

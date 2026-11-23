@@ -106,4 +106,40 @@ class NativeDocxNotesTest {
         }
         assertSame(root.elements().single(), focused)
     }
+
+    @Test
+    fun `blank endnote policies are available only when there are no numbered endnotes`() {
+        val separator = """<w:endnote w:type="separator" w:id="-1"><w:p><w:pPr>
+            <w:spacing w:line="20" w:lineRule="exact"/><w:rPr><w:sz w:val="24"/></w:rPr>
+            </w:pPr></w:p></w:endnote>"""
+        val continuation = """<w:endnote w:type="continuationSeparator" w:id="0"><w:p><w:r>
+            <w:rPr><w:sz w:val="24"/></w:rPr><w:t xml:space="preserve"> </w:t></w:r></w:p></w:endnote>"""
+        val notice = continuation.replace("continuationSeparator", "continuationNotice").replace("w:id=\"0\"", "w:id=\"1\"")
+        val kind = PdfNoteKind.ENDNOTE
+        val numbering = NativeDocxNotes.defaults() + (kind to properties("""<w:endnote w:id="-1"/><w:endnote w:id="0"/>""", kind))
+        fun read(content: String) = NativeDocxNotes(
+            mapOf(kind to xml("""<w:endnotes xmlns:w="$namespace">$content</w:endnotes>""")), numbering, ::fail)
+
+        val metadata = read(separator + continuation + notice)
+        assertTrue(metadata.readDefinitions { _, _ -> fail("This source contains no numbered endnotes") }.isEmpty())
+        assertThrows(IllegalArgumentException::class.java) { metadata.call(kind, "1", style, null) }
+        for (invalid in listOf(
+            continuation.replace("> </w:t>", ">Continued</w:t>"),
+            continuation.replace("> </w:t>", "><w:tab/></w:t>"),
+            continuation + """<w:endnote w:id="2"><w:p/></w:endnote>""",
+        )) assertThrows(IllegalArgumentException::class.java) { read(separator + invalid + notice) }
+    }
+
+    @Test
+    fun `empty continuation notices may declare zero clearance while active ones still fail`() {
+        val policy = properties("""<w:footnote w:id="-19"/>""")
+        val blank = """<w:footnote w:id="-19" w:type="continuationNotice"><w:p><w:pPr>
+            <w:spacing w:before="0" w:after="0"/></w:pPr></w:p></w:footnote>"""
+        assertNotNull(notes(blank + """<w:footnote w:id="2"><w:p/></w:footnote>""", policy))
+        for (invalid in listOf(blank.replace("before=\"0\"", "before=\"60\""),
+            blank.replace("after=\"0\"", "after=\"60\""),
+            blank.replace("</w:p>", "<w:r><w:t>Notice</w:t></w:r></w:p>"))) {
+            assertThrows(IllegalArgumentException::class.java) { notes(invalid, policy) }
+        }
+    }
 }

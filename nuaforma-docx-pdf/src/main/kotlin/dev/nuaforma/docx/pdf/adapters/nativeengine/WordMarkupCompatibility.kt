@@ -112,9 +112,17 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     throw error
                 }
                 source.index(root, part)
+                if (part == WordAuxiliaryParts.INTELLIGENCE_PART) WordAuxiliaryParts.validateEmptyIntelligence(root) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }
                 if (selection.normalize(root) { node, message -> source.current = node; source.failure(message, part) }) {
                     archive.touch(part)
                     changed = true
+                }
+                if (part == "word/webSettings.xml") WordWebSettings(context).validateSeparateFilesSource(root) { node ->
+                    source.current = node
+                    source.failure("Invalid original Word web export preference", part)
                 }
                 if (part == "word/settings.xml") WordAuthoringMetadata.validateCompatibilitySource(root) { node ->
                     source.current = node
@@ -141,6 +149,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.failure(message, part)
                 }
                 NativeWordTextInput.validateSource(root, { source.current = it }) { message ->
+                    throw source.failure(message, part)
+                }
+                WordTextOutline.validateSource(root) { node, message ->
+                    source.current = node
                     throw source.failure(message, part)
                 }
                 WordRunBackground.validateSource(root, context) { node, message ->
@@ -205,9 +217,21 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     source.current = node
                     throw source.failure(message, part)
                 }
+                WordAuthoringMetadata.validateTableAccessibilitySource(root) { node ->
+                    source.current = node
+                    throw source.failure("Invalid original table accessibility metadata", part)
+                }
+                WordTableConditionalMetadata(context).inspect(root, forPrint = false) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }
                 WordTableBorders.validateSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)
+                }
+                if (WordTableBorders.removeInactiveDiagonals(root)) {
+                    archive.touch(part)
+                    changed = true
                 }
                 if (WordGridHistoryMetadata.normalizeSource(root, context) { node, message ->
                     source.current = node
@@ -215,6 +239,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                 }) {
                     archive.touch(part)
                     changed = true
+                }
+                WordTableOmittedGrid.validateSource(root) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
                 }
                 WordRunSpacing.validateSource(root) { node, message ->
                     source.current = node
@@ -238,6 +266,13 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                     archive.touch(part)
                     changed = true
                 }
+                if (WordCapitalization.normalizeSource(root) { node, message ->
+                    source.current = node
+                    throw source.failure(message, part)
+                }) {
+                    archive.touch(part)
+                    changed = true
+                }
                 if (WordNumericSpellings.normalizeSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)
@@ -255,6 +290,10 @@ internal class WordMarkupCompatibility(private val context: GenerationContext) {
                 WordLatinFontSelection.validateSource(root) { node, message ->
                     source.current = node
                     throw source.failure(message, part)
+                }
+                if (WordPageNumberControls.normalizeSource(root)) {
+                    archive.touch(part)
+                    changed = true
                 }
             }
             return if (changed) archive.bytes() else bytes

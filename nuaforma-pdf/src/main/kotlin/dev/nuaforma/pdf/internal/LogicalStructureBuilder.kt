@@ -37,6 +37,7 @@ internal object LogicalStructureBuilder {
             val text = paragraphText(p)
             add(PdfSemanticNode(semantic.id, semantic.role, parent, semantic.level, text = text))
             semantic.captionTargetId?.let { captions[semantic.id] = it }
+            p.endDestinations.forEach { aliases[it.name] = semantic.id }
             p.listLabel?.let { span(semanticChildId(semantic.id, "label"), PdfSemanticRole.LABEL, semantic.id, it.value.text) }
             for ((index, run) in p.runs.withIndex()) when (run) {
                 is PdfTextRun -> {
@@ -54,6 +55,17 @@ internal object LogicalStructureBuilder {
                 }
                 is PdfImageRun -> image(run.image, semantic.id)
                 is PdfTab, is PdfLineBreak, is PdfPageBreak -> {
+                    if (run is PdfPageBreak) run.destinations.forEach { aliases[it.name] = semantic.id }
+                    if (run is PdfTab && run.navigation != null) {
+                        val navigation = run.navigation
+                        val link = requireNotNull(navigation.link)
+                        val id = navigation.logicalId ?: semanticChildId(semantic.id, "link$index")
+                        val internal = (link as? PdfLink.Internal)?.destination
+                        val external = (link as? PdfLink.External)?.uri
+                        span(id, PdfSemanticRole.LINK, semantic.id, "\t", internal ?: external)
+                        if (external != null) pendingTargets.remove(id)
+                        continue
+                    }
                     val before = p.runs.getOrNull(index - 1) as? PdfTextRun
                     val after = p.runs.getOrNull(index + 1) as? PdfTextRun
                     if (before?.semantics?.id != null && before.semantics.id == after?.semantics?.id) {

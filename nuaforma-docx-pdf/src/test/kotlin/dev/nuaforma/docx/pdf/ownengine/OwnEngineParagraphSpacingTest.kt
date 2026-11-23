@@ -48,8 +48,8 @@ class OwnEngineParagraphSpacingTest {
                 "T002" to "T100", "T102" to "P02"))
     }
 
-    @Test fun `invalid flags and unsupported line based gaps fail instead of changing layout`() {
-        for (replacement in listOf("w:beforeAutospacing=\"invalid\"", "w:beforeLines=\"100\"", "w:afterLines=\"100\"")) {
+    @Test fun `invalid flags and line-unit gaps fail instead of changing layout`() {
+        for (replacement in listOf("w:beforeAutospacing=\"invalid\"", "w:beforeLines=\"-1\"", "w:afterLines=\"invalid\"")) {
             val bytes = ByteArrayOutputStream().also { buffer -> ZipOutputStream(buffer).use { output ->
                 ZipInputStream(source("a4-html").inputStream()).use { input ->
                     while (true) {

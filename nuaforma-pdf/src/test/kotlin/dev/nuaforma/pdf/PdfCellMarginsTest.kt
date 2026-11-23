@@ -79,6 +79,25 @@ class PdfCellMarginsTest {
     }
 
     @Test
+    fun narrowSavedGridColumnCanBelongToEitherAdjacentSpanningCell() {
+        val widths = listOf(100f, .3f, 100f)
+        val margins = PdfMargins(0f, 5f, 0f, 5f)
+        fun cell(label: String, span: Int = 1) = PdfTableCell(listOf(paragraph(label)), columnSpan = span)
+        val rows = listOf(PdfTableRow(listOf(cell("A", 2), cell("B"))), PdfTableRow(listOf(cell("C"), cell("D", 2))))
+        val table = PdfTable(widths, rows, cellMargins = margins, border = null)
+        val positions = paint(table).filterIsInstance<PositionedText>().associate { it.text to it.x }
+        assertEquals(setOf("A", "B", "C", "D"), positions.keys)
+        assertEquals(105.3f, positions.getValue("B"), .001f)
+        assertEquals(105f, positions.getValue("D"), .001f)
+        assertThrows(IllegalArgumentException::class.java) {
+            PdfTable(widths, rows + PdfTableRow(listOf(cell("A"), cell("B"), cell("C"))), cellMargins = margins)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            PdfTable(listOf(100f, 0f, 100f), rows, cellMargins = margins)
+        }
+    }
+
+    @Test
     fun `normalization and page field reconstruction preserve cell margins`() {
         val own = PdfMargins(4f, 5f, 6f, 20f)
         val field = PdfParagraph(listOf(PdfPageNumber(style)), 0f, 0f, PdfParagraphFormat(exactLineHeight = 14f, widowControl = false))

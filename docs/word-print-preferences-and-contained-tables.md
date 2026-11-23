@@ -6,11 +6,15 @@ Unreleased source work #283–#287 and the #279 follow-up remain within the exis
 
 A bounded abstract-numbering `name` is a display identifier. A qualified name occurs at most once per abstract definition, is nonblank and at most 253 characters, and contains only the expected value attribute with no nested/text payload. They are checked before typed binding and omitted only from private print interpretation. Concrete numbering definitions and counters remain unchanged. Literal braces and non-Latin metadata do not become instructions or require fonts. Active LISTNUM fields and `numStyleLink` redirection retain their separate restrictions.
 
+## Table accessibility text
+
+Word table captions and descriptions in `w:tblPr` are preserved in the DOCX and have no paint effect in the untagged PDF profiles. The adapter validates each original `w:tblCaption` and `w:tblDescription` as a unique leaf with a single qualified `w:val`. The value remains literal metadata during generation and Playground cleanup. A visible caption written as an ordinary document paragraph still renders as body text. [WordprocessingML table description](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.tabledescription)
+
 ## Image save resolution and theme editing
 
 The closed `w14:defaultImageDpi` preference has a required `w14:val` positive integer up to 2,147,483,647. The adapter validates its original namespace, attributes and uniqueness, then excludes this save preference from the print copy. It does not change explicit picture extents, embedded image bytes, rendering resolution, compression policy or image budgets. Source controls cover multiple save-DPI values with body/header/footer pictures and both enabled and disabled automatic picture compression.
 
-The `w:styleLockTheme` on/off flag controls theme editing. Its original leaf structure and namespace remain validated. Printed theme colors and actual font selection continue through their existing resolvers; the editing lock is omitted only from the print copy. Cleanup and the original template retain these settings unchanged.
+The `w:styleLockTheme` and `w:styleLockQFSet` on/off flags restrict theme and Quick Style set editing. Its original leaf structure and namespace remain validated. Printed theme colors and actual font selection continue through their existing resolvers; the editing lock is omitted only from the print copy. Cleanup and the original template retain these settings unchanged.
 
 Microsoft describes [default image DPI](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.office2010.word.defaultimagedpi) as a save preference, with separate `useLocalDpi` and `doNotAutoCompressPictures` precedence. The [theme lock](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.stylelockthemespart) prevents theme-part modification.
 
@@ -43,3 +47,23 @@ Final real HTTP qualification produces 97 PDFs and 133 pages that match the prot
 All 250 local corpus inputs remain unchanged. Ten PDFs retain fifteen pixel-exact earlier pages; no additional complete conversion is claimed. Eight first diagnoses change: six feature-related movements and two exact per-request public-font availability movements. These corpus checks compare earlier native output, not Word fidelity. Private source documents, fonts and intermediates remain local.
 
 The optional allowance defaults to zero and preserves every earlier Java 17 public table signature; only the getter and immutable option method are added. The existing A4/Letter, nesting, splitting, font and output-profile restrictions remain authoritative. CI/Sonar, a PR, merge, artifact release and site publication are outside this local qualification.
+
+
+## Proofing settings in page-number wrappers
+
+A built-in Word page-number gallery can store a no-proofing flag on the
+wrapper's run metadata. The flag controls spelling and grammar checking.
+The PDF adapter retains the stored paragraph, actual page fields and
+their printed formatting. Unfamiliar galleries, data bindings and
+malformed control properties retain source diagnostics.
+
+## Physical page frames
+
+A Word section can draw a solid frame in front of the page content.
+The four sides share a color and width and may use different offsets.
+An offset measures from its physical page edge to the outer edge of the
+border. The first-page and subsequent-page modes reset for each section,
+independently of displayed page numbers. A frame is a PDF artifact and
+does not reserve body or header space.
+
+[Word page-border defaults](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/5307147f-a81a-42d2-b84c-3a2b50576876)

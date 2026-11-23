@@ -127,7 +127,7 @@ internal class NativeDocxNumbering(root: XmlElement?, body: XmlElement, private 
     }
 
     private fun validateLevel(level: XmlElement) {
-        attrs(level, setOf("ilvl")); children(level, setOf("start", "numFmt", "lvlText", "lvlRestart", "isLgl", "pStyle", "suff", "lvlJc", "pPr", "rPr", "legacy"))
+        attrs(level, setOf("ilvl")); children(level, setOf("start", "numFmt", "lvlText", "lvlRestart", "isLgl", "pStyle", "suff", "lvlJc", "pPr", "rPr", "legacy", "lvlPicBulletId"))
         for (leaf in level.elements().filter { it.name.localPart !in setOf("pPr", "rPr", "legacy") }) { attrs(leaf, setOf("val")); children(leaf, emptySet()) }
         focus(level)
         require(level.one("numFmt")?.value("val") in setOf(null, "none", "decimal", "decimalZero", "lowerLetter", "upperLetter", "lowerRoman", "upperRoman", "bullet")) { "Unsupported numbering format" }
@@ -149,6 +149,7 @@ internal class NativeDocxNumbering(root: XmlElement?, body: XmlElement, private 
 
     private fun rule(level: XmlElement, start: Int?): PdfListLevel {
         focus(level)
+        require(level.one("lvlPicBulletId") == null) { "Visible picture bullets are outside the qualified profile" }
         require(level.one("numFmt")?.value("val") != "none") { "Visible unnumbered list levels are outside the qualified profile" }
         require(level.one("legacy")?.let { flag(it, "legacy") } != true) { "Visible legacy list geometry is outside the qualified profile" }
         val format = when (level.one("numFmt")?.value("val") ?: "decimal") {

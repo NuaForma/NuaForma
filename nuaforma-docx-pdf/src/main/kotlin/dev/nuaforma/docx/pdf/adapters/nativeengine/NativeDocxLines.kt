@@ -27,6 +27,8 @@ internal class NativeDocxLines(private val focus: (XmlElement) -> Unit, private 
             requireThat(e.elements().isEmpty(), "Unsupported paragraph border content")
             if (e.attribute(w, "val") in setOf("nil", "none")) return null
             val style = style(e.attribute(w, "val"))
+            requireThat(name != "between" || style !in setOf(PdfLineStyle.THIN_THICK_SMALL_GAP, PdfLineStyle.THICK_THIN_SMALL_GAP),
+                "Compound borders between paragraphs are not qualified")
             val width = numeric(e.attribute(w, "sz"), 8f) / 8
             return PdfParagraphEdge(PdfLineStroke(width, color(e.attribute(w, "color") ?: "auto"), style), numeric(e.attribute(w, "space"), 0f))
         }
@@ -146,6 +148,8 @@ internal class NativeDocxLines(private val focus: (XmlElement) -> Unit, private 
 
     private fun style(value: String?): PdfLineStyle = when (value) {
         "single" -> PdfLineStyle.SOLID; "double" -> PdfLineStyle.DOUBLE; "dashed" -> PdfLineStyle.DASHED; "dotted" -> PdfLineStyle.DOTTED
+        "thinThickSmallGap" -> PdfLineStyle.THIN_THICK_SMALL_GAP
+        "thickThinSmallGap" -> PdfLineStyle.THICK_THIN_SMALL_GAP
         else -> reject("Unsupported paragraph border style")
     }
     private fun color(value: String): PdfColor {

@@ -29,8 +29,9 @@ class PdfJustificationTest {
         val single = PdfParagraph(listOf(PdfTextRun("aa bb", style)), format = format)
         val result = PageLayouter.layout(PdfDocument(page, listOf(single)), measurer)
         assertEquals(listOf(0f, 10f, 15f), result.elements.filterIsInstance<PositionedText>().map { it.x })
-        val tabbed = PdfParagraph(listOf(PdfTextRun("aa", style), PdfTab(style), PdfTextRun("bb", style)), format = format)
-        assertThrows(PdfRenderException::class.java) { PageLayouter.layout(PdfDocument(page, listOf(tabbed)), measurer) }
+        val tabbed = PdfParagraph(listOf(PdfTextRun("aa", style), PdfTab(style), PdfTextRun("bb cc dd", style)), format = format)
+        val tabbedResult = PageLayouter.layout(PdfDocument(page, listOf(tabbed)), measurer)
+        assertEquals(2, tabbedResult.elements.filterIsInstance<PositionedText>().map { it.baseline }.distinct().size)
         val bidi = single.copy(format = format.copy(textDirection = PdfTextDirection.RIGHT_TO_LEFT))
         assertThrows(PdfRenderException::class.java) { PageLayouter.layout(PdfDocument(page, listOf(bidi)), measurer) }
     }

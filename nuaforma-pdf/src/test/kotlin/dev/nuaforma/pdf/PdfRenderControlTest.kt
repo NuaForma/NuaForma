@@ -35,4 +35,21 @@ class PdfRenderControlTest {
         }.code)
         assertTrue(PdfEngine().render(model, FoundationLetter.fonts(), PdfOutputOptions(), PdfRenderControl(maxDecodedImageBytes = 64)).size > 100)
     }
+
+    @Test
+    fun `different crops of one raster count once but separately supplied PNGs retain their budget`() {
+        val bytes = ByteArrayOutputStream().also { ImageIO.write(BufferedImage(4, 4, BufferedImage.TYPE_INT_RGB), "png", it) }.toByteArray()
+        val original = PdfImage(bytes, 12f, 12f)
+        val first = original.withPhysicalCrop(2f, 0f, 0f, 0f)
+        val second = original.withPhysicalCrop(0f, 0f, 2f, 0f)
+        val control = PdfRenderControl(maxDecodedImageBytes = 64)
+        val page = document().page
+        val fonts = FoundationLetter.fonts()
+        assertTrue(PdfEngine().render(PdfDocument(page, listOf(first, second)), fonts, PdfOutputOptions(), control).size > 100)
+        val independent = PdfImage(bytes, 10f, 12f)
+        assertEquals(PdfFailureCode.RESOURCE_LIMIT, assertThrows(PdfRenderException::class.java) {
+            PdfEngine().render(PdfDocument(page, listOf(first, independent)), fonts, PdfOutputOptions(), control)
+        }.code)
+    }
+
 }

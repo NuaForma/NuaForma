@@ -71,4 +71,24 @@ class NativeDocxBookmarksTest {
         }
     }
 
+
+    @Test
+    fun `a leading cell bookmark end attaches to the existing paragraph and remains a block range`() {
+        val context = GenerationContext()
+        val xml = ConversionXml(context)
+        val body = "<w:p>$start$text</w:p><w:tbl><w:tr><w:tc><w:tcPr/>$end<w:p><w:pPr/>$text</w:p></w:tc></w:tr></w:tbl>"
+        val root = xml.read("""<w:body xmlns:w="$word">$body</w:body>""".toByteArray())
+        val bookmarks = NativeDocxBookmarks(context)
+        val original = xml.write(root)
+        bookmarks.validateSource(root, {}, { throw IllegalArgumentException(it) })
+        assertArrayEquals(original, xml.write(root))
+        assertEquals(setOf("Target"), bookmarks.normalize(root, {}, { throw IllegalArgumentException(it) }))
+        val cell = root.descendants().single { it.name.localPart == "tc" }
+        assertEquals(listOf("tcPr", "p"), cell.elements().map { it.name.localPart })
+        assertEquals(listOf("pPr", "bookmarkEnd", "r"), cell.elements().last().elements().map { it.name.localPart })
+        assertThrows(IllegalArgumentException::class.java) {
+            normalize(body.replace("$end<w:p><w:pPr/>$text</w:p>", "<w:p><w:pPr/>$text</w:p>$end"))
+        }
+        assertThrows(IllegalArgumentException::class.java) { normalize(body.replace("$start$text", text)) }
+    }
 }

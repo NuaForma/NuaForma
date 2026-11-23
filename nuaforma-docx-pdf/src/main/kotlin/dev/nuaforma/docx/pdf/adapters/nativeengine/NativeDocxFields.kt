@@ -69,6 +69,8 @@ internal object NativeDocxFields {
                 kind == "SEQ" && switch == "\\s" -> reset = next().toIntOrNull()?.takeIf { it in 1..9 }?.minus(1) ?: fail("Invalid heading reset")
                 kind == "SEQ" && switch == "\\c" -> repeat = true
                 kind == "SEQ" && switch == "\\n" -> Unit
+                isPageCount(kind) && switch == "\\#" ->
+                    if (next() != "0") fail("Only the ordinary decimal picture is qualified for page fields")
                 kind in setOf("REF", "PAGEREF", "TOC") && switch == "\\h" -> linked = true
                 kind == "TOC" && switch == "\\o" -> {
                     val range = next().split('-').map { it.toIntOrNull() ?: fail("Invalid contents levels") }
@@ -84,6 +86,8 @@ internal object NativeDocxFields {
         if (mergeFormat && charFormat) fail("Conflicting sequence formatting switches")
         return Instruction(kind, argument, linked, restart, repeat, reset, first, last, "\\u" in seen, literal, mergeFormat, charFormat)
     }
+
+    fun isPageCount(kind: String): Boolean = kind in setOf("PAGE", "NUMPAGES", "SECTIONPAGES")
 
     /** Retain original code-format validation before typed binding can erase malformed properties. */
     fun validateCodeSource(root: XmlElement, fail: (XmlElement, String) -> Nothing) {
@@ -108,11 +112,48 @@ internal object NativeDocxFields {
         }
     }
 
+    private fun ownedBookmarkMarkers(start: XmlElement, end: XmlElement): Boolean {
+        val id = start.attribute(W, "id") ?: return false
+        return id.toIntOrNull()?.let { it >= 0 } == true && end.attribute(W, "id") == id &&
+            start.attributes.keys.all { it.namespaceURI == W && it.localPart in setOf("id", "name") } &&
+            end.attributes.keys.all { it.namespaceURI == W && it.localPart == "id" } &&
+            listOf(start, end).all { it.elements().isEmpty() && it.children.filterIsInstance<XmlText>().all { child -> child.text.isBlank() } }
+    }
+
+    // The control stores formatting for newly inserted text and its delimiting mark.
+    // The saved contents use the runs and styles already present in the body.
+    private fun savedContentsControlFont(node: XmlElement): Boolean {
+        if (node.name.namespaceURI != W || node.name.localPart != "rPr" || node.attributes.isNotEmpty() ||
+            node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) return false
+        val properties = node.elements()
+        if (properties.map { it.name }.distinct().size != properties.size) return false
+        return properties.all { property ->
+            if (property.name.namespaceURI != W || property.elements().isNotEmpty() ||
+                property.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
+                property.attributes.keys.any { it.namespaceURI != W }) return@all false
+            val names = property.attributes.keys.map { it.localPart }.toSet()
+            val value = property.attribute(W, "val")
+            when (property.name.localPart) {
+                "rFonts" -> names.all { it in setOf("ascii", "hAnsi", "eastAsia", "cs", "asciiTheme", "hAnsiTheme", "eastAsiaTheme", "cstheme", "hint") } &&
+                    property.attributes.values.all { it.isNotBlank() && it.length <= 253 && it.none(Char::isISOControl) }
+                "b", "bCs" -> names.all { it == "val" } && value in setOf(null, "0", "1", "false", "true", "off", "on")
+                "sz", "szCs" -> names == setOf("val") && value?.toIntOrNull()?.let { it in 2..32767 } == true
+                "color" -> names.all { it in setOf("val", "themeColor", "themeTint", "themeShade") } &&
+                    (value == "auto" || value?.matches(Regex("[0-9A-Fa-f]{6}")) == true) &&
+                    listOf("themeTint", "themeShade").all { property.attribute(W, it)?.matches(Regex("[0-9A-Fa-f]{2}")) != false }
+                else -> false
+            }
+        }
+    }
+
     /** Collapse only complete complex fields; a multi-paragraph field must be a standalone TOC. */
     fun normalize(root: XmlElement, fail: (String) -> Nothing,
         forms: MutableMap<XmlElement, Form> = java.util.IdentityHashMap(),
         fieldOrigin: (XmlElement, XmlElement) -> Unit = { _, _ -> },
-        formatting: (XmlElement, XmlElement?) -> Unit = { _, _ -> }, focus: (XmlElement) -> Unit = {}) {
+        formatting: (XmlElement, XmlElement?) -> Unit = { _, _ -> },
+        omitSetResultBookmark: (String) -> Unit = {}, focus: (XmlElement) -> Unit = {}) {
+
+        val pageBand = root.name.namespaceURI == W && root.name.localPart in setOf("hdr", "ftr")
 
         fun value(node: XmlElement, name: String) = node.attribute(W, name)
 
@@ -130,24 +171,51 @@ internal object NativeDocxFields {
             value(marker, "dirty")?.let { if (it !in setOf("0", "1", "false", "true", "on", "off")) fail("Invalid field state") }
             return value(marker, "fldCharType") ?: fail("Missing field control type")
         }
-        // A Word-generated TOC can be wrapped in its identified built-in content control.
+        // Word saves these built-in objects inside a control that does not supply new visible content.
         for (parent in root.descendants().toList()) for (node in parent.elements().toList()) if (local(node, "sdt")) {
             focus(node)
             val properties = node.elements().singleOrNull { local(it, "sdtPr") }
             val gallery = properties?.descendants()?.singleOrNull { local(it, "docPartGallery") }?.let { value(it, "val") }
-            if (gallery != "Table of Contents") continue // Other controls remain visible to the rejecting reader.
-            if (properties.elements().any { !local(it, "id") && !local(it, "docPartObj") } ||
-                node.elements().any { !local(it, "sdtPr") && !local(it, "sdtContent") }) fail("Unsupported contents control")
-            if (properties.descendants().any { it.name.namespaceURI != W || it.name.localPart !in setOf("sdtPr", "id", "docPartObj", "docPartGallery", "docPartUnique") ||
-                it.attributes.keys.any { key -> key.namespaceURI != W || key.localPart != "val" } }) fail("Unsupported contents control property")
+            val watermark = gallery == "Watermarks" && parent === root && local(root, "hdr")
+            if (gallery != "Table of Contents" && !watermark) continue
+            val openingStyle = properties.elements().filter { local(it, "rPr") }
+            val passiveOpening = if (!watermark) openingStyle.singleOrNull()?.takeIf(::savedContentsControlFont) else null
+            val passiveEnd = node.elements().filter { local(it, "sdtEndPr") }.singleOrNull()?.takeIf { end ->
+                end.attributes.isEmpty() && end.children.filterIsInstance<XmlText>().all { it.text.isBlank() } &&
+                    (end.elements().isEmpty() || !watermark && end.elements().singleOrNull()?.let(::savedContentsControlFont) == true)
+            }
+            if (properties.elements().any { !local(it, "id") && !local(it, "docPartObj") && it !== passiveOpening } ||
+                node.elements().any { !local(it, "sdtPr") && !local(it, "sdtContent") && it !== passiveEnd })
+                fail(if (watermark) "Unsupported saved watermark control" else "Unsupported contents control")
+            val ignoredStyle = passiveOpening?.descendants()?.toSet().orEmpty()
+            if (properties.descendants().filterNot { it in ignoredStyle }.any { it.name.namespaceURI != W ||
+                    it.name.localPart !in setOf("sdtPr", "id", "docPartObj", "docPartGallery", "docPartUnique") ||
+                    it.attributes.keys.any { key -> key.namespaceURI != W || key.localPart != "val" } }) fail("Unsupported contents control property")
             val content = node.elements().singleOrNull { local(it, "sdtContent") } ?: fail("Missing contents control body")
-            if (content.elements().none { p -> p.descendants().any { local(it, "instrText") && it.children.filterIsInstance<XmlText>().joinToString("") { t -> t.text }.trimStart().startsWith("TOC", true) } }) fail("Contents control has no contents field")
+            if (watermark) {
+                val paragraph = content.elements().singleOrNull { local(it, "p") }
+                    ?: fail("A saved watermark control requires one ordinary drawing paragraph")
+                val run = paragraph.elements().singleOrNull { local(it, "r") }
+                if (node.attributes.isNotEmpty() || content.attributes.isNotEmpty() ||
+                    properties.elements().any { local(it, "id") && value(it, "val")?.toIntOrNull() == null } ||
+                    properties.elements().count { local(it, "id") } > 1 ||
+                    properties.elements().count { local(it, "docPartObj") } != 1 ||
+                    paragraph.elements().any { !local(it, "pPr") && it !== run } || run == null ||
+                    run.elements().count { local(it, "pict") || local(it, "drawing") } != 1 ||
+                    run.elements().any { !local(it, "rPr") && !local(it, "pict") && !local(it, "drawing") })
+                    fail("Unsupported saved watermark control")
+            } else if (content.elements().none { p -> p.descendants().any { local(it, "instrText") &&
+                    it.children.filterIsInstance<XmlText>().joinToString("") { t -> t.text }.trimStart().startsWith("TOC", true) } })
+                fail("Contents control has no contents field")
             val at = parent.children.indexOf(node)
             parent.children.removeAt(at); parent.children.addAll(at, content.children)
         }
         fun simple(code: String, cached: List<XmlElement>, form: Form?, origin: XmlElement, codeProperties: XmlElement?): List<XmlElement> {
-            val kind = instruction(code, fail).kind
+            val parsed = instruction(code, fail)
+            val kind = parsed.kind
             val contents = kind == "TOC"
+            // Word prints nothing for a complete checkbox field with neither form data nor a cached result.
+            if (kind == "FORMCHECKBOX" && form == null && cached.isEmpty()) return emptyList()
             if (kind == "FORMTEXT") {
                 if (form == null) fail("Text input field requires its own form metadata")
             } else if ((kind == "FORMCHECKBOX") != (form != null)) fail("Checkbox field requires its own form metadata")
@@ -160,8 +228,15 @@ internal object NativeDocxFields {
             }
             val field = XmlElement(QName(W, "fldSimple", "w"), linkedMapOf(QName(W, "instr", "w") to code)).also { it.children.addAll(runs) }
             fieldOrigin(field, origin)
-            if (kind == "SEQ") formatting(field, codeProperties)
+            if (kind == "SEQ" || pageBand && isPageCount(kind)) formatting(field, codeProperties)
             if (form != null) forms[field] = form
+            val start = cached.firstOrNull()
+            val end = cached.lastOrNull()
+            if (kind == "SET" && bookmarks.size == 2 && start != null && end != null && local(start, "bookmarkStart") &&
+                local(end, "bookmarkEnd") && value(start, "name") == parsed.argument && ownedBookmarkMarkers(start, end)) {
+                omitSetResultBookmark(requireNotNull(parsed.argument))
+                return listOf(field)
+            }
             return if (contents) listOf(field) else bookmarks.filter { local(it, "bookmarkStart") } + field + bookmarks.filter { local(it, "bookmarkEnd") }
         }
         for (container in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart in setOf("body", "tc", "hdr", "ftr", "txbxContent", "footnote", "endnote") }.toList()) {
@@ -175,23 +250,29 @@ internal object NativeDocxFields {
             var fieldStart: XmlElement? = null
             var codeProperties: XmlElement? = null
             var codeStyleSelected = false
+            var openingHasCachedContent = false
             for (paragraph in container.elements().toList()) {
                 if (!local(paragraph, "p")) { if (depth != 0) fail("Field crosses a structural boundary"); continue }
                 focus(paragraph)
                 val output = mutableListOf<dev.nuaforma.docx.pdf.adapters.ooxml.XmlNode>()
                 if (depth != 0) multi = true
+                var cacheOnClosingLine = false
                 for (node in paragraph.children) {
                     if (node is XmlElement) focus(node)
                     if (node !is XmlElement) { if (depth == 0) output += node; continue }
                     if (local(node, "pPr")) { output += node; continue }
                     val marker = control(node)
+                    if (depth != 0 && separated && (depth != 1 || marker?.let { value(it, "fldCharType") } != "end")) {
+                        cacheOnClosingLine = true
+                        if (beginning === paragraph) openingHasCachedContent = true
+                    }
                     if (marker != null) {
                         when (validateControl(node, marker)) {
                             "begin" -> {
                                 if (depth == 0) {
                                     beginning = paragraph; code.setLength(0); cached.clear(); separated = false; multi = false
                                     fieldStart = marker
-                                    codeProperties = null; codeStyleSelected = false
+                                    codeProperties = null; codeStyleSelected = false; openingHasCachedContent = false
                                     form = marker.elements().singleOrNull()?.let { data -> Form(data, node.elements().singleOrNull { local(it, "rPr") }) }
                                 }
                                 else if (!separated || instruction(code.toString(), fail).kind != "TOC") fail("Nested fields are outside this profile")
@@ -200,15 +281,37 @@ internal object NativeDocxFields {
                             }
                             "separate" -> { if (depth == 0 || depth == 1 && separated) fail("Unmatched field separator"); if (depth == 1) separated = true }
                             "end" -> {
-                                if (depth == 0 || depth == 1 && !separated && instruction(code.toString(), fail).kind != "SET") fail("Unmatched or uncached field end")
+                                if (depth == 0) fail("Unmatched or uncached field end")
+                                if (depth == 1) {
+                                    val kind = instruction(code.toString(), fail).kind
+                                    val pageCount = pageBand && !multi && isPageCount(kind)
+                                    if (!separated && kind != "SET" && !pageCount) fail("Unmatched or uncached field end")
+                                    if (separated && pageCount && cached.none { local(it, "r") })
+                                        fail("Page-field separator requires a result sample")
+                                }
                                 depth--
                                 if (depth == 0) {
                                     val field = simple(code.toString(), cached, form, requireNotNull(fieldStart), codeProperties)
                                     if (multi) {
                                         if (instruction(code.toString(), fail).kind != "TOC") fail("Only contents fields may span paragraphs")
                                         val start = requireNotNull(beginning)
-                                        if (start.elements().any { !local(it, "pPr") && !local(it, "fldSimple") }) fail("Contents must occupy standalone paragraphs")
-                                        start.children += field
+                                        val opening = start.elements().filterNot { local(it, "pPr") }
+                                        val target = if (opening.all { local(it, "fldSimple") }) start else {
+                                            val plainPrefix = opening.all { run ->
+                                                local(run, "r") && run.elements().all { local(it, "rPr") || local(it, "t") }
+                                            } && opening.flatMap { it.elements() }.filter { local(it, "t") }.any { text ->
+                                                text.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }
+                                            }
+                                            if (openingHasCachedContent || !plainPrefix || start.elements().any {
+                                                    local(it, "pPr") && it.elements().any { property -> local(property, "sectPr") }
+                                                }) fail("Contents must occupy standalone paragraphs")
+                                            // Word keeps the preceding ordinary paragraph if the saved contents begin on the next one.
+                                            XmlElement(QName(W, "p", "w")).also { contentsParagraph ->
+                                                fieldOrigin(contentsParagraph, start)
+                                                container.children.add(container.children.indexOf(start) + 1, contentsParagraph)
+                                            }
+                                        }
+                                        target.children += field
                                     } else output.addAll(field)
                                 }
                             }
@@ -236,13 +339,33 @@ internal object NativeDocxFields {
                 }
                 paragraph.children.clear(); paragraph.children.addAll(output)
                 if (multi && beginning !== paragraph) {
-                    if (paragraph.elements().any { !local(it, "pPr") }) fail("Text after multi-paragraph contents requires a separate paragraph")
-                    if (paragraph.elements().any { local(it, "pPr") && it.elements().any { p -> local(p, "sectPr") } }) fail("Contents crosses a section boundary")
-                    container.children.remove(paragraph)
+                    val tail = paragraph.elements().any { !local(it, "pPr") }
+                    if (tail && (depth != 0 || cacheOnClosingLine))
+                        fail("Text after multi-paragraph contents requires a separate paragraph")
+                    if (paragraph.elements().any { local(it, "pPr") && it.elements().any { p -> local(p, "sectPr") } })
+                        fail("Contents crosses a section boundary")
+                    // A closing field marker alone is invisible and does not own the ordinary paragraph after it.
+                    if (!tail) container.children.remove(paragraph)
                 }
                 if (depth == 0) { multi = false; beginning = null }
             }
             if (depth != 0) fail("Unclosed complex field")
+        }
+        // Complex PAGEREF runs that survive TOC cache removal can belong to one owning hyperlink.
+        for (link in root.descendants().filter { local(it, "hyperlink") }.toList()) {
+            if (link.elements().none { control(it) != null }) continue
+            focus(link)
+            if (link.elements().any { !local(it, "r") } ||
+                link.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
+                fail("Complex page references in hyperlinks require ordinary runs")
+            val paragraph = XmlElement(QName(W, "p", "w")).also { it.children.addAll(link.children) }
+            val body = XmlElement(QName(W, "body", "w")).also { it.children += paragraph }
+            normalize(body, fail, forms, fieldOrigin, formatting, focus = focus)
+            val fields = paragraph.elements().filter { local(it, "fldSimple") }
+            if (fields.isEmpty() || fields.any { instruction(value(it, "instr") ?: fail("Missing hyperlink field instruction"), fail).kind != "PAGEREF" })
+                fail("Only page-reference fields inside hyperlinks are qualified")
+            link.children.clear()
+            link.children.addAll(paragraph.children)
         }
     }
 }

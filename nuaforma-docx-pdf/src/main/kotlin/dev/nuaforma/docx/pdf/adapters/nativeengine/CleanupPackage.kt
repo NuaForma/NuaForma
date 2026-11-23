@@ -1,6 +1,7 @@
 package dev.nuaforma.docx.pdf.adapters.nativeengine
 
 import dev.nuaforma.contracts.*
+import dev.nuaforma.docx.pdf.NativeConversionBudget
 import dev.nuaforma.docx.pdf.adapters.ooxml.*
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -26,7 +27,7 @@ internal class CleanupPackage(private val original: ByteArray, private val conte
     private var expandedBytes = 0L
 
     init {
-        budget(original.size <= minOf(8_388_608L, context.limits.maxTemplateBytes))
+        NativeConversionBudget.SOURCE_PACKAGE.check(context, original.size.toLong(), minOf(8_388_608L, context.limits.maxTemplateBytes))
         readArchive()
         require(setOf("[Content_Types].xml", "_rels/.rels", "word/document.xml").all(parts::containsKey)) { "Missing DOCX package structure" }
     }
@@ -54,7 +55,7 @@ internal class CleanupPackage(private val original: ByteArray, private val conte
     }
 
     private fun readEntry(input: InputStream, entry: ZipEntry, seen: MutableSet<String>) {
-        budget(++entryCount <= minOf(256, context.limits.maxArchiveEntries))
+        NativeConversionBudget.PACKAGE_PART_COUNT.check(context, (++entryCount).toLong(), minOf(256, context.limits.maxArchiveEntries).toLong())
         val name = entry.name.removeSuffix("/")
         require(validName(name)) { "Unsafe package entry name" }
         require(seen.add(name)) { "Duplicate package entry" }
@@ -77,7 +78,8 @@ internal class CleanupPackage(private val original: ByteArray, private val conte
             val length = input.read(buffer)
             if (length < 0) break
             expandedBytes += length
-            budget(expandedBytes <= minOf(8_388_608L, context.limits.maxExpandedBytes) && output.size() + length <= 4_194_304)
+            NativeConversionBudget.SOURCE_EXPANDED_PACKAGE.check(context, expandedBytes, minOf(8_388_608L, context.limits.maxExpandedBytes))
+            NativeConversionBudget.SOURCE_PART_SIZE.check(context, output.size().toLong() + length, 4_194_304L)
             output.write(buffer, 0, length)
         }
         return output.toByteArray()
@@ -111,7 +113,7 @@ internal class CleanupPackage(private val original: ByteArray, private val conte
     }
 
     fun record(action: TemplateCleanupAction, part: String, path: String?, reason: String) {
-        budget(changes.size < 2048)
+        NativeConversionBudget.CLEANUP_CHANGES.check(context, changes.size.toLong() + 1, 2048)
         changes += TemplateCleanupChange(action, part, path, reason.take(256))
         changed = true
     }
@@ -156,10 +158,10 @@ internal class CleanupPackage(private val original: ByteArray, private val conte
                 zip.putNextEntry(ZipEntry(name).apply { time = 0 })
                 zip.write(bytes)
                 zip.closeEntry()
-                budget(out.size() <= minOf(8_388_608L, context.limits.maxTemplateBytes))
+                NativeConversionBudget.PREPARED_PACKAGE.check(context, out.size().toLong(), minOf(8_388_608L, context.limits.maxTemplateBytes))
             }
         }
-        budget(out.size() <= minOf(8_388_608L, context.limits.maxTemplateBytes))
+        NativeConversionBudget.PREPARED_PACKAGE.check(context, out.size().toLong(), minOf(8_388_608L, context.limits.maxTemplateBytes))
         return out.toByteArray()
     }
 
@@ -237,11 +239,6 @@ internal class CleanupPackage(private val original: ByteArray, private val conte
             result.path?.removePrefix("/")?.takeIf { result.rawQuery == null && result.rawFragment == null }
         }
     } catch (_: IllegalArgumentException) { null } catch (_: java.net.URISyntaxException) { null }
-
-    private fun budget(valid: Boolean) {
-        if (!valid) throw GenerationException(listOf(Diagnostic(DiagnosticCodes.RESOURCE_LIMIT_EXCEEDED,
-            RejectionReason.PDF_CONVERSION_BYTE_BUDGET_WAS_EXCEEDED)))
-    }
 
     companion object {
         const val WORD = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"

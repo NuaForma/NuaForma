@@ -8,6 +8,7 @@ import org.apache.pdfbox.text.PDFTextStripper
 import dev.nuaforma.image.comparison.kotlin.assertImagesMatch
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
+import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
@@ -177,6 +178,83 @@ class PdfPrivateGlyphTest {
         assertEquals(PdfFailureCode.MISSING_GLYPH, assertThrows(PdfRenderException::class.java) {
             PdfEngine().render(document(privateText + " "), fonts())
         }.code)
+    }
+
+
+    @Test
+    fun `symbol cmap space keeps its advance glyph and ordinary logical character`() {
+        val engine = PdfEngine()
+        for (embedding in PdfFontEmbedding.entries) {
+            val fonts = listOf(PdfFont("symbols", legacySymbolFont(), embedding),
+                PdfFont("regular", resource("LiberationSans-Regular.ttf")))
+            val logical = " \uF071 "
+            val encoded = "\uF020\uF071\uF020"
+            Loader.loadPDF(engine.render(document(encoded), fonts)).use { control ->
+                Loader.loadPDF(engine.render(document(logical), fonts)).use { actual ->
+                    val selected = StringBuilder()
+                    val stripper = object : PDFTextStripper() {
+                        override fun processTextPosition(position: org.apache.pdfbox.text.TextPosition) {
+                            selected.append(position.unicode)
+                            super.processTextPosition(position)
+                        }
+                    }
+                    stripper.getText(actual)
+                    assertEquals("Before  \uF071  after", selected.toString())
+                    assertImagesMatch(PDFRenderer(control).renderImageWithDPI(0, 96f), PDFRenderer(actual).renderImageWithDPI(0, 96f)) {
+                        pixelTolerance = 0.0
+                        allowedDifferentPixelsPercent = 0.0
+                        threshold = 1
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `a symbol cmap cannot use a printed private glyph as a space`() {
+        val fonts = listOf(PdfFont("symbols", legacySymbolFont(visibleSpace = true)),
+            PdfFont("regular", resource("LiberationSans-Regular.ttf")))
+        val error = assertThrows(PdfRenderException::class.java) { PdfEngine().render(document(" \uF071 "), fonts) }
+        assertEquals(PdfFailureCode.MISSING_GLYPH, error.code)
+    }
+
+    private fun legacySymbolFont(visibleSpace: Boolean = false): ByteArray {
+        val bytes = resource("LiberationSans-Regular.ttf")
+        val ids = TTFParser().parse(RandomAccessReadBuffer(bytes)).use { font ->
+            val lookup = font.unicodeCmapLookup
+            listOf(lookup.getGlyphId(if (visibleSpace) 'Q'.code else ' '.code), lookup.getGlyphId('I'.code))
+        }
+        assertTrue(ids.all { it > 0 })
+        val font = ByteBuffer.wrap(bytes)
+        val directories = (0 until (font.getShort(4).toInt() and 0xFFFF)).map { 12 + it * 16 }
+
+        fun record(name: String) = directories.single { bytes.copyOfRange(it, it + 4).decodeToString() == name }
+
+        val cmap = record("cmap")
+        val offset = font.getInt(cmap + 8)
+        val length = font.getInt(cmap + 12)
+        val replacement = ByteBuffer.allocate(52)
+        replacement.putShort(0).putShort(1).putShort(3).putShort(0).putInt(12)
+        // Format 4 with two Windows symbol codepoint mappings and the mandatory end marker.
+        replacement.putShort(4).putShort(40).putShort(0).putShort(6).putShort(4).putShort(1).putShort(2)
+        val points = listOf(0xF020, 0xF071, 0xFFFF)
+        for (point in points) replacement.putShort(point.toShort())
+        replacement.putShort(0)
+        for (point in points) replacement.putShort(point.toShort())
+        for ((point, glyph) in points.zip(ids + 0)) replacement.putShort((glyph - point).toShort())
+        repeat(points.size) { replacement.putShort(0) }
+        assertEquals(replacement.capacity(), replacement.position())
+        assertTrue(length >= replacement.capacity())
+        bytes.fill(0, offset, offset + length)
+        replacement.array().copyInto(bytes, offset)
+        font.putInt(cmap + 12, replacement.capacity())
+        val tableSum = (0 until replacement.capacity() step 4).fold(0) { sum, byte -> sum + replacement.getInt(byte) }
+        font.putInt(cmap + 4, tableSum)
+        val adjustment = font.getInt(record("head") + 8) + 8
+        font.putInt(adjustment, 0)
+        val checksum = (0..bytes.size - 4 step 4).fold(0) { sum, byte -> sum + font.getInt(byte) }
+        font.putInt(adjustment, 0xB1B0AFBAu.toInt() - checksum)
+        return bytes
     }
 
 }

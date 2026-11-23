@@ -27,3 +27,12 @@ All four output profiles compare text and glyph positions per page against Word 
 The Playground inherits the conversion improvement through its existing provider. No new control or product release is introduced. Private corpus sources and locally supplied evaluation fonts stay outside Git and CI.
 
 The maintainer approved replacing only the first A4/Letter `mixed-latin-fonts` golden images for #263. Across 839/843 independently measured Word characters, the maximum vertical difference improves from about 1.5 to below 0.18 points; 250 characters improve per paper and none worsens. The source DOCX, Word exports and second-page images remain unchanged. The fixture provenance retains the old/new image hashes and approval reason.
+
+## Automatic leading at the page edge
+
+A simple one-line body paragraph can remain on its current page when its
+natural line box fits and only the extra automatic leading extends past
+the body. Following content starts on the next page. A blank paragraph and
+a visible line follow the same condition. The full line box still applies
+to fixed heights, paragraph keeps, decorated lines and the other flow
+contexts described above.

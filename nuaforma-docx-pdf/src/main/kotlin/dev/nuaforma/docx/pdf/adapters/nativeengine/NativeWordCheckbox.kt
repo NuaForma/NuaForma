@@ -18,7 +18,8 @@ internal object NativeWordCheckbox {
             focus(node)
             leaf(node, setOf("val"), reject)
             if (node.name.localPart == "name") {
-                if (node.attribute(W, "val")?.matches(Regex("[A-Za-z_][A-Za-z0-9_]{0,127}")) != true) reject("Invalid form field name")
+                val name = node.attribute(W, "val")
+                if (name != "" && name?.matches(Regex("[A-Za-z_][A-Za-z0-9_]{0,127}")) != true) reject("Invalid form field name")
             } else boolean(node, reject)
         }
         val box = data.elements().singleOrNull { it.name.localPart == "checkBox" } ?: reject("Missing checkbox properties")

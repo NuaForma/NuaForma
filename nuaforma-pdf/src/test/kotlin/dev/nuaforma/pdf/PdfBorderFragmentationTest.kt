@@ -55,12 +55,16 @@ class PdfBorderFragmentationTest {
         uniform.zip(custom).forEach {(a,b)->assertEquals(a.first,b.first);assertEquals(a.second,b.second,.001f);assertEquals(a.third,b.third,.001f)}
     }
 
-    @Test fun `unqualified alignment and oversized non splitting rows fail explicitly`() {
+    @Test fun `custom borders keep continued cells aligned and still reject oversized non-splitting rows`() {
         val engine=PdfEngine();val fonts=FoundationLetter.fonts()
-        for(doc in listOf(document(true,false,split=false),document(true,false,alignment=PdfVerticalAlignment.CENTER))) {
-            assertEquals(PdfFailureCode.UNSUPPORTED_TEXT,assertThrows(PdfRenderException::class.java) {engine.render(doc,fonts)}.code)
-        }
-        inspect(engine.render(document(false,false,split=false),fonts))
+        val top = inspect(engine.render(document(true, false), fonts), requireBorders = true)
+        val center = inspect(engine.render(document(true, false, alignment = PdfVerticalAlignment.CENTER), fonts), requireBorders = true)
+        assertEquals(top, center)
+
+        val oversized = document(true, false, split = false)
+        val failure = assertThrows(PdfRenderException::class.java) { engine.render(oversized, fonts) }
+        assertEquals(PdfFailureCode.UNSUPPORTED_TEXT, failure.code)
+        inspect(engine.render(document(false, false, split = false), fonts))
     }
 
     @Test fun `fragment state stays request local with a shared engine and fonts`() {

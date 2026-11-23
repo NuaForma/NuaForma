@@ -55,6 +55,26 @@ class SonarEventTest(unittest.TestCase):
         self.assertIn("fetch-depth: 0", workflow)
         self.assertIn("python3 tools/quality/probe_dependency_verification.py", workflow)
 
+    def test_only_coverage_job_runs_the_full_product_suite(self):
+        workflow = (check_coverage.ROOT / ".github/workflows/build.yml").read_text()
+        build = workflow.split("- name: Build and test all modules\n", 1)[1].split("      - name:", 1)[0]
+        self.assertIn("if: steps.reuse.outputs.reuse != 'true' && matrix.java == '25'", build)
+        self.assertIn("build coverageReport -Pcoverage=true", build)
+        self.assertEqual(workflow.count("./gradlew --no-daemon build "), 1)
+        native = (check_coverage.ROOT / ".github/workflows/native-container.yml").read_text()
+        self.assertNotIn("./gradlew --no-daemon build ", native)
+        self.assertIn("tools/container/qualify_endpoints.py", native)
+        self.assertIn("tools/container/qualify_java_runtime.py", native)
+
+    def test_pr_jobs_replace_stale_runs_while_branch_workflows_keep_their_queue(self):
+        workflow = (check_coverage.ROOT / ".github/workflows/build.yml").read_text()
+        workflow_concurrency, jobs = workflow.split("\njobs:\n", 1)
+        self.assertIn("format('pr-run-{0}', github.run_id) || github.ref", workflow_concurrency)
+        self.assertIn("  queue: max\n  cancel-in-progress: false", workflow_concurrency)
+        self.assertIn("format('pr-{0}', github.event.pull_request.number)", jobs)
+        self.assertIn("-java-${{ matrix.java }}", jobs)
+        self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", jobs)
+
 
 class CoverageInventoryTest(unittest.TestCase):
     def test_inventory_rejects_missing_data_and_test_classes(self):

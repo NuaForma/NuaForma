@@ -9,6 +9,9 @@ import dev.nuaforma.pdf.PdfDrawingOrder
 /** Resolve print order separately from editing identifiers and anchor geometry. */
 internal object WordDrawingOrder {
     private const val wp = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+    private const val drawing = "http://schemas.openxmlformats.org/drawingml/2006/main"
+    private const val picture = "http://schemas.openxmlformats.org/drawingml/2006/picture"
+    private const val shape = "http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
     private const val wp14 = "http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
     private val flags = setOf("simplePos", "behindDoc", "locked", "layoutInCell", "allowOverlap")
     private val distances = setOf("distT", "distB", "distL", "distR")
@@ -56,13 +59,23 @@ internal object WordDrawingOrder {
     }
 
     private fun validateRelativeSizes(anchor: XmlElement, reject: (XmlElement, String) -> Nothing) {
+        val graphic = anchor.elements().singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "graphic" }
+        val data = graphic?.elements()?.singleOrNull { it.name.namespaceURI == drawing && it.name.localPart == "graphicData" }
+        val graphicObject = data?.elements()?.singleOrNull()
+        val sizedObject = when (data?.attribute("", "uri")) {
+            picture -> graphicObject?.name?.namespaceURI == picture && graphicObject.name.localPart == "pic"
+            shape -> graphicObject?.name?.namespaceURI == shape && graphicObject.name.localPart == "wsp" &&
+                graphicObject.elements().count { it.name.namespaceURI == shape && it.name.localPart == "txbx" } == 1
+            else -> false
+        }
         val seen = mutableSetOf<javax.xml.namespace.QName>()
         for (node in anchor.elements()) {
             if (node.name.localPart in setOf("sizeRelH", "sizeRelV") && node.name.namespaceURI != wp14)
                 reject(node, "Invalid original relative-size namespace")
             if (node.name.namespaceURI == wp14) {
                 if (!seen.add(node.name)) reject(node, "Duplicate original relative-size metadata")
-                WordAnchorMetadata.validate(node) { message -> reject(node, message) }
+                val relative = WordAnchorMetadata.read(node) { message -> reject(node, message) }
+                if (relative != null && !sizedObject) reject(node, "Nonzero relative sizing requires an embedded picture or text frame")
             }
         }
     }
@@ -80,9 +93,9 @@ internal object WordDrawingOrder {
         }
     }
 
-    fun read(anchor: XmlElement, reject: (XmlElement, String) -> Nothing): PdfDrawingOrder {
+    fun read(anchor: XmlElement, separatedFooter: Boolean = false, reject: (XmlElement, String) -> Nothing): PdfDrawingOrder {
         validate(anchor, reject)
-        if (anchor.attribute("", "simplePos") !in setOf("0", "false") || anchor.attribute("", "allowOverlap") !in setOf("1", "true"))
+        if (anchor.attribute("", "simplePos") !in setOf("0", "false") || !separatedFooter && anchor.attribute("", "allowOverlap") !in setOf("1", "true"))
             reject(anchor, "Automatic floating anchor relocation is not qualified")
         val properties = anchor.elements().single { it.name.namespaceURI == wp && it.name.localPart == "docPr" }
         val layer = if (anchor.attribute("", "behindDoc") in setOf("1", "true")) PdfDrawingLayer.BACKGROUND else PdfDrawingLayer.FOREGROUND

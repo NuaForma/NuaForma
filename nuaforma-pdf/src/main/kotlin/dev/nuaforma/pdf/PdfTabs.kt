@@ -34,4 +34,24 @@ class PdfTabSettings private constructor(stops: List<PdfTabStop>, val defaultInt
     }
 }
 /** A typed layout control, never a space inserted into the source text. */
-data class PdfTab(val style: PdfTextStyle) : PdfInline
+class PdfTab private constructor(val style: PdfTextStyle, val navigation: PdfTextNavigation?) : PdfInline {
+    constructor(style: PdfTextStyle) : this(style, null)
+
+    init {
+        require(navigation == null || navigation.link != null && navigation.destinations.isEmpty()) {
+            "A tab can carry a link but cannot own destinations"
+        }
+    }
+
+    fun withNavigation(value: PdfTextNavigation?): PdfTab = PdfTab(style, value)
+
+    fun copy(style: PdfTextStyle = this.style): PdfTab = PdfTab(style, navigation)
+
+    operator fun component1(): PdfTextStyle = style
+
+    override fun equals(other: Any?): Boolean = other is PdfTab && style == other.style && navigation == other.navigation
+
+    override fun hashCode(): Int = if (navigation == null) style.hashCode() else 31 * style.hashCode() + navigation.hashCode()
+
+    override fun toString(): String = "PdfTab(style=$style)"
+}

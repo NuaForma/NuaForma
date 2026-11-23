@@ -35,16 +35,18 @@ internal class EmfPicture(private val context: GenerationContext, private val lo
         check(firstSize in 88..bytes.size && firstSize % 4 == 0 && input.getInt(0) == 1, "Invalid header")
         val header = EmfRecord(1, 0, bytes.copyOfRange(0, firstSize))
         header.require(header.int(40) == 0x464d4520 && header.int(44) == 0x10000 && header.int(48) == bytes.size, "Invalid header identity")
-        val records = header.int(52)
+        val declaredRecords = header.int(52)
         handles = header.short(56) and 0xffff
-        header.require(records >= 2 && handles >= 1, "Invalid declared record or handle count")
-        resource(records <= 20_000 && handles <= 256)
+        header.require(declaredRecords >= 2 && handles >= 1, "Invalid declared record or handle count")
+        resource(declaredRecords <= MAX_RECORDS && handles <= 256)
         header.require(header.short(58) == 0 && header.int(68) == 0, "Unsupported palette or reserved header")
         EmfHeader.validate(header)
         configure(header, width, height, inspect)
         try {
             var offset = firstSize
-            repeat(records - 1) { index ->
+            var lastRecord = declaredRecords
+            var recordNumber = 2
+            while (recordNumber <= lastRecord) {
                 context.checkActive()
                 check(offset.toLong() + 8 <= bytes.size, "Truncated record")
                 val type = input.getInt(offset)
@@ -52,13 +54,20 @@ internal class EmfPicture(private val context: GenerationContext, private val lo
                 check(size >= 8 && size % 4 == 0 && offset.toLong() + size <= bytes.size, "Invalid record size")
                 val record = EmfRecord(type, offset, bytes.copyOfRange(offset, offset + size))
                 if (type == 14) {
-                    record.require(index == records - 2 && offset + size == bytes.size && size >= 20 &&
+                    record.require(recordNumber == lastRecord && offset + size == bytes.size && size >= 20 &&
                         record.int(8) == 0 && record.int(16) == size, "Invalid end record")
                 } else {
-                    record.require(index < records - 2, "Missing end record")
+                    if (recordNumber == lastRecord) {
+                        // Word also renders files whose count omits the final object deletion.
+                        record.require(lastRecord == declaredRecords && lastRecord < MAX_RECORDS &&
+                            type == 40 && size == 12 && offset + size + 20 == bytes.size &&
+                            input.getInt(offset + size) == 14, "Missing end record")
+                        lastRecord++
+                    }
                     dispatch(record)
                 }
                 offset += size
+                recordNumber++
             }
             check(offset == bytes.size && !recording, "Incomplete metafile")
             return image?.let(::png)
@@ -375,6 +384,8 @@ internal class EmfPicture(private val context: GenerationContext, private val lo
     }
 
     companion object {
+        private const val MAX_RECORDS = 20_000
+
 
         fun color(value: Int): Color {
             if (value ushr 24 != 0) throw EmfFailure("Palette colors are unsupported")

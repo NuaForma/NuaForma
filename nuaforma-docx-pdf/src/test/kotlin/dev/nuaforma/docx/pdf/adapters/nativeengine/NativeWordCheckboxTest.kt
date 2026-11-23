@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test
 class NativeWordCheckboxTest {
     private val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
-    private fun read(box: String, extra: String = "", bold: Boolean = false) = NativeWordCheckbox.read(
-        NativeDocxFields.Form(ConversionXml(GenerationContext()).read("""<w:ffData xmlns:w="$word"><w:name w:val="Check1"/><w:enabled/><w:calcOnExit w:val="0"/><w:checkBox>$box</w:checkBox>$extra</w:ffData>""".toByteArray()), null),
+    private fun read(box: String, extra: String = "", bold: Boolean = false, name: String = "Check1") = NativeWordCheckbox.read(
+        NativeDocxFields.Form(ConversionXml(GenerationContext()).read("""<w:ffData xmlns:w="$word"><w:name w:val="$name"/><w:enabled/><w:calcOnExit w:val="0"/><w:checkBox>$box</w:checkBox>$extra</w:ffData>""".toByteArray()), null),
         11f, bold, PdfColor(0, 80, 100), {}, { throw IllegalArgumentException(it) })
 
     @Test
@@ -23,6 +23,18 @@ class NativeWordCheckboxTest {
         assertEquals(3, checked.vector.paths.size)
         assertEquals(1, read("<w:default/><w:checked w:val=\"false\"/>").vector.paths.size)
         assertEquals(3, read("<w:default w:val=\"true\"/>").vector.paths.size)
+    }
+
+    @Test
+    fun `empty legacy names have no effect on the printed checkbox state`() {
+        for (properties in listOf("<w:sizeAuto/>", "<w:sizeAuto/><w:checked/>")) {
+            val named = read(properties)
+            val unnamed = read(properties, name = "")
+            assertEquals(named.height, unnamed.height)
+            assertEquals(named.vector.paths.map { it.points to it.closed }, unnamed.vector.paths.map { it.points to it.closed })
+            assertEquals(named.vector.strokeWidth, unnamed.vector.strokeWidth)
+        }
+        assertThrows(IllegalArgumentException::class.java) { read("<w:sizeAuto/>", name = "Non identifier") }
     }
 
     @Test
