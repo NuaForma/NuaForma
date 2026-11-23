@@ -47,11 +47,34 @@ class PdfFinalLineTabsTest {
     }
 
     @Test
-    fun `non-final tab justification rejects without contaminating a subsequent valid render`() {
+    fun `wrapping after left tabs justifies the last field without moving preceding fields`() {
+        val measure = TextMeasurer { text, _ -> TextMetrics(text.length * 5f, 8f, 2f) }
+        val settings = PdfTabSettings(listOf(PdfTabStop(50f), PdfTabStop(100f, leader = PdfTabLeader.DOT)))
+        val runs = listOf(PdfTextRun("A B", style), PdfTab(style), PdfTextRun("C D", style), PdfTab(style),
+            PdfTextRun("E ".repeat(24), style))
+        val reference = paragraph(runs, PdfAlignment.LEFT, settings)
+        val justified = paragraph(runs, PdfAlignment.JUSTIFY, settings)
+        fun firstLine(block: PdfParagraph): List<PositionedText> {
+            val text = FlowLayouter.layout(PdfDocument(page, listOf(block), PdfFlow()), measure)
+                .flatMap { it.elements }.filterIsInstance<PositionedText>()
+            val baseline = text.minOf { it.baseline }
+            return text.filter { it.baseline == baseline && it.text.isNotBlank() }
+        }
+        val before = firstLine(reference)
+        val after = firstLine(justified)
+        assertEquals(before.take(6).map { it.text to it.x }, after.take(6).map { it.text to it.x })
+        assertEquals(listOf(20f, 30f, 70f, 80f), after.take(4).map { it.x })
+        assertEquals(120f, after.first { it.text == "E" }.x)
+        assertEquals(240f, after.last().x + 5f, .001f)
+    }
+
+    @Test
+    fun `unqualified aligned tabs reject on a non-final line without affecting a subsequent render`() {
         val engine = PdfEngine()
         val fonts = FoundationLetter.fonts()
-        val settings = PdfTabSettings(listOf(PdfTabStop(60f)))
-        val bad = paragraph(listOf(PdfTextRun("L", style), PdfTab(style), PdfTextRun("long ".repeat(40), style)), PdfAlignment.JUSTIFY, settings)
+        val settings = PdfTabSettings(listOf(PdfTabStop(60f, PdfTabAlignment.RIGHT)))
+        val bad = paragraph(listOf(PdfTextRun("L", style), PdfTab(style), PdfTextRun("END", style),
+            PdfLineBreak(style), PdfTextRun("Next", style)), PdfAlignment.JUSTIFY, settings)
         assertEquals(PdfFailureCode.UNSUPPORTED_TEXT, assertThrows(PdfRenderException::class.java) {
             engine.render(PdfDocument(page, listOf(bad), PdfFlow()), fonts)
         }.code)

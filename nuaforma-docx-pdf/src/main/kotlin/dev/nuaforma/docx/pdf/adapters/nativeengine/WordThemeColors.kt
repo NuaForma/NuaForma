@@ -7,8 +7,9 @@ import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.roundToInt
 
-/** Resolve qualified run colors and cell fills; palette state belongs to one source read. */
+/** Resolve qualified Word and DrawingML colors; palette state belongs to one source read. */
 internal class WordThemeColors(
     private val theme: XmlElement?,
     private val reject: (XmlElement, String) -> Nothing,
@@ -22,8 +23,25 @@ internal class WordThemeColors(
         return themed(node, role, node.attribute(W, "themeTint"), node.attribute(W, "themeShade"))
     }
 
+    fun explicitUnderlineColor(node: XmlElement): PdfColor? =
+        node.attribute(W, "color")?.takeUnless { it == "auto" }?.let { rgb(node, it) }
+
+    fun borderColor(node: XmlElement, role: String): PdfColor? {
+        if (role == "none") return null
+        if (!supportsBorderRole(role)) reject(node, "Unsupported table border theme color")
+        return themed(node, role, node.attribute(W, "themeTint"), node.attribute(W, "themeShade"))
+    }
+
     fun cellFill(node: XmlElement): PdfColor? {
         validateCellFill(node, reject)
+        val fillKind = node.attribute(W, "val")
+        if (fillKind == "solid") return rgb(node, node.attribute(W, "color"))
+        cellPercentages[fillKind]?.let { percent ->
+            val pattern = node.attribute(W, "color")?.takeUnless { it == "auto" }?.let { rgb(node, it) } ?: PdfColor(0, 0, 0)
+            val base = node.attribute(W, "fill")?.takeUnless { it == "auto" }?.let { rgb(node, it) } ?: PdfColor(255, 255, 255)
+            fun channel(background: Int, foreground: Int) = (background * (100 - percent) + foreground * percent + 49) / 100
+            return PdfColor(channel(base.red, pattern.red), channel(base.green, pattern.green), channel(base.blue, pattern.blue))
+        }
         val role = node.attribute(W, "themeFill")
         if (role == "none") return null
         if (role == null) return node.attribute(W, "fill")?.takeUnless { it == "auto" }?.let { rgb(node, it) }
@@ -32,22 +50,30 @@ internal class WordThemeColors(
 
     fun runFill(node: XmlElement): PdfColor? {
         validateRunFill(node, reject)
-        return if (node.attribute(W, "val") == "nil") null else cellFill(normalizedRunFill(node))
+        if (node.attribute(W, "val") == "nil") return null
+        return cellFill(if (isPaintedPattern(node)) node else normalizedRunFill(node))
+    }
+
+    fun drawingColor(node: XmlElement, slot: String, modulation: Int, offset: Int): PdfColor {
+        val original = resolved.getOrPut(slot) { palette(node, slot) }
+        if (modulation == 100_000 && offset == 0) return original
+        return adjustLuminance(original, { ((it * modulation + offset) / 100_000).coerceAtMost(1.0) }, Double::roundToInt)
     }
 
     private fun themed(node: XmlElement, role: String, tintValue: String?, shadeValue: String?): PdfColor {
-        val original = resolved.getOrPut(role) { palette(node, role) }
+        val slot = roles.getValue(role)
+        val original = resolved.getOrPut(slot) { palette(node, slot) }
         val tint = tintValue?.toInt(16)
         val shade = shadeValue?.toInt(16)
         return if (tint != null) transform(original, tint, true)
             else if (shade != null) transform(original, shade, false) else original
     }
 
-    private fun palette(source: XmlElement, role: String): PdfColor {
+    private fun palette(source: XmlElement, name: String): PdfColor {
         val root = theme ?: reject(source, "Theme color requires an embedded document theme")
         val elements = child(root, "themeElements")
         val scheme = child(elements, "clrScheme")
-        val slot = child(scheme, roles.getValue(role))
+        val slot = child(scheme, name)
         val values = slot.elements()
         if (slot.attributes.isNotEmpty() || values.size != 1 || slot.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
             reject(slot, "Invalid theme color slot")
@@ -82,13 +108,19 @@ internal class WordThemeColors(
     private fun transform(color: PdfColor, amount: Int, tint: Boolean): PdfColor {
         if (amount == 255) return color
         if (amount == 0) return if (tint) PdfColor(255, 255, 255) else PdfColor(0, 0, 0)
+        return adjustLuminance(color, { luminance ->
+            if (tint) 1 - (1 - luminance) * amount / 255 else luminance * amount / 255
+        }, { floor(it + 1e-9).toInt() })
+    }
+
+    private fun adjustLuminance(color: PdfColor, adjust: (Double) -> Double, quantize: (Double) -> Int): PdfColor {
         val red = color.red / 255.0
         val green = color.green / 255.0
         val blue = color.blue / 255.0
         val high = max(red, max(green, blue))
         val low = min(red, min(green, blue))
         val luminance = (high + low) / 2
-        val adjusted = if (tint) 1 - (1 - luminance) * amount / 255 else luminance * amount / 255
+        val adjusted = adjust(luminance)
         val difference = high - low
         val saturation = if (difference == 0.0) 0.0 else difference / (1 - abs(2 * luminance - 1))
         val hue = if (difference == 0.0) 0.0 else when (high) {
@@ -107,7 +139,7 @@ internal class WordThemeColors(
             else -> doubleArrayOf(chroma, 0.0, intermediate)
         }
         val offset = adjusted - chroma / 2
-        val rgb = channels.map { floor((it + offset) * 255 + 1e-9).toInt().coerceIn(0, 255) }
+        val rgb = channels.map { quantize((it + offset) * 255).coerceIn(0, 255) }
         return PdfColor(rgb[0], rgb[1], rgb[2])
     }
 
@@ -117,12 +149,29 @@ internal class WordThemeColors(
         private val roles = mapOf("dark1" to "dk1", "light1" to "lt1", "dark2" to "dk2", "light2" to "lt2",
             "text1" to "dk1", "background1" to "lt1", "text2" to "dk2", "background2" to "lt2",
             "hyperlink" to "hlink", "followedHyperlink" to "folHlink") + (1..6).associate { "accent$it" to "accent$it" }
+        private val drawingAliases = mapOf("bg1" to "lt1", "bg2" to "lt2", "tx1" to "dk1", "tx2" to "dk2")
+        private val cellPercentages = listOf(5, 10, 20, 25, 50, 75).associateBy { "pct$it" }
+
+        fun drawingSlot(value: String): String? = drawingAliases[value] ?: value.takeIf { it in roles.values }
+
+        fun supportsBorderRole(value: String): Boolean = value == "none" || value in roles
 
         fun validateSource(root: XmlElement, reject: (XmlElement, String) -> Nothing) {
             if (root.name.namespaceURI == A && root.name.localPart == "theme") validateThemeSource(root, reject)
+            for (table in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart == "tbl" }) {
+                val properties = table.elements().firstOrNull { it.name.namespaceURI == W && it.name.localPart == "tblPr" } ?: continue
+                val fills = properties.elements().filter { it.name.localPart == "shd" }
+                if (fills.size > 1) reject(fills[1], "Duplicate original table shading")
+                fills.singleOrNull()?.takeIf { it.attribute(W, "val") == "clear" }?.let { validateTableShading(it, reject) }
+            }
             for (properties in root.descendants().filter { it.name.namespaceURI == W && it.name.localPart == "tcPr" }) {
                 val fills = properties.elements().filter { it.name.localPart == "shd" }
-                if (fills.none { node -> node.attributes.keys.any { it.localPart in setOf("themeFill", "themeFillTint", "themeFillShade") } }) continue
+                val qualified = fills.any { node ->
+                    node.attribute(W, "val") == "solid" || node.attribute(W, "val") in cellPercentages ||
+                        node.attributes.keys.any { it.localPart in setOf("themeFill", "themeFillTint", "themeFillShade") } ||
+                        node.attribute(W, "val") == "clear" && node.attribute(W, "color") != "auto" && hasExplicitCellFill(node)
+                }
+                if (!qualified) continue
                 if (fills.size > 1) reject(fills[1], "Duplicate cell theme fill")
                 validateCellFill(fills.single(), reject)
             }
@@ -169,12 +218,23 @@ internal class WordThemeColors(
             }
         }
 
+        private fun isPaintedPattern(node: XmlElement): Boolean =
+            node.attribute(W, "val").let { it == "solid" || it in cellPercentages }
+
+        fun validateParagraphFill(node: XmlElement, reject: (XmlElement, String) -> Nothing) {
+            validateRunFill(node) { origin, message -> reject(origin, message.replace("run shading", "paragraph shading")) }
+        }
+
         fun validateRunFill(node: XmlElement, reject: (XmlElement, String) -> Nothing) {
+            if (isPaintedPattern(node)) {
+                validateCellFill(node, { origin, message -> reject(origin, message.replace("cell", "run")) })
+                return
+            }
             val color = node.attribute(W, "color")
             if (node.attribute(W, "val") !in setOf("clear", "nil") ||
                 color != null && color != "auto" && !color.matches(Regex("[0-9A-Fa-f]{6}")))
                 reject(node, "Unsupported run shading pattern or foreground color")
-            validateCellFill(normalizedRunFill(node)) { _, message -> reject(node, message.replace("cell", "run")) }
+            validateCellFill(normalizedRunFill(node), { _, message -> reject(node, message.replace("cell", "run")) })
         }
 
         private fun normalizedRunFill(node: XmlElement): XmlElement = XmlElement(node.name, node.attributes.toMutableMap(),
@@ -183,13 +243,40 @@ internal class WordThemeColors(
             it.attributes[javax.xml.namespace.QName(W, "color")] = "auto"
         }
 
-        private fun validateCellFill(node: XmlElement, reject: (XmlElement, String) -> Nothing) {
+        fun validateTableShading(node: XmlElement, reject: (XmlElement, String) -> Nothing) =
+            validateCellFill(node, reject, table = true)
+
+        private fun hasExplicitCellFill(node: XmlElement): Boolean =
+            node.attribute(W, "themeFill") == null && node.attribute(W, "fill")?.matches(Regex("[0-9A-Fa-f]{6}")) == true
+
+        private fun validateCellFill(node: XmlElement, reject: (XmlElement, String) -> Nothing, table: Boolean = false) {
             if (node.name.namespaceURI != W || node.attributes.keys.any { it.namespaceURI != W ||
                     it.localPart !in setOf("val", "color", "fill", "themeFill", "themeFillTint", "themeFillShade") } ||
                 node.elements().isNotEmpty() || node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
                 reject(node, "Invalid cell theme fill structure")
-            if (node.attribute(W, "val") != "clear" || node.attribute(W, "color") != "auto")
-                reject(node, "Unsupported cell shading")
+            val foreground = node.attribute(W, "color")
+            if (!table && node.attribute(W, "val") == "solid") {
+                val cache = node.attribute(W, "fill")
+                if (foreground?.matches(Regex("[0-9A-Fa-f]{6}")) != true ||
+                    cache != null && cache != "auto" && !cache.matches(Regex("[0-9A-Fa-f]{6}")) ||
+                    node.attributes.keys.any { it.localPart.startsWith("theme") })
+                    reject(node, "Solid cell shading requires an explicit RGB foreground")
+                return
+            }
+            if (!table && node.attribute(W, "val") in cellPercentages) {
+                val background = node.attribute(W, "fill")
+                val rgb = Regex("[0-9A-Fa-f]{6}")
+                if (node.attributes.keys.any { it.localPart.startsWith("theme") } ||
+                    listOf(foreground, background).any { it != null && it != "auto" && !rgb.matches(it) })
+                    reject(node, "Percentage cell shading requires automatic or explicit RGB colors")
+                return
+            }
+            // A clear pattern paints only the background. Keep explicit fill separate from
+            // unqualified foreground combinations without a real color behind the cell.
+            val qualifiedForeground = foreground == "auto" || (table || hasExplicitCellFill(node)) &&
+                (foreground == null || foreground.matches(Regex("[0-9A-Fa-f]{6}")))
+            if (node.attribute(W, "val") != "clear" || !qualifiedForeground)
+                reject(node, if (table) "Unsupported table shading" else "Unsupported cell shading")
             val role = node.attribute(W, "themeFill")
             if (role != null && role != "none" && role !in roles) reject(node, "Unsupported cell theme fill role")
             val cached = node.attribute(W, "fill")

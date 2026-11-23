@@ -32,14 +32,15 @@ internal class GlyphEncoding(private val fonts: Map<String, PDType0Font>, privat
 
     fun glyph(fontId: String, value: FontShaper.Glyph): ByteArray = font(fontId).encodeGlyphId(register(fontId, value.id, value.logical))
 
-    fun normal(fontId: String, text: String): ByteArray {
+    fun normal(fontId: String, text: String, input: String = text): ByteArray {
         val font = font(fontId)
-        if (!enabled(fontId)) return font.encode(text)
+        if (!enabled(fontId) && input == text) return font.encode(input)
         val output = ByteArrayOutputStream(text.length * 2)
+        val printed = input.codePoints().iterator()
         for (point in text.codePoints().toArray()) {
             control.checkActive()
-            val value = String(Character.toChars(point))
-            val bytes = font.encode(value)
+            val value = Character.toString(point)
+            val bytes = font.encode(Character.toString(printed.nextInt()))
             check(bytes.size == 2) { "Expected an Identity-H TrueType font" }
             val gid = ((bytes[0].toInt() and 255) shl 8) or (bytes[1].toInt() and 255)
             output.write(font.encodeGlyphId(register(fontId, gid, value)))

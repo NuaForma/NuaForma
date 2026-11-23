@@ -41,5 +41,5 @@ class PdfTextNavigation @JvmOverloads constructor(val link: PdfLink? = null, des
 }
 
 private fun requireDestinationName(name: String) {
-    require(name.matches(Regex("[A-Za-z_][A-Za-z0-9_.-]{0,127}"))) { "Invalid destination name" }
+    require(name.matches(Regex("[A-Za-z_][A-Za-z0-9_.:’-]{0,127}"))) { "Invalid destination name" }
 }

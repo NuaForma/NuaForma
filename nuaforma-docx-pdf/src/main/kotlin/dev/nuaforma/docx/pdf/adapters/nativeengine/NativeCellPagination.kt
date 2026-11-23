@@ -6,7 +6,7 @@ import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
 /** Retain original validation for Word flags omitted from qualified cell printing. */
 internal object NativeCellPagination {
     private const val W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-    private val names = setOf("keepLines", "widowControl")
+    private val names = setOf("keepNext", "keepLines", "widowControl")
     private val flags = setOf(null, "0", "1", "false", "true", "off", "on")
 
     fun validateSource(root: XmlElement, fail: (XmlElement, String) -> Nothing) {

@@ -153,15 +153,17 @@ internal class NativeWordFeatureSupport(temporary: Path) {
         val proof = bytes(folder + "golden-provenance.json").decodeToString()
         for (value in listOf(source, reference) + images) assertTrue(proof.contains(hash(value)), folder)
         assertTrue(bytes(folder + "word-reference.pdf.provenance.json").decodeToString().contains(hash(source)))
+        val goldenImages = images.map { requireNotNull(ImageIO.read(it.inputStream())) }
         Loader.loadPDF(reference).use { word ->
             assertEquals(pageCount, word.numberOfPages)
+            val expectedText = text(word, normalizeTabLeaders, logicalTextOrder)
             val expected = positions(word, pattern, tails)
             val expectedForegrounds = if (foregroundColors) foregrounds(word, pattern) else emptyMap()
             assertEquals(markerCount, expected.size)
-            val wordImages = (0 until pageCount).map { PDFRenderer(word).renderImageWithDPI(it, 96f) }
+            val wordImages = if (colors) (0 until pageCount).map { PDFRenderer(word).renderImageWithDPI(it, 96f) } else emptyList()
             for (profile in profiles) Loader.loadPDF(generate(source, profile)).use { actual ->
                 assertEquals(pageCount, actual.numberOfPages)
-                assertEquals(text(word, normalizeTabLeaders, logicalTextOrder), text(actual, normalizeTabLeaders, logicalTextOrder))
+                assertEquals(expectedText, text(actual, normalizeTabLeaders, logicalTextOrder))
                 for (page in 0 until pageCount) {
                     assertEquals(word.getPage(page).mediaBox.width, actual.getPage(page).mediaBox.width, .1f)
                     assertEquals(word.getPage(page).mediaBox.height, actual.getPage(page).mediaBox.height, .1f)
@@ -183,7 +185,7 @@ internal class NativeWordFeatureSupport(temporary: Path) {
                         assertEquals(colorAt(wordImages[before.page - 1], before), colorAt(actualImages[after.page - 1], after), marker)
                     }
                 }
-                for (page in 0 until pageCount) assertImagesMatch(ImageIO.read(images[page].inputStream()), actualImages[page]) {
+                for (page in 0 until pageCount) assertImagesMatch(goldenImages[page], actualImages[page]) {
                     pixelTolerance = 0.0; allowedDifferentPixelsPercent = 0.0; threshold = 1
                 }
             }

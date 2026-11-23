@@ -32,8 +32,7 @@ class WordTextAlignmentTest {
 
     @Test
     fun `unsupported positions malformed duplicate and misplaced properties remain errors`() {
-        for (bad in listOf("<w:textAlignment/>", "<w:textAlignment w:val=\"top\"/>", "<w:textAlignment w:val=\"center\"/>",
-            "<w:textAlignment w:val=\"bottom\"/>", "<w:textAlignment val=\"auto\"/>", "<w:textAlignment w:val=\"auto\" extra=\"1\"/>",
+        for (bad in listOf("<w:textAlignment/>", "<w:textAlignment w:val=\"justify\"/>", "<w:textAlignment val=\"auto\"/>", "<w:textAlignment w:val=\"auto\" extra=\"1\"/>",
             "<w:textAlignment w:val=\"auto\"/><w:textAlignment w:val=\"baseline\"/>",
             "<w:textAlignment w:val=\"auto\">text</w:textAlignment>", "<w:textAlignment w:val=\"auto\"><w:r/></w:textAlignment>",
             "<x:textAlignment xmlns:x=\"urn:other\" w:val=\"auto\"/>", "<w:rPr><w:textAlignment w:val=\"auto\"/></w:rPr>"))

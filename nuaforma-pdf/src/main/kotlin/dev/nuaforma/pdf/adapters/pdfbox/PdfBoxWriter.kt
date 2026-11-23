@@ -65,22 +65,24 @@ internal object PdfBoxWriter {
                 val font = fonts[style.fontId] ?: fail(PdfFailureCode.FONT_UNAVAILABLE, "Referenced font is not supplied")
                 val width = try {
                     if (style.fontFeatures.active) shaper.shape(text, style).advance else {
-                        if (style.characterSpacing < 0f) text.codePoints().forEach { point ->
+                        val input = shaper.fontInput(text, style.fontId)
+                        if (style.characterSpacing < 0f) input.codePoints().forEach { point ->
                             val glyphWidth = font.getStringWidth(String(Character.toChars(point))) * style.size / 1000f * style.horizontalScale
                             if (glyphWidth + style.characterSpacing < 0f)
                                 fail(PdfFailureCode.UNSUPPORTED_TEXT, "Character spacing reverses glyph advances")
                         }
-                        font.getStringWidth(text) * style.size / 1000f * style.horizontalScale + text.codePointCount(0, text.length) * style.characterSpacing
+                        font.getStringWidth(input) * style.size / 1000f * style.horizontalScale + text.codePointCount(0, text.length) * style.characterSpacing
                     }
                 } catch (_: IllegalArgumentException) {
                     fail(PdfFailureCode.MISSING_GLYPH, "The supplied font cannot encode requested text")
                 }
                 val box = font.fontDescriptor.fontBoundingBox
+                val metricSize = style.lineMetricSize ?: style.size
                 return TextMetrics(width, maxOf(font.fontDescriptor.ascent, box.upperRightY) * style.size / 1000f + style.baselineShift,
                     maxOf(-font.fontDescriptor.descent, -box.lowerLeftY) * style.size / 1000f - style.baselineShift,
-                    lineMetrics[style.fontId]?.get(0)?.times(style.size)?.plus(style.baselineShift) ?: Float.NaN,
-                    lineMetrics[style.fontId]?.get(1)?.times(style.size)?.minus(style.baselineShift) ?: Float.NaN,
-                    lineMetrics[style.fontId]?.get(2)?.times(style.size) ?: Float.NaN)
+                    lineMetrics[style.fontId]?.get(0)?.times(metricSize)?.plus(style.baselineShift) ?: Float.NaN,
+                    lineMetrics[style.fontId]?.get(1)?.times(metricSize)?.minus(style.baselineShift) ?: Float.NaN,
+                    lineMetrics[style.fontId]?.get(2)?.times(metricSize) ?: Float.NaN)
               }
 
               override fun ink(text: String, style: PdfTextStyle): TextMetrics {
@@ -102,7 +104,8 @@ internal object PdfBoxWriter {
             val layouts = composed.pages
             for (layout in layouts) for (text in DocumentLayouter.texts(layout.elements)) {
                 control.checkActive()
-                if (text.text.codePoints().anyMatch { it in 0xE000..0xF8FF }) privateGlyphFonts += text.style.fontId
+                if (text.text.codePoints().anyMatch { it in 0xE000..0xF8FF } ||
+                    shaper.fontInput(text.text, text.style.fontId) != text.text) privateGlyphFonts += text.style.fontId
             }
             watermark?.let { if (it.text.codePoints().anyMatch { point -> point in 0xE000..0xF8FF }) privateGlyphFonts += it.fontId }
 
@@ -137,7 +140,7 @@ internal object PdfBoxWriter {
                     encoding.normal(requested.fontId, it)
                 }
             }
-            val images = java.util.IdentityHashMap<PdfImage, PDImageXObject>()
+            val images = java.util.IdentityHashMap<Any, PDImageXObject>()
             var decodedImageBytes = 0L
             for (layout in layouts) {
                 val page = PDPage(PDRectangle(layout.page.width, layout.page.height))
@@ -154,7 +157,7 @@ internal object PdfBoxWriter {
 
                     fun number(value: Float) = COSFloat(value)
 
-                    fun paint(elements: List<PositionedElement>, canvasHeight: Float, canvasWidth: Float) {
+                    fun paint(elements: List<PositionedElement>, canvasHeight: Float, canvasWidth: Float, originX: Float = 0f, originTop: Float = 0f) {
 
                         fun drawingOrder(element: PositionedElement): PdfDrawingOrder? = when (element) {
                             is PositionedBox -> element.box.drawingOrder
@@ -162,12 +165,17 @@ internal object PdfBoxWriter {
                             else -> null
                         }
 
-                        fun layer(element: PositionedElement): Int = drawingOrder(element)?.let {
-                            if (it.layer == PdfDrawingLayer.BACKGROUND) -2 else 2
-                        } ?: when {
-                            element is PositionedStroke -> when (element.layer) { StrokeLayer.FLOW -> 0; StrokeLayer.BACKGROUND -> -1; StrokeLayer.FOREGROUND -> 1 }
-                            element is PositionedImage && element.foreground -> 1
-                            else -> 0
+                        fun layer(element: PositionedElement): Int = when {
+                            element is PositionedImage && element.headerUnderlay -> {
+                                if (element.drawingOrder?.layer == PdfDrawingLayer.BACKGROUND) -4 else -3
+                            }
+                            else -> drawingOrder(element)?.let {
+                                if (it.layer == PdfDrawingLayer.BACKGROUND) -2 else 2
+                            } ?: when {
+                                element is PositionedStroke -> when (element.layer) { StrokeLayer.FLOW -> 0; StrokeLayer.BACKGROUND -> -1; StrokeLayer.FOREGROUND -> 1 }
+                                element is PositionedImage && element.foreground -> 1
+                                else -> 0
+                            }
                         }
 
                         val ordered = elements.sortedWith(compareBy<PositionedElement>(::layer)
@@ -187,14 +195,14 @@ internal object PdfBoxWriter {
                                     val clipped = ParagraphBackgrounds.clipped(fill) ?: continue
                                     ParagraphBackgrounds.validate(clipped, canvasWidth, canvasHeight)
                                     command("BMC", COSName.ARTIFACT)
-                                    paint(listOf(clipped.copy(paragraph = null)), canvasHeight, canvasWidth)
+                                    paint(listOf(clipped.copy(paragraph = null)), canvasHeight, canvasWidth, originX, originTop)
                                     command("EMC")
                                 }
                                 for (text in group.filterIsInstance<PositionedText>()) {
                                     control.checkActive()
                                     val background = TextBackgrounds.rectangle(text, canvasWidth, canvasHeight) ?: continue
                                     command("BMC", COSName.ARTIFACT)
-                                    paint(listOf(background), canvasHeight, canvasWidth)
+                                    paint(listOf(background), canvasHeight, canvasWidth, originX, originTop)
                                     command("EMC")
                                 }
                             }
@@ -224,9 +232,11 @@ internal object PdfBoxWriter {
                                 is PositionedStroke -> {
                                     val stroke = element.stroke
                                     val extent = stroke.extent / 2
-                                    val length = kotlin.math.hypot((element.endX - element.x).toDouble(), (element.endY - element.top).toDouble()).toFloat()
-                                    val bleedX = if (length == 0f) extent else kotlin.math.abs(element.endY - element.top) / length * extent
-                                    val bleedY = if (length == 0f) extent else kotlin.math.abs(element.endX - element.x) / length * extent
+                                    val horizontalDelta = element.endX - element.x
+                                    val verticalDelta = element.endY - element.top
+                                    val length = kotlin.math.hypot(horizontalDelta.toDouble(), verticalDelta.toDouble()).toFloat()
+                                    val bleedX = if (length == 0f) extent else kotlin.math.abs(verticalDelta) / length * extent
+                                    val bleedY = if (length == 0f) extent else kotlin.math.abs(horizontalDelta) / length * extent
                                     if (minOf(element.x, element.endX) < bleedX - .001f || maxOf(element.x, element.endX) > canvasWidth - bleedX + .001f ||
                                         minOf(element.top, element.endY) < bleedY - .001f || maxOf(element.top, element.endY) > canvasHeight - bleedY + .001f)
                                         fail(PdfFailureCode.CONTENT_OVERFLOW, "A vector line exceeds its physical page or frame")
@@ -237,10 +247,29 @@ internal object PdfBoxWriter {
                                     val dash = if (stroke.dashOn != null && stroke.dashOff != null) floatArrayOf(stroke.dashOn, stroke.dashOff) else
                                         when (stroke.style) { PdfLineStyle.DASHED -> floatArrayOf(3 * stroke.width, stroke.width); PdfLineStyle.DOTTED -> floatArrayOf(stroke.width, stroke.width); else -> floatArrayOf() }
                                     command("d", COSArray().also { a -> dash.forEach { a.add(number(it)) } }, number(0f))
-                                    val offsets = if (stroke.style == PdfLineStyle.DOUBLE) listOf(-stroke.width, stroke.width) else listOf(0f)
-                                    for (offset in offsets) {
-                                        val dx = if (length == 0f) 0f else -(element.endY - element.top) / length * offset
-                                        val dy = if (length == 0f) 0f else (element.endX - element.x) / length * offset
+                                    val bands = when (stroke.style) {
+                                        PdfLineStyle.DOUBLE -> listOf(-stroke.width to stroke.width, stroke.width to stroke.width)
+                                        PdfLineStyle.THIN_THICK_SMALL_GAP, PdfLineStyle.THICK_THIN_SMALL_GAP -> {
+                                            val fixed = COMPOUND_BORDER_SMALL_GAP
+                                            val variableFirst = stroke.style == PdfLineStyle.THIN_THICK_SMALL_GAP
+                                            val first = if (variableFirst) stroke.width else fixed
+                                            val second = if (variableFirst) fixed else stroke.width
+                                            // Word orders bands from top to bottom or left to right on the page.
+                                            val direction = if (kotlin.math.abs(horizontalDelta) >= kotlin.math.abs(verticalDelta))
+                                                horizontalDelta else -verticalDelta
+                                            val sign = if (direction < 0f) 1f else -1f
+                                            listOf(sign * (extent - first / 2) to first, -sign * (extent - second / 2) to second)
+                                        }
+                                        else -> listOf(0f to stroke.width)
+                                    }
+                                    var penWidth = stroke.width
+                                    for ((offset, bandWidth) in bands) {
+                                        if (bandWidth != penWidth) {
+                                            command("w", number(bandWidth))
+                                            penWidth = bandWidth
+                                        }
+                                        val dx = if (length == 0f) 0f else -verticalDelta / length * offset
+                                        val dy = if (length == 0f) 0f else horizontalDelta / length * offset
                                         command("m", number(element.x + dx), number(canvasHeight - element.top - dy))
                                         command("l", number(element.endX + dx), number(canvasHeight - element.endY - dy))
                                         command("S")
@@ -254,10 +283,12 @@ internal object PdfBoxWriter {
                                     val cx = element.box.width / 2
                                     val cy = element.box.height / 2
                                     command("q")
+                                    val extension = element.contentHeight - element.box.height
                                     command("cm", number(c), number(-s), number(s), number(c),
                                         number(element.x + cx - c * cx - s * cy),
-                                        number(canvasHeight - element.top - cy + s * cx - c * cy))
-                                    paint(element.elements, element.box.height, element.box.width)
+                                        number(canvasHeight - element.top - cy + s * cx - c * cy - extension))
+                                    paint(element.elements, element.contentHeight, element.box.width,
+                                        originX + element.x, originTop + element.top)
                                     command("Q")
                                 }
                                 is PositionedRectangle -> {
@@ -277,8 +308,15 @@ internal object PdfBoxWriter {
                                     command("Q")
                                 }
                                 is PositionedTableBorder -> Unit
+                                is PositionedDestination -> element.targets.forEach { target ->
+                                    navigation.addDestination(target, page, element.x, canvasHeight - element.top)
+                                }
                                 is PositionedText -> {
-                                    if (element.navigation != null) navigation.add(element, page, measurer.measure(element.text, element.style))
+                                    if (element.navigation != null) {
+                                        val physical = if (originX == 0f && originTop == 0f) element
+                                            else element.copy(x = element.x + originX, baseline = element.baseline + originTop)
+                                        navigation.add(physical, page, measurer.measure(element.text, element.style))
+                                    }
                                     if (element.decoration) command("BMC", COSName.ARTIFACT)
                                     element.style.languageTag?.let { language ->
                                         val properties = COSDictionary().apply { setString(COSName.LANG, language) }
@@ -287,7 +325,8 @@ internal object PdfBoxWriter {
                                     val color = element.style.color
                                     val font = fonts.getValue(element.style.fontId)
                                     usedFonts += element.style.fontId
-                                    if (font.willBeSubset()) element.text.codePoints().forEach { font.addToSubset(it) }
+                                    val input = shaper.fontInput(element.text, element.style.fontId)
+                                    if (font.willBeSubset()) input.codePoints().forEach { font.addToSubset(it) }
                                     if (element.style.syntheticBold) command("q")
                                     command("BT")
                                     command("Tf", page.resources.add(font), number(element.style.size))
@@ -308,7 +347,7 @@ internal object PdfBoxWriter {
                                                 number(canvasHeight - (element.baseline - element.style.baselineShift + glyph.y)))
                                             command("Tj", COSString(encoding.glyph(element.style.fontId, glyph)))
                                         }
-                                    } else command("Tj", COSString(encoding.normal(element.style.fontId, element.text)))
+                                    } else command("Tj", COSString(encoding.normal(element.style.fontId, element.text, input)))
                                     command("ET")
                                     if (element.style.syntheticBold) {
                                         command("Q")
@@ -318,12 +357,21 @@ internal object PdfBoxWriter {
                                         val metrics = lineMetrics[element.style.fontId]
                                         val position = metrics?.getOrNull(3)?.takeIf { it.isFinite() } ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified underline metrics")
                                         val thickness = metrics.getOrNull(4)?.takeIf { it.isFinite() } ?: fail(PdfFailureCode.INVALID_RESOURCE, "Font has no qualified underline thickness")
-                                        if (position - thickness < font.fontDescriptor.fontBoundingBox.lowerLeftY / 1000f)
+                                        val underline = underlineGeometry(element.style, position, thickness)
+                                        val depth = if (element.style.thickUnderline) underline.bottom / element.style.size else position - thickness
+                                        if (depth < font.fontDescriptor.fontBoundingBox.lowerLeftY / 1000f)
                                             fail(PdfFailureCode.UNSUPPORTED_TEXT, "Underline exceeds the qualified font bounds")
+                                        val underlineColor = element.style.underlineColor?.takeUnless { it == color }
+                                        if (underlineColor != null) {
+                                            command("q")
+                                            command("rg", number(underlineColor.red / 255f), number(underlineColor.green / 255f),
+                                                number(underlineColor.blue / 255f))
+                                        }
                                         // OpenType post.underlinePosition denotes the top edge, unlike PostScript's center coordinate.
-                                        command("re", number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift) + (position - thickness) * element.style.size),
-                                            number(element.trailingDecorationWidth ?: measurer.measure(element.text, element.style).width), number(thickness * element.style.size))
+                                        command("re", number(element.x), number(canvasHeight - (element.baseline - element.style.baselineShift) + underline.bottom),
+                                            number(element.trailingDecorationWidth ?: measurer.measure(element.text, element.style).width), number(underline.thickness))
                                         command("f")
+                                        if (underlineColor != null) command("Q")
                                     }
                                     if (element.style.strikethrough) {
                                         val metrics = lineMetrics[element.style.fontId]
@@ -356,7 +404,7 @@ internal object PdfBoxWriter {
                                             if (bottom > canvasHeight + .001f) exceeds("bottom", bottom - top, canvasHeight - top)
                                         }
                                     }
-                                    val image = images.getOrPut(element.image) {
+                                    val image = images.getOrPut(element.image.rasterIdentity) {
                                         val bytes = element.image.bytes()
                                         validatePng(bytes)
                                         val dimensions = ByteBuffer.wrap(bytes, 16, 8).order(ByteOrder.BIG_ENDIAN)
@@ -384,15 +432,33 @@ internal object PdfBoxWriter {
                                         number(element.x - width * crop.left), number(canvasHeight - element.top - height * (1f - crop.top)))
                                     command("Do", page.resources.add(image))
                                     command("Q")
+                                    element.link?.let { link ->
+                                        navigation.addImage(page, link, originX + element.x, originTop + element.top,
+                                            element.image.width, element.image.height)
+                                    }
                                 }
                             }
                         }
                         val tableBorders = TableBorderLayouter.rectangles(elements, canvasWidth, canvasHeight)
-                        if (tableBorders.isNotEmpty()) paint(tableBorders, canvasHeight, canvasWidth)
+                        if (tableBorders.isNotEmpty()) paint(tableBorders, canvasHeight, canvasWidth, originX, originTop)
                     }
 
                     decoration?.paint(page, writer, layout.page.width, layout.page.height)
                     paint(layout.elements, layout.page.height, layout.page.width)
+                    layout.pageFrame?.let { frame ->
+                        val (top, right, bottom, left) = frame.offsets
+                        val (width, color) = frame.border
+                        command("BMC", COSName.ARTIFACT)
+                        command("q")
+                        command("RG", number(color.red / 255f), number(color.green / 255f), number(color.blue / 255f))
+                        command("w", number(width))
+                        command("j", COSInteger.ZERO)
+                        command("re", number(left + width / 2), number(bottom + width / 2),
+                            number(layout.page.width - left - right - width), number(layout.page.height - top - bottom - width))
+                        command("S")
+                        command("Q")
+                        command("EMC")
+                    }
                 }
             }
             navigation.finish()

@@ -401,14 +401,20 @@ class WordFloatingBandsTest {
     }
 
     @Test
-    fun `colored numbering marks remain explicit until visible label highlighting is qualified`() {
+    fun `numbering marks preserve supported label highlights without coloring body text`() {
         for (color in listOf("none", "yellow")) {
             val entries = parts(resource("/own-engine-lists/source.docx"))
             entries["word/document.xml"] = entries.getValue("word/document.xml").decodeToString().replace("<w:numPr>",
                 "<w:rPr><w:highlight w:val=\"$color\"/></w:rPr><w:numPr>").toByteArray()
-            val read = { NativeDocxReader(context()) { _, _, _ -> "regular" }.read(zip(entries)) }
-            if (color == "none") assertDoesNotThrow { read() }
-            else assertTrue(assertThrows(NativeDocxReadException::class.java) { read() }.message!!.contains("numbered paragraph marks"))
+            val model = NativeDocxReader(context()) { _, _, _ -> "regular" }.read(zip(entries))
+            val labels = model.blocks.filterIsInstance<PdfParagraph>().mapNotNull { it.listLabel }
+            assertTrue(labels.isNotEmpty())
+            val yellow = PdfColor(255, 255, 0)
+            val highlighted = labels.filter { it.style.background != null }
+            assertEquals(if (color == "yellow") 74 else 0, highlighted.size)
+            assertTrue(highlighted.all { it.style.background == yellow && it.highlightSuffix })
+            assertFalse(model.blocks.filterIsInstance<PdfParagraph>().flatMap { it.runs }.filterIsInstance<PdfTextRun>()
+                .any { it.style.background == yellow })
         }
     }
 
@@ -491,7 +497,7 @@ class WordFloatingBandsTest {
     @Test
     fun `relative sizing and wrapping do not silently broaden the image profile`() {
         for ((old, replacement) in listOf(
-            "<wp14:pctWidth>0</wp14:pctWidth>" to "<wp14:pctWidth>100000</wp14:pctWidth>",
+            "<wp14:pctWidth>0</wp14:pctWidth>" to "<wp14:pctWidth>100001</wp14:pctWidth>",
             "<wp14:pctHeight>0</wp14:pctHeight>" to "<wp14:pctHeight>-1</wp14:pctHeight>",
             "relativeFrom=\"margin\"><wp14:pctWidth>" to "relativeFrom=\"unknown\"><wp14:pctWidth>",
             "<wp:wrapNone/>" to "<wp:wrapSquare wrapText=\"bothSides\"/>")) {
@@ -499,6 +505,70 @@ class WordFloatingBandsTest {
             entries["word/footer1.xml"] = entries.getValue("word/footer1.xml").decodeToString().replace(old, replacement).toByteArray()
             assertThrows(NativeDocxReadException::class.java) { NativeDocxReader(context()) { _, _, _ -> "regular" }.read(zip(entries)) }
         }
+    }
+
+    @Test
+    fun `body picture respects both relative size limits and preserves its aspect ratio`() {
+        val entries = parts(source("a4"))
+        val body = entries.getValue("word/document.xml").decodeToString()
+        val scaled = body.replace("<wp14:pctWidth>0", "<wp14:pctWidth>15000")
+            .replace("<wp14:pctHeight>0", "<wp14:pctHeight>2500")
+        assertNotEquals(body, scaled)
+        entries["word/document.xml"] = scaled.toByteArray()
+
+        val reader = NativeDocxReader(context()) { _, _, _ -> "regular" }
+        val document = reader.read(zip(entries))
+        val image = document.pageSequences.first().blocks.filterIsInstance<PdfParagraph>().flatMap { it.anchoredImages }.single()
+        val page = document.page
+        val width = (page.width - page.margins.left - page.margins.right) * .15f
+        val height = (page.height - page.margins.top - page.margins.bottom) * .025f
+        assertEquals(minOf(width, height * 2), image.image.width, .01f)
+        assertEquals(image.image.width / 2, image.image.height, .01f)
+
+        entries["word/document.xml"] = scaled.replace("<wp:positionV relativeFrom=\"page\">",
+            "<wp:positionV relativeFrom=\"paragraph\">").toByteArray()
+        val error = assertThrows(NativeDocxReadException::class.java) {
+            NativeDocxReader(context()) { _, _, _ -> "regular" }.read(zip(entries))
+        }
+        assertEquals("word/document.xml", error.part)
+        assertEquals("Relative image sizing requires a page-fixed unwrapped picture with explicit offsets", error.message)
+    }
+
+    @Test
+    fun `page band clips a partly visible picture but rejects off-page body art and invisible band art`() {
+        val entries = parts(source("a4"))
+        val footer = entries.getValue("word/footer1.xml").decodeToString()
+        val body = entries.getValue("word/document.xml").decodeToString()
+        val original = "<wp:posOffset>5778500</wp:posOffset>"
+        assertTrue(footer.contains(original))
+        assertTrue(body.contains(original))
+        fun footerPicture(entries: Map<String, ByteArray>): PdfAnchoredImage {
+            val document = NativeDocxReader(context()) { _, _, _ -> "regular" }.read(zip(entries))
+            val band = requireNotNull(document.pageSequences.first().flow?.footer)
+            return band.blocks.filterIsInstance<PdfParagraph>().flatMap { it.anchoredImages }.single()
+        }
+
+        val nominal = footerPicture(entries)
+        val partial = "<wp:posOffset>-127000</wp:posOffset>"
+        entries["word/footer1.xml"] = footer.replace(original, partial).toByteArray()
+
+        val image = footerPicture(entries)
+        assertEquals(0f, image.left, .01f)
+        assertEquals(nominal.image.width - 10f, image.image.width, .01f)
+        assertEquals(nominal.image.height, image.image.height, .01f)
+
+        entries["word/document.xml"] = body.replace(original, partial).toByteArray()
+        val bodyError = assertThrows(NativeDocxReadException::class.java) {
+            NativeDocxReader(context()) { _, _, _ -> "regular" }.read(zip(entries))
+        }
+        assertEquals("Anchored image exceeds the physical page width", bodyError.message)
+
+        entries["word/document.xml"] = body.toByteArray()
+        entries["word/footer1.xml"] = footer.replace(original, "<wp:posOffset>-1397000</wp:posOffset>").toByteArray()
+        val footerError = assertThrows(NativeDocxReadException::class.java) {
+            NativeDocxReader(context()) { _, _, _ -> "regular" }.read(zip(entries))
+        }
+        assertEquals("Anchored picture has no usable area inside the page", footerError.message)
     }
 
     @Test

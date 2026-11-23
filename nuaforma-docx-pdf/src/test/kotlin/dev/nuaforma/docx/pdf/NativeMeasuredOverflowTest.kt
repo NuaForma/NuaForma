@@ -25,6 +25,8 @@ class NativeMeasuredOverflowTest {
             "Text background exceeds physical bottom boundary; required=12.0 pt; available=9.0 pt",
             "Text ascent exceeds physical page top; required=20.0 pt; available=8.0 pt",
             "Text descent exceeds physical page bottom; required=8.0 pt; available=2.0 pt",
+            "Inline image exceeds line width; required=81.0 pt; available=80.0 pt",
+            "Inline image exceeds physical page width; required=91.0 pt; available=90.0 pt",
             "Word and leading spaces exceed line width; required=900.0 pt; available=80.0 pt",
             "Word cluster width exceeds line width; required=6.67 pt; available=1.5 pt",
             "Tab alignment moves behind current text; required=10.0 pt; available=-9.0 pt",

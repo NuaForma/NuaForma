@@ -134,7 +134,8 @@ internal class NativeTemplateCleanup(private val context: GenerationContext) {
         val reason = error.sourceContext.explanation
         val malformedJpeg = error.part.matches(Regex("word/media/[A-Za-z0-9_.-]+\\.(?i:jpe?g)")) && reason.startsWith("Unsupported or malformed JPEG image")
         val orphanThumbnail = error.part.matches(Regex("docProps/thumbnail\\.(?:png|jpe?g|emf)")) && reason == "Orphan package thumbnail metadata"
-        if ((reason == "Unsupported package part" || error.part.endsWith(".emf", true) && reason.startsWith("EMF:") || malformedJpeg || orphanThumbnail) && error.part in pkg.parts) {
+        val intelligence = error.part == WordAuxiliaryParts.INTELLIGENCE_PART && reason.startsWith(WordAuxiliaryParts.INTELLIGENCE_DIAGNOSTIC)
+        if ((reason == "Unsupported package part" || intelligence || error.part.endsWith(".emf", true) && reason.startsWith("EMF:") || malformedJpeg || orphanThumbnail) && error.part in pkg.parts) {
             pkg.remove(error.part, reason)
             return true
         }

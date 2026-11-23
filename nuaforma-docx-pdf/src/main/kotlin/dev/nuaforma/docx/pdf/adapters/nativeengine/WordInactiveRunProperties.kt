@@ -4,10 +4,10 @@ import dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement
 import dev.nuaforma.docx.pdf.adapters.ooxml.XmlText
 import javax.xml.namespace.QName
 
-/** Source-shape guards for horizontal scale and the independently unsupported double-strike effect. */
+/** Source-shape guards for horizontal scale and double strike and inactive baseline or emphasis settings. */
 internal object WordInactiveRunProperties {
     private const val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
-    private val names = setOf("dstrike", "w")
+    private val names = setOf("dstrike", "w", "position", "em")
 
     fun validateSource(root: XmlElement, reject: (XmlElement, String) -> Nothing) {
         for (properties in root.descendants().filter { it.name.namespaceURI == word && it.name.localPart == "rPr" }) {
@@ -24,6 +24,16 @@ internal object WordInactiveRunProperties {
         validateSource(root, reject)
         var changed = false
         for (properties in root.descendants().filter { it.name.namespaceURI == word && it.name.localPart == "rPr" }) {
+            val baseline = properties.elements().singleOrNull { it.name.localPart == "position" }
+            if (baseline != null && baseline.attribute(word, "val")?.toIntOrNull() == 0) {
+                properties.children.remove(baseline)
+                changed = true
+            }
+            val emphasis = properties.elements().singleOrNull { it.name.localPart == "em" }
+            if (emphasis != null && emphasis.attribute(word, "val") == "none") {
+                properties.children.remove(emphasis)
+                changed = true
+            }
             for (node in properties.elements().filter { it.name.localPart == "dstrike" }) {
                 val canonical = when (node.attribute(word, "val")) { "off" -> "false"; "on" -> "true"; else -> null }
                 if (canonical != null) {
@@ -44,6 +54,12 @@ internal object WordInactiveRunProperties {
         if (node.name.localPart == "dstrike") {
             if (raw != null && raw !in setOf("0", "false", "off", "1", "true", "on"))
                 reject(node, "Invalid original double-strike toggle")
+        } else if (node.name.localPart == "em") {
+            if (raw !in setOf("none", "dot", "comma", "circle", "underDot"))
+                reject(node, "Invalid original emphasis mark")
+        } else if (node.name.localPart == "position") {
+            if (raw == null || !raw.matches(Regex("[+-]?[0-9]{1,10}")) || raw.toIntOrNull() == null)
+                reject(node, "Invalid original run baseline position")
         } else if (raw == null || !raw.matches(Regex("[0-9]{1,6}")) || raw.toIntOrNull() !in 1..600)
             reject(node, "Invalid original horizontal text scale")
     }
@@ -56,6 +72,23 @@ internal object WordInactiveRunProperties {
             "w" -> if (node.attribute(word, "val") != "100")
                 reject(node, "Non-default horizontal text scaling is not qualified")
         }
+    }
+
+    fun requireInvisibleBorder(node: XmlElement, reject: (XmlElement, String) -> Nothing) {
+        if (node.name != QName(word, "bdr") || node.attributes.keys.any {
+                it.namespaceURI != word || it.localPart !in setOf("val", "color", "sz", "space", "frame", "shadow")
+            } || node.elements().isNotEmpty() || node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
+            reject(node, "Unsupported run border properties")
+        if (node.attribute(word, "val") !in setOf("none", "nil"))
+            reject(node, "Visible run borders are not qualified")
+        val size = node.attribute(word, "sz")
+        val space = node.attribute(word, "space")
+        val color = node.attribute(word, "color")
+        if ((size != null && size.toIntOrNull() !in 0..96) ||
+            (space != null && space.toIntOrNull() !in 0..31) ||
+            (color != null && color != "auto" && !color.matches(Regex("[0-9A-Fa-f]{6}"))) ||
+            listOf("frame", "shadow").any { node.attribute(word, it) !in setOf(null, "0", "1", "false", "true") })
+            reject(node, "Invalid invisible run border attributes")
     }
 
     fun horizontalScale(node: XmlElement, reject: (XmlElement, String) -> Nothing): Float {

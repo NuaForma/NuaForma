@@ -34,7 +34,7 @@ class NativeFloatingMetadataTest {
             }
             support.rejectChanged(root + "relative-size-zero/a4/source.docx", "word/document.xml", "sizeRelH") {
                 val element = Regex("<([^<>\\s]+:pctWidth)>0</\\1>").find(it)!!.value
-                it.replaceFirst(element, element.replace(">0<", ">1<"))
+                it.replaceFirst(element, element.replace(">0<", ">100001<"))
             }
             support.rejectChanged(root + "relative-size-zero/a4/source.docx", "word/document.xml", "sizeRelH") {
                 val element = Regex("<([^<>\\s]+:sizeRelH)\\b[^>]*>.*?</\\1>").find(it)!!.value

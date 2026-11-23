@@ -25,6 +25,7 @@ internal class WordAuxiliaryParts(private val context: GenerationContext,
         "tblPr", "trPr", "tcPr", "pBdr", "tblBorders", "tcBorders")
 
     fun normalize(parts: MutableMap<String, XmlElement>, names: Set<String>) {
+        intelligence(parts)
         styles(parts)
         fonts(parts, names)
         theme(parts, names)
@@ -51,6 +52,33 @@ internal class WordAuxiliaryParts(private val context: GenerationContext,
         return nodes
     }
 
+    private fun intelligence(parts: MutableMap<String, XmlElement>) {
+        val mainName = "word/_rels/document.xml.rels"
+        val main = parts[mainName]
+        val part = parts[INTELLIGENCE_PART]
+        val links = main?.elements().orEmpty().filter { it.attribute("", "Type") == INTELLIGENCE_RELATIONSHIP }
+        if (part == null && links.isEmpty()) return
+        valid(part != null && main != null && links.size == 1, INTELLIGENCE_PART, part ?: links.first(),
+            "$INTELLIGENCE_DIAGNOSTIC: expected one internal relationship and part")
+        val graph = requireNotNull(main)
+        val root = requireNotNull(part)
+        val link = links.single()
+        relationships(graph, mainName, true)
+        valid(link.attribute("", "Target") == INTELLIGENCE_PART.substringAfterLast('/') &&
+            link.attribute("", "TargetMode") in setOf(null, "Internal"), INTELLIGENCE_PART, root,
+            "$INTELLIGENCE_DIAGNOSTIC: invalid relationship target")
+        validateEmptyIntelligence(root) { node, message -> throw failure(INTELLIGENCE_PART, node, message) }
+        val types = parts["[Content_Types].xml"] ?: throw failure(INTELLIGENCE_PART, root, INTELLIGENCE_DIAGNOSTIC)
+        val definitions = types.elements().filter { it.attribute("", "PartName") == "/$INTELLIGENCE_PART" }
+        val definition = definitions.singleOrNull()
+        valid(definition != null && definition.name == QName("http://schemas.openxmlformats.org/package/2006/content-types", "Override") &&
+            definition.attribute("", "ContentType") == "application/vnd.ms-office.intelligence2+xml" &&
+            definition.attributes.keys == setOf(QName("PartName"), QName("ContentType")) && definition.elements().isEmpty() && whitespace(definition),
+            INTELLIGENCE_PART, root, "$INTELLIGENCE_DIAGNOSTIC: invalid content type")
+        graph.children.remove(link)
+        parts.remove(INTELLIGENCE_PART)
+    }
+
     private fun styles(parts: MutableMap<String, XmlElement>) {
         val part = "word/stylesWithEffects.xml"
         val effects = parts[part]
@@ -72,23 +100,108 @@ internal class WordAuxiliaryParts(private val context: GenerationContext,
         val second = b.associateBy { it.attribute(word, "styleId") }
         valid(first.size == a.size && second.size == b.size && null !in first && null !in second && first.keys.containsAll(second.keys), part, effects, "Ambiguous or divergent styles-with-effects definitions")
         valid(attributes(original) == attributes(effects) && equivalentChildren(original, effects, "style"), part, effects, "Divergent styles-with-effects defaults")
-        for ((id, node) in second) valid(equivalent(requireNotNull(first[id]), node), part, node, "Active or divergent styles-with-effects formatting is not qualified")
+        for ((id, node) in second) {
+            val ordinary = requireNotNull(first[id])
+            valid(equivalent(ordinary, node) || ordinaryRunTypography(ordinary, node),
+                part, node, "Active or divergent styles-with-effects formatting is not qualified")
+        }
         val extra = first.keys - second.keys
         val references = setOf("pStyle", "rStyle", "tblStyle", "basedOn", "link", "next", "numStyleLink", "styleLink")
         for (id in extra) {
             val node = requireNotNull(first[id])
             valid(node.attribute(word, "default") in setOf(null, "0", "false", "off"), part, effects, "Missing default style in styles-with-effects")
         }
-        if (extra.isNotEmpty()) for (root in parts.values) for (reference in root.descendants()) {
+        if (extra.isNotEmpty()) {
+            val ordinaryLinks = ordinaryLinkedStyles(a, first, extra)
+            for (root in parts.values) for (reference in root.descendants()) {
                 context.checkActive()
-                valid(reference.name.namespaceURI != word || reference.name.localPart !in references || reference.attribute(word, "val") !in extra,
-                    part, effects, "Referenced style is missing from styles-with-effects")
+                val local = reference.name.localPart
+                val id = reference.attribute(word, "val")
+                if (reference.name.namespaceURI != word || local !in references || id !in extra) continue
+                val ordinary = requireNotNull(first[id])
+                val appliedParagraph = local == "pStyle" && ordinary.attribute(word, "type") == "paragraph" &&
+                    root.name.namespaceURI == word && root.name.localPart in setOf("document", "hdr", "ftr", "footnotes", "endnotes") &&
+                    reference.attributes.keys == setOf(QName(word, "val")) && reference.elements().isEmpty() && whitespace(reference)
+                valid(appliedParagraph || reference in ordinaryLinks, part, effects,
+                    "Referenced style is missing from styles-with-effects")
+            }
         }
         val types = parts["[Content_Types].xml"] ?: throw failure(part, effects, "Missing styles-with-effects content types")
         val declarations = types.elements().filter { it.attribute("", "PartName") == "/$part" }
         valid(declarations.size == 1 && declarations.single().attribute("", "ContentType") == "application/vnd.ms-word.stylesWithEffects+xml", "[Content_Types].xml", types, "Invalid styles-with-effects content type")
         main.children.remove(link)
         parts.remove(part)
+    }
+
+    private fun ordinaryLinkedStyles(
+        ordinaryStyles: List<XmlElement>, byId: Map<String?, XmlElement>, ordinaryOnly: Set<String?>,
+    ): Set<XmlElement> {
+        val linkName = QName(word, "link")
+        val links = mutableSetOf<XmlElement>()
+        fun validLink(node: XmlElement) =
+            node.attributes.keys == setOf(QName(word, "val")) && node.elements().isEmpty() && whitespace(node)
+        for (style in ordinaryStyles) {
+            val id = style.attribute(word, "styleId")
+            if (id !in ordinaryOnly) continue
+            val link = style.elements().singleOrNull { it.name == linkName } ?: continue
+            val targetId = link.attribute(word, "val")
+            if (targetId !in ordinaryOnly || !validLink(link)) continue
+            val target = requireNotNull(byId[targetId])
+            val inverse = target.elements().singleOrNull { it.name == linkName } ?: continue
+            if (inverse.attribute(word, "val") != id || !validLink(inverse) ||
+                setOf(style.attribute(word, "type"), target.attribute(word, "type")) != setOf("paragraph", "character")) continue
+            links += link
+            links += inverse
+        }
+        return links
+    }
+
+    /** Word reads this bounded typography from the ordinary definitions even when the effects copy omits it. */
+    private fun ordinaryRunTypography(ordinary: XmlElement, effects: XmlElement): Boolean {
+        val name = QName(word, "rPr")
+        val original = ordinary.elements().singleOrNull { it.name == name } ?: return false
+        if (effects.elements().any { it.name == name } || ordinary.attribute(word, "type") != "paragraph" ||
+            original.attributes.isNotEmpty() || !whitespace(original) ||
+            attributes(ordinary) != attributes(effects) || !equivalentChildren(ordinary, effects, "rPr")) return false
+        val properties = original.elements()
+        if (properties.isEmpty() || properties.map { it.name }.distinct().size != properties.size) return false
+        return properties.all { property ->
+            property.name.namespaceURI == word && property.elements().isEmpty() && whitespace(property) &&
+                when (property.name.localPart) {
+                    "rFonts" -> {
+                        val ascii = property.attribute(word, "ascii")
+                        property.attributes.keys == setOf(QName(word, "ascii"), QName(word, "hAnsi")) &&
+                            !ascii.isNullOrBlank() && ascii.length <= 128 && ascii.none(Char::isISOControl) &&
+                            property.attribute(word, "hAnsi") == ascii
+                    }
+                    "sz" -> property.attributes.keys == setOf(QName(word, "val")) &&
+                        property.attribute(word, "val")?.toIntOrNull() in 2..400
+                    "color" -> property.attributes.keys == setOf(QName(word, "val")) &&
+                        property.attribute(word, "val")?.matches(Regex("[0-9A-Fa-f]{6}")) == true
+                    else -> false
+                }
+        }
+    }
+
+    companion object {
+        const val INTELLIGENCE_PART = "word/intelligence2.xml"
+        const val INTELLIGENCE_DIAGNOSTIC = "Unsupported Word intelligence metadata"
+        private const val INTELLIGENCE_RELATIONSHIP = "http://schemas.microsoft.com/office/2020/10/relationships/intelligence"
+        private const val INTELLIGENCE = "http://schemas.microsoft.com/office/intelligence/2020/intelligence"
+        private val intelligenceContainers = listOf("observations", "intelligenceSettings", "onDemandWorkflows")
+
+        fun validateEmptyIntelligence(root: XmlElement, reject: (XmlElement, String) -> Nothing) {
+            if (root.name != QName(INTELLIGENCE, "intelligence") || root.attributes.isNotEmpty() ||
+                root.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() }) reject(root, INTELLIGENCE_DIAGNOSTIC)
+            var previous = -1
+            for (child in root.elements()) {
+                val index = intelligenceContainers.indexOf(child.name.localPart)
+                if (index <= previous || child.name.namespaceURI != INTELLIGENCE || child.attributes.isNotEmpty() ||
+                    child.elements().isNotEmpty() || child.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() })
+                    reject(child, "$INTELLIGENCE_DIAGNOSTIC: only empty editor containers are qualified")
+                previous = index
+            }
+        }
     }
 
     private fun attributes(node: XmlElement): Map<QName, String> {

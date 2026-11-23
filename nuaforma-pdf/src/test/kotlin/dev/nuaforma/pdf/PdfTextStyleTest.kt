@@ -53,4 +53,19 @@ class PdfTextStyleTest {
         assertEquals(synthetic, copy.invoke(null, synthetic, null, 0f, null, null, false, 0f, 63, null))
     }
 
+
+    @Test
+    fun `nominal metric size is immutable and independent of the drawn glyph size`() {
+        val base = PdfTextStyle("regular", 9.5f)
+        val reducedCaps = base.withLineMetricSize(12f)
+        assertEquals(9.5f, reducedCaps.size)
+        assertEquals(12f, reducedCaps.lineMetricSize)
+        assertEquals(12f, reducedCaps.withBackground(PdfColor(0, 0, 0)).withHorizontalScale(.9f).copy(size = 8f).lineMetricSize)
+        assertNotEquals(base, reducedCaps)
+        assertEquals(reducedCaps.hashCode(), reducedCaps.copy().hashCode())
+        assertEquals(base, reducedCaps.withLineMetricSize(null))
+        assertThrows(IllegalArgumentException::class.java) { base.withLineMetricSize(Float.NaN) }
+        assertThrows(IllegalArgumentException::class.java) { base.withLineMetricSize(.5f) }
+    }
+
 }

@@ -30,6 +30,15 @@ class PdfLongWordBreaksTest {
     }
 
     @Test
+    fun `a word is rechecked against the narrower continuation after a hanging first line`() {
+        val format = PdfParagraphFormat(leftIndent = 15f, firstLineIndent = -15f, exactLineHeight = 10f)
+        val paragraph = paragraph(PdfTextRun("ABC DEF", style)).copy(format = format)
+        assertEquals(listOf("ABC", "DE", "F"), lines(paragraph.withLongWordBreaking(true)))
+        val error = assertThrows(PdfRenderException::class.java) { layout(paragraph) }
+        assertEquals("Word width exceeds line width; required=30.0 pt; available=20.0 pt", error.message)
+    }
+
+    @Test
     fun `styled words preserve all source offsets and ordinary word boundaries`() {
         val p = paragraph(PdfTextRun("AB", style), PdfTextRun("CDE", style.copy(size = 12f)), PdfTextRun("FG", style))
             .withLongWordBreaking(true).copy(semantics = PdfBlockSemantics("paragraph", PdfSemanticRole.PARAGRAPH))

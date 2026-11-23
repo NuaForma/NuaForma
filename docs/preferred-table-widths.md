@@ -6,7 +6,7 @@ Source issue #259 extends the existing `nuaforma-pdf` model with `PdfTableWidthP
 
 Physical preferences use points, from zero through 14,400. Percentages use ordinary percentages, from zero through 100. Values must be finite. A missing preference leaves size negotiation to the content. Table percentages refer to the containing content width; cell percentages refer to the preferred/resolved table width. They are preferences, not clipping rectangles or a command to scale text.
 
-`FIXED` retains the supplied grid and its existing validation. `FIT_CONTENTS` retains the existing unwrapped text-only profile. `AUTO_FIT` accepts nonnegative grid hints, measures intrinsic content with the same font metrics and word boundaries as paragraph layout, combines cell/span requirements, and negotiates preferred column widths inside the containing width. Text wraps normally. Minimum content that cannot fit fails explicitly; this bounded profile does not clip images or split unbreakable strings to imitate every Word fallback. Tabs and floating images in automatic-width cells remain unsupported. Existing cell, row, nesting, pagination, font and resource limits remain in force.
+`FIXED` retains the supplied grid and its existing validation. `FIT_CONTENTS` retains the existing unwrapped text-only profile. `AUTO_FIT` accepts nonnegative grid hints, measures intrinsic content with the same font metrics and word boundaries as paragraph layout, combines cell/span requirements, and negotiates preferred column widths inside the containing width. Text wraps normally. Minimum content that cannot fit fails explicitly; this bounded profile does not clip images or split unbreakable strings to imitate every Word fallback. Automatic-width cells can measure qualified plain terminal default tabs. Interior or decorated tabs and floating images remain outside that profile. Existing cell, row, nesting, pagination, font and resource limits remain in force.
 
 The width belongs to the current page, band or parent cell. Layout state remains request-local. Immutable document transformations and page-field resolution retain both table and cell preferences. The model contains no Word-specific objects and can also serve a future ODT reader.
 
@@ -33,3 +33,112 @@ Qualified source now accepts bounded decimal `dxa` spellings, truncating positiv
 For top-level legacy Word tables, an omitted effective `tblInd` differs from explicit zero: the former places the table at the containing origin; explicit zero retains the existing cell-padding adjustment. Inherited declarations retain their meaning. Mode 15 and nested-table behavior are unchanged. Independent Word probes cover omitted/12/14/15 compatibility modes, omitted/explicit zero and A4/Letter, with complete glyph-position differences below .21 points.
 
 `NativePreferredWidthSpellingTest` retains the existing width goldens for literal percentage, integer-decimal and fractional-twip sources. `NativeImplicitTableIndentTest` owns sixteen new synthetic sources and actual Word references. These are source qualification additions, not a published release or a claim that every automatic table layout is supported. The Playground uses the same reader; no new option or dependency is introduced.
+
+## Physical AutoFit cell width protection
+
+In a top-level automatic table, an enabled [Word cell no-wrap setting](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.wordprocessing.nowrap) protects a positive physical preference on a single, unmerged cell. Other columns first shrink toward their intrinsic minimum. The table may grow beyond its overall preference where the containing width permits. If the protected preference still cannot fit, the containing width takes priority. Text continues to wrap at its normal opportunities. For fixed layouts the toggle has no effect. Automatic cells with percentage or unspecified widths have different no-wrap semantics and remain outside this profile.
+
+The neutral model exposes this priority through immutable `PdfTableCell.withProtectedPreferredWidth(enabled)`. It applies during automatic grid sizing and does not change existing cell constructors. Playground generation and cleanup use the same reader.
+
+## Terminal default tabs
+
+Automatic tables can retain trailing default tabs on otherwise ordinary left-aligned text. The controls are excluded from intrinsic width measurement. Preserved spaces before a terminal tab remain in the line. The ordinary PDF layout verifies that the computed stop fits the resolved cell. The qualified case uses the preceding text's font and formatting, with no explicit stops or decoration. Interior, leader, other alignment and overflowing tab cases retain an explicit diagnostic.
+
+## Table-level shading without cell spacing
+
+[Word applies table-level shading to the gaps between table cells](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/ee110ab2-af6a-4ee8-923d-9a12a2fe65ab). With contiguous cells, a qualified direct table-level clear fill is preserved in the source and contributes no PDF paint. Explicit or styled cell fills still paint their own cells. Inter-cell spacing and unqualified patterns or shapes remain source-diagnosed.
+
+## Whole-grid width protection
+
+A cell occupying a single row and spanning the full grid of a qualified top-level AutoFit table may protect its combined physical width. Where the table has a physical preference, it is raised to at least the span's preference, subject to the available page width. Column negotiation still takes place separately. Partial spans and percentage-based tables with this whole-grid toggle remain explicit source rejections.
+
+A cell with the clear shading pattern and an explicit RGB fill paints that fill.
+The unused foreground may be automatic, absent or a valid RGB value. Patterned
+shading and unqualified foreground combinations still report a source error.
+
+## Empty zero-height paragraphs after a table
+
+An empty body paragraph immediately following a table can specify zero automatic
+line height without contributing a line to the PDF. The qualified paragraph has
+no content, paint, spacing or pagination effect. Nonempty and visibly spaced
+paragraphs retain a source diagnostic.
+
+## Nil table indentation
+
+A nil table indentation with an explicit zero measurement leaves the indentation
+unspecified at its level. Word can use an inherited physical indent. Legacy
+Word therefore treats a nil setting differently from a physical zero indent.
+
+## Missing table-default cell margins
+
+Modern Word tables in body flow can omit their cell margins entirely. For
+uniform table borders, the supported default is zero top and bottom margin
+and a horizontal clearance of at least half a point, increased to half the
+border width when that is wider. Explicit table and cell margins continue
+to participate in the normal source hierarchy. The qualified default covers
+body tables with ordinary uniform borders.
+
+## Embedded theme colors on solid borders
+
+Ordinary solid table and cell borders can select a color from the embedded Word
+theme. A qualified tint or shade adjusts the active palette color even when
+the cached RGB value differs.
+The existing physical border and conflict rules apply to the resolved color.
+
+## Independent visibility of grid edges
+
+Modern, left-aligned body tables with a flat grid can paint outside and inside
+edges independently when the visible edges share one solid stroke. A table
+style supplies any edges left unspecified by the direct table properties.
+A direct absent edge can hide that side while retaining the other styled edges.
+This profile uses resolved cell margins and ordinary, unmerged cells.
+
+## Full-width text-relative table anchors
+
+A single fixed, left-aligned body table that fills the text width within a
+quarter point can use the qualified text-relative anchor with nonoverlap.
+Word places this table in body flow because there is no room beside it.
+The A4 and Letter controls place the same rows on the same pages near a
+page boundary. General floating tables that require side wrapping retain
+a source diagnostic.
+
+## Empty table properties in conditional styles
+
+A qualified conditional table region can contain an empty table-property block.
+It leaves the region's paragraph, text and cell properties in effect.
+Table-wide conditional properties with attributes or content retain a source
+diagnostic.
+
+## Explicitly suppressed grids and implicit cell margins
+
+A modern, flat body table with one uniform grid stroke can override all edges
+of all cells with explicit absent strokes. Word uses the equivalent borderless
+table, including the borderless default padding and width calculation.
+Identical cell and table strokes can also share the same implicit padding.
+Other cell-border combinations retain the existing qualification.
+
+## Cached table condition flags
+
+Word print rendering uses the actual table regions and look settings. Qualified
+condition flags in row, cell and paragraph properties remain in the source
+package and do not override those calculated regions in the PDF.
+
+## Paragraph pagination inside table cells
+
+Widow control keeps at least two physical lines of a paragraph together at
+both ends of a split row. A two- or three-line paragraph stays intact. A longer
+paragraph can split where two or more lines fit on each side. The cell retains
+its measured line boxes, and the row cut must satisfy the constraints of every
+cell. Word exports on A4 and US Letter cover two- through four-line paragraphs
+in column-spanning cells.
+
+Keep-lines remains qualified on single-line paragraphs. Multiline keep-lines,
+paragraph-to-paragraph keeps and explicit page breaks retain their diagnostics.
+
+## Vertical cell alignment in split rows
+
+A complete cell that fits in the first physical fragment of a split row can
+use top, center or bottom alignment within that fragment. Content split across
+fragments starts at the top of each fragment. The available height includes
+the row frame, and cell content keeps its existing clipping bounds. Word
+exports on A4 and US Letter cover each alignment with a shorter sibling cell.

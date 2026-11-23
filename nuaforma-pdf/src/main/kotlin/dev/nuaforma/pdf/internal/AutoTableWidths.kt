@@ -19,23 +19,37 @@ internal object AutoTableWidths {
             satisfy(maximum, constraint.placement, constraint.maximum, table.columnWidths)
         }
         maximum.indices.forEach { maximum[it] = maxOf(maximum[it], minimum[it]) }
-        if (minimum.sum() > available + .001f) overflow()
+        if (minimum.sum() > available + .001f) return savedGridWithWrappedWords(table, available)
         val hasPercent = constraints.any { it.placement.cell.preferredWidth?.percent != null }
         val physical = preferred(table.preferredWidth, availableWidth)
         val reference = minOf(available, physical ?: if (hasPercent) available else maximum.sum())
         val preferred = minimum.toMutableList()
+        val protected = minimum.toMutableList()
         val specified = BooleanArray(minimum.size)
         for (constraint in constraints) {
             val placement = constraint.placement
             val value = preferred(placement.cell.preferredWidth, reference) ?: continue
             satisfy(preferred, placement, value, table.columnWidths)
+            if (placement.cell.protectPreferredWidth) satisfy(protected, placement, value, table.columnWidths)
             for (column in placement.column until placement.column + placement.cell.columnSpan) specified[column] = true
         }
         for (column in preferred.indices) if (!specified[column]) preferred[column] = maximum[column]
-        val target = minOf(available, maxOf(minimum.sum(), physical ?: preferred.sum()))
-        val widths = fit(preferred, minimum, target)
+        val target = minOf(available, maxOf(protected.sum(), physical ?: preferred.sum()))
+        val widths = if (protected.sum() > target) fit(protected, minimum, target) else fit(preferred, protected, target)
         return PdfTable(widths, table.rows, table.cellMargins, table.border, table.repeatedHeaderRows,
             table.leftIndent, semantics = table.semantics, preferredWidth = table.preferredWidth).withRightOverflow(table.rightOverflow).withAlignment(table.alignment)
+    }
+
+    private fun savedGridWithWrappedWords(table: PdfTable, available: Float): PdfTable {
+        val row = table.rows.singleOrNull() ?: overflow()
+        if (table.alignment != PdfTableAlignment.LEFT || table.columnWidths.sum() > available + .001f ||
+            row.cells.any { cell ->
+                cell.columnSpan != 1 || cell.rowSpan != 1 || cell.protectPreferredWidth || cell.keepContentUnbroken ||
+                    cell.printableBlocks.any { it !is PdfParagraph || !it.breakLongWords }
+            }) overflow()
+        return PdfTable(table.columnWidths, table.rows, table.cellMargins, table.border, table.repeatedHeaderRows,
+            table.leftIndent, semantics = table.semantics, preferredWidth = table.preferredWidth)
+            .withRightOverflow(table.rightOverflow).withAlignment(table.alignment)
     }
 
     private fun preferred(value: PdfPreferredWidth?, reference: Float): Float? = value?.let {
@@ -50,7 +64,7 @@ internal object AutoTableWidths {
             val padding = margins.left + margins.right
             var minimum = 0f
             var maximum = 0f
-            for (block in placement.cell.blocks) {
+            for (block in placement.cell.printableBlocks) {
                 val widths = when (block) {
                     is PdfParagraph -> PageLayouter.intrinsicWidths(block, measurer)
                     is PdfTable -> {
@@ -69,7 +83,7 @@ internal object AutoTableWidths {
                     }
                     else -> unsupported("Unsupported automatic table cell block")
                 }
-                minimum = maxOf(minimum, widths.first)
+                minimum = maxOf(minimum, if (placement.cell.keepContentUnbroken) widths.second else widths.first)
                 maximum = maxOf(maximum, widths.second)
             }
             if (!minimum.isFinite() || !maximum.isFinite() || minimum + padding > 14_400f) overflow()

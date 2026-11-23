@@ -19,7 +19,8 @@ internal class WordAutomaticTextSpacing(private val context: GenerationContext) 
                 context.checkActive()
                 val value = node.attribute(word, "val")
                 val alignment = node.name.localPart == "textAlignment"
-                val values = if (alignment) setOf("auto", "baseline") else setOf(null, "1", "0", "true", "false", "on", "off")
+                val values = if (alignment) setOf("auto", "baseline", "top", "center", "bottom")
+                    else setOf(null, "1", "0", "true", "false", "on", "off")
                 if (!seen.add(node.name.localPart) || node.elements().isNotEmpty() ||
                     node.children.filterIsInstance<XmlText>().any { it.text.isNotBlank() } ||
                     node.attributes.keys.any { it.namespaceURI != word || it.localPart != "val" } ||
@@ -35,9 +36,13 @@ internal class WordAutomaticTextSpacing(private val context: GenerationContext) 
         if (alignment != null && (WordAuthoringMetadata.containsComplexText(parts.values) ||
                 containsText(parts.values, fieldText) { eastAsian(it) || complexScript(it) }))
             throw failure(alignment.part, alignment.node, "Automatic paragraph text alignment is not qualified for this text")
+        val hasExplicitPosition = switches.any {
+            it.node.name.localPart == "textAlignment" && it.node.attribute(word, "val") in setOf("top", "center", "bottom")
+        }
         for (entry in switches) {
             context.checkActive()
-            entry.parent.children.remove(entry.node)
+            // Keep explicit defaults when a child style can cancel an inherited vertical alignment.
+            if (!hasExplicitPosition || entry.node.name.localPart != "textAlignment") entry.parent.children.remove(entry.node)
         }
     }
 
@@ -50,6 +55,8 @@ internal class WordAutomaticTextSpacing(private val context: GenerationContext) 
         }
         return false
     }
+
+    fun supportsUniformAlignment(text: String): Boolean = !eastAsian(text) && !complexScript(text)
 
     private fun complexScript(text: String): Boolean {
         context.checkActive()

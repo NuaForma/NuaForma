@@ -32,6 +32,16 @@ internal object NoteFlowLayouter {
                 val images = pages.last().filterIsInstance<PositionedImage>().filter { it.foreground }
                 if (images.any { it.x < page.width - page.margins.right && it.x + it.image.width > page.margins.left &&
                     it.top + it.image.height > notes.bodyBottom + .001f }) unsupported("Floating image overlaps the reserved footnote area")
+                if (notes.bodyBottom < physicalBottom - .001f) {
+                    val boxes = pages.last().filterIsInstance<PositionedBox>()
+                    if (boxes.any { placed ->
+                        val box = placed.box
+                        val half = (box.border?.width ?: 0f) / 2f
+                        box.rotation == 0f && placed.x - half < page.width - page.margins.right &&
+                            placed.x + box.width + half > page.margins.left &&
+                            placed.top + maxOf(box.height + half, placed.contentHeight) > notes.bodyBottom + .001f
+                    }) unsupported("Floating text frame overlaps the reserved footnote area")
+                }
                 notes.finish(pages.last()); closed = true
             }
         }
@@ -74,6 +84,8 @@ internal object NoteFlowLayouter {
             val block = item.block ?: continue
             when (block) {
                 is PdfParagraph -> {
+                    if (block.runs.filterIsInstance<PdfPageBreak>().any { it.destinations.isNotEmpty() })
+                        unsupported("Bookmark destinations at page breaks with notes are not qualified")
                     if (block.anchoredImages.any { it.wrap != PdfImageWrap.NONE }) unsupported("Image wrapping with notes is not qualified")
                     if (block.format.pageBreakBefore && bodyItems > 0) nextPage()
                     val p = paragraph(block)
@@ -143,17 +155,19 @@ internal object NoteFlowLayouter {
                 is PdfTextBox -> {
                     if (block.wrap != PdfBoxWrap.NONE) unsupported("Wrapped frames with notes are not qualified")
                     val placed = BoxLayouter.layout(block, page, top, measurer)
-                    if (document.notes.any { it.kind == PdfNoteKind.FOOTNOTE } && placed.x + block.width > page.margins.left && placed.x < page.width - page.margins.right)
-                        unsupported("Frames inside the note text area are not qualified")
+                    if (block.rotation != 0f && document.notes.any { it.kind == PdfNoteKind.FOOTNOTE } &&
+                        placed.x + block.width > page.margins.left && placed.x < page.width - page.margins.right)
+                        unsupported("Rotated frames inside the note text area are not qualified")
                     pages.last() += placed
                 }
                 is PdfTable -> {
+                    if (block.textRelativeTopOffset != null) unsupported("Floating tables with notes are not qualified")
                     val table = TableLayouter.measure(block, measurer, width)
                     TableLayouter.checkWidth(table.table, width, page.margins.left, page.width - page.margins.left)
                     val left = page.margins.left + table.table.leftIndent
-                    if (block.rows.any { it.allowSplit }) unsupported("Splitting table rows with notes is not qualified")
                     val complex = block.rows.any { row -> row.cells.any { it.rowSpan > 1 || it.blocks.any { value -> value is PdfTable } } }
                     if (complex) {
+                        if (block.rows.any { it.allowSplit }) unsupported("Splitting complex table rows with notes is not qualified")
                         val elements = mutableListOf<PositionedElement>()
                         val height = table.offsets.last() + table.closing
                         TableLayouter.slice(table, 0f, table.offsets.last(), left, top, elements)
@@ -171,7 +185,17 @@ internal object NoteFlowLayouter {
                                 closeStart = index > block.repeatedHeaderRows, closeEnd = index < block.rows.lastIndex)
                             val height = table.heights[index]
                             val calls = NoteResolver.callIds(row)
+                            val sourceRow = block.rows[index]
+                            if (sourceRow.allowSplit && calls.isNotEmpty())
+                                unsupported("Splittable table rows owning notes are not qualified")
                             while (!notes.accept(top + height + table.closing + if (needHeader) headerHeight else 0f, calls)) {
+                                val minimumOwnsHeight = sourceRow.minimumHeight?.let { it >= height - .001f } == true
+                                if (sourceRow.allowSplit && !minimumOwnsHeight) {
+                                    val headerSpace = if (needHeader) headerHeight else 0f
+                                    val available = notes.bodyBottom - top - headerSpace - table.frameAt(index) - table.closing
+                                    if (available > .001f && TableLayouter.cut(table, index, 0f, available) > .001f)
+                                        unsupported("Splitting a table row across pages with notes is not qualified")
+                                }
                                 if (bodyItems == 0 && !notes.hasPending) overflow()
                                 nextPage(); needHeader = true
                             }

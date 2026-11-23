@@ -15,3 +15,10 @@ Twenty synthetic exact-source Word pairs cover A4/Letter, ordinary and continued
 This metadata support preserves existing pagination and separator positioning. In the long A4 control, native output places the final body paragraph on page two while Word retains it on page one; all 38 note-line markers remain exactly once on the same two-page document. The automatic endnote control retains a 0.7-point baseline difference from Word. Those cases use exact native goldens, complete content inventories and independent Word counterfactuals; they do not lower the strict Word-geometry checks for ordinary cases or claim to solve these existing limits.
 
 The combined source candidate passed the normal full build (1,759 tests), including provider regressions, plus real HTTP and Playground cleanup/reuse checks. Reproduce source parts with `python tools/pdf-evaluation/own-engine/build_note_separator_fixtures.py --base nuaforma-docx-pdf/src/test/resources/note-separator-formatting --output build/note-separator-sources`; the immutable control inputs remain the authoring base. Export new exact-source Word references separately. Existing sources, exports and golden files require their normal review before replacement.
+
+## Note calls in numbered paragraphs
+
+A list item can contain a footnote or endnote call. The list marker and
+note marker use their own numbering rules. Superscript formatting, note
+placement, and links between the reference and the note follow the normal
+note policy.

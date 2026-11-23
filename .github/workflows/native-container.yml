@@ -59,12 +59,12 @@ jobs:
             gradle/verification-metadata.xml
             nuaforma-*/build.gradle.kts
             nuaforma-*/gradle.lockfile
-      - name: Verify wrapper and prepare Java 17 libraries / Java 25 server
+      - name: Verify wrapper and assemble inputs for native qualification
         if: steps.reuse.outputs.reuse != 'true'
         run: |
           echo '7a9ce74cff467ca1bf60a4fcd9f05185acceda4d0f382434d393e17864262c5d  gradle/wrapper/gradle-wrapper.jar' | sha256sum --check --strict
           test -x gradlew
-          ./gradlew --no-daemon build :nuaforma-server:installDist :nuaforma-playground:installDist :nuaforma-server:prepareMountedProviderQualification :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation --warning-mode=fail
+          ./gradlew --no-daemon :nuaforma-server:installDist :nuaforma-playground:installDist :nuaforma-server:prepareMountedProviderQualification :nuaforma-docx-pdf:preparePdfValidation :nuaforma-docx-pdf:prepareVeraPdfValidation --warning-mode=fail
           python3 tools/container/prepare_verapdf_materials.py nuaforma-docx-pdf/build/verapdf-validation
           python3 tools/container/prepare_application_materials.py
           python3 tools/container/prepare_application_materials.py --application nuaforma-playground/build/install/nuaforma-playground

@@ -15,7 +15,7 @@ internal object DocumentTransforms {
 
         fun image(value: PdfImage, path: String): PdfImage {
             if (!normalize || value.semantics != null) return value
-            return PdfImage(value.bytes(), value.width, value.height, value.crop, PdfBlockSemantics(path, PdfSemanticRole.FIGURE))
+            return value.withSemantics(PdfBlockSemantics(path, PdfSemanticRole.FIGURE))
         }
 
         fun blocks(values: List<PdfBlock>, path: String, scope: Scope): List<PdfBlock> = values.flatMapIndexed { index, block ->
@@ -41,13 +41,21 @@ internal object DocumentTransforms {
                 is PdfImage -> listOf(image(block, key))
                 is PdfTextBox -> listOf(PdfTextBox(block.left, block.top, block.width, block.height,
                     blocks(block.paragraphs, key, Scope.FRAME).map { it as PdfParagraph }, block.anchor, block.rotation,
-                    block.padding, block.fill, block.border, block.verticalAlignment, block.wrap, metadata(block, key, PdfSemanticRole.FRAME)).withDrawingOrder(block.drawingOrder))
-                is PdfTable -> listOf(PdfTable(block.columnWidths, block.rows.mapIndexed { rowIndex, row ->
-                    PdfTableRow(row.cells.mapIndexed { cellIndex, cell -> PdfTableCell(
-                        blocks(cell.blocks, semanticChildId(key, "r$rowIndex-c$cellIndex"), Scope.CELL), cell.background,
-                        cell.columnSpan, cell.rowSpan, cell.verticalAlignment, cell.borders, cell.preferredWidth, cell.margins)
+                    block.padding, block.fill, block.border, block.verticalAlignment, block.wrap, metadata(block, key, PdfSemanticRole.FRAME))
+                    .withDrawingOrder(block.drawingOrder).withAutoFit(block.autoFit).withPageAlignment(block.pageAlignment)
+                    .withVisibleTextOverflow(block.visibleTextOverflow).withInlineParagraph(block.inlineParagraph, block.inlinePadding).withWrapPadding(block.wrapPadding))
+                is PdfTable -> {
+                    if (block.textRelativeTopOffset != null && (scope != Scope.BODY || document.flow == null))
+                        unsupported("Floating tables require the main body flow")
+                    listOf(PdfTable(block.columnWidths, block.rows.mapIndexed { rowIndex, row ->
+                    PdfTableRow(row.cells.mapIndexed { cellIndex, cell ->
+                        cell.withBlocks(blocks(cell.blocks, semanticChildId(key, "r$rowIndex-c$cellIndex"), Scope.CELL))
                     }, row.allowSplit, row.splitOversized, row.minimumHeight)
-                }, block.cellMargins, block.border, block.repeatedHeaderRows, block.leftIndent, block.widthPolicy, metadata(block, key, PdfSemanticRole.TABLE), block.preferredWidth).withRightOverflow(block.rightOverflow).withAlignment(block.alignment))
+                        .withOmittedColumns(row.omittedLeadingColumns, row.omittedTrailingColumns)
+                        .withMergedCellContinuation(row.continuationParagraph, row.continuationTopBorder)
+                }, block.cellMargins, block.border, block.repeatedHeaderRows, block.leftIndent, block.widthPolicy, metadata(block, key, PdfSemanticRole.TABLE), block.preferredWidth).withRightOverflow(block.rightOverflow).withAlignment(block.alignment)
+                    .withTextRelativeTopOffset(block.textRelativeTopOffset))
+                }
             }
         }
 
@@ -66,6 +74,7 @@ internal object DocumentTransforms {
             val flow = sequence.flow?.let { PdfFlow(band(it.header, "$key-header"), band(it.footer, "$key-footer"), it.maxPages,
                 pair(it.firstPageBands, "$key-first"), pair(it.evenPageBands, "$key-even")) }
             PdfPageSequence(sequence.page, blocks(sequence.blocks, key, Scope.BODY), flow, sequence.numbering)
+                .withPageFrame(sequence.pageFrame)
         }, document.maxPages, document.referenceTargets, document.notes.mapIndexed { index, note ->
             PdfNote(note.id, note.kind, note.number, blocks(note.paragraphs, "note$index", Scope.NOTE).map { it as PdfParagraph }, note.separator)
         })

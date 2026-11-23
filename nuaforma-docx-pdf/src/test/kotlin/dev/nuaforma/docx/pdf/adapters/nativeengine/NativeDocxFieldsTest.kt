@@ -35,6 +35,18 @@ class NativeDocxFieldsTest {
     }
 
     @Test
+    fun `ordinary decimal picture leaves the qualified live page fields unchanged`() {
+        for (kind in listOf("PAGE", "NUMPAGES", "SECTIONPAGES")) {
+            assertEquals(parse("$kind \\* MERGEFORMAT"), parse("""$kind \# "0" \* MERGEFORMAT"""))
+            assertEquals(parse(kind), parse("$kind \\# 0"))
+        }
+        for (invalid in listOf("""PAGE \# "00"""", """PAGE \# "#,##0"""", "PAGE \\#",
+            "PAGE \\# 0 \\# 0", "PAGEREF _Here \\# 0", "SEQ Example \\# 0")) {
+            assertThrows(IllegalArgumentException::class.java) { parse(invalid) }
+        }
+    }
+
+    @Test
     fun `nonprinting literal SET fields do not require a result separator or cached sample`() {
         val content = "<w:p>${control("begin")}${instruction("SET Choice &quot;M&quot;")}${control("end")}</w:p>"
         val result = normalize(content)
@@ -85,6 +97,23 @@ class NativeDocxFieldsTest {
             assertThrows(IllegalArgumentException::class.java) { normalize("<w:p>$invalid</w:p>") }
     }
 
+    @Test
+    fun aPlainTitleRemainsSeparateWhenCachedContentsStartInTheNextParagraph() {
+        val title = "<w:r><w:rPr><w:b/></w:rPr><w:t>Contents title</w:t></w:r>"
+        val begin = control("begin") + instruction("TOC \\o &quot;1-2&quot; \\h") + control("separate")
+        val cached = "<w:r><w:t>Cached entry</w:t></w:r>"
+        val isolatedOpening = normalize("<w:p>$title$begin</w:p><w:p>$cached${control("end")}</w:p>")
+        assertEquals(2, Regex("<w:p>").findAll(isolatedOpening).count())
+        val paragraphs = ConversionXml(GenerationContext()).read(isolatedOpening.toByteArray()).elements()
+        assertEquals(listOf("r"), paragraphs[0].elements().map { it.name.localPart })
+        assertEquals(listOf("fldSimple"), paragraphs[1].elements().map { it.name.localPart })
+        assertTrue(isolatedOpening.contains("Contents title"))
+        assertFalse(isolatedOpening.contains("fldChar"))
+        val mixed = "<w:p>$title$begin$cached</w:p><w:p>$cached${control("end")}</w:p>"
+        assertEquals("Contents must occupy standalone paragraphs",
+            assertThrows(IllegalArgumentException::class.java) { normalize(mixed) }.message)
+    }
+
     @Test fun `only identified standalone contents may replace a multi paragraph field cache`() {
         val begin = control("begin") + instruction("TOC \\o &quot;1-2&quot; \\h") + control("separate")
         val cache = "<w:r><w:t>outdated</w:t></w:r>"
@@ -101,4 +130,81 @@ class NativeDocxFieldsTest {
         assertFalse(normalize(control).contains("sdt"))
         assertTrue(normalize(control.replace("Table of Contents", "Other gallery")).contains("sdt"))
     }
+    @Test
+    fun `a saved watermark keeps its original drawing nodes including an empty end marker`() {
+        val paragraph = "<w:p><w:r><w:pict/></w:r></w:p>"
+        val properties = """<w:sdtPr><w:id w:val="-12"/><w:docPartObj><w:docPartGallery w:val="Watermarks"/>
+            <w:docPartUnique/></w:docPartObj></w:sdtPr>"""
+        val content = "<w:sdt>$properties<w:sdtEndPr/><w:sdtContent>$paragraph</w:sdtContent></w:sdt>"
+        val namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+        val xml = ConversionXml(GenerationContext())
+        fun read(value: String) = xml.read("<w:hdr xmlns:w=\"$namespace\">$value</w:hdr>".toByteArray())
+        val root = read(content)
+        val saved = root.elements().single().descendants().single { it.name.localPart == "p" }
+        NativeDocxFields.normalize(root, ::fail)
+        assertSame(saved, root.elements().single())
+        for (invalid in listOf(content.replace("</w:sdtPr>", "<w:dataBinding/></w:sdtPr>"),
+            content.replace("<w:sdtEndPr/>", "<w:sdtEndPr><w:rPr><w:b/></w:rPr></w:sdtEndPr>"),
+            content.replace("<w:pict/>", "<w:t>Plain text</w:t>"))) {
+            assertThrows(IllegalArgumentException::class.java) { NativeDocxFields.normalize(read(invalid), ::fail) }
+        }
+    }
+
+    @Test
+    fun `saved contents ignore only recognized control insertion and end mark formatting`() {
+        val begin = control("begin") + instruction("TOC \\o &quot;1-2&quot; \\h") + control("separate")
+        val cached = "<w:r><w:t>Cached entry</w:t></w:r>"
+        val body = "<w:p>$begin$cached</w:p><w:p>$cached${control("end")}</w:p>"
+        val gallery = """<w:id w:val="1"/><w:docPartObj><w:docPartGallery w:val="Table of Contents"/>
+            <w:docPartUnique/></w:docPartObj>"""
+        val formatting = """<w:rPr><w:rFonts w:ascii="Courier New"/><w:b w:val="0"/><w:color w:val="FF00FF"/>
+            <w:sz w:val="144"/></w:rPr>"""
+        fun wrapper(start: String, end: String) =
+            "<w:sdt><w:sdtPr>$start$gallery</w:sdtPr>$end<w:sdtContent>$body</w:sdtContent></w:sdt>"
+        assertEquals(normalize(wrapper("", "")), normalize(wrapper(formatting, "<w:sdtEndPr>$formatting</w:sdtEndPr>")))
+        val active = formatting.replace("</w:rPr>", "<w:vanish/></w:rPr>")
+        assertThrows(IllegalArgumentException::class.java) { normalize(wrapper(active, "")) }
+        assertThrows(IllegalArgumentException::class.java) { normalize(wrapper("", "<w:sdtEndPr>$active</w:sdtEndPr>")) }
+    }
+
+    @Test
+    fun `saved contents control distinguishes editing proxies from unknown font properties`() {
+        val begin = control("begin") + instruction("TOC \\o &quot;1-2&quot; \\h") + control("separate")
+        val cache = "<w:r><w:t>Old page reference</w:t></w:r>"
+        val body = "<w:p>$begin$cache${control("end")}</w:p>"
+        val gallery = """<w:docPartObj><w:docPartGallery w:val="Table of Contents"/><w:docPartUnique/></w:docPartObj>"""
+        fun wrapper(open: String = "", end: String = "", contents: String = "<w:sdtContent>$body</w:sdtContent>") =
+            "<w:sdt><w:sdtPr>$open$gallery</w:sdtPr>$end$contents</w:sdt>"
+        val activeStyle = """<w:rPr><w:rFonts w:eastAsia="Liberation Sans" w:cstheme="majorBidi"/><w:bCs w:val="on"/>
+            <w:szCs w:val="2"/><w:color w:val="auto" w:themeTint="AF" w:themeShade="0b"/></w:rPr>"""
+        assertEquals(normalize(wrapper()), normalize(wrapper(activeStyle, "<w:sdtEndPr>$activeStyle</w:sdtEndPr>")))
+        val rejected = listOf(
+            "<w:rPr w:val=\"none\"/>", "<w:rPr>visible</w:rPr>",
+            "<w:rPr><w:b/><w:b/></w:rPr>", "<w:rPr><x:b xmlns:x=\"urn:foreign\"/></w:rPr>",
+            "<w:rPr><w:b>visible</w:b></w:rPr>", "<w:rPr><w:b><w:sz/></w:b></w:rPr>",
+            "<w:rPr><w:b val=\"true\"/></w:rPr>", "<w:rPr><w:b w:extra=\"true\"/></w:rPr>",
+            "<w:rPr><w:b w:val=\"bad\"/></w:rPr>", "<w:rPr><w:rFonts w:name=\"Real\"/></w:rPr>",
+            "<w:rPr><w:rFonts w:ascii=\" \"/></w:rPr>", "<w:rPr><w:rFonts w:ascii=\"${"x".repeat(254)}\"/></w:rPr>",
+            "<w:rPr><w:rFonts w:ascii=\"Normal&#x9;Font\"/></w:rPr>", "<w:rPr><w:szCs/></w:rPr>",
+            "<w:rPr><w:szCs w:val=\"bad\"/></w:rPr>", "<w:rPr><w:szCs w:val=\"32768\"/></w:rPr>",
+            "<w:rPr><w:color w:val=\"FFFF\"/></w:rPr>", "<w:rPr><w:color w:val=\"auto\" w:themeTint=\"nonhex\"/></w:rPr>",
+            "<w:rPr><w:color w:val=\"auto\" w:other=\"none\"/></w:rPr>",
+        )
+        for (formatting in rejected) assertEquals("Unsupported contents control", assertThrows(IllegalArgumentException::class.java) {
+            normalize(wrapper(formatting))
+        }.message)
+        for (end in listOf("<w:sdtEndPr w:val=\"1\"/>", "<w:sdtEndPr>text</w:sdtEndPr>",
+            "<w:sdtEndPr><w:rPr/><w:rPr/></w:sdtEndPr>", "<w:sdtEndPr/><w:sdtEndPr/>")) {
+            assertEquals("Unsupported contents control", assertThrows(IllegalArgumentException::class.java) {
+                normalize(wrapper(end = end))
+            }.message)
+        }
+        assertEquals("Missing contents control body", assertThrows(IllegalArgumentException::class.java) {
+            normalize(wrapper(contents = ""))
+        }.message)
+        assertEquals("Contents control has no contents field", assertThrows(IllegalArgumentException::class.java) {
+            normalize(wrapper(contents = "<w:sdtContent><w:p>$cache</w:p></w:sdtContent>"))
+        }.message)
+    }
+
 }

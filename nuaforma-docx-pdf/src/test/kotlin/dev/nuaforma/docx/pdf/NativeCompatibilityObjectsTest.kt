@@ -156,8 +156,9 @@ class NativeCompatibilityObjectsTest {
     @Test
     fun `an unsupported selected effect does not silently fall back to a different shape`() {
         val source = resource("/compatibility-objects/a4/source.docx")
+        val shadow = """<a:effectLst><a:outerShdw blurRad="38100" dist="25400" dir="2700000"><a:srgbClr val="000000"/></a:outerShdw></a:effectLst>"""
         val changed = PdfFixture.zip(PdfFixture.unzip(source).mapValues { (part, bytes) ->
-            if (part == "word/document.xml") bytes.decodeToString().replace("<wps:spPr>", "<wps:spPr><a:effectLst/>").toByteArray() else bytes
+            if (part == "word/document.xml") bytes.decodeToString().replace("<wps:spPr>", "<wps:spPr>$shadow").toByteArray() else bytes
         })
         val output = ByteArrayOutputStream()
         val error = assertThrows(GenerationException::class.java) {

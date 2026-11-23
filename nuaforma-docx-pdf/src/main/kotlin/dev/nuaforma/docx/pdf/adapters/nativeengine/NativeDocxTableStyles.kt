@@ -41,7 +41,8 @@ internal class NativeDocxTableStyles(
         val conditions = style.elements().filter { it.name.namespaceURI == word && it.name.localPart == "tblStylePr" }
         val seen = mutableSetOf<String>()
         conditions.map { region ->
-            validate(region, setOf("type"), setOf("pPr", "rPr", "tcPr"))
+            validate(region, setOf("type"), setOf("pPr", "rPr", "tcPr", "tblPr"))
+            child(region, "tblPr")?.let { validate(it, emptySet(), emptySet()) }
             val kind = value(region, "type")
             if (kind !in kinds || !seen.add(requireNotNull(kind))) reject(region, "Invalid or duplicate conditional table region")
             child(region, "tcPr")?.let(::validateCell)
@@ -52,6 +53,11 @@ internal class NativeDocxTableStyles(
     private val tableProperties = styles.mapNotNull { child(it, "tblPr") } + properties
 
     fun property(name: String): XmlElement? = tableProperties.mapNotNull { child(it, name) }.lastOrNull()
+
+    fun borderLayers(): List<XmlElement> = tableProperties.mapNotNull { child(it, "tblBorders") }
+
+    fun indentation(): XmlElement? =
+        tableProperties.mapNotNull { child(it, "tblInd") }.lastOrNull { value(it, "type") != "nil" }
 
     fun margin(name: String): XmlElement? = tableProperties.mapNotNull { properties ->
         child(properties, "tblCellMar")?.let { margins ->
@@ -81,12 +87,15 @@ internal class NativeDocxTableStyles(
     private fun bandRegion(index: Int, size: Int, offset: Int, disabled: Boolean, first: String, second: String): String? =
         if (disabled || size == 0) null else if ((index - offset) / size % 2 == 0) first else second
 
-    fun layers(row: Int, column: Int): List<XmlElement> {
+    fun supportsHorizontalSpans(): Boolean =
+        flag("noVBand") || columnBand == 0 || conditional.none { it.first == "band1Vert" || it.first == "band2Vert" }
+
+    fun layers(row: Int, column: Int, span: Int = 1): List<XmlElement> {
         context.checkActive()
         val top = flag("firstRow") && row < maxOf(1, headerRows)
         val bottom = flag("lastRow") && row == rowCount - 1
         val left = flag("firstColumn") && column == 0
-        val right = flag("lastColumn") && column == columnCount - 1
+        val right = flag("lastColumn") && column + span == columnCount
         val applicable = listOfNotNull("wholeTable",
             bandRegion(row, rowBand, if (flag("firstRow")) maxOf(1, headerRows) else 0,
                 flag("noHBand") || top || bottom, "band1Horz", "band2Horz"),

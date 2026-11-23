@@ -7,6 +7,7 @@ import dev.nuaforma.pdf.PdfParagraphPageOffset
 internal object ParagraphPageOffsets {
 
     fun mark(element: PositionedElement, offset: PdfParagraphPageOffset?): PositionedElement = when (element) {
+        is PositionedDestination -> element.copy(pageOffset = offset)
         is PositionedVector -> element.copy(pageOffset = offset)
         is PositionedText -> element.copy(pageOffset = offset)
         is PositionedRectangle -> element.copy(pageOffset = offset)
@@ -20,6 +21,7 @@ internal object ParagraphPageOffsets {
 
         fun apply(element: PositionedElement): PositionedElement {
             val policy = when (element) {
+                is PositionedDestination -> element.pageOffset
                 is PositionedVector -> element.pageOffset
                 is PositionedText -> element.pageOffset
                 is PositionedRectangle -> element.pageOffset
@@ -29,6 +31,7 @@ internal object ParagraphPageOffsets {
             }
             val shift = policy?.takeIf { it.side == side }?.x ?: 0f
             return when (element) {
+                is PositionedDestination -> element.copy(x = element.x + shift, pageOffset = null)
                 is PositionedVector -> element.copy(x = element.x + shift, pageOffset = null)
                 is PositionedText -> element.copy(x = element.x + shift, pageOffset = null)
                 is PositionedRectangle -> element.copy(x = element.x + shift, pageOffset = null)

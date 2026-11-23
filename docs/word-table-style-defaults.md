@@ -25,3 +25,11 @@ Actual Word exports of explicit and inherited variants are pixel-identical at 96
 `NativeTableStyleDefaultsModelTest` checks inheritance, effective geometry and rejected variants. The parameterized `NativePreferredTableTest` shares the real-provider, all-profile, Word-metric and exact-raster checks with the preferred-width fixtures, including original-source diagnostics and atomic failure. The combined normal build passes 1,514 tests with no failures, errors or skips. The real HTTP route retains 72 exact golden pages across all four PDF profiles, while 27 malformed or unqualified cases remain explicit failures. The unchanged local 250-source corpus retains seven complete PDFs and 243 explicit rejections, with eleven prior pages pixel-exact. Twenty first diagnoses change after the style/glyph increment; this is barrier movement, not complete-conversion evidence.
 
 Playground impact: existing generation and cleanup use this same reader. Supported table metadata no longer needs removal. No UI setting, cleanup-policy relaxation, production fallback or publication is introduced.
+
+## Solid cell shading
+
+Word paints a solid table-cell pattern with its explicit RGB foreground.
+The solid color covers the cached base fill. Word and native output match
+their equivalent plain-fill controls on A4 and US Letter. Automatic
+foregrounds, theme-driven solid patterns and table-wide solid shading
+retain a source diagnostic.

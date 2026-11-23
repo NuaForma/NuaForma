@@ -211,3 +211,223 @@ Selected 0.5.0-alpha.4 [wide fixed-table qualification](../docs/wide-fixed-table
 Selected 0.5.0-alpha.4 [long-word wrapping](../docs/long-word-breaking.md) preserves fixed body-table columns while breaking oversized unshaped words at grapheme boundaries. Automatic widths, nested cells and page bands retain their existing policies.
 
 Selected 0.5.0-alpha.4 [font family identity qualification](../docs/font-family-identities.md) is shared by DOCX and native PDF. Extended Light, Display and similar designs retain their precise family names rather than impersonating their base family; ordinary four-face style linking remains supported.
+
+## Additional native layout support
+
+Unrotated DrawingML text boxes can use Word shape autofit. Wrapped text adjusts the height while retaining the specified width. Unwrapped text adjusts both dimensions. The final shape and contents must fit on the physical page.
+
+A narrow profile admits direction properties on ordinary nonprinting header tabs and paragraph marks when the ordinary and complex-script faces and sizes match. The check runs after template evaluation. Visible text still follows the native script and direction checks.
+
+A qualified page-relative text box can align to the left, center or right and to the top, center or bottom of the physical page. Alignment uses the finished frame size. A stroke on an expressly aligned page edge follows the physical page crop.
+
+Embedded Office SVG pictures may use an internal SVG part with static filled paths and a distinct embedded raster fallback. The renderer uses the SVG for qualified inputs with the existing picture placement. External references, scripts, complex styling and effects remain outside this profile.
+
+In development mode, text-frame overflow diagnostics identify the affected dimension or physical edge and include the measured required and available space in points.
+
+Fixed tables can retain empty grid positions at either outer edge of a row. The declared omission must agree with the physical column widths. Only actual cells paint their content and borders.
+
+The Word numeric picture 0 is accepted on PAGE, NUMPAGES and SECTIONPAGES. These fields still resolve against the final pagination.
+
+Ordinary unrotated fixed DrawingML text boxes in the main story can keep their original rectangle while longer text continues below it. The frame and text remain within the physical page.
+
+In a merged table, permission for an ordinary row to split is accepted when the resolved table can keep the relevant row whole. The current restrictions for fragmenting merged cells still apply.
+
+A qualified left-to-right paragraph can retain a bookmark at the end of its last physical line or at the start of an empty line. Links resolve to this anchor without adding printable characters.
+
+Standalone text frames with omitted fill and outline declarations can retain their transparent paint. Explicit colors still follow the qualified frame paint profile.
+
+Word paragraph styles can reset an inherited outline level to body text. Direct body-level overrides on heading paragraphs require additional qualification.
+
+Generated contents require a style for each requested outline level used by a heading in the document. Unused requested levels can omit their styles.
+
+Separately positioned page-fixed footer rectangles can retain Word's non-overlap flag when their physical boxes are disjoint. An explicit offset can start from the right margin.
+
+Hyperlinks can retain the clickable area of tab runs, including the full gap for tabs without visible leaders. Existing navigation target validation applies.
+
+Fixed body frames can share a page with footnotes when their painted bounds leave the actual footnote region clear. Intersections remain explicit layout errors.
+
+Saved DrawingML outline properties can accompany an explicitly invisible frame outline. The stored properties are validated and the visible frame remains transparent.
+
+A qualified Word page reference within its own internal hyperlink resolves to the actual page of the common target.
+
+Fixed flat body tables with one solid color can use different qualified direct cell-border widths.
+
+A background header picture can retain a closed tight wrapping contour that sits wholly above the body. Other kinds of shaped wrapping require separate qualification.
+
+Qualified fixed table cells can suppress the end mark while retaining visible text and ordinary tab layout.
+
+Existing external-link targets can remain clickable inside a fixed unrotated text frame. Annotations use translated physical page coordinates.
+
+When a hidden ordinary cell mark follows a trailing soft line break, the final unprinted line is omitted while earlier lines remain intact.
+
+Isolated fixed unrotated footer frames can continue visible text below the nominal rectangle. The actual ink remains within the page and clear of other footer objects.
+
+Numbered paragraph marks can retain their highlight on the label and supported separator.
+
+Validated absent or nil text-run borders leave normal text drawing unchanged.
+
+Embedded pictures with an explicitly invisible outline can retain a validated miter and empty arrow ends.
+
+Validated saved fill, line and effects metadata leaves a frame's explicit unpainted appearance unchanged.
+
+A complete legacy checkbox field with no form metadata or saved result remains unprinted.
+
+When a qualified plain typography property differs between style parts, Word's primary styles control the result. Valid primary-only style references and reciprocal character links are preserved.
+
+Saving HTML as separate files is an authoring preference and leaves PDF output unchanged.
+
+The preference to save a document preview image leaves PDF output unchanged.
+
+Page-fixed unwrapped pictures can keep an external link whose clickable rectangle follows the picture.
+
+Qualified horizontal borders of equal width can retain regional colors across cells and horizontal merges.
+
+A bounded final EMF object deletion can immediately precede a valid end record when only that deletion falls outside the recorded count.
+
+Fixed unwrapped page-band pictures may retain their visible portion when a physical page edge clips the source crop.
+
+A terminal cell preference within the qualified downward rounding tolerance retains the saved fixed-table grid.
+
+A fixed full-page header picture can layer behind body text while retaining the order of smaller header objects.
+
+An isolated single-cell page-band table can keep its qualified top stroke and ordinary text.
+
+A fixed unwrapped image in the first cell of an isolated one-row page-band table can retain its column and page offsets.
+
+A qualified picture can keep tiny proportional discrepancy between its stored internal and outer extents. Fixed page-band table text can wrap an oversized word within its column.
+
+A fixed left-aligned page-band table in current Word layout mode can extend into the saved right margin while staying within the page.
+
+Qualified names can contain an ordinary colon or curly apostrophe. A closed same-paragraph bookmark can retain zero-valued column metadata.
+
+An isolated qualified two-column automatic table can fall back to its saved grid when its styled contents need word wrapping.
+
+A plain white source background without children retains the default physical page appearance.
+
+Within a render, crops and semantic copies of a picture can share its bounded decoded raster.
+
+The checked setting for tracking future moved text does not alter the existing print model.
+
+Existing hyperlink relationship diagnostics report their source part and relationship position without displaying the destination value.
+
+Dedicated fixed horizontal inline text frames can retain their visible rectangle and body-line metrics.
+
+Square-wrapped ordinary pictures retain Word's foreground layering and saved drawing order.
+
+The qualified inactive punctuation overflow preference is retained for ordinary text. Active East Asian punctuation geometry remains separate.
+
+A leading explicit break keeps its physical page boundary before a supported paragraph with keep rules.
+
+Explicitly positioned unwrapped pictures can fit their source aspect ratio into qualified page or margin percentages.
+
+Qualified bookmark destinations before a leading hard break retain the source page, and destinations after it follow the text.
+
+An ordinary paragraph after a standalone contents end marker retains its text, formatting and links.
+
+Supported fixed, unwrapped rectangular frames resolve their relative width and height independently.
+
+A centered or decimal-aligned field can move left to remain inside the line when the full field fits after the preceding text.
+
+An unresolved ordinary Word hyperlink keeps its visible text. Existing names resolve with explicit case-preserving identity.
+
+An in-bounds stop can move the field to a continuation line. A right-aligned outside stop can use the physical margin of ordinary body text.
+
+Ordinary header and footer paragraphs can keep a qualified right tab at the page-margin boundary.
+
+An unpainted last left tab retains its font metrics when the requested blank advance extends past the line.
+
+Qualified horizontal bands retain ordinary row lines without adding an interior vertical stroke to an outside-only table outline.
+
+Separately stored Word hyperlink fragments retain the complete external destination and visible label.
+
+An ordinary row with no owning note can stay whole in note-aware layout. A required physical row split retains an explicit diagnostic.
+
+Oversized visible HTTP and HTTPS paths can wrap at existing character boundaries while retaining styling and navigation.
+
+A matching visible web hyperlink can continue at a character boundary when the next preferred boundary is wider than the line.
+
+A literal SET assignment may retain its result value for ordinary references when Word wraps the saved invisible result in its own bookmark.
+
+An ordinary title sharing the opening field-code paragraph stays in its original place when the saved contents start in the next paragraph.
+
+Qualified percentage cell shading blends the stored RGB colors into Word's PDF shade.
+
+A fixed Word grid may retain a subpoint column when its actual spanning cells all have room for their margins.
+
+A fixed text-relative table with an isolated anchor stays at its saved vertical offset while the body continues independently.
+
+A bookmark after a standalone Word page break keeps its destination on the source page.
+
+A right-aligned line with explicit center and right tab stops preserves the tab fields and follows Word's right-edge alignment.
+
+A fixed, flat modern Word table can retain independent border strokes and measured cell clearances, including when a saved grid supplies omitted cell widths.
+
+A whole fixed row may continue on the next page when the adjoining strokes match the table's outside border.
+
+A word moving to a narrower continuation line is measured against that line before applying the existing word-breaking policy.
+
+Consecutive undecorated terminal tabs can occupy blank continuation lines when their default or ordinary left stops exceed the text area.
+
+A row can split at ordinary line boundaries when its own sides and surrounding joins match the fixed table outline.
+
+A visible run without a resolved font family reports the missing declaration at its source location.
+
+Empty trailing fields after a nondecorated right tab also keep the blank continuation lines used by Word.
+
+A Word Watermarks gallery wrapper can retain its ordinary saved header drawing, including an empty closing marker. The drawing itself still follows the native profile.
+
+A saved table of contents keeps its document styles when Word stores separate font properties for insertion and the control end mark.
+
+Modern body tables with complete explicit margins in every cell retain their spacing and borders when the table does not declare default cell margins.
+
+Fixed nested tables with complete direct margins can keep their saved grid and alignment inside non-splitting parent rows.
+
+Blank endnote separator policies can remain in documents that contain no numbered endnotes. Existing footnote layout is preserved.
+
+Word paragraph shading retains the explicit solid color or measured percentage blend, including through style inheritance.
+
+Word run shading uses its own measured solid or percentage color while retaining paragraph backgrounds and text styling.
+
+An empty footnote or endnote continuation notice with explicit zero paragraph spacing leaves note pagination intact.
+
+A valid bookmark ending before a cell's first paragraph keeps its original text boundary without adding a paragraph.
+
+Validated internal PNG definitions for unused Word picture bullets leave printed numbering unchanged. Visible picture bullets remain outside the qualified profile.
+
+Modern fixed and automatic flat tables can retain distinct border colors when the strokes share one width.
+
+An isolated nonoverlapping table with a qualified text-relative anchor can keep ordinary full-width flow with a 100% automatic width.
+
+An explicit inline cell paragraph can cancel a saved floating style frame and its overlapping behavior while preserving the cell's text.
+
+Fixed square-wrapped body frames that cover the text column retain their qualified bottom effect extent and the following text clearance.
+
+Solid native table strokes can be up to six points. Modern flat tables with one border color retain mixed stroke widths, including with automatic layout.
+
+A qualified full-width two-row merge preserves the blank continuation line and thicker hidden top-rule clearance without painting a divider.
+
+Automatic and percentage cell widths preserve a qualified unbroken line when Word disables wrapping for that cell.
+
+A hidden, undecorated empty cell marker contributes neither its final line nor its paragraph spacing.
+
+Single underlines preserve explicit RGB independently of run ink, while automatic color follows that ink.
+
+An isolated fixed drawing frame in the first header paragraph uses the band origin before the paragraph spacing.
+
+Thick single underlines apply Word-verified line metrics within the measured 8–20 point range.
+
+Development diagnostics name the conversion stage and its specific measured byte or part budget. The production response remains redacted.
+
+A qualified inline or fixed unwrapped body picture preserves its declared viewport while fitting its stored aspect ratio.
+
+A full-width solid background in the first header paragraph clips to the paper and preserves the positions of the frame, logo and body text.
+
+Unwrapped body pictures align to the top, center or bottom of a physical page using the outer extent and effect distances.
+
+Ordinary Basic Latin text keeps its ASCII typeface when Word saves a fallback hint for a different script.
+
+An eligible left-aligned picture on its own body line can extend into the free right page margin. Layout failures report the applicable measured width.
+
+A validated shadow occlusion flag leaves an unshadowed raster unchanged. Actual shadow effects and unknown extension payloads remain subject to profile checks.
+
+A kept heading reserves the start of its next ordinary paragraph even when that paragraph owns a fixed unwrapped page picture.

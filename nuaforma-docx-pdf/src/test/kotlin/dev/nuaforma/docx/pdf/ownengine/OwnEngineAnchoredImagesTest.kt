@@ -61,10 +61,16 @@ class OwnEngineAnchoredImagesTest {
         }
     }
 
+    @Test fun `square wrapped pictures remain in the foreground regardless of the saved behind text flag`() {
+        val model = OwnEngineDocxReader().read(rewrite("behindDoc=\"0\"", "behindDoc=\"1\""))
+        val anchor = model.blocks.filterIsInstance<PdfParagraph>().flatMap { it.anchoredImages }.single()
+        assertEquals(PdfDrawingLayer.FOREGROUND, anchor.drawingOrder?.layer)
+    }
+
     @Test fun `unqualified wrapping external images flips and crops reject explicitly`() {
         for ((old, replacement) in listOf(
             "wrapSquare" to "wrapTight", "wrapText=\"largest\"" to "wrapText=\"unknown\"",
-            "relativeFrom=\"paragraph\"" to "relativeFrom=\"line\"", "behindDoc=\"0\"" to "behindDoc=\"1\"",
+            "relativeFrom=\"paragraph\"" to "relativeFrom=\"line\"",
             "<a:xfrm>" to "<a:xfrm flipH=\"1\">", "r:embed=\"logo\"" to "r:link=\"logo\"",
             "<a:stretch>" to "<a:srcRect l=\"90000\" r=\"10000\"/><a:stretch>")) {
             assertThrows(IllegalArgumentException::class.java) { OwnEngineDocxReader().read(rewrite(old, replacement)) }

@@ -18,7 +18,7 @@ An oversized first data row can begin after preceding text when a legal fragment
 
 ## Final-line tabs
 
-The shared engine accepts tabs on the final line of a left-to-right justified paragraph. Tab stops and leaders retain the left-aligned geometry; earlier ordinary wrapped lines still justify. A tabbed line that itself requires justification rejects explicitly. Centered and right-aligned tab paragraphs retain their existing restriction.
+The shared engine accepts tabs on the final line of a left-to-right justified paragraph. Tab stops and leaders retain the left-aligned geometry. If the line wraps after left tabs, only the words following the final tab spread to the right margin. Earlier fields and leaders keep their resolved positions. A right, centered or decimal tab on a line that requires justification retains an explicit diagnostic. Centered and right-aligned tab paragraphs retain their existing restriction.
 
 Word's decimal tab separator follows the exporting workstation's [regional number settings](https://support.microsoft.com/en-us/word/use-decimal-tabs-to-line-up-numbers-with-decimal-points). Qualification fixtures therefore declare a comma separator matching the reference exporter. All 48 content anchors for the four stop kinds and four leaders agree within 0.091 point horizontally and 0.131 point vertically on both papers. The number of decorative leader glyphs can differ because of fractional advances: text-inventory comparison normalizes repeated leader glyphs only, while geometry and every native golden pixel still assert. Decimal tabs with a numeric suffix expose a separate existing anchor discrepancy, tracked in #272; this work does not claim that discrepancy is fixed.
 
@@ -35,3 +35,15 @@ The normal combined build passes all 1,601 tests, with zero failures, errors or 
 The final local corpus round retains nine successful documents out of 250: two of the original hundred and seven of the added 150. All source hashes remain unchanged. The thirteen previously generated pages retain exact pixels, text and page counts, with embedded fonts. No additional complete document converted in this group. Passing one feature's fixtures is not a claim of full support for arbitrary Word documents.
 
 The production and Playground providers share these improvements. There is no new endpoint, control, permissive fallback, font substitution or runtime dependency. Original local sample documents and font files are not checked into the repository. No release or site publication is part of this work.
+
+## Negative tab positions
+
+An unadorned negative custom left stop is dormant in the qualified left-to-right Word profile. The checked Word controls skip it even when text begins further into the left margin. Negative clear stops have no printable effect. Automatic tab intervals can still land before the margin when the current cursor is there, subject to the physical page bounds. Normal stop choice uses the actual rendered text after template substitution. Other negative alignment and leader combinations remain explicit source rejections.
+
+## Header and footer table pagination
+
+Page-band tables repeat as a whole. Their paragraphs retain text and vertical spacing while body-only grouping, keep-lines and widow/orphan controls have no effect. Explicit page breaks retain the existing rejection. This behavior applies to the shared page-band layout used by the DOCX provider and the Playground.
+
+## Cell end markers
+
+Qualified Word `w:hideMark` lets a row size to its printable content, without the final cell marker's font metrics. In a plain trailing empty paragraph there is no printed line. Earlier paragraphs, cell margins, borders and explicit minimum row heights still take up space. A disabled toggle retains the ordinary marker behavior. This qualification covers top-level cells with ordinary text and plain empty trailing paragraphs. Complex end marks, decorated or spaced empty trailing paragraphs, nested and vertically merged cells remain explicit source rejections. The shared model can express the plain trailing paragraph omission through `PdfTableCell.withOmittedTrailingEmptyParagraph(enabled)`.

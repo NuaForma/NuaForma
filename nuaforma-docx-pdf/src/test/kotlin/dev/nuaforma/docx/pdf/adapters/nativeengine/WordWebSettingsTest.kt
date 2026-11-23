@@ -1,6 +1,7 @@
 package dev.nuaforma.docx.pdf.adapters.nativeengine
 
 import dev.nuaforma.contracts.GenerationContext
+import dev.nuaforma.docx.pdf.PdfFixture
 import dev.nuaforma.docx.pdf.adapters.ooxml.ConversionXml
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -67,6 +68,35 @@ class WordWebSettingsTest {
             "<w:targetScreenSz w:val=\"999999x999999\"/>", "<w:targetScreenSz val=\"800x600\"/>",
             "<w:relyOnVML>text</w:relyOnVML>", "<w:relyOnVML><w:p/></w:relyOnVML>",
             "<w:targetScreenSz w:val=\"800x600\"><w:p/></w:targetScreenSz>")) {
+            assertThrows(NativeDocxReadException::class.java, { normalize(bad) }, bad)
+        }
+    }
+
+
+    @Test
+    fun `original web export preference is checked before DOCX normalization`() {
+        fun source(preference: String): ByteArray {
+            val parts = PdfFixture.parts()
+            parts["word/webSettings.xml"] = """<w:webSettings xmlns:w="$word">$preference</w:webSettings>""".toByteArray()
+            return PdfFixture.zip(parts)
+        }
+        val valid = source("""<w:doNotSaveAsSingleFile w:val="0"/>""")
+        assertArrayEquals(valid, WordMarkupCompatibility.prepare(valid, GenerationContext()))
+        val malformed = source("""<w:doNotSaveAsSingleFile w:val="unexpected"/>""")
+        val failure = assertThrows(NativeDocxReadException::class.java) {
+            WordMarkupCompatibility.prepare(malformed, GenerationContext())
+        }
+        assertEquals("Invalid original Word web export preference", failure.message)
+        assertEquals("word/webSettings.xml", failure.part)
+    }
+
+    @Test
+    fun `separate HTML file preference is passive boolean metadata`() {
+        for (raw in listOf("", """ w:val="0"""", """ w:val="1"""", """ w:val="off"""", """ w:val="true"""")) {
+            assertTrue(normalize("<w:doNotSaveAsSingleFile$raw/>").children.isEmpty())
+        }
+        for (bad in listOf("<w:doNotSaveAsSingleFile/><w:doNotSaveAsSingleFile/>",
+            """<w:doNotSaveAsSingleFile w:val="unknown"/>""", "<w:doNotSaveAsSingleFile><w:p/></w:doNotSaveAsSingleFile>")) {
             assertThrows(NativeDocxReadException::class.java, { normalize(bad) }, bad)
         }
     }

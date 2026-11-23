@@ -27,7 +27,7 @@ class WordSettingsMetadataTest {
     @Test
     fun `privacy and drawing-grid preferences are validated nonprinting editor metadata`() {
         val values = """<w:removePersonalInformation/><w:removeDateAndTime/><w:doNotUseMarginsForDrawingGridOrigin w:val="true"/>
-            <w:drawingGridHorizontalSpacing w:val="100"/><w:drawingGridVerticalSpacing w:val="284"/>
+            <w:savePreviewPicture/><w:drawingGridHorizontalSpacing w:val="100"/><w:drawingGridVerticalSpacing w:val="284"/>
             <w:drawingGridHorizontalOrigin w:val="1134"/><w:drawingGridVerticalOrigin w:val="0"/>
             <w:displayHorizontalDrawingGridEvery w:val="0"/><w:displayVerticalDrawingGridEvery w:val="2"/>"""
         assertTrue(normalize(values).elements().isEmpty())

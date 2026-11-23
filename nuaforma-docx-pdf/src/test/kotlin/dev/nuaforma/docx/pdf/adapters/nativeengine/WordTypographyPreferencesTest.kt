@@ -52,7 +52,10 @@ class WordTypographyPreferencesTest {
     fun `paragraph overrides disable inherited punctuation overflow and suppression gates active hyphenation`() {
         val inherited = "<w:pPr><w:overflowPunct/><w:suppressAutoHyphens/></w:pPr>"
         assertDoesNotThrow { read(source("<w:autoHyphenation/>", inherited, "<w:overflowPunct w:val=\"0\"/>")) }
-        val overflow = assertThrows(NativeDocxReadException::class.java) { read(source(style = inherited)) }
+        assertDoesNotThrow { read(source(style = inherited)) }
+        val overflow = assertThrows(NativeDocxReadException::class.java) {
+            read(source(style = inherited, text = "文字。"))
+        }
         assertEquals("word/styles.xml", overflow.part)
         assertThrows(NativeDocxReadException::class.java) { read(source("<w:autoHyphenation/>", inherited,
             "<w:overflowPunct w:val=\"0\"/><w:suppressAutoHyphens w:val=\"0\"/>")) }
@@ -155,7 +158,7 @@ class WordTypographyPreferencesTest {
 
     @Test
     fun `cleanup removes unqualified active preferences without deleting paragraph text or evaluating markers`() {
-        val input = source("<w:autoHyphenation/>", "<w:pPr><w:overflowPunct/></w:pPr>", text = "Keep {name}")
+        val input = source("<w:autoHyphenation/>", "<w:pPr><w:overflowPunct/></w:pPr>", text = "文字。 Keep {name}")
         val (cleaned, report) = NativeTemplateCleanup(GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT))).clean(input)
         val before = PdfFixture.unzip(input)
         val after = PdfFixture.unzip(cleaned)

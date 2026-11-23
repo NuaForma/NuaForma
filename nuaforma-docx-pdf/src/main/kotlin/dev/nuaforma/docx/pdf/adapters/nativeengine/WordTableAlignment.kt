@@ -10,12 +10,20 @@ internal object WordTableAlignment {
     private const val word = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
     fun validateSource(root: XmlElement, context: GenerationContext, reject: (XmlElement, String) -> Nothing) {
-        for (properties in root.descendants()) {
-            context.checkActive()
-            if (properties.name.namespaceURI != word || properties.name.localPart != "tblPr") continue
+
+        fun validate(properties: XmlElement) {
             val values = properties.elements().filter { it.name.localPart == "jc" }
             if (values.size > 1) reject(values[1], "Duplicate original table alignment")
             values.singleOrNull()?.let { read(it, reject) }
+        }
+
+        for (node in root.descendants()) {
+            context.checkActive()
+            if (node.name.namespaceURI != word) continue
+            when (node.name.localPart) {
+                "tblPr" -> validate(node)
+                "tr" -> node.elements().filter { it.name.namespaceURI == word && it.name.localPart == "trPr" }.forEach(::validate)
+            }
         }
     }
 

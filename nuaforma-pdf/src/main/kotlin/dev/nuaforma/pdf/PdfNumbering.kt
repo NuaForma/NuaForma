@@ -33,12 +33,16 @@ data class PdfListValue(val instanceId: String, val level: Int, val ordinal: Int
     }
 }
 
-/** Resolved label with semantic identity, separate from body text and its continuation indent. */
+/**
+ * Resolved label with semantic identity, separate from body text and its continuation indent.
+ * A highlight can extend across the suffix up to the start of the body text.
+ */
 data class PdfListLabel @JvmOverloads constructor(
     val value: PdfListValue, val style: PdfTextStyle,
     val alignment: PdfAlignment = PdfAlignment.LEFT, val suffix: PdfListSuffix = PdfListSuffix.TAB,
     val tabStop: Float? = null,
     val defaultTabInterval: Float = 36f,
+    val highlightSuffix: Boolean = false,
 ) {
     init {
         require(tabStop == null || tabStop.isFinite() && tabStop in 0f..14_400f) { "Invalid list tab stop" }

@@ -135,6 +135,49 @@ class WordThemeColorsTest {
     }
 
     @Test
+    fun `solid cell shading covers the cached background with the explicit foreground`() {
+        val cells = colors()
+        val blue = """<w:shd xmlns:w="$word" w:val="solid" w:color="247DA1" w:fill="E6B640"/>"""
+        val black = """<w:shd xmlns:w="$word" w:val="solid" w:color="000000" w:fill="FFFFFF"/>"""
+        assertEquals(rgb("247DA1"), cells.cellFill(root(blue)))
+        assertEquals(rgb("000000"), cells.cellFill(root(black)))
+        for (shade in listOf(blue, black)) {
+            val source = root("""<w:tcPr xmlns:w="$word">$shade</w:tcPr>""")
+            val original = xml.write(source)
+            WordThemeColors.validateSource(source) { _, message -> fail(message) }
+            assertArrayEquals(original, xml.write(source))
+        }
+        val reject: (dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement, String) -> Nothing = { _, message ->
+            throw NativeDocxReadException(message, "word/document.xml")
+        }
+        assertThrows(NativeDocxReadException::class.java) { WordThemeColors.validateTableShading(root(blue), reject) }
+        for (shade in listOf(blue.replace("247DA1", "auto"), blue.replace("E6B640", "broken"),
+            blue.replace("/>", """ w:themeFill="background1"/>"""), blue.replace("/>", "><w:b/></w:shd>"))) {
+            val source = root("""<w:tcPr xmlns:w="$word">$shade</w:tcPr>""")
+            assertThrows(NativeDocxReadException::class.java) { WordThemeColors.validateSource(source, reject) }
+            assertThrows(NativeDocxReadException::class.java) { cells.cellFill(root(shade)) }
+        }
+    }
+
+    @Test
+    fun percentageCellShadingUsesWordRgbBlends() {
+        val colors = colors()
+        fun shading(kind: String, foreground: String = "auto", background: String = "auto", extra: String = "") =
+            root("""<w:shd xmlns:w="$word" w:val="$kind" w:color="$foreground" w:fill="$background" $extra/>""")
+        for ((percent, luminance) in mapOf(5 to 242, 10 to 229, 20 to 204, 25 to 191, 50 to 127, 75 to 64)) {
+            assertEquals(PdfColor(luminance, luminance, luminance), colors.cellFill(shading("pct$percent")))
+        }
+        assertEquals(PdfColor(214, 201, 178), colors.cellFill(shading("pct20", "314978", "FFE9C1")))
+        for (element in listOf(shading("pct99"), shading("pct20", "broken"), shading("pct20", extra = "w:themeFill=\"accent1\"")))
+            assertThrows(NativeDocxReadException::class.java) { colors.cellFill(element) }
+        assertThrows(NativeDocxReadException::class.java) {
+            WordThemeColors.validateTableShading(shading("pct20")) { _, message ->
+                throw NativeDocxReadException(message, "word/document.xml")
+            }
+        }
+    }
+
+    @Test
     fun `original cell theme attributes and missing palettes reject explicitly`() {
         for (properties in listOf("w:themeFill=\"unknown\"", "w:themeFill=\"background1\" extra=\"1\"",
             "x:themeFill=\"background1\"", "w:themeFill=\"background1\" w:themeFillShade=\"GG\"",
@@ -154,4 +197,33 @@ class WordThemeColorsTest {
         }
     }
 
+
+    @Test
+    fun `paragraph and run shading preserve RGB foregrounds and measured percentage blends`() {
+        val colors = colors()
+        fun shading(kind: String, foreground: String = "auto", background: String = "auto", extra: String = "") =
+            """<w:shd w:val="$kind" w:color="$foreground" w:fill="$background" $extra/>"""
+        val samples = listOf(
+            shading("solid", "03A783") to PdfColor(3, 167, 131),
+            shading("pct20") to PdfColor(204, 204, 204),
+            shading("pct20", "314978", "FFE9C1") to PdfColor(214, 201, 178),
+        )
+        val reject = { _: dev.nuaforma.docx.pdf.adapters.ooxml.XmlElement, message: String ->
+            throw NativeDocxReadException(message, "word/document.xml")
+        }
+        for ((shade, color) in samples) {
+            val paragraph = root("""<w:pPr xmlns:w="$word">$shade</w:pPr>""")
+            WordRunBackground.validateSource(paragraph, GenerationContext(), reject)
+            assertEquals(color, colors.runFill(paragraph.elements().single()))
+            val run = root("""<w:rPr xmlns:w="$word">$shade</w:rPr>""")
+            WordRunBackground.validateSource(run, GenerationContext(), reject)
+            assertEquals(color, colors.runFill(run.elements().single()))
+        }
+        for (shade in listOf(shading("pct99"), shading("solid"), shading("pct20", extra = "w:themeFill=\"background1\""))) {
+            val paragraph = root("""<w:pPr xmlns:w="$word">$shade</w:pPr>""")
+            assertThrows(NativeDocxReadException::class.java) {
+                WordRunBackground.validateSource(paragraph, GenerationContext(), reject)
+            }
+        }
+    }
 }

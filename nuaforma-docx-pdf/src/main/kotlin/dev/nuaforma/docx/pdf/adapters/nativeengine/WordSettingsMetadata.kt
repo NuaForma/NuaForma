@@ -16,8 +16,8 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
     private val compatibilityNames = setOf("overrideTableStyleFontSizeAndJustification", "enableOpenTypeFeatures",
         "doNotFlipMirrorIndents", "differentiateMultirowTableHeaders")
     private val editorToggles = setOf("removePersonalInformation", "removeDateAndTime", "doNotUseMarginsForDrawingGridOrigin",
-        "doNotAutoCompressPictures", "trackRevisions", "hideSpellingErrors", "hideGrammaticalErrors",
-        "displayBackgroundShape", "doNotShadeFormData", "styleLockTheme", "gutterAtTop")
+        "doNotAutoCompressPictures", "trackRevisions", "doNotTrackMoves", "hideSpellingErrors", "hideGrammaticalErrors",
+        "displayBackgroundShape", "doNotShadeFormData", "styleLockTheme", "styleLockQFSet", "gutterAtTop", "savePreviewPicture")
     private val drawingMeasures = setOf("drawingGridHorizontalSpacing", "drawingGridVerticalSpacing",
         "drawingGridHorizontalOrigin", "drawingGridVerticalOrigin", "displayHorizontalDrawingGridEvery", "displayVerticalDrawingGridEvery")
 
@@ -102,7 +102,12 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
     }
 
     fun normalize(parts: Map<String, XmlElement>, failure: (String, XmlElement) -> NativeDocxReadException): Formatting {
-        for ((name, root) in parts) WordSectionMetadata.normalizeForms(root) { node, _ -> throw failure(name, node) }
+        val hasEndnotes = parts["word/endnotes.xml"]?.elements()?.any {
+            it.name.namespaceURI == word && it.name.localPart == "endnote" && it.attribute(word, "type") in setOf(null, "normal")
+        } == true || parts.values.any { root ->
+            root.descendants().any { it.name.namespaceURI == word && it.name.localPart == "endnoteReference" }
+        }
+        for ((name, root) in parts) WordSectionMetadata.normalizeForms(root, hasEndnotes) { node, _ -> throw failure(name, node) }
         normalizeGrids(parts, failure)
         normalizeRightIndents(parts, failure)
         val settings = parts[part] ?: return Formatting()
@@ -117,6 +122,7 @@ internal class WordSettingsMetadata(private val context: GenerationContext) {
         if (headerDefaults.size > 1) throw failure(part, headerDefaults[1])
         val editorNames = mutableSetOf<String>()
         val writingStyles = mutableSetOf<Pair<String, String>>()
+        WordHeaderControlDirection.normalize(parts, context)
         val complexText = WordAuthoringMetadata.containsComplexText(parts.values)
         for (child in settings.elements()) {
             context.checkActive()

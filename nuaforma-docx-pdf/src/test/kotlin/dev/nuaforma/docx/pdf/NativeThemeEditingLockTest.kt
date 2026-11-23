@@ -1,6 +1,9 @@
 package dev.nuaforma.docx.pdf
 
 import dev.nuaforma.contracts.*
+import dev.nuaforma.image.comparison.kotlin.assertImagesMatch
+import org.apache.pdfbox.Loader
+import org.apache.pdfbox.rendering.PDFRenderer
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -44,16 +47,53 @@ class NativeThemeEditingLockTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = ["a4", "letter"])
+    fun `quick style editing locks preserve output and the original setting`(paper: String) {
+        val support = NativeWordFeatureSupport(temporary)
+        val source = support.bytes("/passive-print-metadata/theme-lock/control/$paper/source.docx")
+        val parts = PdfFixture.unzip(source)
+        val part = "word/settings.xml"
+        val settings = parts.getValue(part).decodeToString()
+        val reference = support.generate(source, "standard")
+        for (value in listOf("", " w:val=\"0\"")) {
+            val node = "<w:styleLockQFSet$value/>"
+            val changed = PdfFixture.zip(parts + (part to settings.replace("</w:settings>", "$node</w:settings>").toByteArray()))
+            val clean = ByteArrayOutputStream()
+            val context = GenerationContext(GenerationLogging(LoggingMode.DEVELOPMENT))
+            assertTrue(support.provider.cleanTemplate(changed.inputStream(), clean, context).changes.isEmpty())
+            assertArrayEquals(changed, clean.toByteArray())
+            Loader.loadPDF(reference).use { expected ->
+                Loader.loadPDF(support.generate(changed, "standard")).use { actual ->
+                    assertEquals(expected.numberOfPages, actual.numberOfPages)
+                    val expectedRenderer = PDFRenderer(expected)
+                    val actualRenderer = PDFRenderer(actual)
+                    for (page in 0 until expected.numberOfPages) {
+                        assertImagesMatch(expectedRenderer.renderImageWithDPI(page, 96f), actualRenderer.renderImageWithDPI(page, 96f)) {
+                            pixelTolerance = 0.0
+                            allowedDifferentPixelsPercent = 0.0
+                            threshold = 1
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     @Test
-    fun `invalid theme locks fail at the original settings element`() {
+    fun `invalid editing locks fail at the original settings element`() {
+
         val support = NativeWordFeatureSupport(temporary)
         val source = "/passive-print-metadata/theme-lock/enabled/a4/source.docx"
-        val node = "<w:styleLockTheme w:val=\"1\"/>"
-        for (replacement in listOf("<w:styleLockTheme w:val=\"maybe\"/>", "$node$node",
-            "<w:styleLockTheme w:val=\"1\" unexpected=\"1\"/>",
-            "<w:styleLockTheme><w:t>{hidden</w:t></w:styleLockTheme>",
-            "<f:styleLockTheme xmlns:f=\"urn:foreign\" w:val=\"1\"/>")) {
-            support.rejectChanged(source, "word/settings.xml", "styleLockTheme") { it.replace(node, replacement) }
+        val condition = "<w:styleLockTheme w:val=\"1\"/>"
+        for (name in listOf("styleLockTheme", "styleLockQFSet")) {
+            val node = "<w:$name w:val=\"1\"/>"
+            for (replacement in listOf("<w:$name w:val=\"maybe\"/>", "$node$node",
+                "<w:$name w:val=\"1\" unexpected=\"1\"/>",
+                "<w:$name><w:t>{hidden</w:t></w:$name>",
+                "<f:$name xmlns:f=\"urn:foreign\" w:val=\"1\"/>")) {
+                support.rejectChanged(source, "word/settings.xml", name) { it.replace(condition, replacement) }
+            }
         }
     }
 }
